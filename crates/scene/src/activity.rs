@@ -345,9 +345,7 @@ impl Catalog {
 /// Hashes text with CRLF normalised to LF, so a Windows checkout with
 /// `core.autocrlf` gives the same hash (and recipes) as everywhere else.
 fn write_text(h: &mut StableHasher, text: &str) {
-    h.write_str(&text.replace("
-", "
-"));
+    h.write_str(&text.replace("\r\n", "\n"));
 }
 
 /// The built-in catalog, parsed once.
@@ -418,11 +416,15 @@ mod tests {
     #[test]
     fn data_hash_ignores_line_endings() {
         let lf = Catalog::builtin();
-        let crlf: Vec<(String, String)> = SOURCES.iter().map(|(n, t)| (n.to_string(), t.replace('
-', "
-"))).collect();
+        let crlf: Vec<(String, String)> = SOURCES
+            .iter()
+            .map(|(n, t)| (n.to_string(), t.replace('\n', "\r\n")))
+            .collect();
         let refs: Vec<(&str, &str)> = crlf.iter().map(|(n, t)| (n.as_str(), t.as_str())).collect();
-        assert_eq!(Catalog::from_sources(&refs).unwrap().data_hash, lf.data_hash);
+        assert_eq!(
+            Catalog::from_sources(&refs).unwrap().data_hash,
+            lf.data_hash
+        );
     }
 
     #[test]
