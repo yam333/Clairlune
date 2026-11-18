@@ -314,7 +314,7 @@ impl Catalog {
         let mut h = StableHasher::new();
         for (name, text) in sources {
             h.write_str(name);
-            h.write_str(text);
+            write_text(&mut h, text);
             match toml::from_str::<Activity>(text) {
                 Ok(a) => {
                     if format!("{}.toml", a.id) != *name {
@@ -342,6 +342,14 @@ impl Catalog {
     }
 }
 
+/// Hashes text with CRLF normalised to LF, so a Windows checkout with
+/// `core.autocrlf` gives the same hash (and recipes) as everywhere else.
+fn write_text(h: &mut StableHasher, text: &str) {
+    h.write_str(&text.replace("
+", "
+"));
+}
+
 /// The built-in catalog, parsed once.
 pub fn builtin_catalog() -> &'static Catalog {
     static CATALOG: OnceLock<Catalog> = OnceLock::new();
@@ -353,7 +361,7 @@ pub fn builtin_data_hash() -> u64 {
     let mut h = StableHasher::new();
     for (name, text) in SOURCES {
         h.write_str(name);
-        h.write_str(text);
+        write_text(&mut h, text);
     }
     h.finish()
 }
@@ -405,6 +413,16 @@ mod tests {
         ] {
             assert!(all.contains(needle), "missing `{needle}` in:\n{all}");
         }
+    }
+
+    #[test]
+    fn data_hash_ignores_line_endings() {
+        let lf = Catalog::builtin();
+        let crlf: Vec<(String, String)> = SOURCES.iter().map(|(n, t)| (n.to_string(), t.replace('
+', "
+"))).collect();
+        let refs: Vec<(&str, &str)> = crlf.iter().map(|(n, t)| (n.as_str(), t.as_str())).collect();
+        assert_eq!(Catalog::from_sources(&refs).unwrap().data_hash, lf.data_hash);
     }
 
     #[test]
