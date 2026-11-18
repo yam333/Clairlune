@@ -2,5 +2,7 @@
 *.png binary
 *.ttf binary
 *.aseprite binary
+# Embedded data that feeds hashes: identical bytes on every OS.
+*.toml text eol=lf
 # Golden recipe JSON is compared byte for byte.
 tests/golden/** -text
