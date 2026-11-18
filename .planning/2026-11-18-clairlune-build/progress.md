@@ -36,6 +36,7 @@
 | cargo deny check | ok | ok (after skrifa switch) | pass |
 | cargo publish --workspace --dry-run | ok | ok, 4 crates | pass |
 | CI (GitHub, 3 OSes) on M1 | green | green | pass |
+| CI on 1687ca0 (latest, 3 OSes + cargo-deny) | green | green | pass |
 | M2: cargo test --workspace | all pass | scene 30, render 4, determinism 5, golden 16 img, properties 5, doc 2 | pass |
 
 ### Errors

@@ -4,7 +4,7 @@
 Implement PLAN.md milestone by milestone. This session delivers M1 (headless deterministic generator + `clairlune-cli generate` that writes an indexed PNG), with tests and CI, and prepares the crates for crates.io. The user granted full access (no more approval stops), so publishing is part of this session.
 
 ## Next Step
-Confirm CI is green on the latest push, then Phase 11 (M3): render through `Character` (10h) plus GIF export with a global palette, one sub-image per frame, delay dithering and loop scripts.
+CI is green on 1687ca0. Phase 11 (M3): render through `Character` (10h) plus GIF export with a global palette, one sub-image per frame, delay dithering and loop scripts.
 
 ## Current Phase
 Phase 10 (Phase 9 waits on the user's art)
