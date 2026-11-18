@@ -203,6 +203,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "clairlune-sprites"
+version = "0.1.0"
+dependencies = [
+ "clairlune-scene",
+ "png",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "clairlune-tests"
 version = "0.1.0"
 dependencies = [

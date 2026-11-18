@@ -1,0 +1,18 @@
+[package]
+name = "clairlune-sprites"
+description = "Sprite sheets (Aseprite exports), anchors and the Character trait for Clairlune"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["sprites", "aseprite", "pixel-art", "wallpaper", "animation"]
+categories = ["graphics", "game-development"]
+
+[dependencies]
+clairlune-scene.workspace = true
+png.workspace = true
+serde.workspace = true
+serde_json.workspace = true
