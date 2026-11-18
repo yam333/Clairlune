@@ -1,0 +1,19 @@
+[package]
+name = "clairlune"
+description = "Procedural, animated ASCII-art desktop wallpapers. Local, seeded and deterministic; no AI, no network."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords = ["wallpaper", "ascii-art", "desktop", "procedural", "live-wallpaper"]
+categories = ["graphics", "multimedia::images"]
+
+[[bin]]
+name = "clairlune"
+path = "src/main.rs"
+
+[dependencies]
+clairlune-scene.workspace = true

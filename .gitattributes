@@ -1,0 +1,6 @@
+* text=auto
+*.png binary
+*.ttf binary
+*.aseprite binary
+# Golden recipe JSON is compared byte for byte.
+tests/golden/** -text

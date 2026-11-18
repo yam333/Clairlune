@@ -1,0 +1,6 @@
+/target
+**/*.rs.bk
+/out/
+*.png.tmp
+# Local renders made with the CLI during development
+/renders/

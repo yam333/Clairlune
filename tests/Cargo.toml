@@ -1,0 +1,34 @@
+[package]
+name = "clairlune-tests"
+description = "Workspace integration tests: determinism, golden images, properties, performance"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+autotests = false
+
+[lib]
+path = "lib.rs"
+
+[[test]]
+name = "determinism"
+path = "determinism.rs"
+
+[[test]]
+name = "golden"
+path = "golden.rs"
+
+[[test]]
+name = "properties"
+path = "properties.rs"
+
+[[test]]
+name = "perf"
+path = "perf.rs"
+
+[dependencies]
+clairlune-scene.workspace = true
+clairlune-render.workspace = true
+png.workspace = true
+proptest.workspace = true

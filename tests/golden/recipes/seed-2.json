@@ -1,0 +1,31 @@
+{
+  "generator_version": 1,
+  "seed": 2,
+  "aspect": {
+    "w": 16,
+    "h": 9
+  },
+  "content_ctx_hash": "0c2cab37ad820f9f",
+  "activity": null,
+  "archetype": "canyon",
+  "light_tod": "morning",
+  "dark_tod": "night",
+  "platform": "rock_ledge",
+  "props": [
+    "campfire"
+  ],
+  "weather": "embers",
+  "composition": {
+    "horizon_pm": 672,
+    "focus_x_pm": 694,
+    "gap_pm": 230,
+    "shape_pow_pm": 596,
+    "platform_margin_pm": 18,
+    "cliff_layers": 3,
+    "prop_left": false
+  },
+  "palette": {
+    "light": "paper_day",
+    "dark": "ember_night"
+  }
+}

@@ -1,0 +1,22 @@
+[package]
+name = "clairlune-cli"
+description = "Developer CLI for Clairlune: render procedural ASCII-art wallpapers to PNG from a seed"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["ascii-art", "wallpaper", "procedural", "generative", "cli"]
+categories = ["command-line-utilities", "graphics", "multimedia::images"]
+
+[[bin]]
+name = "clairlune-cli"
+path = "src/main.rs"
+
+[dependencies]
+clairlune-scene.workspace = true
+clairlune-render.workspace = true
+clap.workspace = true
+serde_json.workspace = true

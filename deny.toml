@@ -1,0 +1,33 @@
+# cargo-deny policy (PLAN.md section 15.2.7). Run locally with `cargo deny check`.
+
+[graph]
+all-features = false
+
+[advisories]
+yanked = "deny"
+
+[licenses]
+# Permissive licences only. OFL-1.1 covers the bundled JetBrains Mono font in
+# clairlune-render. Add a licence here only after checking it is compatible
+# with distributing the app under MIT OR Apache-2.0.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "Zlib",
+    "0BSD",
+    "Unicode-3.0",
+    "OFL-1.1",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Workspace path dependencies carry versions, but allow path-only dev crates.
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

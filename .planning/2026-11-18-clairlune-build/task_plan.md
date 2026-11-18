@@ -1,0 +1,140 @@
+# Task Plan: Build Clairlune (procedural live ASCII wallpaper app, Rust)
+
+## Goal
+Implement PLAN.md milestone by milestone. This session delivers M1 (headless deterministic generator + `clairlune-cli generate` that writes an indexed PNG), with tests and CI, and prepares the crates for crates.io. The user granted full access (no more approval stops), so publishing is part of this session.
+
+## Next Step
+Phase 8: commit and push to github.com/yam333/clairlune, re-run the publish dry run, then `cargo publish --workspace`.
+
+## Current Phase
+Phase 8
+
+## Scope of this session
+Phases 1-8 (through M1 and publish prep). Phases 9-17 are later milestones, listed so the whole roadmap is tracked in one place.
+
+## Phases
+
+### Phase 1: Requirements & Discovery
+- [x] Read PLAN.md in full (1021 lines, sections 1-15)
+- [x] Check toolchain: cargo/rustc 1.98.1 (stable, MSVC), git 2.47, Python 3.14
+- [x] Check the folder: only PLAN.md. The prototype `generate.py` and `wallpaper-7.png` named in section 13 are NOT present
+- [x] Record constraints and decisions in findings.md
+- **Status:** complete
+
+### Phase 2: Workspace scaffold & repo hygiene
+- [x] Root `Cargo.toml` workspace (edition 2024, shared `[workspace.package]` metadata, pinned deps)
+- [x] Crates: `crates/scene` (clairlune-scene), `crates/render` (clairlune-render), `crates/cli` (clairlune-cli), `crates/app` (clairlune, stub binary until M6)
+- [x] `APP_NAME` / `APP_ID` constants in one place (clairlune-scene `ident` module)
+- [x] LICENSE-MIT, LICENSE-APACHE, NOTICE (fan-art notice for Clawd, section 15.2.4), README with the disclaimer (section 15.2.3), docs/takedown.md stub, .gitignore
+- [x] Bundle JetBrains Mono (OFL) + OFL.txt inside `crates/render/assets/fonts/`
+- [x] `cargo build --workspace` passes (no warnings)
+- **Status:** complete
+
+### Phase 3: M1 scene crate (pure, deterministic)
+- [x] `hash.rs`: stable FNV-1a + splitmix64 hashing (never std `DefaultHasher`)
+- [x] `rng.rs`: ChaCha8 bit source seeded from our own 32-byte expansion; hand-written integer sampling (rejection `below`, ranges, integer-weight picks, 53-bit unit floats). Per-subsystem streams `hash(seed, "terrain")` etc.
+- [x] `math.rs` + `noise.rs`: libm-only transcendental math, hand-written value noise 1D/2D, fbm, ridged
+- [x] `recipe.rs`: `SceneRecipe` (generator_version, seed, aspect, content_ctx hash, archetype, light_tod/dark_tod, platform, props, weather, composition, palette per theme) + `ContentContext`
+- [x] `compose(seed, aspect, ctx) -> SceneRecipe` with weighted tables (canyon only in M1)
+- [x] `build(recipe, size, theme, buddy) -> SceneGraph`: grid sizing (about 108 rows, min cell 6x11), canyon layers (far/mid/near/platform), holes, depth shading, top-edge fade, 50% dim below platform line, focal clearing, sky dust/stars, ember emitter, glow + vignette params, `t_hero`
+- [x] Placeholder pixel maps (prototype Clawd 15x9, campfire 9x11, plus a log seat as the Buddy-off variant), clearly marked as placeholders
+- **Status:** complete
+
+### Phase 4: M1 render crate
+- [x] Glyph atlas: ttf-parser outlines + our own supersampled rasterizer (f64 basic ops only, so it is byte-identical on every OS)
+- [x] Indexed palette (<= 255 entries, index 255 reserved): 8 background bands, ink (band x 6 levels, warm tint folded into glow bands), sprite colours, ember colours (band x level). 111 colours in practice.
+- [x] Static bake: band per pixel (vignette + glow, ordered 4x4 Bayer dither, polynomial falloff so no per-pixel pow), glyph pass by palette index
+- [x] Frame composite at time t: sprites (integer nearest-neighbour scale), particles snapped to cells
+- [x] Indexed PNG writer (`png` crate), RGBA conversion helper
+- **Status:** complete
+
+### Phase 5: M1 CLI
+- [x] `clairlune-cli generate --seed 7 --theme dark --size 3840x2160 --out out.png`
+- [x] Extras: `--no-buddy`, `--recipe-out <json>`, `--recipe <json>` (re-render), `--time-ms <t>` (default `t_hero`)
+- [x] Prints the seed, size, palette size and timings
+- **Status:** complete
+
+### Phase 6: Visual review & tuning
+- [x] Render 4K dark/light and several seeds; inspect the PNGs
+- [x] Tune glyph densities, thresholds, glow/vignette, platform readability (fix the prototype's "log blends into ledges" weakness)
+- [x] Record what changed and why in findings.md
+- **Status:** complete
+
+### Phase 7: M1 tests & CI
+- [x] Determinism: same `(seed, aspect, ctx)` gives byte-identical recipe JSON; same render inputs give byte-identical pixels
+- [x] Golden images: 10 seeds x 2 themes at 640x360 in `tests/golden/`, plus a hash manifest; bless with `CLAIRLUNE_BLESS=1`
+- [x] Property tests: palette <= 255 and every pixel is a palette entry; Buddy toggle keeps the landscape identical; Clawd's feet on the platform
+- [x] Perf test: 4K `bake_static` < 150 ms in release (ignored by default, run with `--release -- --ignored`)
+- [x] `.github/workflows/ci.yml` (Windows/macOS/Linux: fmt, clippy, tests, golden hashes) + `deny.toml` (cargo-deny passes locally: advisories, bans, licenses, sources)
+- [x] `cargo test --workspace` and `cargo clippy --workspace -- -D warnings` pass locally
+- **Status:** complete
+
+### Phase 8: crates.io publish prep (M1 exit)
+- [x] Metadata on every published crate: description, license, repository (github.com/yam333/clairlune), readme, keywords, categories; per-crate README, LICENSE-MIT, LICENSE-APACHE, NOTICE
+- [x] `cargo publish --workspace --dry-run` passes (order: clairlune-scene, clairlune, clairlune-render, clairlune-cli)
+- [x] User authorised publishing ("you have complete access")
+- [ ] `git init`, first commit, push to the private repo (cargo records the commit in each package)
+- [ ] `cargo publish --workspace`; check the crates on crates.io
+- **Status:** in_progress
+
+### Phase 9: M0 Clawd style guide & sprite pipeline (needs the user + Aseprite)
+- [ ] Draft `docs/clawd-style.md` (canvas, origin, palette, slices, fps)
+- [ ] `just export-sprites` script (Aseprite CLI) that records source hashes in the exported JSON
+- [ ] User draws `_template.aseprite`, idle, walk and a first activity
+- **Status:** pending
+
+### Phase 10: M2 Sprite pipeline + activity engine
+- [ ] Sprite sheets with per-frame anchors, atlas; `sprites::clawd` behind a `Character` trait
+- [ ] Activity TOML files, validation, activity-first compose, episode state machine, `state.json` history
+- [ ] `stationary` + `pace` motion; Buddy unattended variants; `preview-activity` with hot reload
+- **Status:** pending
+
+### Phase 11: M3 Animation + GIF export
+- [ ] Live state machine vs GIF loop scripts, particles, fire flicker, Smoothness levels
+- [ ] GIF: global palette, one sub-image per frame, delay dithering, native-size render; record sizes in tests
+- **Status:** pending
+
+### Phase 12: M4 More archetypes & activities
+- [ ] Remaining 8 archetypes, platforms, props, weather, compatibility tables, constraint checks
+- [ ] `path`, `bob`, `fly` motion; contact-sheet CLI command
+- **Status:** pending
+
+### Phase 13: M5 Static wallpaper on all OSes
+- [ ] `platform` crate static hosts (Windows, macOS, GNOME, KDE, XFCE, Cinnamon, MATE, wlroots)
+- [ ] Unique file names, monitor ids, physical-pixel sizing, hotplug
+- **Status:** pending
+
+### Phase 14: M6 App shell
+- [ ] Design research to docs/design.md, tokens, mockups, egui-vs-Slint spike
+- [ ] Single event loop, tray, settings, scheduler, themes, archive + retention, exports, start at login
+- **Status:** pending
+
+### Phase 15: M6b Library + Timeline
+- [ ] Library (section 9a), timeline (section 9b) with DST tests and the editor UI
+- **Status:** pending
+
+### Phase 16: M7 Live wallpaper hosts
+- [ ] Platform spikes, wgpu renderer with palette lookup, pause rules, softbuffer fallback, budgets
+- **Status:** pending
+
+### Phase 17: M8 Polish & packaging
+- [ ] Span mode, sunrise/sunset, cargo-packager installers, notarization, art-source CI check
+- **Status:** pending
+
+## Decisions Made
+| Decision | Rationale |
+|----------|-----------|
+| Build M1 before M0 | M0 needs Aseprite and hand-drawn art from the user. M1 uses the prototype's placeholder pixel maps, so it isn't blocked. |
+| Internal crates are named `clairlune-scene` / `clairlune-render` (dirs stay `crates/scene`, `crates/render`) | crates.io requires every dependency of a published crate to be published too, and the bare names `scene`/`render` are taken. |
+| Glyph rasterizer = ttf-parser + our own supersampler instead of fontdue | fontdue has separate SIMD (x86) and scalar (ARM) accumulation paths, which risks different bytes on macOS ARM CI. Basic f64 ops are IEEE-exact everywhere. |
+| Fonts live inside `crates/render/assets/fonts/` | `include_bytes!` paths must be inside the package for `cargo publish`. Same rule will apply to sprite sheets in M2. |
+| Glow tint folded into background bands 4-7 | Keeps ink entries at 8 bands x 6 levels = 48 (matches the section 4.5 budget) while still tinting glyphs near the fire. |
+| Planning files live in `.planning/` | Keeps the repo root clean. Not part of any published crate. |
+| Font outlines from `skrifa` instead of `ttf-parser` | cargo-deny flagged ttf-parser unmaintained (RUSTSEC-2026-0192). skrifa is the named successor. Golden images stayed byte-identical after the switch. |
+| Character size, ledge margin, glow and embers scale with `min(W, H)` | In portrait, scaling by height made the focal group 47 % of the width. No change on landscape screens. |
+| Test crate `tests/` (`clairlune-tests`, publish = false) holds goldens and integration tests | Keeps repo-specific test data out of the published crates; matches the `tests/golden/` layout in PLAN.md. |
+| Golden tolerance is 0 differing pixels | The generator is designed to be byte-identical everywhere, so any difference is a real change. |
+
+## Errors Encountered
+| Error | Attempt | Resolution |
+|-------|---------|------------|
