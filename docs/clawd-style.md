@@ -1,0 +1,89 @@
+# Clawd style guide
+
+How the project's own Clawd sprites are drawn. Write against this before drawing anything; change it here first if the rules need to move.
+
+> Clawd is Anthropic's character. Every frame in this project is drawn from scratch by this project. Use the character's public look as the only reference: never trace, colour-pick from, or frame-step anyone else's sprites, the davecurry.net zip, or the Claude FM stream. Keep the `.aseprite` history in git as the record that the art is ours. See `NOTICE` and `docs/takedown.md`.
+
+## Tooling
+
+- **Aseprite is required.** Anchors are slices with per-frame keys, which LibreSprite and Pixelorama can't export.
+- Sources: `assets/clawd/src/<activity>.aseprite`, one file per activity, plus `_base.aseprite` (shared animations) and `_template.aseprite`.
+- Exports: `crates/sprites/assets/clawd/<activity>.png` + `<activity>.json`, written by `python scripts/export_sprites.py` (or `just export-sprites`). Exports live inside the `sprites` crate because `include_bytes!` can only embed files inside a published package.
+- Never hand-edit an export. CI checks that each export's recorded `source_sha256` matches its `.aseprite` file.
+
+## Canvas and origin
+
+- Base canvas **24 x 20 px**. Activities that need room for props use a wider or taller canvas (skis 40 x 20, fishing rod 48 x 28).
+- Every sheet has an **`origin` slice** (1 x 1 px) on the pixel where the **feet baseline** meets the **body centre column**. The engine aligns every animation on it, so canvases of different sizes line up with no normalisation pass. Keep it in the same place on every frame of a sheet.
+- Leave at least 1 px of empty canvas around the character so outlines (below) never clip.
+
+## Body and proportions
+
+Start from the prototype's proportions and refine them at the larger canvas:
+
+| Part | Prototype (15 x 9) | Target at 24 x 20 |
+|---|---|---|
+| Body block | 11 x 7 | about 16 x 10 |
+| Arms | 2 px stubs on each side, row 4 | 2-3 px stubs, mid-body |
+| Eyes | two 1 x 2 blocks | two 2 x 3 blocks, same spacing ratio |
+| Legs | four 1 px legs, 2 px tall | four 2 px legs, 3-4 px tall |
+
+The silhouette must read at 1x and stay recognisable when Buddy is scaled up 10-20x on a 4K screen.
+
+## Palette
+
+Small and fixed. At most **16 colours for all Clawd sheets combined** (the scene palette budget, PLAN.md section 4.5).
+
+| Role | Colour |
+|---|---|
+| Body | `#D9785C` |
+| Body shadow | `#B85E45` |
+| Body highlight | `#E8957A` |
+| Eyes | `#261A16` |
+| Held items, props | from the shared prop ramp; ask before adding colours |
+
+- **No anti-aliasing, no partial alpha.** Every pixel is fully opaque or fully transparent. The renderer composites by palette index and rejects partial alpha.
+- 1 px rule throughout: no doubled lines, no orphan pixels.
+- **Light-theme outline:** body salmon on cream paper is only about 2.5:1 contrast (dark theme: about 5.9:1). The engine draws a 1 px outline in `#8C4A36` around opaque pixels in the light theme. Don't draw an outline into the art.
+
+## Animation
+
+- Drawn at **8-12 fps**: per-frame durations of 83-125 ms, set per frame in Aseprite. The JSON keeps them.
+- Higher Smoothness settings never add sprite frames. They interpolate movement, particles and parallax between frames.
+- One **tag per state**. Tag names are the state ids in the activity TOML (`glide`, `carve`, `jump`, `wobble`, `tumble` for skiing). Validation fails if an activity names a state with no tag.
+- Transitions start and end on the activity's **neutral pose**, so state changes never pop.
+- Base animations in `_base.aseprite`: `idle` (breathe, blink, look around), `walk`, and the react set `celebrate`, `love`, `alert`, `dizzy`.
+
+## Anchors (slices)
+
+Draw each anchor as a 1 x 1 slice with a key on every frame where it moves. Standard names (the template has them all):
+
+| Slice | Meaning |
+|---|---|
+| `origin` | Feet baseline x body centre. Required. |
+| `feet` | Contact point with the ground or path. |
+| `head` | Top centre of the head. |
+| `hand_l`, `hand_r` | Where held items attach. |
+| `item_tip` | Tip of the held item (rod tip, kite string, torch flame). |
+
+Effects and props attach to these per frame, so a fishing line or flame follows the animation exactly.
+
+## Layers
+
+| Layer | Exported | Use |
+|---|---|---|
+| `body` | yes | Clawd |
+| `held` | yes, merged | Held items baked into frames |
+| `held_fx` | separately, when needed | Held items that need their own effects |
+| `guides` | no (hidden) | Baseline, centre line, safe margin |
+
+## Template
+
+`assets/clawd/src/_template.aseprite` contains the 24 x 20 canvas, the palette above, the `guides` layer, and all standard slices. Start every activity by copying it.
+
+## Order of work (M0)
+
+1. `_template.aseprite`
+2. `_base.aseprite`: `idle`, `walk`
+3. The first activity, with all its states. Pick one that exercises anchors and effects (skiing or fishing).
+4. Export, commit the source and the export together.

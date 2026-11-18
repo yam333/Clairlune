@@ -31,6 +31,11 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: cargo fmt --all --check
 
+      # Sprite exports must match their Aseprite sources (no Aseprite needed).
+      - name: Sprite exports
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 scripts/check_sprites.py
+
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 
