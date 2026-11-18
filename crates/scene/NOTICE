@@ -17,7 +17,8 @@ Clawd artwork (fan art)
   licensed under MIT, Apache-2.0 or any other open licence.
 
   This covers:
-    - assets/clawd/ (sprite sources and exported sheets, from milestone M0)
+    - assets/clawd/src/ (Aseprite sources, from milestone M0)
+    - crates/sprites/assets/clawd/ (exported sheets, from milestone M2)
     - the placeholder pixel map in crates/scene/src/placeholder.rs
       (constant CLAWD_PLACEHOLDER)
 

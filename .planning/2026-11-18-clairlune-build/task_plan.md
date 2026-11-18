@@ -4,10 +4,10 @@
 Implement PLAN.md milestone by milestone. This session delivers M1 (headless deterministic generator + `clairlune-cli generate` that writes an indexed PNG), with tests and CI, and prepares the crates for crates.io. The user granted full access (no more approval stops), so publishing is part of this session.
 
 ## Next Step
-Phase 8: commit and push to github.com/yam333/clairlune, re-run the publish dry run, then `cargo publish --workspace`.
+Phase 10 (M2): sprite sheet loader + `Character` trait against a generated fixture sheet, then activity TOML + validation, activity-first compose, episode state machine.
 
 ## Current Phase
-Phase 8
+Phase 10 (Phase 9 waits on the user's art)
 
 ## Scope of this session
 Phases 1-8 (through M1 and publish prep). Phases 9-17 are later milestones, listed so the whole roadmap is tracked in one place.
@@ -73,15 +73,17 @@ Phases 1-8 (through M1 and publish prep). Phases 9-17 are later milestones, list
 - [x] Metadata on every published crate: description, license, repository (github.com/yam333/clairlune), readme, keywords, categories; per-crate README, LICENSE-MIT, LICENSE-APACHE, NOTICE
 - [x] `cargo publish --workspace --dry-run` passes (order: clairlune-scene, clairlune, clairlune-render, clairlune-cli)
 - [x] User authorised publishing ("you have complete access")
-- [ ] `git init`, first commit, push to the private repo (cargo records the commit in each package)
-- [ ] `cargo publish --workspace`; check the crates on crates.io
-- **Status:** in_progress
+- [x] `git init`, first commit, push to the private repo (cargo records the commit in each package)
+- [x] `cargo publish --workspace`: clairlune-scene, clairlune, clairlune-render, clairlune-cli 0.1.0 are live
+- [x] End-to-end: `cargo install clairlune-cli` from crates.io renders a PNG byte-identical to the golden `seed-7-dark.png`
+- **Status:** complete
 
 ### Phase 9: M0 Clawd style guide & sprite pipeline (needs the user + Aseprite)
-- [ ] Draft `docs/clawd-style.md` (canvas, origin, palette, slices, fps)
-- [ ] `just export-sprites` script (Aseprite CLI) that records source hashes in the exported JSON
-- [ ] User draws `_template.aseprite`, idle, walk and a first activity
-- **Status:** pending
+- [x] `docs/clawd-style.md`: canvas, `origin` slice, proportions, 16-colour palette, no partial alpha, engine-drawn light-theme outline, tags = state ids, anchor slices, layers
+- [x] `scripts/export_sprites.py` (+ `justfile` `export-sprites`): Aseprite CLI export into `crates/sprites/assets/clawd/`, records `meta.source_sha256`
+- [x] `scripts/check_sprites.py` in CI: stale exports, exports without sources, sources without exports
+- [ ] USER: install Aseprite, draw `_template.aseprite`, `_base.aseprite` (idle, walk) and a first activity (ski or fish), export, commit
+- **Status:** in_progress
 
 ### Phase 10: M2 Sprite pipeline + activity engine
 - [ ] Sprite sheets with per-frame anchors, atlas; `sprites::clawd` behind a `Character` trait
@@ -133,8 +135,13 @@ Phases 1-8 (through M1 and publish prep). Phases 9-17 are later milestones, list
 | Font outlines from `skrifa` instead of `ttf-parser` | cargo-deny flagged ttf-parser unmaintained (RUSTSEC-2026-0192). skrifa is the named successor. Golden images stayed byte-identical after the switch. |
 | Character size, ledge margin, glow and embers scale with `min(W, H)` | In portrait, scaling by height made the focal group 47 % of the width. No change on landscape screens. |
 | Test crate `tests/` (`clairlune-tests`, publish = false) holds goldens and integration tests | Keeps repo-specific test data out of the published crates; matches the `tests/golden/` layout in PLAN.md. |
+| Sprite exports go to `crates/sprites/assets/clawd/`, sources stay in `assets/clawd/src/` | `include_bytes!` must stay inside the published package; PLAN.md put both under `assets/clawd/` |
+| Light-theme outline is drawn by the engine, not the art | Salmon on paper is about 2.5:1 contrast (dark theme about 5.9:1); `#8C4A36` outline gives about 5.4:1 |
+| Commits use the GitHub noreply address (repo-local git config) | GitHub rejected the push: the account has email privacy on. |
 | Golden tolerance is 0 differing pixels | The generator is designed to be byte-identical everywhere, so any difference is a real change. |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |
 |-------|---------|------------|
+| git push declined (email privacy) | 1 | Repo-local user.email = GitHub noreply; amended the unpushed commit |
+| cargo publish verify: `unresolved import ttf_parser` | 1 | Stale unpacked clairlune-render 0.1.0 in cargo's temporary registry from the earlier dry run. Deleted `~/.cargo/registry/src/-da77451d61904e7d` and `target/package`; nothing had been uploaded |

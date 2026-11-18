@@ -5,7 +5,7 @@ If Anthropic asks the project to stop using Clawd, comply quickly. The code is a
 ## Steps
 
 1. Remove all Clawd artwork:
-   - `assets/clawd/` (from milestone M0 onward)
+   - `assets/clawd/src/` (Aseprite sources) and `crates/sprites/assets/clawd/` (exports)
    - the `CLAWD_PLACEHOLDER` pixel map in `crates/scene/src/placeholder.rs` (M1 placeholder)
 2. Set the Buddy default to off (Settings → Buddy → "Show Clawd in wallpapers"). Until the sprite module exists, the CLI equivalent is `--no-buddy`.
 3. Make scenes render the activity's unattended variant only. Buddy is a render flag, not part of the recipe, so archived recipes stay valid.

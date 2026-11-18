@@ -17,6 +17,7 @@
 - Phase 4-5: render crate (atlas with own rasterizer, indexed palette, bake, frame, PNG) and CLI. First 4K render: 31 ms, 534 KB, 111 colours.
 - Phase 6: two tuning rounds (convex canyon walls, lighter ledge, portrait fix). See findings.md.
 - Phase 7: tests crate, goldens blessed, CI workflow, deny.toml. Installed cargo-deny locally. Swapped ttf-parser for skrifa after the advisory.
+- Phase 8 done: pushed to github.com/yam333/clairlune (commit 800d7e4) and published all 4 crates 0.1.0. Installed clairlune-cli from crates.io: output byte-identical to the golden image.
 - Phase 8: per-crate READMEs (compiled as doctests), licence copies, repository URL. Dry run passes. User said to stop asking for permission, so publishing proceeds.
 
 ### Test Results
