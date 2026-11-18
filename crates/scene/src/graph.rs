@@ -1,0 +1,244 @@
+//! The scene graph: a resolution-specific, theme-specific description of what to
+//! draw. Static layers are a grid of glyph cells; animated elements are sprite
+//! instances and particle emitters.
+
+use crate::palette::{PaletteFamily, Theme};
+use crate::particles::{Emitter, Particle};
+use crate::placeholder::{CAMPFIRE, CLAWD_PLACEHOLDER, LOG_SEAT, PixelMap};
+use crate::recipe::TimeOfDay;
+
+/// Advance width of the bundled monospace font (JetBrains Mono) per em.
+pub const ADVANCE_RATIO: f64 = 0.6;
+/// Font pixel size relative to the cell height.
+pub const FONT_TO_CELL: f64 = 0.9;
+/// Target number of rows, so the look is consistent from 720p to 4K.
+pub const TARGET_ROWS: u32 = 108;
+pub const MIN_CELL_W: u32 = 6;
+pub const MIN_CELL_H: u32 = 11;
+
+/// Number of background bands (vignette + glow, quantised).
+pub const BANDS: u8 = 8;
+/// Width of the ordered-dither zone around each band edge, in bands.
+const DITHER_WIDTH: f64 = 0.4;
+/// 4x4 Bayer matrix.
+const BAYER4: [[u8; 4]; 4] = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+
+/// Cell grid geometry for one output size.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GridSpec {
+    pub cols: u32,
+    pub rows: u32,
+    pub cell_w: u32,
+    pub cell_h: u32,
+    /// Pixel offset of the grid, centring it in the image.
+    pub origin_x: u32,
+    pub origin_y: u32,
+    /// Font size in pixels used to rasterize the glyph atlas.
+    pub font_px: f64,
+}
+
+/// Grid for a pixel size: about [`TARGET_ROWS`] rows, never smaller than 6x11 cells.
+pub fn grid_spec(width: u32, height: u32) -> GridSpec {
+    let cell_h = ((f64::from(height) / f64::from(TARGET_ROWS)).round() as u32).max(MIN_CELL_H);
+    let font_px = f64::from(cell_h) * FONT_TO_CELL;
+    let cell_w = ((font_px * ADVANCE_RATIO).round() as u32).max(MIN_CELL_W);
+    let cols = width / cell_w;
+    let rows = height / cell_h;
+    GridSpec {
+        cols,
+        rows,
+        cell_w,
+        cell_h,
+        origin_x: (width - cols * cell_w) / 2,
+        origin_y: (height - rows * cell_h) / 2,
+        font_px,
+    }
+}
+
+/// One character cell. `glyph` indexes `glyphs::GLYPHS`; `shade` is ink strength.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Cell {
+    pub glyph: u8,
+    pub shade: u8,
+}
+
+/// Radial warm light around a light source.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Glow {
+    pub cx: f64,
+    pub cy: f64,
+    pub radius: f64,
+}
+
+/// Vignette and glow, quantised into [`BANDS`] background bands.
+///
+/// Band coordinate `c` is continuous in `[0, 8)`: the vignette contributes up to
+/// 4 (bands 0-3, brighter toward the centre) and the glow pulls `c` toward 8
+/// (bands 4-7, warmer toward the light). Ink in bands 4-7 is tinted toward the
+/// accent, so glow and glyph tint come from one lookup.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Lighting {
+    pub vignette_cx: f64,
+    pub vignette_cy: f64,
+    pub vignette_rx: f64,
+    pub vignette_ry: f64,
+    pub glow: Option<Glow>,
+}
+
+/// Row-invariant terms of the band computation.
+#[derive(Clone, Copy, Debug)]
+pub struct RowTerms {
+    vy2: f64,
+    gy2: f64,
+    bayer_row: usize,
+}
+
+impl Lighting {
+    #[inline]
+    pub fn row_terms(&self, py: u32) -> RowTerms {
+        let y = f64::from(py) + 0.5;
+        let vy = (y - self.vignette_cy) / self.vignette_ry;
+        let gy2 = match self.glow {
+            Some(g) => {
+                let d = y - g.cy;
+                d * d
+            }
+            None => 0.0,
+        };
+        RowTerms {
+            vy2: vy * vy,
+            gy2,
+            bayer_row: (py & 3) as usize,
+        }
+    }
+
+    /// Background band of pixel `(px, py)`. [`Lighting::fill_row`] must agree exactly.
+    #[inline]
+    pub fn band_in_row(&self, rt: &RowTerms, px: u32) -> u8 {
+        let x = f64::from(px) + 0.5;
+        let vx = (x - self.vignette_cx) / self.vignette_rx;
+        let q = (vx * vx + rt.vy2).min(1.0);
+        let v = 1.0 - q;
+        let cv = 3.999 * v * v;
+        let c = match self.glow {
+            Some(g) => {
+                let dx = x - g.cx;
+                let r2 = (dx * dx + rt.gy2) / (g.radius * g.radius);
+                if r2 < 1.0 {
+                    let t = 1.0 - r2;
+                    cv + t * t * (7.999 - cv)
+                } else {
+                    cv
+                }
+            }
+            None => cv,
+        };
+        let b = BAYER4[rt.bayer_row][(px & 3) as usize];
+        let d = ((f64::from(b) + 0.5) / 16.0 - 0.5) * DITHER_WIDTH;
+        (c + d).floor().clamp(0.0, f64::from(BANDS - 1)) as u8
+    }
+
+    /// Background band of one pixel.
+    pub fn band_at(&self, px: u32, py: u32) -> u8 {
+        self.band_in_row(&self.row_terms(py), px)
+    }
+
+    /// Fills one image row with band indices.
+    pub fn fill_row(&self, py: u32, out: &mut [u8]) {
+        let rt = self.row_terms(py);
+        for (px, o) in out.iter_mut().enumerate() {
+            *o = self.band_in_row(&rt, px as u32);
+        }
+    }
+}
+
+/// What a sprite instance shows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SpriteKind {
+    /// The character (placeholder pixel map in M1).
+    Character,
+    Campfire,
+    /// Unattended variant: an empty log seat by the fire.
+    LogSeat,
+}
+
+impl SpriteKind {
+    pub fn map(self) -> &'static PixelMap {
+        match self {
+            SpriteKind::Character => &CLAWD_PLACEHOLDER,
+            SpriteKind::Campfire => &CAMPFIRE,
+            SpriteKind::LogSeat => &LOG_SEAT,
+        }
+    }
+}
+
+/// A sprite placed in the image at an integer nearest-neighbour scale.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SpriteInstance {
+    pub kind: SpriteKind,
+    /// Top-left pixel.
+    pub x: i32,
+    pub y: i32,
+    pub scale: u32,
+    pub mirror: bool,
+}
+
+impl SpriteInstance {
+    pub fn width(&self) -> u32 {
+        self.kind.map().width * self.scale
+    }
+    pub fn height(&self) -> u32 {
+        self.kind.map().height * self.scale
+    }
+}
+
+/// Everything needed to render one scene at one size and theme.
+#[derive(Clone, Debug)]
+pub struct SceneGraph {
+    pub width: u32,
+    pub height: u32,
+    pub theme: Theme,
+    pub tod: TimeOfDay,
+    pub buddy: bool,
+    pub family: PaletteFamily,
+    pub grid: GridSpec,
+    /// Row-major, `grid.cols * grid.rows`.
+    pub cells: Vec<Cell>,
+    pub lighting: Lighting,
+    /// Drawn in order, after particles.
+    pub sprites: Vec<SpriteInstance>,
+    pub emitters: Vec<Emitter>,
+    /// Pixel y of the platform's top surface (where feet stand).
+    pub ground_y: i32,
+    /// Hero time in milliseconds: the frame used for stills and thumbnails.
+    pub t_hero_ms: u64,
+    /// Seamless loop length for periodic elements.
+    pub loop_ms: u64,
+}
+
+impl SceneGraph {
+    #[inline]
+    pub fn cell(&self, col: u32, row: u32) -> Cell {
+        self.cells[(row * self.grid.cols + col) as usize]
+    }
+
+    /// Particles at time `t`, snapped to cells, as `(col, row, particle)`.
+    pub fn particles_at(&self, t_ms: u64) -> Vec<(u32, u32, Particle)> {
+        let g = &self.grid;
+        let mut out = Vec::new();
+        for e in &self.emitters {
+            for p in e.sample(t_ms) {
+                let cx = (p.x - f64::from(g.origin_x)) / f64::from(g.cell_w);
+                let cy = (p.y - f64::from(g.origin_y)) / f64::from(g.cell_h);
+                if cx < 0.0 || cy < 0.0 {
+                    continue;
+                }
+                let (col, row) = (cx.floor() as u32, cy.floor() as u32);
+                if col < g.cols && row < g.rows {
+                    out.push((col, row, p));
+                }
+            }
+        }
+        out
+    }
+}

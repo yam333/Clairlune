@@ -1,0 +1,29 @@
+Clairlune
+=========
+
+Unofficial fan project. Not affiliated with or endorsed by Anthropic.
+Clawd is Anthropic's character.
+
+Licensing of the parts of this repository
+-----------------------------------------
+
+Code
+  MIT OR Apache-2.0 (see LICENSE-MIT and LICENSE-APACHE).
+
+Clawd artwork (fan art)
+  Every drawing of Clawd in this project was made by this project from
+  scratch. It is fan art of a character this project does not own. All
+  rights in the character belong to Anthropic. These drawings are NOT
+  licensed under MIT, Apache-2.0 or any other open licence.
+
+  This covers:
+    - assets/clawd/ (sprite sources and exported sheets, from milestone M0)
+    - the placeholder pixel map in crates/scene/src/placeholder.rs
+      (constant CLAWD_PLACEHOLDER)
+
+Other original art (props such as the campfire, icons, UI)
+  CC BY 4.0.
+
+Fonts
+  JetBrains Mono, Copyright 2020 The JetBrains Mono Project Authors,
+  SIL Open Font License 1.1 (crates/render/assets/fonts/OFL.txt).

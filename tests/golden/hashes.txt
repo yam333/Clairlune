@@ -1,0 +1,21 @@
+# name hash (FNV-1a of size + palette + pixels). Regenerate with CLAIRLUNE_BLESS=1.
+seed-1-dark cbd289bdcd5f34e6
+seed-1-light b30f48a4aba90a97
+seed-2-dark b7de55fa81c93998
+seed-2-light 8937e44981eee9a5
+seed-3-dark 3a79a100c24cbd46
+seed-3-light dd271ba368aa342b
+seed-7-dark f8090b030e8d48bc
+seed-7-light 62574d8b981b8d06
+seed-42-dark 77df231401bc7152
+seed-42-light 3fbd2c234d5bb694
+seed-99-dark 4f2e118d5977364f
+seed-99-light 1e36ee95d3df2dd0
+seed-1234-dark 64be365045da5705
+seed-1234-light ef59c6add914d733
+seed-31337-dark 7c22b926ac6e17df
+seed-31337-light e54effa5bb42b5b4
+seed-271828-dark 9c42067985948e33
+seed-271828-light 9c4f718fc1bbeca5
+seed-9000000001-dark 210b1891831b2360
+seed-9000000001-light 50352eda682d3f66

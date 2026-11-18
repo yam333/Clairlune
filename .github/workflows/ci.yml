@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-latest is ARM64, so this also checks determinism across CPU architectures.
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests (debug)
+        run: cargo test --workspace
+
+      # Same golden hashes in release: catches optimisation-dependent float drift.
+      - name: Golden images and determinism (release)
+        run: cargo test --release -p clairlune-tests --test golden --test determinism
+
+      - name: Upload mismatching renders
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: golden-actual-${{ matrix.os }}
+          path: target/golden-actual/
+          if-no-files-found: ignore
+
+      # Shared runners are noisy, so the timing budget is informational here.
+      - name: 4K bake timing (informational)
+        continue-on-error: true
+        run: cargo test --release -p clairlune-tests --test perf -- --ignored --nocapture
+
+  licenses:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: EmbarkStudios/cargo-deny-action@v2

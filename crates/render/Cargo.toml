@@ -1,0 +1,22 @@
+[package]
+name = "clairlune-render"
+description = "Glyph atlas, palette-index compositor and PNG export for Clairlune ASCII-art wallpapers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# The crate bundles JetBrains Mono, which is under the SIL Open Font License 1.1.
+license = "(MIT OR Apache-2.0) AND OFL-1.1"
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["ascii-art", "wallpaper", "rasterizer", "png", "palette"]
+categories = ["graphics", "multimedia::images", "rendering"]
+
+[dependencies]
+clairlune-scene.workspace = true
+skrifa.workspace = true
+png.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+serde_json.workspace = true
