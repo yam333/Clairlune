@@ -19,8 +19,8 @@ pub fn render_frame(
     for (col, row, p) in graph.particles_at(t_ms) {
         draw_particle(&mut img, graph, atlas, col, row, p.glyph, p.level);
     }
-    for sprite in &graph.sprites {
-        draw_sprite(&mut img, sprite, palette);
+    for sprite in graph.sprites_at(t_ms) {
+        draw_sprite(&mut img, &sprite, palette);
     }
     img
 }

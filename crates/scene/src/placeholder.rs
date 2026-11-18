@@ -103,13 +103,47 @@ pub const LOG_SEAT: PixelMap = PixelMap {
     colors: &[('B', LOG), ('K', LOG_DARK)],
 };
 
+const SLATE: Rgb = Rgb::hex(0x5E6B7A);
+const SLATE_DARK: Rgb = Rgb::hex(0x3B4450);
+const BRASS: Rgb = Rgb::hex(0xC9A45C);
+const METAL: Rgb = Rgb::hex(0x3A3330);
+
+/// A small telescope on a tripod (project art, CC BY 4.0).
+pub const TELESCOPE: PixelMap = PixelMap {
+    width: 12,
+    height: 10,
+    rows: &[
+        ".........NN.",
+        ".......TTNN.",
+        ".....TTTT...",
+        "...TTTT.....",
+        "..TTT.......",
+        "....H.......",
+        "...L.L......",
+        "..L...L.....",
+        ".L.....L....",
+        "L.......L...",
+    ],
+    colors: &[('T', SLATE), ('N', SLATE_DARK), ('H', BRASS), ('L', LOG)],
+};
+
+/// A hand lantern (project art, CC BY 4.0).
+pub const LANTERN: PixelMap = PixelMap {
+    width: 5,
+    height: 7,
+    rows: &[
+        "..M..", ".M.M.", "MMMMM", "MYWYM", "MYWYM", "MYYYM", "MMMMM",
+    ],
+    colors: &[('M', METAL), ('Y', FIRE_YELLOW), ('W', FIRE_WHITE)],
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn maps_are_rectangular_and_fully_coloured() {
-        for map in [CLAWD_PLACEHOLDER, CAMPFIRE, LOG_SEAT] {
+        for map in [CLAWD_PLACEHOLDER, CAMPFIRE, LOG_SEAT, TELESCOPE, LANTERN] {
             assert_eq!(map.rows.len() as u32, map.height);
             for row in map.rows {
                 assert_eq!(row.len() as u32, map.width);

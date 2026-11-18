@@ -1,0 +1,38 @@
+# Warming hands at a campfire. Cozy group; stationary.
+id = "warm_hands"
+weight = 1.0
+
+[requires]
+terrain = ["ledge", "flat", "shore"]
+surface = ["rock", "sand", "grass", "snow"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
+weather = ["none", "snow"]
+
+[motion]
+type = "stationary"
+
+[props.campfire]
+attach = "either_side"
+effects = ["embers"]
+
+[animation]
+start = "idle"
+
+[animation.states.idle]
+loop = true
+dwell_s = [4, 9]
+next = { warm = 0.7, look_around = 0.3 }
+
+[animation.states.warm]
+loop = true
+dwell_s = [3, 6]
+next = { idle = 1.0 }
+
+[animation.states.look_around]
+next = { idle = 1.0 }
+
+[gif]
+loop_script = ["idle", "warm"]
+
+[unattended]
+props = ["log_seat"]

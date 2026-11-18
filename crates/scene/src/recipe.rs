@@ -7,20 +7,20 @@ use crate::palette::Theme;
 use serde::{Deserialize, Serialize};
 
 /// Bump whenever generator logic changes output for an existing recipe.
-pub const GENERATOR_VERSION: u32 = 1;
+///
+/// History: 1 = M1 canyon + placeholder focal group; 2 = activity-first composition (M2).
+pub const GENERATOR_VERSION: u32 = 2;
 
 /// The nine v1 archetype ids (PLAN.md section 4.2).
-pub const ARCHETYPES: [&str; 9] = [
-    "canyon",
-    "forest",
-    "mountains",
-    "shore",
-    "city_rooftops",
-    "desert",
-    "snowfield",
-    "night_sky",
-    "cave",
-];
+pub const ARCHETYPES: [&str; 9] = {
+    let mut ids = [""; 9];
+    let mut i = 0;
+    while i < 9 {
+        ids[i] = crate::archetype::ARCHETYPE_INFO[i].id;
+        i += 1;
+    }
+    ids
+};
 
 /// Reduced aspect ratio, e.g. 16:9.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -94,6 +94,10 @@ pub struct Composition {
     pub cliff_layers: u32,
     /// Main prop on the left of the character (`true`) or the right.
     pub prop_left: bool,
+    /// Movement speed in hundredths of a cell per second (0 when stationary).
+    pub motion_speed_cc: u32,
+    /// Half the pacing range, per-mille of the short side (0 when not pacing).
+    pub pace_half_pm: u32,
 }
 
 /// One palette family id per theme.
@@ -163,9 +167,10 @@ pub struct HistoryEntry {
 pub struct ContentContext {
     pub enabled_archetypes: Vec<String>,
     pub enabled_weather: Vec<String>,
+    pub enabled_activities: Vec<String>,
     /// Most recent last. The CLI and tests pass an empty history.
     pub recent: Vec<HistoryEntry>,
-    /// Hash of the activity and catalog data files (M2). Zero until then.
+    /// Hash of the activity data files.
     pub data_hash: u64,
 }
 
@@ -173,22 +178,17 @@ impl Default for ContentContext {
     fn default() -> Self {
         Self {
             enabled_archetypes: ARCHETYPES.iter().map(|s| s.to_string()).collect(),
-            enabled_weather: [
-                "none",
-                "dust",
-                "embers",
-                "snow",
-                "rain",
-                "fireflies",
-                "leaves",
-                "stars",
-                "confetti",
-            ]
-            .iter()
-            .map(|s| s.to_string())
-            .collect(),
+            enabled_weather: crate::archetype::WEATHERS
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            enabled_activities: crate::activity::Catalog::builtin()
+                .activities
+                .iter()
+                .map(|a| a.id.clone())
+                .collect(),
             recent: Vec::new(),
-            data_hash: 0,
+            data_hash: crate::activity::builtin_data_hash(),
         }
     }
 }

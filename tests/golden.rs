@@ -12,7 +12,8 @@
 use clairlune_render::encode_png;
 use clairlune_scene::Theme;
 use clairlune_tests::{
-    GOLDEN_H, GOLDEN_SEEDS, GOLDEN_W, blessing, decode_indexed_png, golden_dir, image_hash, still,
+    GOLDEN_H, GOLDEN_SEEDS, GOLDEN_W, blessing, decode_indexed_png, golden_dir, image_hash,
+    still_opt,
 };
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -55,7 +56,16 @@ fn golden_images() {
     for &seed in &GOLDEN_SEEDS {
         for theme in [Theme::Dark, Theme::Light] {
             let name = format!("seed-{seed}-{}", theme.as_str());
-            let s = still(seed, GOLDEN_W, GOLDEN_H, theme, true);
+            let Some(s) = still_opt(seed, GOLDEN_W, GOLDEN_H, theme, true) else {
+                // Theme-locked: the scene has no variant for this theme.
+                writeln!(manifest, "{name} locked").unwrap();
+                if !blessing() && expected.get(&name).map(String::as_str) != Some("locked") {
+                    failures.push(format!(
+                        "{name}: theme-locked now, but the manifest expects an image"
+                    ));
+                }
+                continue;
+            };
             let rgb = s.palette.rgb_bytes();
             let hash = format!("{:016x}", image_hash(&s.image, &rgb));
             writeln!(manifest, "{name} {hash}").unwrap();

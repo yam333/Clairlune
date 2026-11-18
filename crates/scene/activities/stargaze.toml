@@ -1,0 +1,36 @@
+# Stargazing with a telescope. Night only, so these scenes are theme-locked to dark.
+id = "stargaze"
+weight = 1.0
+
+[requires]
+terrain = ["ledge", "rooftop", "flat"]
+time_of_day = ["deep_dusk", "night"]
+weather = ["none", "stars"]
+
+[motion]
+type = "stationary"
+
+[props.telescope]
+attach = "either_side"
+
+[animation]
+start = "look_up"
+
+[animation.states.look_up]
+loop = true
+dwell_s = [5, 10]
+next = { adjust = 0.6, idle = 0.4 }
+
+[animation.states.adjust]
+next = { look_up = 1.0 }
+
+[animation.states.idle]
+loop = true
+dwell_s = [2, 4]
+next = { look_up = 1.0 }
+
+[gif]
+loop_script = ["look_up", "adjust"]
+
+[unattended]
+props = ["telescope"]
