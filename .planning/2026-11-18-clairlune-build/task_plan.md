@@ -151,5 +151,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 ## Errors Encountered
 | Error | Attempt | Resolution |
 |-------|---------|------------|
+| Broken commit b729c44 pushed: shell heredoc turned `
+` escapes into raw newlines, and `;` let the commit run after cargo fmt failed | 1 | Repaired via a script file (no shell escaping); fixed in the next commit. Commits now chain checks with `&&` |
 | git push declined (email privacy) | 1 | Repo-local user.email = GitHub noreply; amended the unpushed commit |
 | cargo publish verify: `unresolved import ttf_parser` | 1 | Stale unpacked clairlune-render 0.1.0 in cargo's temporary registry from the earlier dry run. Deleted `~/.cargo/registry/src/-da77451d61904e7d` and `target/package`; nothing had been uploaded |
