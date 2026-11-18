@@ -1,35 +1,87 @@
 //! `compose(seed, aspect, ctx) -> SceneRecipe`: sequential, seeded, weighted picks.
 //!
-//! Each subsystem draws from its own RNG stream, so adding a pick in one place
-//! never shifts the draws of another.
-//!
-//! M1 scope: only the `canyon` archetype exists and the activity engine (M2) does
-//! not, so step 0 (activity) records `None` and the focal group is the M1
-//! placeholder (character + campfire on a rock ledge).
+//! The activity is picked first (PLAN.md section 4.2, step 0) and constrains
+//! every later pick: archetype, time of day per theme, weather and props. Each
+//! subsystem draws from its own RNG stream, so adding a pick in one place never
+//! shifts the draws of another. When no activity is eligible, the scene falls back
+//! to an archetype-first composition with no character.
 
+use crate::activity::{Activity, Catalog, MotionKind, builtin_catalog, int_weight};
+use crate::archetype::{ARCHETYPE_INFO, ArchetypeInfo};
 use crate::palette::{Theme, families_for};
 use crate::recipe::{
     Aspect, Composition, ContentContext, GENERATOR_VERSION, PalettePick, SceneRecipe, TimeOfDay,
 };
 use crate::rng::Rng;
 
-/// Archetypes this generator version can build.
-pub const IMPLEMENTED_ARCHETYPES: [&str; 1] = ["canyon"];
-
-/// Weight multiplier (out of 4) for an archetype used in the most recent scene.
-const RECENT_REPEAT_WEIGHT: u32 = 1;
-const BASE_WEIGHT: u32 = 4;
+/// Builds a recipe from the built-in activity catalog.
+pub fn compose(seed: u64, aspect: Aspect, ctx: &ContentContext) -> SceneRecipe {
+    compose_with(builtin_catalog(), seed, aspect, ctx)
+}
 
 /// Builds a recipe. Pure: same inputs, same recipe, on every platform.
-pub fn compose(seed: u64, aspect: Aspect, ctx: &ContentContext) -> SceneRecipe {
-    let archetype = pick_archetype(seed, ctx);
+pub fn compose_with(
+    catalog: &Catalog,
+    seed: u64,
+    aspect: Aspect,
+    ctx: &ContentContext,
+) -> SceneRecipe {
+    let archetypes: Vec<&'static ArchetypeInfo> = ARCHETYPE_INFO
+        .iter()
+        .filter(|a| a.implemented && ctx.enabled_archetypes.iter().any(|e| e == a.id))
+        .collect();
 
-    // Time of day: one per theme. The campfire placeholder allows all of them,
-    // so M1 scenes are never theme-locked.
+    // Step 0: activity, among those with at least one archetype that fits.
+    let eligible: Vec<(&Activity, Vec<&'static ArchetypeInfo>)> = catalog
+        .activities
+        .iter()
+        .filter(|a| ctx.enabled_activities.contains(&a.id))
+        .filter_map(|a| {
+            let fits: Vec<_> = archetypes
+                .iter()
+                .copied()
+                .filter(|ar| a.fits(ar, &ctx.enabled_weather))
+                .collect();
+            (!fits.is_empty()).then_some((a, fits))
+        })
+        .collect();
+    let picked = pick_activity(seed, &eligible, ctx);
+
+    // Step 1: archetype.
+    let fallback = [&ARCHETYPE_INFO[0]];
+    let candidates: &[&ArchetypeInfo] = match picked {
+        Some((_, fits)) => fits,
+        None if !archetypes.is_empty() => &archetypes,
+        None => &fallback,
+    };
+    let archetype = pick_archetype(seed, candidates, ctx);
+
+    // Step 2: one time of day per theme, from what the activity allows.
     let mut tod = Rng::stream(seed, "time_of_day");
-    let light_tod = *tod.choose(&TimeOfDay::LIGHT);
-    let dark_tod = *tod.choose(&TimeOfDay::DARK);
+    let (light_tod, dark_tod) = match picked {
+        Some((a, _)) => (
+            pick_opt(&mut tod, &a.times_in(&TimeOfDay::LIGHT)),
+            pick_opt(&mut tod, &a.times_in(&TimeOfDay::DARK)),
+        ),
+        None => (
+            Some(*tod.choose(&TimeOfDay::LIGHT)),
+            Some(*tod.choose(&TimeOfDay::DARK)),
+        ),
+    };
 
+    // Step 3: weather the activity, archetype and user all allow.
+    let mut wx = Rng::stream(seed, "weather");
+    let weather = match picked {
+        Some((a, _)) => {
+            pick_opt(&mut wx, &a.weathers_in(archetype, &ctx.enabled_weather)).unwrap_or("none")
+        }
+        None => "none",
+    };
+
+    let mut platform_rng = Rng::stream(seed, "platform");
+    let platform = *platform_rng.choose(archetype.platforms);
+
+    // Composition variables.
     let mut comp = Rng::stream(seed, "composition");
     let portrait = aspect.w < aspect.h;
     let horizon_pm = comp.range_u32(560, 700);
@@ -46,8 +98,18 @@ pub fn compose(seed: u64, aspect: Aspect, ctx: &ContentContext) -> SceneRecipe {
     let shape_pow_pm = comp.range_u32(450, 850);
     let platform_margin_pm = comp.range_u32(12, 40);
 
-    let mut props = Rng::stream(seed, "props");
-    let prop_left = props.chance(1, 2);
+    // Props and motion, from the activity.
+    let mut props_rng = Rng::stream(seed, "props");
+    let prop_left = props_rng.chance(1, 2);
+    let mut motion = Rng::stream(seed, "motion");
+    let (motion_speed_cc, pace_half_pm) =
+        match picked.map(|(a, _)| (&a.motion.kind, a.motion.speed_cells_per_s)) {
+            Some((MotionKind::Pace, Some([lo, hi]))) => {
+                let (lo, hi) = ((lo * 100.0).round() as u32, (hi * 100.0).round() as u32);
+                (motion.range_u32(lo, hi.max(lo)), motion.range_u32(60, 140))
+            }
+            _ => (0, 0),
+        };
 
     let mut pal = Rng::stream(seed, "palette");
     let light: Vec<_> = families_for(Theme::Light).collect();
@@ -60,13 +122,15 @@ pub fn compose(seed: u64, aspect: Aspect, ctx: &ContentContext) -> SceneRecipe {
         seed,
         aspect,
         content_ctx_hash: format!("{:016x}", ctx.hash()),
-        activity: None,
-        archetype,
-        light_tod: Some(light_tod),
-        dark_tod: Some(dark_tod),
-        platform: "rock_ledge".to_string(),
-        props: vec!["campfire".to_string()],
-        weather: "embers".to_string(),
+        activity: picked.map(|(a, _)| a.id.clone()),
+        archetype: archetype.id.to_string(),
+        light_tod,
+        dark_tod,
+        platform: platform.to_string(),
+        props: picked
+            .map(|(a, _)| a.props.keys().cloned().collect())
+            .unwrap_or_default(),
+        weather: weather.to_string(),
         composition: Composition {
             horizon_pm,
             focus_x_pm,
@@ -75,6 +139,8 @@ pub fn compose(seed: u64, aspect: Aspect, ctx: &ContentContext) -> SceneRecipe {
             platform_margin_pm,
             cliff_layers: 3,
             prop_left,
+            motion_speed_cc,
+            pace_half_pm,
         },
         palette: PalettePick {
             light: light_family,
@@ -83,36 +149,64 @@ pub fn compose(seed: u64, aspect: Aspect, ctx: &ContentContext) -> SceneRecipe {
     }
 }
 
-/// Weighted pick among archetypes that are both enabled and implemented, with
-/// the most recent archetype down-weighted. Falls back to canyon (logged by the
-/// caller in later milestones) when the filters leave nothing.
-fn pick_archetype(seed: u64, ctx: &ContentContext) -> String {
-    let candidates: Vec<&str> = IMPLEMENTED_ARCHETYPES
-        .iter()
-        .copied()
-        .filter(|a| ctx.enabled_archetypes.iter().any(|e| e == a))
-        .collect();
-    if candidates.is_empty() {
-        return IMPLEMENTED_ARCHETYPES[0].to_string();
+fn pick_opt<T: Copy>(rng: &mut Rng, items: &[T]) -> Option<T> {
+    (!items.is_empty()).then(|| *rng.choose(items))
+}
+
+/// Weighted pick. The most recent activity is excluded unless it is the only one,
+/// and activities used often in the recent history are down-weighted.
+fn pick_activity<'a, 'b>(
+    seed: u64,
+    eligible: &'b [(&'a Activity, Vec<&'static ArchetypeInfo>)],
+    ctx: &ContentContext,
+) -> Option<&'b (&'a Activity, Vec<&'static ArchetypeInfo>)> {
+    if eligible.is_empty() {
+        return None;
     }
+    let last = ctx.recent.last().and_then(|h| h.activity.as_deref());
+    let weights: Vec<u32> = eligible
+        .iter()
+        .map(|(a, _)| {
+            if eligible.len() > 1 && Some(a.id.as_str()) == last {
+                return 0;
+            }
+            let uses = ctx
+                .recent
+                .iter()
+                .filter(|h| h.activity.as_deref() == Some(a.id.as_str()))
+                .count() as u32;
+            (int_weight(a.weight) * 4 / (4 + uses)).max(1)
+        })
+        .collect();
+    let mut rng = Rng::stream(seed, "activity");
+    Some(&eligible[rng.weighted_index(&weights)])
+}
+
+/// Weighted pick with the most recent archetype down-weighted.
+fn pick_archetype(
+    seed: u64,
+    candidates: &[&'static ArchetypeInfo],
+    ctx: &ContentContext,
+) -> &'static ArchetypeInfo {
     let last = ctx.recent.last().map(|h| h.archetype.as_str());
     let weights: Vec<u32> = candidates
         .iter()
         .map(|a| {
-            if Some(*a) == last && candidates.len() > 1 {
-                RECENT_REPEAT_WEIGHT
+            if candidates.len() > 1 && Some(a.id) == last {
+                1
             } else {
-                BASE_WEIGHT
+                4
             }
         })
         .collect();
     let mut rng = Rng::stream(seed, "archetype");
-    candidates[rng.weighted_index(&weights)].to_string()
+    candidates[rng.weighted_index(&weights)]
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::recipe::HistoryEntry;
 
     #[test]
     fn compose_is_deterministic() {
@@ -121,6 +215,7 @@ mod tests {
         let b = compose(7, Aspect::from_size(3840, 2160), &ctx);
         assert_eq!(a.to_json(), b.to_json());
         assert_eq!(a.aspect, Aspect { w: 16, h: 9 });
+        assert!(a.activity.is_some());
     }
 
     #[test]
@@ -140,5 +235,48 @@ mod tests {
         let a = compose(1, Aspect::from_size(16, 9), &ctx);
         let b = compose(2, Aspect::from_size(16, 9), &ctx);
         assert_ne!(a.composition, b.composition);
+    }
+
+    #[test]
+    fn night_only_activities_are_theme_locked() {
+        let ctx = ContentContext {
+            enabled_activities: vec!["stargaze".into()],
+            ..ContentContext::default()
+        };
+        let r = compose(5, Aspect::from_size(16, 9), &ctx);
+        assert_eq!(r.activity.as_deref(), Some("stargaze"));
+        assert!(r.light_tod.is_none() && r.dark_tod.is_some());
+        assert!(r.is_theme_locked());
+    }
+
+    #[test]
+    fn never_repeats_the_last_activity_when_there_is_a_choice() {
+        for seed in 0..200 {
+            let mut ctx = ContentContext::default();
+            ctx.recent.push(HistoryEntry {
+                activity: Some("warm_hands".into()),
+                archetype: "canyon".into(),
+                platform: "rock_ledge".into(),
+                prop: None,
+            });
+            assert_ne!(
+                compose(seed, Aspect::from_size(16, 9), &ctx)
+                    .activity
+                    .as_deref(),
+                Some("warm_hands")
+            );
+        }
+    }
+
+    #[test]
+    fn falls_back_when_nothing_is_eligible() {
+        let ctx = ContentContext {
+            enabled_activities: vec![],
+            ..ContentContext::default()
+        };
+        let r = compose(9, Aspect::from_size(16, 9), &ctx);
+        assert_eq!(r.activity, None);
+        assert!(r.props.is_empty());
+        assert_eq!(r.archetype, "canyon");
     }
 }

@@ -1,8 +1,9 @@
 //! `clairlune-cli`: developer tool for rendering scenes without the desktop app.
 
 use clairlune_render::{render_still, save_png};
+use clairlune_scene::activity::builtin_catalog;
 use clairlune_scene::{
-    APP_NAME, Aspect, BuildOptions, ContentContext, SceneRecipe, Theme, compose,
+    APP_NAME, Aspect, BuildError, BuildOptions, ContentContext, SceneRecipe, Theme, compose,
 };
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::collections::hash_map::RandomState;
@@ -44,6 +45,9 @@ struct GenerateArgs {
     /// Output PNG path.
     #[arg(long)]
     out: PathBuf,
+    /// Force an activity (e.g. `stroll`). Lists the ids when unknown.
+    #[arg(long, conflicts_with = "recipe")]
+    activity: Option<String>,
     /// Render without the character (the unattended variant).
     #[arg(long)]
     no_buddy: bool,
@@ -104,11 +108,19 @@ fn generate(args: GenerateArgs) -> Result<(), String> {
         }
         None => {
             let seed = args.seed.unwrap_or_else(random_seed);
-            compose(
-                seed,
-                Aspect::from_size(width, height),
-                &ContentContext::default(),
-            )
+            let mut ctx = ContentContext::default();
+            if let Some(id) = &args.activity {
+                let catalog = builtin_catalog();
+                if catalog.get(id).is_none() {
+                    let ids: Vec<&str> = catalog.activities.iter().map(|a| a.id.as_str()).collect();
+                    return Err(format!(
+                        "unknown activity `{id}`; available: {}",
+                        ids.join(", ")
+                    ));
+                }
+                ctx.enabled_activities = vec![id.clone()];
+            }
+            compose(seed, Aspect::from_size(width, height), &ctx)
         }
     };
     let opts = BuildOptions {
@@ -117,7 +129,16 @@ fn generate(args: GenerateArgs) -> Result<(), String> {
         theme: args.theme.into(),
         buddy: !args.no_buddy,
     };
-    let still = render_still(&recipe, &opts, args.time_ms).map_err(|e| e.to_string())?;
+    let still = render_still(&recipe, &opts, args.time_ms).map_err(|e| match e {
+        BuildError::ThemeLocked(t) => format!(
+            "seed {} ({}) has no {} variant: the activity only happens at {}. Use the other theme or another seed.",
+            recipe.seed,
+            recipe.activity.as_deref().unwrap_or("no activity"),
+            t.as_str(),
+            if t == Theme::Light { "night" } else { "daytime" },
+        ),
+        other => other.to_string(),
+    })?;
     let rendered = started.elapsed();
 
     if let Some(parent) = args.out.parent().filter(|p| !p.as_os_str().is_empty()) {
@@ -135,6 +156,13 @@ fn generate(args: GenerateArgs) -> Result<(), String> {
 
     println!("{APP_NAME} scene");
     println!("  seed      {}", recipe.seed);
+    println!(
+        "  activity  {}",
+        recipe
+            .activity
+            .as_deref()
+            .unwrap_or("(none: archetype-first fallback)")
+    );
     println!(
         "  archetype {}  ({} {:?})",
         recipe.archetype,

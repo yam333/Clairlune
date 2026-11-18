@@ -1,0 +1,415 @@
+//! Activities: what the character is doing (PLAN.md section 4.7).
+//!
+//! One TOML file per activity in `crates/scene/activities/`, embedded at compile
+//! time. The engine never hardcodes a specific activity: adding a file (and its
+//! sprites) is how content grows. Maps are `BTreeMap` so iteration order, and
+//! therefore every seeded pick, is deterministic.
+
+use crate::archetype::{ArchetypeInfo, SURFACES, TERRAINS, WEATHERS};
+use crate::hash::StableHasher;
+use crate::recipe::TimeOfDay;
+use serde::Deserialize;
+use std::collections::BTreeMap;
+use std::sync::OnceLock;
+
+/// Prop ids the engine can draw.
+pub const PROPS: [&str; 4] = ["campfire", "log_seat", "telescope", "lantern"];
+/// Effect ids the engine can draw.
+pub const EFFECTS: [&str; 1] = ["embers"];
+/// Generic prop attachment points.
+pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
+
+/// Embedded activity files, sorted by file name.
+const SOURCES: [(&str, &str); 3] = [
+    ("stargaze.toml", include_str!("../activities/stargaze.toml")),
+    ("stroll.toml", include_str!("../activities/stroll.toml")),
+    (
+        "warm_hands.toml",
+        include_str!("../activities/warm_hands.toml"),
+    ),
+];
+
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Activity {
+    pub id: String,
+    #[serde(default = "one")]
+    pub weight: f64,
+    pub requires: Requires,
+    pub motion: Motion,
+    #[serde(default)]
+    pub props: BTreeMap<String, PropDef>,
+    pub animation: AnimationDef,
+    #[serde(default)]
+    pub effects_by_state: BTreeMap<String, Vec<String>>,
+    pub gif: Option<GifDef>,
+    pub unattended: Unattended,
+}
+
+fn one() -> f64 {
+    1.0
+}
+
+/// Capability requirements. An empty list means "no constraint".
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Requires {
+    #[serde(default)]
+    pub terrain: Vec<String>,
+    #[serde(default)]
+    pub surface: Vec<String>,
+    pub time_of_day: Vec<TimeOfDay>,
+    #[serde(default)]
+    pub weather: Vec<String>,
+}
+
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MotionKind {
+    Stationary,
+    Pace,
+    Path,
+    Bob,
+    Fly,
+}
+
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Motion {
+    #[serde(rename = "type")]
+    pub kind: MotionKind,
+    pub path: Option<String>,
+    pub speed_cells_per_s: Option<[f64; 2]>,
+    pub at_path_end: Option<String>,
+}
+
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PropDef {
+    pub attach: String,
+    #[serde(default)]
+    pub effects: Vec<String>,
+}
+
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct AnimationDef {
+    pub start: String,
+    pub states: BTreeMap<String, StateDef>,
+}
+
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct StateDef {
+    #[serde(default, rename = "loop")]
+    pub looping: bool,
+    pub dwell_s: Option<[f64; 2]>,
+    #[serde(default)]
+    pub next: BTreeMap<String, f64>,
+}
+
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct GifDef {
+    pub loop_script: Vec<String>,
+}
+
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Unattended {
+    pub props: Vec<String>,
+}
+
+/// Integer weight for seeded picks (weights in files are decimals).
+pub fn int_weight(w: f64) -> u32 {
+    (w * 1000.0).round().max(0.0) as u32
+}
+
+fn overlaps(need: &[String], offer: &[&str]) -> bool {
+    need.is_empty() || need.iter().any(|n| offer.contains(&n.as_str()))
+}
+
+impl Activity {
+    /// Whether this activity can take place in an archetype, given enabled weather.
+    pub fn fits(&self, a: &ArchetypeInfo, enabled_weather: &[String]) -> bool {
+        overlaps(&self.requires.terrain, a.terrain)
+            && overlaps(&self.requires.surface, a.surface)
+            && !self.weathers_in(a, enabled_weather).is_empty()
+    }
+
+    /// Weather that the activity, the archetype and the user all allow.
+    pub fn weathers_in(&self, a: &ArchetypeInfo, enabled: &[String]) -> Vec<&'static str> {
+        a.weather
+            .iter()
+            .copied()
+            .filter(|w| {
+                self.requires.weather.is_empty() || self.requires.weather.iter().any(|r| r == w)
+            })
+            .filter(|w| enabled.iter().any(|e| e == w))
+            .collect()
+    }
+
+    /// Allowed times of day for one theme family, in canonical order.
+    pub fn times_in(&self, family: &[TimeOfDay]) -> Vec<TimeOfDay> {
+        family
+            .iter()
+            .copied()
+            .filter(|t| self.requires.time_of_day.contains(t))
+            .collect()
+    }
+
+    /// The state that follows `state` (when no `next`, back to `start`).
+    pub fn successors(&self, state: &str) -> Vec<(&str, u32)> {
+        match self.animation.states.get(state) {
+            Some(s) if !s.next.is_empty() => s
+                .next
+                .iter()
+                .map(|(k, w)| (k.as_str(), int_weight(*w)))
+                .collect(),
+            _ => vec![(self.animation.start.as_str(), 1)],
+        }
+    }
+
+    /// Every rule from PLAN.md section 4.7 that can be checked without sprites.
+    pub fn validate(&self) -> Vec<String> {
+        let mut errs = Vec::new();
+        let id = &self.id;
+        let mut err = |m: String| errs.push(format!("{id}: {m}"));
+        if self.weight.is_nan() || self.weight <= 0.0 {
+            err("weight must be positive".into());
+        }
+        for t in &self.requires.terrain {
+            if !TERRAINS.contains(&t.as_str()) {
+                err(format!("unknown terrain `{t}`"));
+            }
+        }
+        for s in &self.requires.surface {
+            if !SURFACES.contains(&s.as_str()) {
+                err(format!("unknown surface `{s}`"));
+            }
+        }
+        for w in &self.requires.weather {
+            if !WEATHERS.contains(&w.as_str()) {
+                err(format!("unknown weather `{w}`"));
+            }
+        }
+        if self.requires.time_of_day.is_empty() {
+            err("requires.time_of_day is empty".into());
+        }
+        let states = &self.animation.states;
+        if !states.contains_key(&self.animation.start) {
+            err(format!(
+                "start state `{}` is not defined",
+                self.animation.start
+            ));
+        }
+        for (name, s) in states {
+            for (to, w) in &s.next {
+                if !states.contains_key(to) {
+                    err(format!("state `{name}` goes to undefined state `{to}`"));
+                }
+                if w.is_nan() || *w <= 0.0 {
+                    err(format!(
+                        "state `{name}`: weight for `{to}` must be positive"
+                    ));
+                }
+            }
+            match (s.looping, s.dwell_s) {
+                (true, None) => err(format!("looping state `{name}` needs dwell_s")),
+                (true, Some([lo, hi])) if !(lo >= 0.2 && hi >= lo) => err(format!(
+                    "state `{name}`: dwell_s must be [lo, hi] with 0.2 <= lo <= hi"
+                )),
+                (false, Some(_)) => err(format!(
+                    "state `{name}`: dwell_s only applies to looping states"
+                )),
+                _ => {}
+            }
+        }
+        for (state, effects) in &self.effects_by_state {
+            if !states.contains_key(state) {
+                err(format!("effects_by_state names undefined state `{state}`"));
+            }
+            for e in effects {
+                if !EFFECTS.contains(&e.as_str()) {
+                    err(format!("unknown effect `{e}`"));
+                }
+            }
+        }
+        for (prop, def) in &self.props {
+            if !PROPS.contains(&prop.as_str()) {
+                err(format!("unknown prop `{prop}`"));
+            }
+            if !ATTACH.contains(&def.attach.as_str()) {
+                err(format!("prop `{prop}`: unknown attach `{}`", def.attach));
+            }
+            for e in &def.effects {
+                if !EFFECTS.contains(&e.as_str()) {
+                    err(format!("prop `{prop}`: unknown effect `{e}`"));
+                }
+            }
+        }
+        if self.unattended.props.is_empty() {
+            err("unattended.props is empty: Buddy-off scenes need a focal object".into());
+        }
+        for p in &self.unattended.props {
+            if !PROPS.contains(&p.as_str()) && !EFFECTS.contains(&p.as_str()) {
+                err(format!("unattended: unknown prop or effect `{p}`"));
+            }
+        }
+        match self.motion.kind {
+            MotionKind::Stationary => {}
+            MotionKind::Pace => match self.motion.speed_cells_per_s {
+                Some([lo, hi]) if lo > 0.0 && hi >= lo => {}
+                _ => err("pace motion needs speed_cells_per_s = [lo, hi] with 0 < lo <= hi".into()),
+            },
+            MotionKind::Path | MotionKind::Bob | MotionKind::Fly => err(format!(
+                "motion `{:?}` is not implemented yet (milestone M4)",
+                self.motion.kind
+            )),
+        }
+        if let Some(gif) = &self.gif {
+            let script = &gif.loop_script;
+            if script.first() != Some(&self.animation.start) {
+                err("gif.loop_script must start with the start state".into());
+            }
+            for pair in script.windows(2).chain(std::iter::once(
+                [
+                    script.last().cloned().unwrap_or_default(),
+                    script.first().cloned().unwrap_or_default(),
+                ]
+                .as_slice(),
+            )) {
+                let (from, to) = (&pair[0], &pair[1]);
+                if !states.contains_key(from) {
+                    err(format!("gif.loop_script names undefined state `{from}`"));
+                } else if !self.successors(from).iter().any(|(s, _)| s == to) {
+                    err(format!("gif.loop_script: `{from}` can't go to `{to}`"));
+                }
+            }
+        }
+        errs
+    }
+}
+
+/// The activity catalog.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Catalog {
+    pub activities: Vec<Activity>,
+    /// Hash of the source files; part of the content context.
+    pub data_hash: u64,
+}
+
+impl Catalog {
+    /// Parses and validates the embedded activity files. Panics on invalid data,
+    /// which CI catches through the tests.
+    pub fn builtin() -> Self {
+        Self::from_sources(&SOURCES)
+            .unwrap_or_else(|e| panic!("invalid built-in activities:\n{}", e.join("\n")))
+    }
+
+    /// Parses `(file name, toml)` pairs. Returns every error at once.
+    pub fn from_sources(sources: &[(&str, &str)]) -> Result<Self, Vec<String>> {
+        let mut errors = Vec::new();
+        let mut activities = Vec::new();
+        let mut h = StableHasher::new();
+        for (name, text) in sources {
+            h.write_str(name);
+            h.write_str(text);
+            match toml::from_str::<Activity>(text) {
+                Ok(a) => {
+                    if format!("{}.toml", a.id) != *name {
+                        errors.push(format!("{name}: id `{}` must match the file name", a.id));
+                    }
+                    errors.extend(a.validate());
+                    activities.push(a);
+                }
+                Err(e) => errors.push(format!("{name}: {e}")),
+            }
+        }
+        activities.sort_by(|a, b| a.id.cmp(&b.id));
+        if errors.is_empty() {
+            Ok(Self {
+                activities,
+                data_hash: h.finish(),
+            })
+        } else {
+            Err(errors)
+        }
+    }
+
+    pub fn get(&self, id: &str) -> Option<&Activity> {
+        self.activities.iter().find(|a| a.id == id)
+    }
+}
+
+/// The built-in catalog, parsed once.
+pub fn builtin_catalog() -> &'static Catalog {
+    static CATALOG: OnceLock<Catalog> = OnceLock::new();
+    CATALOG.get_or_init(Catalog::builtin)
+}
+
+/// Hash of the built-in activity files without parsing them.
+pub fn builtin_data_hash() -> u64 {
+    let mut h = StableHasher::new();
+    for (name, text) in SOURCES {
+        h.write_str(name);
+        h.write_str(text);
+    }
+    h.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builtin_catalog_is_valid() {
+        let c = Catalog::builtin();
+        assert_eq!(c.activities.len(), SOURCES.len());
+        assert_eq!(c.data_hash, builtin_data_hash());
+    }
+
+    #[test]
+    fn validation_reports_bad_files() {
+        let bad = r#"
+            id = "bad"
+            [requires]
+            terrain = ["lava"]
+            time_of_day = []
+            [motion]
+            type = "pace"
+            [props.anvil]
+            attach = "on_head"
+            [animation]
+            start = "idle"
+            [animation.states.idle]
+            loop = true
+            next = { nowhere = 1.0 }
+            [gif]
+            loop_script = ["sit"]
+            [unattended]
+            props = []
+        "#;
+        let errs = Catalog::from_sources(&[("bad.toml", bad)]).unwrap_err();
+        let all = errs.join("\n");
+        for needle in [
+            "unknown terrain `lava`",
+            "time_of_day is empty",
+            "undefined state `nowhere`",
+            "needs dwell_s",
+            "unknown prop `anvil`",
+            "unknown attach `on_head`",
+            "unattended.props is empty",
+            "pace motion needs speed",
+            "must start with the start state",
+        ] {
+            assert!(all.contains(needle), "missing `{needle}` in:\n{all}");
+        }
+    }
+
+    #[test]
+    fn unknown_fields_are_rejected() {
+        let text = "id = \"x\"\ncolour = \"red\"\n";
+        assert!(Catalog::from_sources(&[("x.toml", text)]).is_err());
+    }
+}

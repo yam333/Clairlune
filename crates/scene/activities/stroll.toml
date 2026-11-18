@@ -1,0 +1,32 @@
+# Strolling along the ledge with a lantern. Exercises the `pace` motion type.
+id = "stroll"
+weight = 1.0
+
+[requires]
+terrain = ["ledge", "rooftop", "shore", "flat"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
+weather = ["none", "fireflies", "stars"]
+
+[motion]
+type = "pace"
+speed_cells_per_s = [2, 4]
+
+[props.lantern]
+attach = "either_side"
+
+[animation]
+start = "walk"
+
+[animation.states.walk]
+loop = true
+dwell_s = [6, 12]
+next = { walk = 0.8, wave = 0.2 }
+
+[animation.states.wave]
+next = { walk = 1.0 }
+
+[gif]
+loop_script = ["walk"]
+
+[unattended]
+props = ["lantern"]

@@ -22,12 +22,6 @@ pub const SPRITE_BASE: u8 = EMBER_BASE + BANDS * LEVELS;
 /// Reserved for GIF transparency; never used by a rendered pixel.
 pub const TRANSPARENT_INDEX: u8 = 255;
 
-const SPRITE_KINDS: [SpriteKind; 3] = [
-    SpriteKind::Character,
-    SpriteKind::Campfire,
-    SpriteKind::LogSeat,
-];
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexedPalette {
     colors: Vec<Rgb>,
@@ -65,7 +59,7 @@ impl IndexedPalette {
             }
         }
         debug_assert_eq!(colors.len(), SPRITE_BASE as usize);
-        for kind in SPRITE_KINDS {
+        for kind in SpriteKind::ALL {
             for rgb in kind.map().palette() {
                 if !colors[SPRITE_BASE as usize..].contains(&rgb) {
                     colors.push(rgb);

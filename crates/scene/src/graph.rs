@@ -4,7 +4,7 @@
 
 use crate::palette::{PaletteFamily, Theme};
 use crate::particles::{Emitter, Particle};
-use crate::placeholder::{CAMPFIRE, CLAWD_PLACEHOLDER, LOG_SEAT, PixelMap};
+use crate::placeholder::{CAMPFIRE, CLAWD_PLACEHOLDER, LANTERN, LOG_SEAT, PixelMap, TELESCOPE};
 use crate::recipe::TimeOfDay;
 
 /// Advance width of the bundled monospace font (JetBrains Mono) per em.
@@ -160,14 +160,89 @@ pub enum SpriteKind {
     Campfire,
     /// Unattended variant: an empty log seat by the fire.
     LogSeat,
+    Telescope,
+    Lantern,
 }
 
 impl SpriteKind {
+    /// Every kind, so palettes can reserve all sprite colours up front.
+    pub const ALL: [SpriteKind; 5] = [
+        SpriteKind::Character,
+        SpriteKind::Campfire,
+        SpriteKind::LogSeat,
+        SpriteKind::Telescope,
+        SpriteKind::Lantern,
+    ];
+
     pub fn map(self) -> &'static PixelMap {
         match self {
             SpriteKind::Character => &CLAWD_PLACEHOLDER,
             SpriteKind::Campfire => &CAMPFIRE,
             SpriteKind::LogSeat => &LOG_SEAT,
+            SpriteKind::Telescope => &TELESCOPE,
+            SpriteKind::Lantern => &LANTERN,
+        }
+    }
+}
+
+/// How the character moves over time.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Motion {
+    /// Fixed spot (left edge x).
+    Stationary { x: i32 },
+    /// Walks back and forth between two left-edge positions; one round trip per period.
+    Pace {
+        x_min: i32,
+        x_max: i32,
+        period_ms: u64,
+    },
+}
+
+/// The character's placement as a pure function of time.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CharacterTrack {
+    /// Top edge (feet on the ground line).
+    pub y: i32,
+    pub scale: u32,
+    pub motion: Motion,
+    /// Facing when stationary (toward the main prop).
+    pub face_left: bool,
+}
+
+impl CharacterTrack {
+    /// Sprite placement at `t_ms`. Integer arithmetic only.
+    pub fn at(&self, t_ms: u64) -> SpriteInstance {
+        let (x, mirror) = match self.motion {
+            Motion::Stationary { x } => (x, self.face_left),
+            Motion::Pace {
+                x_min,
+                x_max,
+                period_ms,
+            } => {
+                let span = i64::from(x_max - x_min);
+                let half = (period_ms / 2).max(1) as i64;
+                let ph = (t_ms % period_ms.max(1)) as i64;
+                if ph < half {
+                    ((i64::from(x_min) + span * ph / half) as i32, false)
+                } else {
+                    ((i64::from(x_max) - span * (ph - half) / half) as i32, true)
+                }
+            }
+        };
+        SpriteInstance {
+            kind: SpriteKind::Character,
+            x,
+            y: self.y,
+            scale: self.scale,
+            mirror,
+        }
+    }
+
+    /// Leftmost and rightmost left-edge positions over all time.
+    pub fn x_range(&self) -> (i32, i32) {
+        match self.motion {
+            Motion::Stationary { x } => (x, x),
+            Motion::Pace { x_min, x_max, .. } => (x_min, x_max),
         }
     }
 }
@@ -205,8 +280,14 @@ pub struct SceneGraph {
     /// Row-major, `grid.cols * grid.rows`.
     pub cells: Vec<Cell>,
     pub lighting: Lighting,
-    /// Drawn in order, after particles.
-    pub sprites: Vec<SpriteInstance>,
+    /// The activity id, or `None` for an archetype-first fallback scene.
+    pub activity: Option<String>,
+    /// Activity props, drawn in both Buddy states.
+    pub props: Vec<SpriteInstance>,
+    /// Unattended variant, drawn only with Buddy off.
+    pub unattended: Vec<SpriteInstance>,
+    /// The character's track (always laid out; drawn only with Buddy on).
+    pub character: Option<CharacterTrack>,
     pub emitters: Vec<Emitter>,
     /// Pixel y of the platform's top surface (where feet stand).
     pub ground_y: i32,
@@ -220,6 +301,18 @@ impl SceneGraph {
     #[inline]
     pub fn cell(&self, col: u32, row: u32) -> Cell {
         self.cells[(row * self.grid.cols + col) as usize]
+    }
+
+    /// Sprites to draw at `t`, back to front: props, then the character (Buddy
+    /// on) or the unattended variant (Buddy off).
+    pub fn sprites_at(&self, t_ms: u64) -> Vec<SpriteInstance> {
+        let mut out = self.props.clone();
+        if self.buddy {
+            out.extend(self.character.map(|c| c.at(t_ms)));
+        } else {
+            out.extend_from_slice(&self.unattended);
+        }
+        out
     }
 
     /// Particles at time `t`, snapped to cells, as `(col, row, particle)`.

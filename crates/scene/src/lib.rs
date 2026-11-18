@@ -10,8 +10,12 @@
 #[doc = include_str!("../README.md")]
 struct ReadmeDoctests;
 
+pub mod activity;
+pub mod anim;
+pub mod archetype;
 pub mod build;
 pub mod compose;
+pub mod focal;
 pub mod glyphs;
 pub mod graph;
 pub mod hash;
@@ -24,9 +28,13 @@ pub mod placeholder;
 pub mod recipe;
 pub mod rng;
 
+pub use activity::{Activity, Catalog};
 pub use build::{BuildError, BuildOptions, build};
 pub use compose::compose;
-pub use graph::{Cell, GridSpec, Lighting, SceneGraph, SpriteInstance, SpriteKind, grid_spec};
+pub use graph::{
+    Cell, CharacterTrack, GridSpec, Lighting, Motion, SceneGraph, SpriteInstance, SpriteKind,
+    grid_spec,
+};
 pub use ident::{APP_ID, APP_NAME};
 pub use palette::{PaletteFamily, Rgb, Theme};
 pub use recipe::{Aspect, ContentContext, GENERATOR_VERSION, SceneRecipe, TimeOfDay};

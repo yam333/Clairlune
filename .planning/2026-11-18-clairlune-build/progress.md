@@ -20,6 +20,10 @@
 - Phase 8 done: pushed to github.com/yam333/clairlune (commit 800d7e4) and published all 4 crates 0.1.0. Installed clairlune-cli from crates.io: output byte-identical to the golden image.
 - Phase 8: per-crate READMEs (compiled as doctests), licence copies, repository URL. Dry run passes. User said to stop asking for permission, so publishing proceeds.
 
+- Phase 9 (M0 tooling) committed 0397022: style guide, export + check scripts, justfile. Art itself waits on the user.
+- CI on the M1 commit: all 3 OSes green.
+- Phase 10 core: archetype capabilities, activity TOML model + validation, activity-first compose (GENERATOR_VERSION 2), episode state machine, focal layout with pace motion, new props (telescope, lantern), CLI --activity, variety test. Goldens re-blessed (16 images + 4 locked).
+
 ### Test Results
 | Test | Expected | Actual | Status |
 |------|----------|--------|--------|
@@ -29,6 +33,8 @@
 | clippy -D warnings / fmt --check | clean | clean | pass |
 | cargo deny check | ok | ok (after skrifa switch) | pass |
 | cargo publish --workspace --dry-run | ok | ok, 4 crates | pass |
+| CI (GitHub, 3 OSes) on M1 | green | green | pass |
+| M2: cargo test --workspace | all pass | scene 30, render 4, determinism 5, golden 16 img, properties 5, doc 2 | pass |
 
 ### Errors
 | Error | Resolution |
@@ -36,3 +42,5 @@
 | clippy: `chunks_exact_mut` with constant size (rng.rs) | Use `as_chunks_mut::<8>()` |
 | cargo-deny: RUSTSEC-2026-0192 ttf-parser unmaintained | Switched to skrifa 0.50.0 |
 | Portrait: focal group 47 % of width, ledge off-screen | Scale objects by min(W, H) |
+| Loop test failed for pacing scenes | By design (live motion isn't looped); test periodic elements with Buddy off |
+| Bless run skipped golden (determinism failed first) | Re-ran with --no-fail-fast |

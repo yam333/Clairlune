@@ -1,7 +1,9 @@
 //! Shared helpers for the workspace integration tests.
 
 use clairlune_render::{IndexedImage, Still, render_still};
-use clairlune_scene::{Aspect, BuildOptions, ContentContext, SceneRecipe, Theme, compose};
+use clairlune_scene::{
+    Aspect, BuildError, BuildOptions, ContentContext, SceneRecipe, Theme, compose,
+};
 use std::path::PathBuf;
 
 /// Golden test size (PLAN.md section 11, M1).
@@ -37,6 +39,34 @@ pub fn still(seed: u64, w: u32, h: u32, theme: Theme, buddy: bool) -> Still {
         None,
     )
     .expect("renders")
+}
+
+/// Like [`still`], but `None` when the scene has no variant for `theme`
+/// (theme-locked, e.g. a night-only activity in the light theme).
+pub fn still_opt(seed: u64, w: u32, h: u32, theme: Theme, buddy: bool) -> Option<Still> {
+    let r = recipe(seed, w, h);
+    let opts = BuildOptions {
+        width: w,
+        height: h,
+        theme,
+        buddy,
+    };
+    match render_still(&r, &opts, None) {
+        Ok(s) => Some(s),
+        Err(BuildError::ThemeLocked(_)) => None,
+        Err(e) => panic!("seed {seed}: {e}"),
+    }
+}
+
+/// The requested theme if the recipe has it, otherwise the one it has.
+pub fn available_theme(r: &SceneRecipe, wanted: Theme) -> Theme {
+    if r.tod_for(wanted).is_some() {
+        wanted
+    } else if wanted == Theme::Light {
+        Theme::Dark
+    } else {
+        Theme::Light
+    }
 }
 
 /// Stable FNV-1a hash of an image's size, palette and pixels.

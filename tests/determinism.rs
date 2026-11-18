@@ -5,7 +5,7 @@
 
 use clairlune_render::{GlyphAtlas, IndexedPalette, bake_static, render_frame, render_still};
 use clairlune_scene::{BuildOptions, SceneRecipe, Theme, build};
-use clairlune_tests::{GOLDEN_SEEDS, blessing, golden_dir, recipe, still};
+use clairlune_tests::{GOLDEN_SEEDS, blessing, golden_dir, recipe, still_opt};
 
 #[test]
 fn recipes_are_identical_across_runs_and_round_trip() {
@@ -47,31 +47,40 @@ fn recipes_match_golden_json() {
 fn pixels_are_identical_across_runs() {
     for &seed in &GOLDEN_SEEDS[..4] {
         for theme in [Theme::Dark, Theme::Light] {
-            let a = still(seed, 480, 270, theme, true);
-            let b = still(seed, 480, 270, theme, true);
+            let (Some(a), Some(b)) = (
+                still_opt(seed, 480, 270, theme, true),
+                still_opt(seed, 480, 270, theme, true),
+            ) else {
+                continue; // theme-locked
+            };
             assert_eq!(a.image, b.image, "seed {seed} {theme:?}");
             assert_eq!(a.palette, b.palette);
         }
     }
 }
 
+/// Periodic elements (particles, props) loop seamlessly over `loop_ms`. The
+/// character is left out (Buddy off): in live mode its motion is deliberately not
+/// a loop; GIF export gets a loop script in milestone M3.
 #[test]
-fn frames_loop_seamlessly() {
-    let r = recipe(7, 640, 360);
-    let opts = BuildOptions {
-        width: 640,
-        height: 360,
-        theme: Theme::Dark,
-        buddy: true,
-    };
-    let graph = build(&r, &opts).unwrap();
-    let atlas = GlyphAtlas::for_grid(&graph.grid);
-    let palette = IndexedPalette::new(&graph.family);
-    let bg = bake_static(&graph, &atlas);
-    for t in [0, 750, 2500, 5999] {
-        let a = render_frame(&bg, &graph, &atlas, &palette, t);
-        let b = render_frame(&bg, &graph, &atlas, &palette, t + graph.loop_ms);
-        assert_eq!(a, b, "t = {t}");
+fn periodic_elements_loop_seamlessly() {
+    for seed in [7, 11, 42] {
+        let r = recipe(seed, 640, 360);
+        let opts = BuildOptions {
+            width: 640,
+            height: 360,
+            theme: Theme::Dark,
+            buddy: false,
+        };
+        let graph = build(&r, &opts).unwrap();
+        let atlas = GlyphAtlas::for_grid(&graph.grid);
+        let palette = IndexedPalette::new(&graph.family);
+        let bg = bake_static(&graph, &atlas);
+        for t in [0, 750, 2500, 5999] {
+            let a = render_frame(&bg, &graph, &atlas, &palette, t);
+            let b = render_frame(&bg, &graph, &atlas, &palette, t + graph.loop_ms);
+            assert_eq!(a, b, "seed {seed}, t = {t}");
+        }
     }
 }
 

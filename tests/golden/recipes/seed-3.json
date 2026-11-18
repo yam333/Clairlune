@@ -1,12 +1,12 @@
 {
-  "generator_version": 1,
+  "generator_version": 2,
   "seed": 3,
   "aspect": {
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "0c2cab37ad820f9f",
-  "activity": null,
+  "content_ctx_hash": "8f25f3c54f16a05b",
+  "activity": "warm_hands",
   "archetype": "canyon",
   "light_tod": "golden_hour",
   "dark_tod": "dusk",
@@ -14,7 +14,7 @@
   "props": [
     "campfire"
   ],
-  "weather": "embers",
+  "weather": "none",
   "composition": {
     "horizon_pm": 571,
     "focus_x_pm": 692,
@@ -22,7 +22,9 @@
     "shape_pow_pm": 633,
     "platform_margin_pm": 40,
     "cliff_layers": 3,
-    "prop_left": false
+    "prop_left": false,
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "sand_day",

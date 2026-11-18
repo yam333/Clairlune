@@ -43,6 +43,14 @@
 - `cargo publish --workspace --dry-run`: all 4 crates package and verify. Package sizes: scene 31.7 KiB, app 8.2 KiB, render 146.5 KiB (font), cli 11.4 KiB (compressed).
 - GitHub: repo github.com/yam333/clairlune exists, private, empty.
 
+## CI results
+- First GitHub Actions run (commit 800d7e4): Windows x64, Linux x64 and macOS ARM64 all pass, including the release-mode golden hashes. Cross-OS and cross-CPU byte-identical output is confirmed, not just designed for.
+
+## M2 core (Phase 10a-10e, 10g)
+- 3 activities: warm_hands (stationary, campfire + embers, unattended log seat), stroll (pace, lantern), stargaze (stationary, telescope, night only so theme-locked).
+- Variety over 1,000 seeds is within 2x of the expected share for each activity. 4 of the 10 golden seeds are stargaze, so they have no light variant.
+- Perf unchanged: 4K 29.6 ms.
+
 ## Technical Decisions
 | Decision | Rationale |
 |----------|-----------|

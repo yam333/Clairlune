@@ -4,7 +4,7 @@
 Implement PLAN.md milestone by milestone. This session delivers M1 (headless deterministic generator + `clairlune-cli generate` that writes an indexed PNG), with tests and CI, and prepares the crates for crates.io. The user granted full access (no more approval stops), so publishing is part of this session.
 
 ## Next Step
-Phase 10 (M2): sprite sheet loader + `Character` trait against a generated fixture sheet, then activity TOML + validation, activity-first compose, episode state machine.
+Phase 10f: `clairlune-sprites` crate (Aseprite json-array loader, `Character` trait, anchors) tested against a generated fixture sheet; then wire sprite frames by state into rendering.
 
 ## Current Phase
 Phase 10 (Phase 9 waits on the user's art)
@@ -86,10 +86,16 @@ Phases 1-8 (through M1 and publish prep). Phases 9-17 are later milestones, list
 - **Status:** in_progress
 
 ### Phase 10: M2 Sprite pipeline + activity engine
-- [ ] Sprite sheets with per-frame anchors, atlas; `sprites::clawd` behind a `Character` trait
-- [ ] Activity TOML files, validation, activity-first compose, episode state machine, `state.json` history
-- [ ] `stationary` + `pace` motion; Buddy unattended variants; `preview-activity` with hot reload
-- **Status:** pending
+Art-independent core first (10a-10e), then the sheet loader once art exists (10f).
+- [x] 10a `scene::archetype`: capability declarations (terrain, surface, platforms, prop slots) for canyon
+- [x] 10b `scene::activity`: activity TOML model (PLAN.md 4.7), embedded catalog (`crates/scene/activities/*.toml`), validation (known capabilities, states, transitions, loop script, effects, props); CI-tested
+- [x] 10c Activity-first `compose`: eligibility filter, weighted pick, recent-history down-weighting (no repeat unless only one eligible), time of day and weather from the activity; theme-locked recipes; archetype-first fallback; GENERATOR_VERSION 2
+- [x] 10d `scene::anim`: seeded state machine with 60 s episodes, dwell times, normalised `next` weights; pure `state_at(seed, t)`
+- [x] 10e Motion `stationary` + `pace`; the character becomes a time-dependent track in the SceneGraph; activities: warm hands at the campfire (stationary), pace the ledge (pace), stargaze (stationary, night only = theme-locked); unattended props per activity
+- [ ] 10f `clairlune-sprites` crate: Aseprite json-array loader, `Character` trait, anchors from slices, palette/alpha validation; placeholder character behind the same trait
+- [x] 10g CLI `--activity <id>`; variety test (no activity above 2x its share)
+- [ ] Deferred: `preview-activity` window with hot reload (needs the winit loop from M6/M7)
+- **Status:** in_progress
 
 ### Phase 11: M3 Animation + GIF export
 - [ ] Live state machine vs GIF loop scripts, particles, fire flicker, Smoothness levels
@@ -138,6 +144,8 @@ Phases 1-8 (through M1 and publish prep). Phases 9-17 are later milestones, list
 | Sprite exports go to `crates/sprites/assets/clawd/`, sources stay in `assets/clawd/src/` | `include_bytes!` must stay inside the published package; PLAN.md put both under `assets/clawd/` |
 | Light-theme outline is drawn by the engine, not the art | Salmon on paper is about 2.5:1 contrast (dark theme about 5.9:1); `#8C4A36` outline gives about 5.4:1 |
 | Commits use the GitHub noreply address (repo-local git config) | GitHub rejected the push: the account has email privacy on. |
+| Character motion is not part of the 6 s loop in live mode | PLAN.md 4.4: live plays seeded variations; the loop test covers periodic elements (Buddy off). GIF loop scripts come in M3 |
+| Theme-locked golden entries are recorded as `locked` in hashes.txt | Night-only stargaze seeds have no light image; the manifest still pins that they stay locked |
 | Golden tolerance is 0 differing pixels | The generator is designed to be byte-identical everywhere, so any difference is a real change. |
 
 ## Errors Encountered
