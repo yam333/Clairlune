@@ -24,6 +24,8 @@
 - CI on the M1 commit: all 3 OSes green.
 - Phase 10 core: archetype capabilities, activity TOML model + validation, activity-first compose (GENERATOR_VERSION 2), episode state machine, focal layout with pace motion, new props (telescope, lantern), CLI --activity, variety test. Goldens re-blessed (16 images + 4 locked).
 
+- 10f: clairlune-sprites crate (Aseprite json-array loader, slice anchors, alpha/colour/origin validation, Character trait, placeholder + sheet-backed implementations, build.rs embedding). 6 tests.
+
 ### Test Results
 | Test | Expected | Actual | Status |
 |------|----------|--------|--------|
