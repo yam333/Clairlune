@@ -19,6 +19,12 @@ clairlune-cli generate --seed 7 --theme dark --size 3840x2160 --out wallpaper.pn
 | `--recipe-out <path>` | Also write the recipe as JSON. |
 | `--time-ms <t>` | Render a given animation time instead of the hero frame. |
 
+To share an animated version, export a seamless looping GIF (6 s or 12 s; `--smoothness battery-saver|balanced|smooth|very-smooth|ultra-smooth`):
+
+```sh
+clairlune-cli gif --seed 7 --activity warm_hands --size 960x540 --out campfire.gif
+```
+
 To check variety, render many seeds into one grid:
 
 ```sh

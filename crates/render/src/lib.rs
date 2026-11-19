@@ -13,14 +13,18 @@ struct ReadmeDoctests;
 
 pub mod atlas;
 pub mod bake;
+pub mod clock;
 pub mod encode;
 pub mod frame;
+pub mod gif_export;
 pub mod palette;
 
 pub use atlas::GlyphAtlas;
 pub use bake::bake_static;
+pub use clock::Clock;
 pub use encode::{encode_png, save_png, to_rgba};
-pub use frame::{hero_time, render_frame};
+pub use frame::{hero_time, render_frame, render_frame_clocked};
+pub use gif_export::{GifError, GifStats, Smoothness, encode_gif, frame_delays, valid_loop_ms};
 pub use palette::IndexedPalette;
 
 use clairlune_scene::activity::builtin_catalog;

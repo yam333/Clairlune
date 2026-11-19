@@ -4,6 +4,7 @@
 
 use crate::IndexedImage;
 use crate::atlas::GlyphAtlas;
+use crate::clock::{Clock, LoopScript, loop_track};
 use crate::palette::{IndexedPalette, LEVELS, ink_level};
 use clairlune_scene::activity::builtin_catalog;
 use clairlune_scene::anim::state_at;
@@ -11,7 +12,7 @@ use clairlune_scene::graph::CHARACTER_BOX;
 use clairlune_scene::{SceneGraph, SpriteInstance, SpriteKind};
 use clairlune_sprites::{Character, builtin_character};
 
-/// Composites one frame at `t_ms` over a baked background.
+/// Composites one frame at `t_ms` over a baked background (live clock).
 pub fn render_frame(
     background: &IndexedImage,
     graph: &SceneGraph,
@@ -19,13 +20,30 @@ pub fn render_frame(
     palette: &IndexedPalette,
     t_ms: u64,
 ) -> IndexedImage {
+    render_frame_clocked(background, graph, atlas, palette, t_ms, Clock::Live)
+}
+
+/// Like [`render_frame`], with an explicit character clock: `Clock::Loop` makes
+/// the character follow the activity's loop script for a seamless GIF.
+pub fn render_frame_clocked(
+    background: &IndexedImage,
+    graph: &SceneGraph,
+    atlas: &GlyphAtlas,
+    palette: &IndexedPalette,
+    t_ms: u64,
+    clock: Clock,
+) -> IndexedImage {
     let mut img = background.clone();
     for (col, row, p) in graph.particles_at(t_ms) {
         draw_particle(&mut img, graph, atlas, col, row, p.glyph, p.level);
     }
     for sprite in graph.sprites_at(t_ms) {
         if sprite.kind == SpriteKind::Character {
-            draw_character(&mut img, graph, &sprite, palette, t_ms);
+            let sprite = match (clock, graph.character) {
+                (Clock::Loop(loop_ms), Some(track)) => loop_track(track, loop_ms).at(t_ms),
+                _ => sprite,
+            };
+            draw_character(&mut img, graph, &sprite, palette, t_ms, clock);
             continue;
         }
         draw_sprite(&mut img, &sprite, palette);
@@ -105,14 +123,20 @@ fn draw_character(
     s: &SpriteInstance,
     palette: &IndexedPalette,
     t_ms: u64,
+    clock: Clock,
 ) {
     let character = builtin_character();
     let activity = graph
         .activity
         .as_deref()
         .and_then(|id| builtin_catalog().get(id));
-    let (anim, elapsed, looping) = match activity {
-        Some(a) => {
+    let (anim, elapsed, looping) = match (activity, clock) {
+        (Some(a), Clock::Loop(loop_ms)) => {
+            let script = LoopScript::new(a, character, loop_ms);
+            let (state, elapsed) = script.at(t_ms);
+            (character.animation(&a.id, state), elapsed, true)
+        }
+        (Some(a), Clock::Live) => {
             let st = state_at(a, graph.seed, t_ms, &|state| {
                 character.one_shot_ms(&a.id, state)
             });
@@ -123,7 +147,7 @@ fn draw_character(
                 looping,
             )
         }
-        None => (character.animation("", "idle"), t_ms, true),
+        (None, _) => (character.animation("", "idle"), t_ms, true),
     };
     let Some(anim) = anim else { return };
     let f = anim.frame_at(elapsed, looping);

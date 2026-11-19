@@ -4,7 +4,7 @@
 Implement PLAN.md milestone by milestone. This session delivers M1 (headless deterministic generator + `clairlune-cli generate` that writes an indexed PNG), with tests and CI, and prepares the crates for crates.io. The user granted full access (no more approval stops), so publishing is part of this session.
 
 ## Next Step
-Phase 11 (M3) with 10h: render the character through `Character` (frames by state, origin on the ground line, sheet colours in the palette), then GIF export. Draw stroll/stargaze sheets alongside.
+Phase 11: Activity Wave A (anchor particles, held items, light) starting with wizard magic and making coffee; or the live-mode Smoothness timing when the live renderer exists (M7).
 
 ## Current Phase
 Phase 10 (Phase 9 waits on the user's art)
@@ -101,8 +101,13 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 ### Phase 11: M3 Animation + GIF export
 - [ ] Live state machine vs GIF loop scripts, particles, fire flicker, Smoothness levels
 - [ ] Activity Wave A (docs/activity-system.md): frames by state (10h), anchor `particles` effects, held items, `light`; activities: wizard magic, making coffee (camp stove), reading by a lantern, guitar
-- [ ] GIF: global palette, one sub-image per frame, delay dithering, native-size render; record sizes in tests
-- **Status:** pending
+- [x] GIF: global palette, one sub-image per frame, delay dithering, native-size render; record sizes in tests (960x540 6 s: ~95-105 KB)
+  - [x] 11a Loop length: multiples of the 6 s particle period (6 s, 12 s); 3 s and 10 s from PLAN.md 6.4 can't be seamless with 1-3 s particle lives
+  - [x] 11b Character on the GIF clock: the activity's `gif.loop_script`, first looping state repeated, then time-scaled to fill the loop exactly; pace period snapped to divide the loop
+  - [x] 11c Smoothness levels with centisecond delays (16/8/4/3/2 cs) and delay dithering so delays sum to the loop exactly
+  - [x] 11d Encoder: global palette (index 255 transparent), frame 0 full, then one sub-image per frame (changed bounding box, unchanged pixels transparent), DisposalMethod::Keep, infinite repeat; identical frames merge into the previous delay
+  - [x] 11e CLI `gif` subcommand; tests: delays sum, decode-and-recompose equals rendered frames, seam (t=0 equals t=loop), sizes recorded
+- **Status:** in_progress
 
 ### Phase 12: M4 More archetypes & activities
 - [ ] Remaining 8 archetypes, platforms, props, weather, compatibility tables, constraint checks
@@ -198,6 +203,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 | Saved wallpapers (archive, library, timeline) are frozen scene packages; GIF is export-only | GIFs loop and can't change theme or Buddy; recipes alone break when the generator changes (v2 recipes already fail on v3). See PLAN.md 9c |
 | Scrolling scenes loop by making every layer periodic and moving whole periods per loop | Seamless with no fade, finite memory, deterministic integer offsets (docs/scrolling-scenes.md) |
 | Logging via `tracing`: every scene line carries seed + recipe hash; JSON-lines files; logs never feed back into generation | Any logged problem can be reproduced with `generate --recipe`; output stays deterministic (docs/logging.md) |
+| GIF loops are 6 s or 12 s (multiples of the particle period), not 3/10 s | Particle lives of 1-3 s only all divide multiples of 6 s, so only those loop seamlessly |
 | Theme-locked golden entries are recorded as `locked` in hashes.txt | Night-only stargaze seeds have no light image; the manifest still pins that they stay locked |
 | Golden tolerance is 0 differing pixels | The generator is designed to be byte-identical everywhere, so any difference is a real change. |
 

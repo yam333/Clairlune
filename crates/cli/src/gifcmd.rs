@@ -1,0 +1,132 @@
+//! `gif`: export a seamless looping GIF of a scene.
+
+use crate::{ThemeArg, parse_size, random_seed};
+use clairlune_render::{Smoothness, encode_gif};
+use clairlune_scene::activity::builtin_catalog;
+use clairlune_scene::{Aspect, BuildOptions, ContentContext, SceneRecipe, compose};
+use clap::{Args, ValueEnum};
+use std::fs::File;
+use std::io::BufWriter;
+use std::path::PathBuf;
+
+#[derive(Args)]
+pub struct GifArgs {
+    /// Scene seed. A random seed is used (and printed) when omitted.
+    #[arg(long)]
+    seed: Option<u64>,
+    /// Render an existing recipe JSON instead of composing from a seed.
+    #[arg(long, conflicts_with = "seed")]
+    recipe: Option<PathBuf>,
+    /// Force an activity (e.g. `stroll`).
+    #[arg(long, conflicts_with = "recipe")]
+    activity: Option<String>,
+    #[arg(long, value_enum, default_value_t = ThemeArg::Dark)]
+    theme: ThemeArg,
+    /// Output size. GIF is a sharing format: 960x540 or 1280x720 keeps files small.
+    #[arg(long, default_value = "960x540", value_parser = parse_size)]
+    size: (u32, u32),
+    /// Loop length in seconds: a multiple of 6 (the particle period).
+    #[arg(long, default_value_t = 6)]
+    loop_s: u64,
+    #[arg(long, value_enum, default_value_t = SmoothnessArg::Balanced)]
+    smoothness: SmoothnessArg,
+    /// Render without the character.
+    #[arg(long)]
+    no_buddy: bool,
+    /// Output GIF path.
+    #[arg(long)]
+    out: PathBuf,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub enum SmoothnessArg {
+    BatterySaver,
+    Balanced,
+    Smooth,
+    VerySmooth,
+    UltraSmooth,
+}
+
+impl From<SmoothnessArg> for Smoothness {
+    fn from(s: SmoothnessArg) -> Self {
+        match s {
+            SmoothnessArg::BatterySaver => Smoothness::BatterySaver,
+            SmoothnessArg::Balanced => Smoothness::Balanced,
+            SmoothnessArg::Smooth => Smoothness::Smooth,
+            SmoothnessArg::VerySmooth => Smoothness::VerySmooth,
+            SmoothnessArg::UltraSmooth => Smoothness::UltraSmooth,
+        }
+    }
+}
+
+pub fn gif(args: GifArgs) -> Result<(), String> {
+    let (width, height) = args.size;
+    let recipe = match &args.recipe {
+        Some(path) => {
+            let text = std::fs::read_to_string(path)
+                .map_err(|e| format!("reading {}: {e}", path.display()))?;
+            SceneRecipe::from_json(&text).map_err(|e| format!("parsing {}: {e}", path.display()))?
+        }
+        None => {
+            let mut ctx = ContentContext::default();
+            if let Some(id) = &args.activity {
+                if builtin_catalog().get(id).is_none() {
+                    return Err(format!("unknown activity `{id}`"));
+                }
+                ctx.enabled_activities = vec![id.clone()];
+            }
+            compose(
+                args.seed.unwrap_or_else(random_seed),
+                Aspect::from_size(width, height),
+                &ctx,
+            )
+        }
+    };
+    let opts = BuildOptions {
+        width,
+        height,
+        theme: args.theme.into(),
+        buddy: !args.no_buddy,
+    };
+    if let Some(parent) = args.out.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let file = BufWriter::new(
+        File::create(&args.out).map_err(|e| format!("writing {}: {e}", args.out.display()))?,
+    );
+    let stats = encode_gif(
+        &recipe,
+        &opts,
+        args.loop_s * 1000,
+        args.smoothness.into(),
+        file,
+    )
+    .map_err(|e| e.to_string())?;
+    let bytes = std::fs::metadata(&args.out).map(|m| m.len()).unwrap_or(0);
+    println!("Clairlune GIF");
+    println!(
+        "  seed      {}  ({})",
+        recipe.seed,
+        recipe.activity.as_deref().unwrap_or("no activity")
+    );
+    println!(
+        "  size      {}x{}, {} s loop",
+        stats.width,
+        stats.height,
+        stats.loop_ms / 1000
+    );
+    println!(
+        "  frames    {} rendered, {} written (identical frames merged)",
+        stats.frames_rendered, stats.frames_written
+    );
+    println!("  time      {} ms", stats.elapsed_ms);
+    println!(
+        "  wrote     {} ({:.1} MB)",
+        args.out.display(),
+        bytes as f64 / 1_048_576.0
+    );
+    if bytes > 25 * 1_048_576 {
+        println!("  note      over 25 MB; try a smaller --size or a lower --smoothness");
+    }
+    Ok(())
+}
