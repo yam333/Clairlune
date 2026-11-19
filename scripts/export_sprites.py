@@ -47,6 +47,7 @@ def export(exe: str, src: Path) -> None:
         [
             exe, "-b", str(src),
             "--ignore-layer", "guides",
+            "--ignore-layer", "anchors",
             "--sheet", str(png),
             "--data", str(data),
             "--format", "json-array",
@@ -57,6 +58,8 @@ def export(exe: str, src: Path) -> None:
         ],
         check=True,
     )
+    # TODO(Phase 20, needs Aseprite installed): run scripts/aseprite/anchors.lua to read
+    # the `anchors` layer markers and add them to meta.slices as per-frame keys.
     doc = json.loads(data.read_text(encoding="utf-8"))
     meta = doc.setdefault("meta", {})
     meta["image"] = png.name

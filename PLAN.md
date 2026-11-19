@@ -973,8 +973,10 @@ XXXXXXXXXXXXXXX     .OOYYYO..
 ## 14. Open questions to confirm with the user
 Settled decisions are recorded in their sections: Clawd is drawn by this project behind a Buddy toggle (§1.6, §7), per-monitor scenes are the default (§2.1), and the archive stores recipe + thumbnail + PNG with GIF opt-in (§8).
 
-Still open:
-1. Minimum OS versions. Suggested: Windows 10 22H2+ (`IDesktopWallpaper` per-monitor support exists since Windows 8, so it is not the constraint), macOS 13+, and Linux distros from 2023 onward.
+Resolved 2026-11-19:
+1. Minimum OS versions: Windows 10 22H2 (x64), macOS 13 Ventura (Apple Silicon and Intel, universal binary), Linux with glibc 2.35 (Ubuntu 22.04, Debian 12, Fedora 38 or newer). Reasons in `docs/platform-support.md`.
+
+No questions are open.
 
 ---
 
@@ -1003,7 +1005,7 @@ This is a risk review, not legal advice.
 | **Windows WorkerW technique** | Undocumented Windows behavior, used by Wallpaper Engine and Lively. This is a stability risk, not a legal one. | None legally. Handle Explorer restarts. |
 
 ### 15.2 Rules for the public release
-1. **Name: Clairlune, with an original icon.** No "Claude", "Clawd", "Anthropic" or sound-alikes in the icon, bundle id, crate names or domain. Check "Clairlune" in USPTO / EUIPO before the first release, and reserve the crate names `clairlune` and `clairlune-cli` early.
+1. **Name: Clairlune, with an original icon.** No "Claude", "Clawd", "Anthropic" or sound-alikes in the icon, bundle id, crate names or domain. Check "Clairlune" in USPTO / EUIPO before the first release, and reserve the crate names `clairlune` and `clairlune-cli` early. *Done 2026-11-19: no conflicting mark in software classes in the US or the EU (`docs/trademark-check.md`); crate names published on crates.io.*
 2. **Only our own art.** Never commit, bundle, download or import third-party Clawd assets. Contributors must confirm in the PR template that sprite contributions are drawn from scratch.
 3. **Disclaimer.** README and About: "Unofficial fan project. Not affiliated with or endorsed by Anthropic. Clawd is Anthropic's character." This lowers the confusion risk, but does not fix a name or icon that uses their marks.
 4. **License scope.** Code is `MIT OR Apache-2.0`. Our Clawd sprites are fan art of a character we don't own, so **don't put them under an open license** such as CC BY or CC0, which would grant rights we don't have. Mark `assets/clawd/` as "fan art, all rights in the character belong to Anthropic", in a `LICENSE-ART` or `NOTICE` file. Other original art (props, icons, UI) can be CC BY 4.0.

@@ -51,6 +51,22 @@
 - Variety over 1,000 seeds is within 2x of the expected share for each activity. 4 of the 10 golden seeds are stargaze, so they have no light variant.
 - Perf unchanged: 4K 29.6 ms.
 
+## Trademark check (2026-11-19)
+- USPTO (tmsearch backend `prod-stage-v1-0-0/tmsearch`, works with plain POST) and TMview (`tmdn.org/tmview/api/search/results`, needs a browser User-Agent). Controls found as expected.
+- CLAIRLUNE: 0 in the US, 0 at EUIPO. 4 registrations in China (classes 21, 25, 35). No live similar mark in classes 9/42 in the US or EU. Details in docs/trademark-check.md.
+
+## Platform facts (2026-11-19, web)
+- macOS 27 is Apple Silicon only; macOS 26 Tahoe is the last Intel release (security updates about 2 more years).
+- Windows 10 consumer ESU extended to 12 October 2027.
+
+## Aseprite (2026-11-19)
+- Lua API: `Slice` has `bounds`, `center`, `pivot`, `color`, `data`, `name` but no per-frame keys. Scripts can't write slice keys per frame.
+- Community MCP servers: rkdfx/aseprite-mcp (Python), willibrandon/aseprite-mcp / pixel-mcp (Go), ext-sakamoro/AsepriteMCP. All need a local Aseprite and run `aseprite -b`.
+
+## 0.2.0 release (2026-11-19)
+- The user ran `--activity` against crates.io 0.1.0 and got an error: the README promised a flag only on main. Published 0.2.0 of all 5 crates; installed from crates.io and confirmed `--activity stroll` works.
+- GitHub repo was renamed to yam333/Clairlune (capital C); remote and manifests updated.
+
 ## Technical Decisions
 | Decision | Rationale |
 |----------|-----------|
