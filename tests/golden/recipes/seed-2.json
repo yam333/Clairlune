@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "cb4759852c0e3fe3",
+  "content_ctx_hash": "a29ad47c1c4cf364",
   "activity": "wizard_magic",
-  "archetype": "snowfield",
+  "archetype": "night_sky",
   "light_tod": "morning",
   "dark_tod": "night",
-  "platform": "ice_shelf",
+  "platform": "floating_island",
   "props": [
     "spellbook"
   ],
-  "weather": "stars",
+  "weather": "none",
   "composition": {
     "horizon_pm": 672,
     "focus_x_pm": 694,

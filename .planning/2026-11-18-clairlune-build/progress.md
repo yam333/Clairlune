@@ -38,6 +38,11 @@
   weather where it fits. tests/coverage.rs (every landscape x theme, feet on platform, share of seeds).
   Goldens: 7 seeds moved to new landscapes and were re-blessed; the 3 canyon seeds are byte-identical.
 
+- Phase 12e-k (2026-11-19): forest, shore, city_rooftops, night_sky, cave. All nine landscapes paint.
+  Platforms beyond ledges: pier (shore), rooftop (city), floating island (night_sky). Activities gained
+  `requires.sky`. Goldens gained `land-<id>` per landscape. Bug found and fixed while building the forest:
+  `unit_from_hash(k >> n)` reads the high bits, so shifted hashes gave values near 0; use salted hashes.
+
 ### Test Results
 | Test | Expected | Actual | Status |
 |------|----------|--------|--------|

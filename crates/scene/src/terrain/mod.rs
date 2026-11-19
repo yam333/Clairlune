@@ -7,11 +7,15 @@
 //! returns the highest silhouette per column, for the sky pass) and `platform`.
 
 pub(crate) mod canyon;
+pub(crate) mod cave;
+pub(crate) mod city;
 pub(crate) mod desert;
 pub(crate) mod forest;
 pub(crate) mod layers;
 pub(crate) mod ledge;
 pub(crate) mod mountains;
+pub(crate) mod night_sky;
+pub(crate) mod shore;
 pub(crate) mod snowfield;
 
 use crate::graph::{Cell, GridSpec};
@@ -21,7 +25,17 @@ use crate::recipe::{SceneRecipe, TimeOfDay};
 
 /// Archetypes this generator version can paint. Must match the `implemented`
 /// flags in `archetype::ARCHETYPE_INFO` (checked by a test).
-pub const PAINTED: [&str; 5] = ["canyon", "mountains", "desert", "snowfield", "forest"];
+pub const PAINTED: [&str; 9] = [
+    "canyon",
+    "mountains",
+    "desert",
+    "snowfield",
+    "forest",
+    "shore",
+    "city_rooftops",
+    "night_sky",
+    "cave",
+];
 
 /// Normalised cell-centre coordinates.
 pub(crate) struct Coords {
@@ -62,7 +76,6 @@ pub(crate) struct Ctx<'a> {
     pub gx1: i32,
     pub group_cx: f64,
     /// For archetypes that change with the time of day (lit windows, aurora).
-    #[allow(dead_code)]
     pub tod: TimeOfDay,
 }
 
@@ -102,6 +115,10 @@ pub(crate) fn background(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Vec<
         "desert" => desert::background(ctx, cells),
         "snowfield" => snowfield::background(ctx, cells),
         "forest" => forest::background(ctx, cells),
+        "shore" => shore::background(ctx, cells),
+        "city_rooftops" => city::background(ctx, cells),
+        "night_sky" => night_sky::background(ctx, cells),
+        "cave" => cave::background(ctx, cells),
         other => unreachable!("archetype `{other}` is not painted"),
     }
 }
@@ -109,7 +126,7 @@ pub(crate) fn background(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Vec<
 /// The archetype's platform style.
 fn ledge_style(archetype: &str) -> &'static ledge::LedgeStyle {
     match archetype {
-        "canyon" | "mountains" => &ledge::ROCK,
+        "canyon" | "mountains" | "cave" => &ledge::ROCK,
         "desert" => &ledge::DUNE,
         "snowfield" => &ledge::ICE,
         "forest" => &ledge::GRASS,
@@ -119,13 +136,22 @@ fn ledge_style(archetype: &str) -> &'static ledge::LedgeStyle {
 
 /// Paints the archetype's platform under the focal group.
 pub(crate) fn platform(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) {
-    ledge::paint(ctx, cells, ledge_style(archetype));
+    match archetype {
+        "shore" => shore::pier(ctx, cells),
+        "city_rooftops" => city::rooftop(ctx, cells),
+        "night_sky" => night_sky::island(ctx, cells),
+        other => ledge::paint(ctx, cells, ledge_style(other)),
+    }
 }
 
 /// The glyph on the platform's top row, the surface the feet stand on.
 #[cfg(test)]
 pub(crate) fn platform_top(archetype: &str) -> u8 {
-    ledge_style(archetype).top
+    match archetype {
+        "shore" | "city_rooftops" => crate::glyphs::id('='),
+        "night_sky" => crate::glyphs::id('"'),
+        other => ledge_style(other).top,
+    }
 }
 
 #[cfg(test)]

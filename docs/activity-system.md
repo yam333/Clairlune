@@ -145,6 +145,7 @@ period_from_state = "swing"  # one hit per swing
 | `props.<id>.attach` | adds `hand_l`, `hand_r` (held, follows anchors), `stage`, `stage_left`, `stage_right`, `stage_far` (set pieces) to the existing values |
 | `[[effects]]` | `type`, `preset`, `at` (anchor or prop id), `states`, parameters |
 | `requires.space` | `narrow` (default) or `wide` |
+| `requires.sky` | `true` when the activity needs open sky overhead (stargazing); rules out caves |
 | `variants` | seeded alternatives: costume colour, item style, side, e.g. a red or green scarf |
 
 Validation (CI) grows with it: every `at` anchor exists on every frame of the listed states, every preset exists, and the canvas fits the scene's focal area.

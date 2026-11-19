@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "cb4759852c0e3fe3",
+  "content_ctx_hash": "a29ad47c1c4cf364",
   "activity": "stroll",
-  "archetype": "mountains",
+  "archetype": "canyon",
   "light_tod": "morning",
   "dark_tod": "deep_dusk",
   "platform": "rock_ledge",
   "props": [
     "lantern"
   ],
-  "weather": "snow",
+  "weather": "none",
   "composition": {
     "horizon_pm": 622,
     "focus_x_pm": 654,

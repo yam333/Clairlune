@@ -125,8 +125,10 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
     (shared `terrain/layers.rs`: silhouette layers with sub-row outlines `_ - .` for gentle
     curves, `/ \ ^ |` for steep ones, slope-following hatch, snow caps, mesa plateaus,
     occluding holes, text stamps such as pines; ledge styles ICE and DUNE)
-  - [ ] 12g shore (water rows, pier)   - [ ] 12h city_rooftops (lit windows)   - [ ] 12i night_sky (moon, aurora)   - [ ] 12j cave (crystals)
-  - [~] 12k Coverage test (tests/coverage.rs: done for the 4 painted archetypes; extend with each new one) 
+  - [x] 12g shore (sea with perspective, islands, pier)   - [x] 12h city_rooftops (skyline layers, windows lit by time of day, rooftop)
+  - [x] 12i night_sky (moon phases, aurora curtains, milky way, islets, cloud sea, floating island)   - [x] 12j cave (arch, stalactites, crystals, no sky)
+  - [x] `requires.sky` / `ArchetypeInfo.sky`: stargazing never lands in a cave
+  - [x] 12k Coverage (tests/coverage.rs, all 9 landscapes), one golden per landscape (`land-<id>`), contact-sheet review 
 - [ ] `path`, `bob`, `fly` motion; contact-sheet CLI command
 - [ ] Activity Wave B: set pieces + `prop_anim` + `sit` + `ground_mark` (chess, easel painting, picnic, fishing)
 - [ ] Activity Wave C: `path` on slopes/trails + `trail` (skiing, sledding, hiking, sandboarding)

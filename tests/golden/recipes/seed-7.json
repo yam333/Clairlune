@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "cb4759852c0e3fe3",
+  "content_ctx_hash": "a29ad47c1c4cf364",
   "activity": "stroll",
-  "archetype": "snowfield",
+  "archetype": "cave",
   "light_tod": "noon",
   "dark_tod": "night",
-  "platform": "ice_shelf",
+  "platform": "rock_ledge",
   "props": [
     "lantern"
   ],
-  "weather": "none",
+  "weather": "dust",
   "composition": {
     "horizon_pm": 638,
     "focus_x_pm": 500,
