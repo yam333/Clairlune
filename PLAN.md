@@ -406,6 +406,8 @@ props = ["ski_tracks", "skis_in_snow"]
 - **Anchor points per sprite frame**: hands, feet, head and held-item tip, exported from the art tool (§7.1). Effects and held props attach to them, so a fishing rod tip, a kite string or a torch flame follows the animation exactly.
 - **State machine**: seeded transitions with dwell times, per the semantics above, as a pure function of `(seed, t)`. To keep evaluation cheap at any `t`, time is split into **episodes** of 60 s. Each episode is seeded by `hash(seed, "animation", episode_index)`, starts in `start`, and is simulated from its own start, so finding the state at `t` costs at most one episode of transitions. The state at an episode boundary is forced back to `start` through its neutral pose.
 
+**Scaling to many activities** (skiing, coffee, hiking, chess, tennis, wizard magic and more): the art comes from a character rig (poses, held items, costumes), interaction from a fixed library of effect types (particles at anchors, trails, projectiles, set-piece animations, lights, ground marks, scene hooks), and places from capabilities plus set pieces. Delivered in content waves. See `docs/activity-system.md`.
+
 **Starter activity list.** Build these incrementally; the list is open-ended:
 
 | Group | Activities |

@@ -100,12 +100,18 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 
 ### Phase 11: M3 Animation + GIF export
 - [ ] Live state machine vs GIF loop scripts, particles, fire flicker, Smoothness levels
+- [ ] Activity Wave A (docs/activity-system.md): frames by state (10h), anchor `particles` effects, held items, `light`; activities: wizard magic, making coffee (camp stove), reading by a lantern, guitar
 - [ ] GIF: global palette, one sub-image per frame, delay dithering, native-size render; record sizes in tests
 - **Status:** pending
 
 ### Phase 12: M4 More archetypes & activities
 - [ ] Remaining 8 archetypes, platforms, props, weather, compatibility tables, constraint checks
 - [ ] `path`, `bob`, `fly` motion; contact-sheet CLI command
+- [ ] Activity Wave B: set pieces + `prop_anim` + `sit` + `ground_mark` (chess, easel painting, picnic, fishing)
+- [ ] Activity Wave C: `path` on slopes/trails + `trail` (skiing, sledding, hiking, sandboarding)
+- [ ] Activity Wave D: `projectile` (tennis, skipping stones, snowballs)
+- [ ] Activity Wave E: `fly`/`bob` (broom flight, kite, balloon, rowing)
+- [ ] Activity Wave F: `interior` archetype with a window view (coffee counter, chess indoors, coding, wizard's study)
 - **Status:** pending
 
 ### Phase 13: M5 Static wallpaper on all OSes
@@ -150,6 +156,13 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - [ ] Next art: stroll (`wave`) and stargaze (`look_up`, `adjust`) sheets
 - **Status:** in_progress
 
+### Phase 21: Activity system at scale (user: Clawd skiing, making coffee, hiking, chess, tennis, wizard magic and many more, interacting with the scene)
+- [x] 21a Design doc `docs/activity-system.md`: character rig, held items and costumes, set pieces, anchor effects, interaction types, scene fit (capabilities, new archetypes), schema extensions, content waves, per-activity workflow, budgets
+- [x] 21b Rig v2 prototype in `assets/clawd/design/clawd.lua`: facing (front/side), lean, crouch/sit, arms posed by hand position, held items drawn as code, hats/costumes, automatic anchors (hands, item tip, head, seat)
+- [x] 21c Pose catalogue `_template_poses.lua`: ski, coffee, hike, chess, tennis, wizard; render at 6x and review
+- [x] 21d Fold the content waves into the milestone phases (M3 Wave A, etc.) and PLAN.md section 4.7
+- **Status:** complete
+
 ## Decisions Made
 | Decision | Rationale |
 |----------|-----------|
@@ -171,6 +184,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 | Drive Aseprite through its CLI, not an MCP server | The MCP servers wrap the same CLI; scripts in the repo keep the drawing history reviewable |
 | Minimum OS: Windows 10 22H2, macOS 13 (universal), Linux glibc 2.35 | See docs/platform-support.md |
 | Clawd art is written as Lua (design files) and built into .aseprite by script | Reviewable drawing history in git; byte-reproducible rebuilds; can still be hand-edited in Aseprite |
+| Activities scale through a rig + effect library + set pieces, delivered in waves (docs/activity-system.md) | Hand-made frames per activity don't scale; each wave adds one engine capability and a batch of activities |
 | Theme-locked golden entries are recorded as `locked` in hashes.txt | Night-only stargaze seeds have no light image; the manifest still pins that they stay locked |
 | Golden tolerance is 0 differing pixels | The generator is designed to be byte-identical everywhere, so any difference is a real change. |
 

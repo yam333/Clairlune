@@ -67,6 +67,12 @@
 - The user ran `--activity` against crates.io 0.1.0 and got an error: the README promised a flag only on main. Published 0.2.0 of all 5 crates; installed from crates.io and confirmed `--activity stroll` works.
 - GitHub repo was renamed to yam333/Clairlune (capital C); remote and manifests updated.
 
+## Rig v2 prototype (2026-11-19)
+- clawd.lua is now a rig: facing front/side, lift, crouch, lean, sit, 7 eye states, arms by hand position (Bresenham line), held items drawn as code (wand, racket, ski pole, walking stick, mug, chess piece), costumes (wizard hat, beanie, goggles, backpack, scarf), canvas per sheet, anchors including item_tip.
+- Default front pose still renders byte-identically (existing sheets unchanged).
+- Pose catalogue (_template_poses, 44x34): ski, coffee, hike, chess, tennis, wizard all read clearly at 6x.
+- Fixes found by looking: side-view raised arm hid the eye (shoulder moved to top+6, eye drawn last in profile); front-view arm reaching across the body is invisible (prefer side view for table activities, or outline the arm).
+
 ## Technical Decisions
 | Decision | Rationale |
 |----------|-----------|
