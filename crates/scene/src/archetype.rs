@@ -40,6 +40,8 @@ pub struct ArchetypeInfo {
     pub surface: &'static [&'static str],
     pub weather: &'static [&'static str],
     pub platforms: &'static [&'static str],
+    /// Open sky overhead (stars, moon). False for enclosed places such as caves.
+    pub sky: bool,
 }
 
 /// The nine v1 archetypes (PLAN.md section 4.2). Unimplemented ones carry their
@@ -52,6 +54,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 9] = [
         surface: &["rock"],
         weather: &["none"],
         platforms: &["rock_ledge"],
+        sky: true,
     },
     ArchetypeInfo {
         id: "forest",
@@ -60,6 +63,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 9] = [
         surface: &["grass", "wood"],
         weather: &["none", "fireflies", "leaves", "rain"],
         platforms: &["log", "tree_branch"],
+        sky: true,
     },
     ArchetypeInfo {
         id: "mountains",
@@ -68,22 +72,25 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 9] = [
         surface: &["rock", "snow"],
         weather: &["none", "snow", "stars"],
         platforms: &["rock_ledge"],
+        sky: true,
     },
     ArchetypeInfo {
         id: "shore",
-        implemented: false,
+        implemented: true,
         terrain: &["shore", "water", "flat"],
         surface: &["sand", "wood", "water"],
         weather: &["none", "rain", "stars"],
         platforms: &["pier"],
+        sky: true,
     },
     ArchetypeInfo {
         id: "city_rooftops",
-        implemented: false,
+        implemented: true,
         terrain: &["rooftop", "flat"],
         surface: &["roof"],
         weather: &["none", "rain", "stars", "confetti"],
         platforms: &["rooftop_edge"],
+        sky: true,
     },
     ArchetypeInfo {
         id: "desert",
@@ -92,6 +99,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 9] = [
         surface: &["sand"],
         weather: &["none", "dust", "stars"],
         platforms: &["dune_crest"],
+        sky: true,
     },
     ArchetypeInfo {
         id: "snowfield",
@@ -100,22 +108,25 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 9] = [
         surface: &["snow", "ice"],
         weather: &["none", "snow", "stars"],
         platforms: &["ice_shelf"],
+        sky: true,
     },
     ArchetypeInfo {
         id: "night_sky",
-        implemented: false,
+        implemented: true,
         terrain: &["ledge", "flat"],
         surface: &["rock", "grass"],
         weather: &["none", "stars"],
         platforms: &["floating_island", "rock_ledge"],
+        sky: true,
     },
     ArchetypeInfo {
         id: "cave",
-        implemented: false,
+        implemented: true,
         terrain: &["cave_floor", "ledge"],
         surface: &["rock"],
         weather: &["none", "dust"],
         platforms: &["rock_ledge"],
+        sky: false,
     },
 ];
 

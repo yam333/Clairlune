@@ -129,6 +129,9 @@ pub struct Requires {
     pub time_of_day: Vec<TimeOfDay>,
     #[serde(default)]
     pub weather: Vec<String>,
+    /// Needs open sky overhead (stargazing): rules out caves and interiors.
+    #[serde(default)]
+    pub sky: bool,
 }
 
 #[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -202,6 +205,7 @@ impl Activity {
     pub fn fits(&self, a: &ArchetypeInfo, enabled_weather: &[String]) -> bool {
         overlaps(&self.requires.terrain, a.terrain)
             && overlaps(&self.requires.surface, a.surface)
+            && (!self.requires.sky || a.sky)
             && !self.weathers_in(a, enabled_weather).is_empty()
     }
 

@@ -75,8 +75,9 @@ proptest! {
     }
 
     /// Switching theme re-renders the same scene: same layout, same ground and
-    /// sprite placement, and identical terrain below the horizon. (The sky
-    /// differs by design: stars at night, dust by day.)
+    /// sprite placement, and the same terrain shapes below the horizon. (The sky
+    /// differs by design: stars at night, dust by day; so do details that follow
+    /// the time of day, such as which city windows are lit.)
     #[test]
     fn theme_toggle_keeps_the_layout(seed in any::<u64>(), (w, h) in size()) {
         prop_assume!(!recipe(seed, w, h).is_theme_locked());
@@ -87,7 +88,10 @@ proptest! {
         prop_assert_eq!(dark.sprites_at(0), light.sprites_at(0));
         let ground_row = ((dark.ground_y as u32) - dark.grid.origin_y) / dark.grid.cell_h;
         let from = (ground_row * dark.grid.cols) as usize;
-        prop_assert_eq!(&dark.cells[from..], &light.cells[from..]);
+        let shape = |g: &SceneGraph| -> Vec<bool> {
+            g.cells[from..].iter().map(|c| c.glyph != 0).collect()
+        };
+        prop_assert_eq!(shape(&dark), shape(&light));
         prop_assert_eq!(dark.t_hero_ms, light.t_hero_ms);
     }
 }
