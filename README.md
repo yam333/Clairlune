@@ -4,6 +4,8 @@ Procedural, animated ASCII-art desktop wallpapers, written in Rust.
 
 Every wallpaper is generated locally from a seed: a landscape built from text glyphs, a small pixel-art buddy doing something in it, and a few animated details such as embers, snow or stars. Generation is deterministic, so the same seed gives the same picture on every computer. There is no AI and no network access at runtime.
 
+![Six generated wallpapers (seeds 1-6, dark theme)](docs/img/showcase.png)
+
 > **Unofficial fan project.** Not affiliated with or endorsed by Anthropic. Clawd is Anthropic's character.
 
 ## Status
