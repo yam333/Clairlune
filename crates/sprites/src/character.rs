@@ -3,10 +3,12 @@
 
 use crate::embedded::SHEETS;
 use crate::sheet::{Animation, Frame, MAX_CHARACTER_COLORS, ORIGIN, SpriteSheet};
+use clairlune_scene::Rgb;
 use clairlune_scene::activity::Catalog;
 use clairlune_scene::anim::DEFAULT_ONE_SHOT_MS;
 use clairlune_scene::placeholder::CLAWD_PLACEHOLDER;
 use std::collections::BTreeMap;
+use std::sync::OnceLock;
 
 /// Name of the sheet holding the shared base animations (idle, walk, reacts).
 pub const BASE_SHEET: &str = "_base";
@@ -120,6 +122,19 @@ impl SheetCharacter {
         }
     }
 
+    /// Every opaque colour the sheets use, in first-seen order (for the scene palette).
+    pub fn colors(&self) -> Vec<Rgb> {
+        let mut out: Vec<Rgb> = Vec::new();
+        for sheet in self.sheets.values() {
+            for c in &sheet.colors {
+                if !out.contains(c) {
+                    out.push(*c);
+                }
+            }
+        }
+        out
+    }
+
     pub fn has_sheet(&self, activity: &str) -> bool {
         self.sheets.contains_key(activity)
     }
@@ -171,6 +186,12 @@ impl Character for SheetCharacter {
             })
             .or_else(|| self.placeholder.animation(activity, state))
     }
+}
+
+/// The embedded art, parsed and validated once.
+pub fn builtin_character() -> &'static SheetCharacter {
+    static CHARACTER: OnceLock<SheetCharacter> = OnceLock::new();
+    CHARACTER.get_or_init(|| SheetCharacter::builtin().expect("embedded sheets are valid"))
 }
 
 #[cfg(test)]

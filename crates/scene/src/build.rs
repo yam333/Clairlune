@@ -472,6 +472,7 @@ fn canyon(
         theme: opts.theme,
         tod,
         buddy: opts.buddy,
+        seed: recipe.seed,
         family,
         grid,
         cells,

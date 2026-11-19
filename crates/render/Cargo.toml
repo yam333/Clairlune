@@ -14,6 +14,7 @@ categories = ["graphics", "multimedia::images", "rendering"]
 
 [dependencies]
 clairlune-scene.workspace = true
+clairlune-sprites.workspace = true
 skrifa.workspace = true
 png.workspace = true
 

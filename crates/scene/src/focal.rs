@@ -3,9 +3,9 @@
 //! archetype only supplies the ground line.
 
 use crate::activity::{Activity, MotionKind};
+use crate::graph::CHARACTER_BOX;
 use crate::graph::{CharacterTrack, Motion, SpriteInstance, SpriteKind};
 use crate::math::pm;
-use crate::placeholder::CLAWD_PLACEHOLDER;
 use crate::recipe::SceneRecipe;
 
 /// Character height as a fraction of the screen's short side (upper bound).
@@ -68,11 +68,11 @@ pub fn layout(
 ) -> FocalLayout {
     let comp = &recipe.composition;
     let wf = f64::from(w);
-    let scale = sprite_scale(w.min(h), CLAWD_PLACEHOLDER.height);
+    let scale = sprite_scale(w.min(h), CHARACTER_BOX.1);
     let s = scale as i32;
     let (cw, ch) = (
-        (CLAWD_PLACEHOLDER.width * scale) as i32,
-        (CLAWD_PLACEHOLDER.height * scale) as i32,
+        (CHARACTER_BOX.0 * scale) as i32,
+        (CHARACTER_BOX.1 * scale) as i32,
     );
     let gap = 3 * s;
     let (safe_l, safe_r) = ((SAFE_MARGIN * wf) as i32, ((1.0 - SAFE_MARGIN) * wf) as i32);

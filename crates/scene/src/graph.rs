@@ -16,6 +16,10 @@ pub const TARGET_ROWS: u32 = 108;
 pub const MIN_CELL_W: u32 = 6;
 pub const MIN_CELL_H: u32 = 11;
 
+/// The character's layout box in sprite pixels (assets/clawd/design/clawd.lua:
+/// a 15 px body with 2 px arms, 13 rows from the top edge to the feet).
+pub const CHARACTER_BOX: (u32, u32) = (19, 13);
+
 /// Number of background bands (vignette + glow, quantised).
 pub const BANDS: u8 = 8;
 /// Width of the ordered-dither zone around each band edge, in bands.
@@ -174,6 +178,15 @@ impl SpriteKind {
         SpriteKind::Lantern,
     ];
 
+    /// Layout box in sprite pixels. The character's box is the drawn art's
+    /// (body plus arms, feet included), not the placeholder's.
+    pub fn box_size(self) -> (u32, u32) {
+        match self {
+            SpriteKind::Character => CHARACTER_BOX,
+            other => (other.map().width, other.map().height),
+        }
+    }
+
     pub fn map(self) -> &'static PixelMap {
         match self {
             SpriteKind::Character => &CLAWD_PLACEHOLDER,
@@ -260,10 +273,10 @@ pub struct SpriteInstance {
 
 impl SpriteInstance {
     pub fn width(&self) -> u32 {
-        self.kind.map().width * self.scale
+        self.kind.box_size().0 * self.scale
     }
     pub fn height(&self) -> u32 {
-        self.kind.map().height * self.scale
+        self.kind.box_size().1 * self.scale
     }
 }
 
@@ -275,6 +288,8 @@ pub struct SceneGraph {
     pub theme: Theme,
     pub tod: TimeOfDay,
     pub buddy: bool,
+    /// The recipe seed (drives the character's state machine).
+    pub seed: u64,
     pub family: PaletteFamily,
     pub grid: GridSpec,
     /// Row-major, `grid.cols * grid.rows`.

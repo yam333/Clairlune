@@ -5,7 +5,11 @@
 use crate::IndexedImage;
 use crate::atlas::GlyphAtlas;
 use crate::palette::{IndexedPalette, LEVELS, ink_level};
-use clairlune_scene::{SceneGraph, SpriteInstance};
+use clairlune_scene::activity::builtin_catalog;
+use clairlune_scene::anim::state_at;
+use clairlune_scene::graph::CHARACTER_BOX;
+use clairlune_scene::{SceneGraph, SpriteInstance, SpriteKind};
+use clairlune_sprites::{Character, builtin_character};
 
 /// Composites one frame at `t_ms` over a baked background.
 pub fn render_frame(
@@ -20,6 +24,10 @@ pub fn render_frame(
         draw_particle(&mut img, graph, atlas, col, row, p.glyph, p.level);
     }
     for sprite in graph.sprites_at(t_ms) {
+        if sprite.kind == SpriteKind::Character {
+            draw_character(&mut img, graph, &sprite, palette, t_ms);
+            continue;
+        }
         draw_sprite(&mut img, &sprite, palette);
     }
     img
@@ -53,6 +61,64 @@ fn draw_particle(
             } else {
                 band
             };
+        }
+    }
+}
+
+/// Draws the character's animation frame for the activity state at `t`,
+/// aligned on the art's origin (feet row, body centre) inside its layout box,
+/// mirrored when it faces left. All character art comes through `Character`.
+fn draw_character(
+    img: &mut IndexedImage,
+    graph: &SceneGraph,
+    s: &SpriteInstance,
+    palette: &IndexedPalette,
+    t_ms: u64,
+) {
+    let character = builtin_character();
+    let activity = graph
+        .activity
+        .as_deref()
+        .and_then(|id| builtin_catalog().get(id));
+    let (anim, elapsed, looping) = match activity {
+        Some(a) => {
+            let st = state_at(a, graph.seed, t_ms, &|state| {
+                character.one_shot_ms(&a.id, state)
+            });
+            let looping = a.animation.states.get(&st.state).is_some_and(|d| d.looping);
+            (
+                character.animation(&a.id, &st.state),
+                t_ms - st.since_ms,
+                looping,
+            )
+        }
+        None => (character.animation("", "idle"), t_ms, true),
+    };
+    let Some(anim) = anim else { return };
+    let f = anim.frame_at(elapsed, looping);
+    let (ox, oy) = f.origin();
+    let sc = s.scale as i32;
+    // Origin pixel's top-left on screen: box centre column, box bottom row.
+    let x0 = s.x + (CHARACTER_BOX.0 as i32 / 2) * sc;
+    let y0 = s.y + (CHARACTER_BOX.1 as i32 - 1) * sc;
+    let (w, h) = (img.width as i32, img.height as i32);
+    for row in 0..f.height {
+        for col in 0..f.width {
+            let Some(rgb) = f.pixel(col, row) else {
+                continue;
+            };
+            let idx = palette
+                .sprite_index(rgb)
+                .expect("character colour in palette");
+            let dx = (col as i32 - ox) * if s.mirror { -1 } else { 1 };
+            let px = x0 + dx * sc;
+            let py = y0 + (row as i32 - oy) * sc;
+            for y in py.max(0)..(py + sc).min(h) {
+                let line = (y * w) as usize;
+                for x in px.max(0)..(px + sc).min(w) {
+                    img.pixels[line + x as usize] = idx;
+                }
+            }
         }
     }
 }
