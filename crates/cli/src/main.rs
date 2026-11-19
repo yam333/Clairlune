@@ -123,6 +123,9 @@ struct GenerateArgs {
     /// Force an activity (e.g. `stroll`). Lists the ids when unknown.
     #[arg(long, conflicts_with = "recipe")]
     activity: Option<String>,
+    /// Force a landscape (e.g. `mountains`). Lists the ids when unknown.
+    #[arg(long, conflicts_with = "recipe")]
+    archetype: Option<String>,
     /// Render without the character (the unattended variant).
     #[arg(long)]
     no_buddy: bool,
@@ -167,6 +170,24 @@ pub(crate) fn parse_size(s: &str) -> Result<(u32, u32), String> {
     Ok((w, h))
 }
 
+/// Limits composition to one landscape; errors list the ones that exist.
+pub(crate) fn restrict_archetype(ctx: &mut ContentContext, id: &str) -> Result<(), String> {
+    let ok = clairlune_scene::archetype::archetype(id).is_some_and(|a| a.implemented);
+    if !ok {
+        let ids: Vec<&str> = clairlune_scene::archetype::ARCHETYPE_INFO
+            .iter()
+            .filter(|a| a.implemented)
+            .map(|a| a.id)
+            .collect();
+        return Err(format!(
+            "unknown or unbuilt landscape `{id}`; available: {}",
+            ids.join(", ")
+        ));
+    }
+    ctx.enabled_archetypes = vec![id.to_string()];
+    Ok(())
+}
+
 /// A seed from OS entropy: `RandomState` keys come from the OS random source.
 pub(crate) fn random_seed() -> u64 {
     RandomState::new().hash_one(0x5EED_u64)
@@ -184,6 +205,9 @@ fn generate(args: GenerateArgs) -> Result<(), String> {
         None => {
             let seed = args.seed.unwrap_or_else(random_seed);
             let mut ctx = ContentContext::default();
+            if let Some(id) = &args.archetype {
+                restrict_archetype(&mut ctx, id)?;
+            }
             if let Some(id) = &args.activity {
                 let catalog = builtin_catalog();
                 if catalog.get(id).is_none() {

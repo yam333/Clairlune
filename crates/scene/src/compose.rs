@@ -310,6 +310,6 @@ mod tests {
         let r = compose(9, Aspect::from_size(16, 9), &ctx);
         assert_eq!(r.activity, None);
         assert!(r.props.is_empty());
-        assert_eq!(r.archetype, "canyon");
+        assert!(crate::terrain::PAINTED.contains(&r.archetype.as_str()));
     }
 }

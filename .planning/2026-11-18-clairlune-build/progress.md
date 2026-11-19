@@ -32,6 +32,12 @@
 
 - Phase 11 GIF export: clock.rs (Clock::Live/Loop, LoopScript, loop_track), gif_export.rs (global palette, changed-box sub-images, merged identical frames, dithered delays), CLI `gif`. Tests: decoded frames equal rendered frames for all 3 activities, no seam at 6/12 s, sizes ~100 KB at 960x540.
 
+- Phase 12c/d/f (2026-11-19): mountains, snowfield, desert. Generic layer painter (terrain/layers.rs) with
+  slope outlines, hatch, snow, plateaus, stamps; glyph families DISTANT/RIDGE/SNOW/SAND/FOLIAGE/WATER/ICE/EARTH
+  and glyphs `_ v ! &`. CLI `--archetype` on generate and contact-sheet. Activities gained dust/leaves/snow
+  weather where it fits. tests/coverage.rs (every landscape x theme, feet on platform, share of seeds).
+  Goldens: 7 seeds moved to new landscapes and were re-blessed; the 3 canyon seeds are byte-identical.
+
 ### Test Results
 | Test | Expected | Actual | Status |
 |------|----------|--------|--------|
