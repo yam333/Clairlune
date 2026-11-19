@@ -13,6 +13,7 @@ mod archive;
 mod icon;
 mod settings;
 mod timefmt;
+mod tokens;
 #[cfg(any(windows, target_os = "macos"))]
 mod tray;
 

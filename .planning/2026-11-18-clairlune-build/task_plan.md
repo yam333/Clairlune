@@ -160,7 +160,7 @@ Order: the app core first (usable in still mode with no UI), then the design wor
   - archive entry per apply (recipes per monitor, thumb, PNG) + index.json + retention sweep (age, size cap)
   - previous wallpaper from the archive; export current PNG to Pictures/Clairlune
   - rolling log file in `<data_dir>/logs/`, panic hook; single instance via an OS file lock (opening Settings from a second launch waits for the IPC in 14d)
-- [ ] 14b Design research to docs/design.md (moodboard, decisions, AI-made tells), design tokens module
+- [x] 14b docs/design.md (sources and why each works, AI-made tells, decisions, wireframes, states, review checklist); crates/app/src/tokens.rs with WCAG contrast tests. Fonts: IBM Plex Sans (UI) + JetBrains Mono (data); one accent, the ember orange
 - [ ] 14c egui-vs-Slint spike against PLAN.md 10a and 3.4 (tray + window opened and closed three times on one loop)
 - [ ] 14d Settings window (sidebar groups from PLAN.md 8), every state designed; start at login toggle
 - [ ] Frozen scene package (PLAN.md 9c): serialisable SceneGraph + background/sprite PNGs per theme; archive, library and timeline play from it, never from a GIF; test: a package saved by one generator version plays identically after GENERATOR_VERSION changes
