@@ -4,7 +4,10 @@
 
 use crate::palette::{PaletteFamily, Theme};
 use crate::particles::{Emitter, Particle};
-use crate::placeholder::{CAMPFIRE, CLAWD_PLACEHOLDER, LANTERN, LOG_SEAT, PixelMap, TELESCOPE};
+use crate::placeholder::{
+    CAMP_STOVE, CAMPFIRE, CLAWD_PLACEHOLDER, COFFEE_MUG, FALLEN_HAT, LANTERN, LOG_SEAT, PixelMap,
+    SPELLBOOK, TELESCOPE,
+};
 use crate::recipe::TimeOfDay;
 
 /// Advance width of the bundled monospace font (JetBrains Mono) per em.
@@ -166,16 +169,24 @@ pub enum SpriteKind {
     LogSeat,
     Telescope,
     Lantern,
+    Spellbook,
+    CampStove,
+    CoffeeMug,
+    FallenHat,
 }
 
 impl SpriteKind {
     /// Every kind, so palettes can reserve all sprite colours up front.
-    pub const ALL: [SpriteKind; 5] = [
+    pub const ALL: [SpriteKind; 9] = [
         SpriteKind::Character,
         SpriteKind::Campfire,
         SpriteKind::LogSeat,
         SpriteKind::Telescope,
         SpriteKind::Lantern,
+        SpriteKind::Spellbook,
+        SpriteKind::CampStove,
+        SpriteKind::CoffeeMug,
+        SpriteKind::FallenHat,
     ];
 
     /// Layout box in sprite pixels. The character's box is the drawn art's
@@ -194,6 +205,10 @@ impl SpriteKind {
             SpriteKind::LogSeat => &LOG_SEAT,
             SpriteKind::Telescope => &TELESCOPE,
             SpriteKind::Lantern => &LANTERN,
+            SpriteKind::Spellbook => &SPELLBOOK,
+            SpriteKind::CampStove => &CAMP_STOVE,
+            SpriteKind::CoffeeMug => &COFFEE_MUG,
+            SpriteKind::FallenHat => &FALLEN_HAT,
         }
     }
 }

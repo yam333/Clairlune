@@ -137,13 +137,106 @@ pub const LANTERN: PixelMap = PixelMap {
     colors: &[('M', METAL), ('Y', FIRE_YELLOW), ('W', FIRE_WHITE)],
 };
 
+const SPARK: Rgb = Rgb::hex(0xFFE9A0);
+const PAGE: Rgb = Rgb::hex(0xEEEAE0);
+const PAGE_LINE: Rgb = Rgb::hex(0xC8C2B0);
+const COVER: Rgb = Rgb::hex(0x7A2A4A);
+const WOOD: Rgb = Rgb::hex(0x7A5234);
+const WOOD_DARK: Rgb = Rgb::hex(0x4E3422);
+const STEEL: Rgb = Rgb::hex(0x5E6B7A);
+const STEEL_DARK: Rgb = Rgb::hex(0x3B4450);
+const HAT: Rgb = Rgb::hex(0x5B4B8A);
+const HAT_DARK: Rgb = Rgb::hex(0x413566);
+
+/// An open spellbook on a little stand, runes glowing (project art, CC BY 4.0).
+pub const SPELLBOOK: PixelMap = PixelMap {
+    width: 11,
+    height: 9,
+    rows: &[
+        "..s.....s..",
+        "....s.s....",
+        "PPPPP.PPPPP",
+        "PlllPBPlllP",
+        "PlllPBPlllP",
+        "RRRRRBRRRRR",
+        "....WWW....",
+        "....WWW....",
+        "...WWWWW...",
+    ],
+    colors: &[
+        ('s', SPARK),
+        ('P', PAGE),
+        ('l', PAGE_LINE),
+        ('B', WOOD_DARK),
+        ('R', COVER),
+        ('W', WOOD),
+    ],
+};
+
+/// A camp stove with a kettle on the flame (project art, CC BY 4.0).
+pub const CAMP_STOVE: PixelMap = PixelMap {
+    width: 9,
+    height: 8,
+    rows: &[
+        "...MM....",
+        "..M..M...",
+        ".KKKKKKS.",
+        ".KKKKKK.S",
+        ".KKKKKK..",
+        "OYOYOYO..",
+        "GGGGGGG..",
+        "G.G.G.G..",
+    ],
+    colors: &[
+        ('M', STEEL_DARK),
+        ('K', STEEL),
+        ('S', STEEL),
+        ('O', FIRE_ORANGE),
+        ('Y', FIRE_YELLOW),
+        ('G', METAL),
+    ],
+};
+
+/// A coffee mug left on the ground: the unattended variant (project art, CC BY 4.0).
+pub const COFFEE_MUG: PixelMap = PixelMap {
+    width: 5,
+    height: 4,
+    rows: &["WCCW.", "WWWWW", "WWWW.", "WWWW."],
+    colors: &[('W', PAGE), ('C', WOOD_DARK)],
+};
+
+/// A wizard hat and wand left on the ground: the unattended variant (project art, CC BY 4.0).
+pub const FALLEN_HAT: PixelMap = PixelMap {
+    width: 12,
+    height: 6,
+    rows: &[
+        "......PP....",
+        "....PPPPP...",
+        "..PPPPPPPPS.",
+        "DPPPPPPPPPP.",
+        "DDDDDDDDDDDD",
+        "www.wwwwwww.",
+    ],
+    colors: &[('P', HAT), ('D', HAT_DARK), ('S', SPARK), ('w', WOOD)],
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn maps_are_rectangular_and_fully_coloured() {
-        for map in [CLAWD_PLACEHOLDER, CAMPFIRE, LOG_SEAT, TELESCOPE, LANTERN] {
+        for map in [
+            CLAWD_PLACEHOLDER,
+            CAMPFIRE,
+            LOG_SEAT,
+            TELESCOPE,
+            LANTERN,
+            SPELLBOOK,
+            CAMP_STOVE,
+            COFFEE_MUG,
+            FALLEN_HAT,
+        ] {
             assert_eq!(map.rows.len() as u32, map.height);
             for row in map.rows {
                 assert_eq!(row.len() as u32, map.width);

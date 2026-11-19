@@ -160,6 +160,112 @@ pub fn hero_time(embers: &[Ember]) -> u64 {
     best.1
 }
 
+/// Particle presets attached to an anchor of the character (activity effects).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Preset {
+    /// Magic: sparks flying out from a point (a wand tip).
+    Sparkles,
+    /// Faint wisps rising from a point (a mug, a kettle).
+    Steam,
+}
+
+impl Preset {
+    pub fn from_id(id: &str) -> Option<Self> {
+        match id {
+            "sparkles" => Some(Preset::Sparkles),
+            "steam" => Some(Preset::Steam),
+            _ => None,
+        }
+    }
+}
+
+/// A preset particle: offset from its anchor in sprite pixels (y down), glyph, level 1-6.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PresetParticle {
+    pub dx: f64,
+    pub dy: f64,
+    pub glyph: u8,
+    pub level: u8,
+}
+
+/// Particles of a preset at time `t`. Seeded and periodic in [`LOOP_MS`], like the
+/// embers, so GIF loops stay seamless.
+pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64) -> Vec<PresetParticle> {
+    use crate::glyphs::id;
+    let (label, count, lives): (&str, u32, &[u32]) = match preset {
+        Preset::Sparkles => ("fx_sparkles", 9, &[1000, 1500, 2000]),
+        Preset::Steam => ("fx_steam", 5, &[2000, 3000]),
+    };
+    let mut rng = Rng::stream(seed, label);
+    let mut out = Vec::new();
+    for _ in 0..count {
+        let life = *rng.choose(lives);
+        let phase = rng.below(life);
+        let a = rng.unit();
+        let b = rng.unit();
+        let c = rng.unit();
+        let p = ((t_ms + u64::from(phase)) % u64::from(life)) as f64 / f64::from(life);
+        match preset {
+            Preset::Sparkles => {
+                // Out from the tip in a random direction, fading.
+                let ang = TAU * a;
+                let dist = (1.0 + 5.0 * b) * p;
+                let level = (6.0 * (1.0 - p)).round() as u8;
+                if level == 0 {
+                    continue;
+                }
+                let glyph = [id('*'), id('+'), id('\''), id('.')][((p * 4.0) as usize).min(3)];
+                out.push(PresetParticle {
+                    dx: dist * sin(ang + TAU / 4.0),
+                    dy: -dist * sin(ang) - 1.5 * p,
+                    glyph,
+                    level,
+                });
+            }
+            Preset::Steam => {
+                // Rising and swaying, faint.
+                let rise = (5.0 + 5.0 * b) * p;
+                let sway = 1.2 * sin(TAU * (p + c)) * p;
+                let level = (3.0 * (1.0 - p) + 0.5).round() as u8;
+                if level == 0 || p < 0.08 {
+                    continue;
+                }
+                let glyph = [id('\''), id('~'), id('`'), id('.')][((p * 4.0) as usize).min(3)];
+                out.push(PresetParticle {
+                    dx: sway + 0.5 * (a - 0.5),
+                    dy: -rise - 1.0,
+                    glyph,
+                    level,
+                });
+            }
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod preset_tests {
+    use super::*;
+
+    #[test]
+    fn presets_loop_and_vary() {
+        for preset in [Preset::Sparkles, Preset::Steam] {
+            assert_eq!(
+                preset_particles(preset, 3, 700),
+                preset_particles(preset, 3, 700 + LOOP_MS)
+            );
+            assert_ne!(
+                preset_particles(preset, 3, 700),
+                preset_particles(preset, 3, 1900)
+            );
+            assert!(
+                !preset_particles(preset, 3, 0).is_empty()
+                    || !preset_particles(preset, 3, 500).is_empty()
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
