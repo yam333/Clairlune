@@ -119,7 +119,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 
 ### Phase 12: M4 More archetypes & activities
 - [ ] Remaining 8 archetypes, platforms, props, weather, compatibility tables, constraint checks
-  - [ ] 12a Refactor `build` into `archetypes/` modules: shared pipeline (grid, focal, dome, sky, sprites, light, emitters) + per-archetype terrain and platform painters; canyon output byte-identical (goldens unchanged)
+  - [x] 12a Refactor `build` into `archetypes/` modules: shared pipeline (grid, focal, dome, sky, sprites, light, emitters) + per-archetype terrain and platform painters; canyon output byte-identical (goldens unchanged)
   - [ ] 12b Weather particles (snow, rain, fireflies, leaves, dust): screen-space, seeded, periodic in the loop; archetype + activity + user filters already decide which
   - [ ] 12c mountains   - [ ] 12d snowfield   - [ ] 12e forest   - [ ] 12f desert
   - [ ] 12g shore (water rows, pier)   - [ ] 12h city_rooftops (lit windows)   - [ ] 12i night_sky (moon, aurora)   - [ ] 12j cave (crystals)
