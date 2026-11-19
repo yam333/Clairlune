@@ -8,13 +8,16 @@ use std::path::{Path, PathBuf};
 use windows::Win32::System::Com::{
     CLSCTX_ALL, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx, CoTaskMemFree,
 };
+use windows::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
 use windows::Win32::UI::HiDpi::{
     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext,
 };
 use windows::Win32::UI::Shell::{
     DESKTOP_WALLPAPER_POSITION, DWPOS_FILL, DesktopWallpaper, FOLDERID_LocalAppData,
-    IDesktopWallpaper, KF_FLAG_DEFAULT, SHGetKnownFolderPath,
+    FOLDERID_Pictures, FOLDERID_RoamingAppData, IDesktopWallpaper, KF_FLAG_DEFAULT,
+    SHGetKnownFolderPath,
 };
+use windows::core::{GUID, w};
 use windows::core::{HSTRING, PWSTR};
 
 pub(crate) fn init_dpi_awareness() {
@@ -22,11 +25,43 @@ pub(crate) fn init_dpi_awareness() {
     let _ = unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
 }
 
-/// `%LOCALAPPDATA%`, asked of the shell rather than the environment.
-pub(crate) fn local_app_data() -> Option<PathBuf> {
-    let p = unsafe { SHGetKnownFolderPath(&FOLDERID_LocalAppData, KF_FLAG_DEFAULT, None) }.ok()?;
+/// A known folder, asked of the shell rather than the environment.
+fn known_folder(id: &GUID) -> Option<PathBuf> {
+    let p = unsafe { SHGetKnownFolderPath(id, KF_FLAG_DEFAULT, None) }.ok()?;
     let s = take_pwstr(p);
     (!s.is_empty()).then(|| PathBuf::from(s))
+}
+
+/// `%LOCALAPPDATA%`.
+pub(crate) fn local_app_data() -> Option<PathBuf> {
+    known_folder(&FOLDERID_LocalAppData)
+}
+
+/// `%APPDATA%` (roams with the profile: small settings only).
+pub(crate) fn roaming_app_data() -> Option<PathBuf> {
+    known_folder(&FOLDERID_RoamingAppData)
+}
+
+pub(crate) fn pictures() -> Option<PathBuf> {
+    known_folder(&FOLDERID_Pictures)
+}
+
+/// `AppsUseLightTheme` = 0 means dark. Missing (older Windows) means unknown.
+pub(crate) fn apps_use_dark_theme() -> Option<bool> {
+    let mut value: u32 = 0;
+    let mut size = std::mem::size_of::<u32>() as u32;
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
+            w!("AppsUseLightTheme"),
+            RRF_RT_REG_DWORD,
+            None,
+            Some(&mut value as *mut u32 as *mut core::ffi::c_void),
+            Some(&mut size),
+        )
+    };
+    status.is_ok().then_some(value == 0)
 }
 
 pub(crate) struct WindowsHost {
@@ -156,6 +191,16 @@ impl WallpaperHost for WindowsHost {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn known_folders_exist_and_theme_reads() {
+        for dir in [roaming_app_data(), pictures()] {
+            let dir = dir.expect("known folder");
+            assert!(dir.is_absolute(), "{}", dir.display());
+        }
+        // Present on Windows 10 1809+; either answer is fine.
+        let _ = apps_use_dark_theme();
+    }
 
     #[test]
     fn local_app_data_exists() {

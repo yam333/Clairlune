@@ -10,7 +10,7 @@ Every wallpaper is generated locally from a seed: a landscape built from text gl
 
 ## Status
 
-Early development. The generator and a developer CLI work today: nine landscapes (canyon, mountains, forest, desert, snowfield, shore, city rooftops, night sky, cave), seven activities for Clawd, weather, stills and seamless looping GIFs. On Windows the CLI can already set the wallpaper, one scene per monitor. The desktop app (tray, settings, schedule, live wallpapers) and the other systems come in later milestones; see [PLAN.md](PLAN.md).
+Early development. The generator and a developer CLI work today: nine landscapes (canyon, mountains, forest, desert, snowfield, shore, city rooftops, night sky, cave), seven activities for Clawd, weather, stills and seamless looping GIFs. On Windows the tray app already runs: a new wallpaper on a schedule, one scene per monitor, with an archive of past ones. The settings window, live (animated) wallpapers and the other systems come in later milestones; see [PLAN.md](PLAN.md).
 
 ## Try the generator
 
@@ -46,7 +46,15 @@ clairlune-cli contact-sheet --activity stroll --count 8 --out strolls.png
 clairlune-cli contact-sheet --archetype shore --count 6 --theme light --out shores.png
 ```
 
-## Set it as your wallpaper (Windows)
+## The tray app (Windows)
+
+```sh
+cargo run --release -p clairlune
+```
+
+A moon appears in the notification area. The app sets a new wallpaper at start and then every hour, one scene per monitor, and keeps the last week in an archive. Its menu has New wallpaper, Previous wallpaper, Theme (Follow system / Light / Dark), Pause schedule, Save current as PNG (to `Pictures\Clairlune`), Open archive folder, and Settings, which for now opens `%APPDATA%\clairlune\settings.toml`; edits there apply within seconds. Logs are in `%LOCALAPPDATA%\clairlune\logs`. Before its first change the app remembers your own wallpaper; `clairlune-cli restore` puts it back.
+
+## Set it as your wallpaper from the CLI (Windows)
 
 ```sh
 clairlune-cli monitors                 # ids, physical sizes, current wallpapers
@@ -55,7 +63,7 @@ clairlune-cli set --archetype shore --theme light
 clairlune-cli restore                  # put back the wallpaper you had before
 ```
 
-The primary monitor gets the seed you give; the others get seeds derived from it and their monitor id, so each screen has its own scene and the same seed always gives the same set. The first `set` remembers your current wallpaper (per monitor, and the fit mode) so `restore` can put it back. Stills are kept in `%LOCALAPPDATA%\Clairlune\current`, each under a new file name. macOS and Linux follow in this milestone.
+The primary monitor gets the seed you give; the others get seeds derived from it and their monitor id, so each screen has its own scene and the same seed always gives the same set. The first `set` remembers your current wallpaper (per monitor, and the fit mode) so `restore` can put it back. Stills are kept in `%LOCALAPPDATA%\clairlune\current`, each under a new file name. macOS and Linux follow in this milestone.
 
 ## Workspace
 
@@ -66,7 +74,7 @@ The primary monitor gets the seed you give; the others get seeds derived from it
 | `clairlune-render` (`crates/render`) | Glyph atlas, palette-index compositor, PNG export. |
 | `clairlune-platform` (`crates/platform`) | Monitors and setting the wallpaper (Windows today). |
 | `clairlune-cli` (`crates/cli`) | Developer tool. |
-| `clairlune` (`crates/app`) | The desktop app (placeholder until milestone M6). |
+| `clairlune` (`crates/app`) | The tray app: schedule, per-monitor scenes, archive, settings file. |
 
 ## Generated images
 

@@ -38,13 +38,13 @@ impl StillStore {
         Ok(StillStore { dir })
     }
 
-    /// The default store: `<local data dir>/Clairlune/current` (Local AppData on
+    /// The default store: `<local data dir>/clairlune/current` (Local AppData on
     /// Windows, so large regenerated images never roam with the profile).
     pub fn default_location() -> std::io::Result<Self> {
-        let base = crate::local_data_dir().ok_or_else(|| {
+        let base = crate::app_data_dir().ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::NotFound, "no data directory")
         })?;
-        Self::new(base.join(clairlune_scene::ident::APP_NAME).join("current"))
+        Self::new(base.join("current"))
     }
 
     pub fn dir(&self) -> &Path {
@@ -67,15 +67,23 @@ impl StillStore {
         std::path::absolute(&path)
     }
 
-    /// Saves the pre-Clairlune wallpaper, unless one is already saved: the
-    /// first takeover wins, so `restore` always returns to the user's own.
-    pub fn remember_original(&self, snapshot: &Snapshot) -> std::io::Result<bool> {
-        let path = self.dir.join(SNAPSHOT_FILE);
-        if path.exists() {
+    /// Saves the wallpaper `restore` returns to, unless it is Clairlune's own
+    /// (every monitor showing a still from this store). So the user's wallpaper
+    /// is remembered on the first takeover, and a wallpaper they pick later
+    /// replaces it, but Clairlune never remembers itself.
+    pub fn remember_if_users(&self, snapshot: &Snapshot) -> std::io::Result<bool> {
+        let ours = !snapshot.monitors.is_empty()
+            && snapshot
+                .monitors
+                .iter()
+                .all(|(_, p)| p.as_deref().is_some_and(|p| p.starts_with(&self.dir)));
+        if ours {
             return Ok(false);
         }
         let json = serde_json::to_string_pretty(snapshot).map_err(std::io::Error::other)?;
-        fs::write(path, json)?;
+        let tmp = self.dir.join(format!("{SNAPSHOT_FILE}.part"));
+        fs::write(&tmp, json)?;
+        fs::rename(tmp, self.dir.join(SNAPSHOT_FILE))?;
         Ok(true)
     }
 
@@ -168,7 +176,7 @@ mod tests {
     }
 
     #[test]
-    fn the_first_snapshot_is_kept() {
+    fn remembers_the_users_wallpaper_never_its_own() {
         let s = temp_store("snap");
         let original = Snapshot {
             monitors: vec![
@@ -178,12 +186,21 @@ mod tests {
             position: Some(4),
         };
         let ours = Snapshot {
-            monitors: vec![("m1".into(), Some(s.dir().join("x.png")))],
+            monitors: vec![
+                ("m1".into(), Some(s.dir().join("a.png"))),
+                ("m2".into(), Some(s.dir().join("b.png"))),
+            ],
             position: Some(4),
         };
-        assert!(s.remember_original(&original).unwrap());
-        assert!(!s.remember_original(&ours).unwrap());
+        let later = Snapshot {
+            monitors: vec![("m1".into(), Some(PathBuf::from(r"C:\pics\new.jpg")))],
+            position: Some(2),
+        };
+        assert!(s.remember_if_users(&original).unwrap());
+        assert!(!s.remember_if_users(&ours).unwrap());
         assert_eq!(s.original().unwrap(), Some(original));
+        assert!(s.remember_if_users(&later).unwrap());
+        assert_eq!(s.original().unwrap(), Some(later));
         s.forget_original().unwrap();
         assert_eq!(s.original().unwrap(), None);
         fs::remove_dir_all(s.dir()).unwrap();

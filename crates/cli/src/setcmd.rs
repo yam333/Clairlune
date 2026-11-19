@@ -103,10 +103,10 @@ pub fn set(args: SetArgs) -> Result<(), String> {
         restrict_activity(&mut ctx, id)?;
     }
     if !args.dry_run {
-        // The first takeover remembers the user's own wallpaper for `restore`.
+        // Remember the user's own wallpaper (not a Clairlune one) for `restore`.
         let snapshot = host.snapshot().map_err(|e| e.to_string())?;
         if store
-            .remember_original(&snapshot)
+            .remember_if_users(&snapshot)
             .map_err(|e| format!("saving the current wallpaper: {e}"))?
         {
             println!("saved your current wallpaper; `restore` puts it back");
