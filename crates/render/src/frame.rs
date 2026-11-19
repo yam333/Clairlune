@@ -37,7 +37,7 @@ pub fn render_frame_clocked(
     let mut img = background.clone();
     for (col, row, p) in graph.particles_at(t_ms) {
         draw_particle(
-            &mut img, graph, atlas, col, row, p.glyph, p.level, false, false,
+            &mut img, graph, atlas, col, row, p.glyph, p.level, p.ink, false,
         );
     }
     for sprite in graph.sprites_at(t_ms) {
