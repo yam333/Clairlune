@@ -153,7 +153,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - [x] Smoke-test batch mode: `aseprite -b --script` creates a sprite and saves a .aseprite file
 - [x] Write `scripts/aseprite/anchors.lua` (markers to per-frame slice keys in the export JSON)
 - [x] Lua generator `scripts/aseprite/build_sprite.lua` + design module `assets/clawd/design/clawd.lua`; sheets reviewed at 8x; rebuild is byte-reproducible
-- [ ] Next art: stroll (`wave`) and stargaze (`look_up`, `adjust`) sheets
+- [x] Next art: stroll (`wave`) and stargaze (`look_up`, `adjust`) sheets; every activity state now has drawn art
 - **Status:** in_progress
 
 ### Phase 21: Activity system at scale (user: Clawd skiing, making coffee, hiking, chess, tennis, wizard magic and many more, interacting with the scene)
