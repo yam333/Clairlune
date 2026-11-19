@@ -5,16 +5,15 @@
 //! sampling changes. Buddy is a render flag: it changes sprites, never cells.
 
 use crate::activity::{Activity, builtin_catalog};
-use crate::focal;
 use crate::glyphs::{self, EMPTY};
-use crate::graph::{Cell, Glow, GridSpec, Lighting, SceneGraph, grid_spec};
-use crate::hash::{hash_label, hash3, unit_from_hash};
-use crate::math::{clamp01, lerp, pm, pow, smoothstep};
-use crate::noise::{fbm1, fbm2, ridged1};
+use crate::graph::{Cell, Glow, Lighting, SceneGraph, grid_spec};
+use crate::hash::hash_label;
+use crate::math::pm;
 use crate::palette::{self, PaletteFamily, Theme};
 use crate::particles::{Emitter, EmitterKind, LOOP_MS, ember_set, hero_time};
 use crate::recipe::{GENERATOR_VERSION, SceneRecipe, TimeOfDay};
 use crate::rng::Rng;
+use crate::{focal, terrain};
 use std::fmt;
 
 /// Smallest supported output size.
@@ -96,81 +95,13 @@ pub fn build(recipe: &SceneRecipe, opts: &BuildOptions) -> Result<SceneGraph, Bu
         ),
         None => None,
     };
-    match recipe.archetype.as_str() {
-        "canyon" => Ok(canyon(recipe, activity, opts, tod, family)),
-        other => Err(BuildError::UnknownArchetype(other.to_string())),
+    if !terrain::PAINTED.contains(&recipe.archetype.as_str()) {
+        return Err(BuildError::UnknownArchetype(recipe.archetype.clone()));
     }
+    Ok(build_scene(recipe, activity, opts, tod, family))
 }
 
 pub use crate::focal::sprite_scale;
-
-/// Normalised cell-centre coordinates.
-struct Coords {
-    g: GridSpec,
-    w: f64,
-    h: f64,
-}
-
-impl Coords {
-    fn nx(&self, col: u32) -> f64 {
-        (f64::from(self.g.origin_x) + (f64::from(col) + 0.5) * f64::from(self.g.cell_w)) / self.w
-    }
-    fn ny(&self, row: u32) -> f64 {
-        (f64::from(self.g.origin_y) + (f64::from(row) + 0.5) * f64::from(self.g.cell_h)) / self.h
-    }
-    /// Column containing pixel x (may be outside the grid).
-    fn col_of(&self, px: f64) -> i64 {
-        ((px - f64::from(self.g.origin_x)) / f64::from(self.g.cell_w)).floor() as i64
-    }
-}
-
-/// One cliff layer of the canyon.
-struct CliffLayer {
-    left: &'static [u8],
-    right: &'static [u8],
-    center_top: f64,
-    edge_top: f64,
-    gap: f64,
-    rough: f64,
-    rough_freq: f64,
-    fx: f64,
-    fy: f64,
-    threshold: f64,
-    shade: f64,
-    seed: u64,
-}
-
-impl CliffLayer {
-    /// Silhouette top (normalised y) at normalised x.
-    fn top(&self, x: f64, center: f64, power: f64, aspect: f64) -> f64 {
-        let half = if x < center { center } else { 1.0 - center };
-        let d = ((x - center).abs() / half).min(1.0);
-        let s = clamp01((d - self.gap) / (1.0 - self.gap));
-        let shape = pow(smoothstep(0.0, 1.0, s), power);
-        let ridge = ridged1(self.seed, x * aspect * self.rough_freq, 4);
-        lerp(self.center_top, self.edge_top, shape) - self.rough * (ridge - 0.5)
-    }
-}
-
-fn shade_u8(s: f64) -> u8 {
-    (clamp01(s) * 255.0).round() as u8
-}
-
-/// Picks a glyph from a light-to-heavy family by density, with a seeded jitter of
-/// up to ±0.6 of a step so it doesn't band.
-fn family_glyph(
-    family: &[u8],
-    density: f64,
-    threshold: f64,
-    jitter_seed: u64,
-    col: u32,
-    row: u32,
-) -> u8 {
-    let n = family.len() as f64;
-    let jitter = (unit_from_hash(hash3(jitter_seed, i64::from(col), i64::from(row))) - 0.5) * 1.2;
-    let t = (density - threshold) / (1.0 - threshold) * n + jitter;
-    family[t.floor().clamp(0.0, n - 1.0) as usize]
-}
 
 fn tod_glow(tod: TimeOfDay) -> f64 {
     match tod {
@@ -183,9 +114,9 @@ fn tod_glow(tod: TimeOfDay) -> f64 {
     }
 }
 
-/// The canyon archetype: cliffs left and right, an open centre, and a rock ledge
-/// in the gap where the focal group stands. Ported from the prototype's description.
-fn canyon(
+/// The shared scene pipeline. The archetype only paints its background layers
+/// and its platform (`terrain`); everything else is the same for every scene.
+fn build_scene(
     recipe: &SceneRecipe,
     activity: Option<&Activity>,
     opts: &BuildOptions,
@@ -198,14 +129,8 @@ fn canyon(
     // Object sizes follow the short side; layout fractions follow width/height.
     let unit = wf.min(hf);
     let grid = grid_spec(w, h);
-    let co = Coords {
-        g: grid,
-        w: wf,
-        h: hf,
-    };
     let comp = &recipe.composition;
     let seed = recipe.seed;
-    let terrain = hash_label(seed, "terrain");
     let (cols, rows) = (grid.cols, grid.rows);
     let mut cells = vec![Cell::default(); (cols * rows) as usize];
 
@@ -217,95 +142,29 @@ fn canyon(
     let (gx0, gx1, group_h) = (focal.x0, focal.x1, focal.height);
     let group_cx = f64::from(gx0 + gx1) * 0.5;
 
-    // ---- Cliff layers, painted back to front. ----
-    let center = 0.5 + (group_cx / wf - 0.5) * 0.6;
-    let gap = pm(comp.gap_pm);
-    let power = pm(comp.shape_pow_pm);
-    let layers = [
-        CliffLayer {
-            left: &glyphs::FAR_LEFT,
-            right: &glyphs::FAR_RIGHT,
-            center_top: horizon + 0.05,
-            edge_top: (horizon - 0.40).max(0.10),
-            gap: gap * 0.40,
-            rough: 0.07,
-            rough_freq: 9.0,
-            fx: 46.0,
-            fy: 5.0,
-            threshold: 0.30,
-            shade: 0.35,
-            seed: hash_label(terrain, "far"),
+    let ctx = terrain::Ctx {
+        recipe,
+        co: terrain::Coords {
+            g: grid,
+            w: wf,
+            h: hf,
         },
-        CliffLayer {
-            left: &glyphs::MID_LEFT,
-            right: &glyphs::MID_RIGHT,
-            center_top: horizon + 0.22,
-            edge_top: (horizon - 0.48).max(0.07),
-            gap: gap * 0.90,
-            rough: 0.10,
-            rough_freq: 6.0,
-            fx: 34.0,
-            fy: 4.0,
-            threshold: 0.32,
-            shade: 0.60,
-            seed: hash_label(terrain, "mid"),
-        },
-        CliffLayer {
-            left: &glyphs::NEAR,
-            right: &glyphs::NEAR,
-            center_top: 1.20,
-            edge_top: 0.03,
-            gap: (gap * 1.6).min(0.9),
-            rough: 0.12,
-            rough_freq: 4.0,
-            fx: 22.0,
-            fy: 3.0,
-            threshold: 0.30,
-            shade: 0.90,
-            seed: hash_label(terrain, "near"),
-        },
-    ];
-    // Highest silhouette per column, for the sky pass.
-    let mut sky_limit = vec![f64::INFINITY; cols as usize];
-    let jitter_seed = hash_label(terrain, "jitter");
-    for layer in &layers {
-        for col in 0..cols {
-            let nx = co.nx(col);
-            let top = layer.top(nx, center, power, aspect);
-            sky_limit[col as usize] = sky_limit[col as usize].min(top);
-            let family = if nx < center { layer.left } else { layer.right };
-            for row in 0..rows {
-                let ny = co.ny(row);
-                if ny < top {
-                    continue;
-                }
-                let depth = ny - top;
-                let n = fbm2(layer.seed, nx * aspect * layer.fx, ny * layer.fy, 4);
-                let mut d = clamp01((n - 0.5) * 1.9 + 0.5);
-                d *= 0.80 + 0.20 * smoothstep(0.0, 0.10, depth);
-                if d < layer.threshold {
-                    continue; // hole: farther layers show through
-                }
-                let glyph = family_glyph(
-                    family,
-                    d,
-                    layer.threshold,
-                    jitter_seed ^ layer.seed,
-                    col,
-                    row,
-                );
-                let rows_below_top = depth * f64::from(rows);
-                let mut shade = layer.shade * (0.55 + 0.45 * (rows_below_top / 6.0).min(1.0));
-                if row > platform_row {
-                    shade *= 0.5; // ledges below the platform line recede
-                }
-                cells[(row * cols + col) as usize] = Cell {
-                    glyph,
-                    shade: shade_u8(shade),
-                };
-            }
-        }
-    }
+        aspect,
+        unit,
+        cols,
+        rows,
+        horizon,
+        platform_row,
+        terrain: hash_label(seed, "terrain"),
+        gx0,
+        gx1,
+        group_cx,
+        tod,
+    };
+    let co = &ctx.co;
+
+    // ---- The archetype's background layers, painted back to front. ----
+    let sky_limit = terrain::background(&recipe.archetype, &ctx, &mut cells);
 
     // ---- Breathing room: a dome over the focal group, cleared then dimmed. ----
     let dome_cx = (group_cx - f64::from(grid.origin_x)) / f64::from(grid.cell_w);
@@ -329,69 +188,8 @@ fn canyon(
         }
     }
 
-    // ---- Platform: a rock ledge rising from the bottom, widening downward. ----
-    let platform_seed = hash_label(terrain, "platform");
-    let margin_px = pm(comp.platform_margin_pm) * unit + 2.0 * f64::from(grid.cell_w);
-    let pc0 = co.col_of(f64::from(gx0) - margin_px);
-    let pc1 = co.col_of(f64::from(gx1) + margin_px);
-    let span_rows = f64::from(rows - platform_row);
-    for row in platform_row..rows {
-        let k = f64::from(row - platform_row);
-        let widen = if k < 3.0 {
-            0.6 * k
-        } else {
-            1.8 + 0.25 * (k - 3.0)
-        };
-        // Edge noise fades in over the first rows, so the top always spans the group.
-        let rough = 9.0 * (k / 3.0).min(1.0);
-        let el = (fbm1(hash_label(platform_seed, "left"), k * 0.22, 3) - 0.5) * rough;
-        let er = (fbm1(hash_label(platform_seed, "right"), k * 0.22, 3) - 0.5) * rough;
-        let c0 = (pc0 as f64 - widen - el).round() as i64;
-        let c1 = (pc1 as f64 + widen + er).round() as i64;
-        // One empty cell of separation so the ledge reads as its own object.
-        for c in [c0 - 1, c1 + 1] {
-            if (0..i64::from(cols)).contains(&c) {
-                cells[(row * cols + c as u32) as usize] = Cell::default();
-            }
-        }
-        let fade = smoothstep(0.0, 1.0, k / span_rows);
-        for c in c0.max(0)..=c1.min(i64::from(cols) - 1) {
-            let col = c as u32;
-            let idx = (row * cols + col) as usize;
-            if k == 0.0 {
-                cells[idx] = Cell {
-                    glyph: glyphs::PLATFORM_TOP,
-                    shade: shade_u8(0.85),
-                };
-                continue;
-            }
-            let n = fbm2(
-                platform_seed,
-                co.nx(col) * aspect * 9.0,
-                co.ny(row) * 38.0,
-                3,
-            );
-            // Biased toward the lighter end of the family so the ledge isn't a solid block.
-            let d = clamp01((n - 0.5) * 1.8 + 0.42);
-            let threshold = 0.20;
-            if d < threshold && k > 1.0 {
-                cells[idx] = Cell::default();
-                continue;
-            }
-            let glyph = family_glyph(
-                &glyphs::PLATFORM,
-                d.max(threshold),
-                threshold,
-                platform_seed,
-                col,
-                row,
-            );
-            cells[idx] = Cell {
-                glyph,
-                shade: shade_u8(lerp(0.80, 0.40, fade)),
-            };
-        }
-    }
+    // ---- The archetype's platform under the focal group. ----
+    terrain::platform(&recipe.archetype, &ctx, &mut cells);
 
     // ---- Sky: stars at night, faint dust by day. Normalised positions, so the
     // same stars appear at every resolution. ----
@@ -429,7 +227,7 @@ fn canyon(
         let bright = gi == set.len() - 1;
         cells[idx] = Cell {
             glyph: set[gi],
-            shade: shade_u8(if bright { hi } else { shade }),
+            shade: terrain::shade_u8(if bright { hi } else { shade }),
         };
     }
 
