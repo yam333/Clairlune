@@ -24,6 +24,7 @@ Options:
 | `--theme light\|dark` | Palette and time of day. |
 | `--size <W>x<H>` | Output size in pixels. |
 | `--out <path>` | Output PNG (indexed, at most 255 colours). |
+| `--activity <id>` | Force an activity: `warm_hands`, `stroll`, `stargaze` (night only). |
 | `--no-buddy` | Render the same scene without the character. |
 | `--recipe-out <path>` | Also write the scene recipe as JSON. |
 | `--time-ms <t>` | Render a specific animation time instead of the hero frame. |
@@ -33,6 +34,7 @@ Options:
 | Crate | Purpose |
 |---|---|
 | `clairlune-scene` (`crates/scene`) | Pure, deterministic: seed → recipe → scene graph. No I/O. |
+| `clairlune-sprites` (`crates/sprites`) | Aseprite sheet loader, anchors, the `Character` trait. |
 | `clairlune-render` (`crates/render`) | Glyph atlas, palette-index compositor, PNG export. |
 | `clairlune-cli` (`crates/cli`) | Developer tool. |
 | `clairlune` (`crates/app`) | The desktop app (placeholder until milestone M6). |

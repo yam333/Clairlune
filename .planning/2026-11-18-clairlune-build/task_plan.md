@@ -4,7 +4,7 @@
 Implement PLAN.md milestone by milestone. This session delivers M1 (headless deterministic generator + `clairlune-cli generate` that writes an indexed PNG), with tests and CI, and prepares the crates for crates.io. The user granted full access (no more approval stops), so publishing is part of this session.
 
 ## Next Step
-CI is green on 1687ca0. Phase 11 (M3): render through `Character` (10h) plus GIF export with a global palette, one sub-image per frame, delay dithering and loop scripts.
+Phase 18: release 0.2.0 (the user hit `--activity` missing in the published 0.1.0 CLI). Then Phase 19, Phase 20, then Phase 11 (M3): render through `Character` (10h) plus GIF export with a global palette, one sub-image per frame, delay dithering and loop scripts.
 
 ## Current Phase
 Phase 10 (Phase 9 waits on the user's art)
@@ -128,6 +128,22 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 
 ### Phase 17: M8 Polish & packaging
 - [ ] Span mode, sunrise/sunset, cargo-packager installers, notarization, art-source CI check
+- **Status:** pending
+
+### Phase 18: Release 0.2.0 so crates.io matches main
+- [ ] Bump workspace to 0.2.0 (internal dep versions too), add `--activity` to the CLI README
+- [ ] Tests + dry run, `cargo publish --workspace` (adds clairlune-sprites)
+- [ ] Verify `cargo install clairlune-cli` then `--activity stroll` works from crates.io
+- **Status:** pending
+
+### Phase 19: Trademark check and minimum OS versions (PLAN.md 14, 15.2.1)
+- [ ] Search "Clairlune" in USPTO and EUIPO (and similar marks); record results with dates in findings.md and docs/
+- [ ] Decide minimum OS versions with reasons; record in docs/platform-support.md and PLAN.md section 14
+- **Status:** pending
+
+### Phase 20: Scripted Aseprite art (user installs Aseprite; Claude drives it)
+- [ ] Research: Aseprite Lua API (sprites, layers, frames, tags, per-frame slice keys) and whether an Aseprite MCP server exists
+- [ ] Write Lua generators that draw the template, base animations and the first activity from scratch, run via the Aseprite CLI, export, review the PNGs
 - **Status:** pending
 
 ## Decisions Made
