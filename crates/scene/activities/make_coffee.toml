@@ -1,0 +1,37 @@
+# Coffee from a camp stove, mug steaming.
+id = "make_coffee"
+weight = 1.0
+
+[requires]
+terrain = ["ledge", "flat", "shore", "rooftop"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk"]
+weather = ["none", "snow"]
+
+[motion]
+type = "stationary"
+
+[props.camp_stove]
+attach = "either_side"
+
+[animation]
+start = "hold"
+
+[animation.states.hold]
+loop = true
+dwell_s = [3, 7]
+next = { sip = 1.0 }
+
+[animation.states.sip]
+next = { hold = 1.0 }
+
+[[effects]]
+type = "particles"
+preset = "steam"
+at = "item_tip"
+states = ["hold"]
+
+[gif]
+loop_script = ["hold", "sip"]
+
+[unattended]
+props = ["coffee_mug"]

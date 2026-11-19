@@ -26,7 +26,7 @@ Options:
 | `--theme light\|dark` | Palette and time of day. |
 | `--size <W>x<H>` | Output size in pixels. |
 | `--out <path>` | Output PNG (indexed, at most 255 colours). |
-| `--activity <id>` | Force an activity: `warm_hands`, `stroll`, `stargaze` (night only). |
+| `--activity <id>` | Force an activity: `warm_hands`, `stroll`, `stargaze` (night only), `wizard_magic`, `make_coffee`. |
 | `--no-buddy` | Render the same scene without the character. |
 | `--recipe-out <path>` | Also write the scene recipe as JSON. |
 | `--time-ms <t>` | Render a specific animation time instead of the hero frame. |

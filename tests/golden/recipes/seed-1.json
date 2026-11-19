@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "8f25f3c54f16a05b",
-  "activity": "stargaze",
+  "content_ctx_hash": "3f14b34b43cdd9e1",
+  "activity": "wizard_magic",
   "archetype": "canyon",
-  "light_tod": null,
-  "dark_tod": "night",
+  "light_tod": "noon",
+  "dark_tod": "dusk",
   "platform": "rock_ledge",
   "props": [
-    "telescope"
+    "spellbook"
   ],
   "weather": "none",
   "composition": {

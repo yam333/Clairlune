@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "8f25f3c54f16a05b",
-  "activity": "stroll",
+  "content_ctx_hash": "3f14b34b43cdd9e1",
+  "activity": "stargaze",
   "archetype": "canyon",
-  "light_tod": "morning",
-  "dark_tod": "deep_dusk",
+  "light_tod": null,
+  "dark_tod": "night",
   "platform": "rock_ledge",
   "props": [
-    "lantern"
+    "telescope"
   ],
   "weather": "none",
   "composition": {
@@ -23,8 +23,8 @@
     "platform_margin_pm": 28,
     "cliff_layers": 3,
     "prop_left": true,
-    "motion_speed_cc": 361,
-    "pace_half_pm": 122
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "sand_day",

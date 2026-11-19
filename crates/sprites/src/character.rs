@@ -169,6 +169,22 @@ impl SheetCharacter {
                     ));
                 }
             }
+            // Every frame an effect runs on must carry the effect's anchor.
+            for e in &a.effects {
+                for state in a.animation.states.keys().filter(|s| e.active_in(s)) {
+                    let Some(anim) = self.animation(&a.id, state) else {
+                        continue;
+                    };
+                    for (i, f) in anim.frames.iter().enumerate() {
+                        if !f.anchors.contains_key(&e.at) {
+                            errors.push(format!(
+                                "{}: effect `{}` needs anchor `{}`, missing on `{state}` frame {i}",
+                                a.id, e.preset, e.at
+                            ));
+                        }
+                    }
+                }
+            }
         }
         errors
     }

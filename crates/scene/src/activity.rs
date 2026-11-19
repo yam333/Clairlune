@@ -33,12 +33,20 @@ pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "i
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 3] = [
+const SOURCES: [(&str, &str); 5] = [
+    (
+        "make_coffee.toml",
+        include_str!("../activities/make_coffee.toml"),
+    ),
     ("stargaze.toml", include_str!("../activities/stargaze.toml")),
     ("stroll.toml", include_str!("../activities/stroll.toml")),
     (
         "warm_hands.toml",
         include_str!("../activities/warm_hands.toml"),
+    ),
+    (
+        "wizard_magic.toml",
+        include_str!("../activities/wizard_magic.toml"),
     ),
 ];
 
