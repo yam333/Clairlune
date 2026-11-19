@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/scene", "crates/sprites", "crates/render", "crates/cli", "crates/app", "tests"]
 
 [workspace.package]
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 rust-version = "1.90"
 license = "MIT OR Apache-2.0"
@@ -13,9 +13,9 @@ repository = "https://github.com/yam333/Clairlune"
 
 [workspace.dependencies]
 # Our own crates. The version is required so `cargo publish` can resolve them.
-clairlune-scene = { path = "crates/scene", version = "0.4.0" }
-clairlune-render = { path = "crates/render", version = "0.4.0" }
-clairlune-sprites = { path = "crates/sprites", version = "0.4.0" }
+clairlune-scene = { path = "crates/scene", version = "0.5.0" }
+clairlune-render = { path = "crates/render", version = "0.5.0" }
+clairlune-sprites = { path = "crates/sprites", version = "0.5.0" }
 
 # Determinism-critical: pinned exactly. Bumping any of these can change pixels,
 # so a bump must re-bless the golden images and bump GENERATOR_VERSION if output changes.
