@@ -1,0 +1,34 @@
+# Reading by lantern light in the evening.
+id = "read_lantern"
+weight = 1.0
+
+[requires]
+terrain = ["ledge", "flat", "rooftop", "shore"]
+time_of_day = ["golden_hour", "dusk", "deep_dusk", "night"]
+weather = ["none", "stars", "snow", "fireflies"]
+
+[motion]
+type = "stationary"
+
+[props.lantern]
+attach = "either_side"
+
+[animation]
+start = "read"
+
+[animation.states.read]
+loop = true
+dwell_s = [5, 10]
+next = { turn_page = 0.7, look_up = 0.3 }
+
+[animation.states.turn_page]
+next = { read = 1.0 }
+
+[animation.states.look_up]
+next = { read = 1.0 }
+
+[gif]
+loop_script = ["read", "turn_page"]
+
+[unattended]
+props = ["book_closed"]

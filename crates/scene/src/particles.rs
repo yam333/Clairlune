@@ -167,6 +167,8 @@ pub enum Preset {
     Sparkles,
     /// Faint wisps rising from a point (a mug, a kettle).
     Steam,
+    /// Music notes floating up and sideways (a guitar).
+    Notes,
 }
 
 impl Preset {
@@ -174,6 +176,7 @@ impl Preset {
         match id {
             "sparkles" => Some(Preset::Sparkles),
             "steam" => Some(Preset::Steam),
+            "notes" => Some(Preset::Notes),
             _ => None,
         }
     }
@@ -195,6 +198,7 @@ pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64) -> Vec<PresetParti
     let (label, count, lives): (&str, u32, &[u32]) = match preset {
         Preset::Sparkles => ("fx_sparkles", 9, &[1000, 1500, 2000]),
         Preset::Steam => ("fx_steam", 5, &[2000, 3000]),
+        Preset::Notes => ("fx_notes", 4, &[1500, 2000, 3000]),
     };
     let mut rng = Rng::stream(seed, label);
     let mut out = Vec::new();
@@ -238,6 +242,21 @@ pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64) -> Vec<PresetParti
                     level,
                 });
             }
+            Preset::Notes => {
+                // Up and out to one side, swaying, fading.
+                let side = if a < 0.5 { -1.0 } else { 1.0 };
+                let rise = (6.0 + 5.0 * b) * p;
+                let level = (5.0 * (1.0 - p) + 0.5).round() as u8;
+                if level == 0 {
+                    continue;
+                }
+                out.push(PresetParticle {
+                    dx: side * (1.0 + 3.0 * p) + 0.8 * sin(TAU * (2.0 * p + c)),
+                    dy: -rise - 1.0,
+                    glyph: crate::glyphs::NOTES[(b * 2.0) as usize % 2],
+                    level,
+                });
+            }
         }
     }
     out
@@ -249,7 +268,7 @@ mod preset_tests {
 
     #[test]
     fn presets_loop_and_vary() {
-        for preset in [Preset::Sparkles, Preset::Steam] {
+        for preset in [Preset::Sparkles, Preset::Steam, Preset::Notes] {
             assert_eq!(
                 preset_particles(preset, 3, 700),
                 preset_particles(preset, 3, 700 + LOOP_MS)

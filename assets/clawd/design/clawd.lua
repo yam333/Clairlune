@@ -143,6 +143,29 @@ function ITEMS.mug(c, x, y)
   c.px(x, y - 2, P.wood_dark) -- coffee
   return { x, y - 3 }
 end
+function ITEMS.book(c, x, y)
+  -- An open book held at the hand: a red cover framing two pages, a dark
+  -- spine, a short line of text on each page (lines, not dots, so it never
+  -- reads as a face).
+  c.rect(x - 4, y - 2, 9, 4, P.red)
+  c.rect(x - 3, y - 2, 3, 3, P.white)
+  c.rect(x + 1, y - 2, 3, 3, P.white)
+  c.rect(x, y - 2, 1, 4, P.red_dark)
+  c.rect(x - 3, y - 1, 2, 1, { 0xC8, 0xC2, 0xB0 })
+  c.rect(x + 2, y - 1, 2, 1, { 0xC8, 0xC2, 0xB0 })
+  return { x, y - 3 }
+end
+function ITEMS.guitar(c, x, y, deg)
+  -- Body at the strumming hand, neck toward `deg`, headstock at the end.
+  local nx, ny = along(x, y, deg, 9)
+  line(c, x, y, nx, ny, P.wood_dark)
+  c.rect(nx - 1, ny - 1, 2, 2, P.ink)
+  c.rect(x - 2, y - 1, 5, 4, P.wood)
+  c.rect(x - 1, y - 2, 3, 1, P.wood)
+  c.rect(x - 1, y + 3, 3, 1, P.wood)
+  c.px(x, y, P.ink) -- sound hole
+  return { x, y - 3 }
+end
 function ITEMS.chess_piece(c, x, y)
   c.px(x, y - 3, P.ink)
   c.rect(x - 1, y - 2, 3, 1, P.ink)
