@@ -142,6 +142,7 @@ pub fn init_dpi_awareness() {
 
 /// Sorts monitors primary first, then left to right, top to bottom, so the
 /// order is the same on every run.
+#[cfg_attr(not(windows), allow(dead_code))] // used by the Windows host for now
 pub(crate) fn sort_monitors(monitors: &mut [Monitor]) {
     monitors.sort_by_key(|m| (!m.primary, m.x, m.y));
 }
