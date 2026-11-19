@@ -55,7 +55,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 9] = [
     },
     ArchetypeInfo {
         id: "forest",
-        implemented: false,
+        implemented: true,
         terrain: &["flat", "ledge"],
         surface: &["grass", "wood"],
         weather: &["none", "fireflies", "leaves", "rain"],

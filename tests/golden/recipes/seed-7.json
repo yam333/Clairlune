@@ -7,10 +7,10 @@
   },
   "content_ctx_hash": "cb4759852c0e3fe3",
   "activity": "stroll",
-  "archetype": "canyon",
+  "archetype": "snowfield",
   "light_tod": "noon",
   "dark_tod": "night",
-  "platform": "rock_ledge",
+  "platform": "ice_shelf",
   "props": [
     "lantern"
   ],

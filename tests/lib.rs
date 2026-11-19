@@ -11,6 +11,32 @@ pub const GOLDEN_W: u32 = 640;
 pub const GOLDEN_H: u32 = 360;
 /// The ten fixed golden seeds.
 pub const GOLDEN_SEEDS: [u64; 10] = [1, 2, 3, 7, 42, 99, 1234, 31337, 271_828, 9_000_000_001];
+/// The seed of the per-landscape goldens (one scene per implemented archetype).
+pub const LANDSCAPE_SEED: u64 = 11;
+
+/// Golden cases: the fixed seeds, then one scene per implemented landscape so
+/// each archetype is pinned across OSes whatever the seeds happen to pick.
+pub fn golden_cases() -> Vec<(String, SceneRecipe)> {
+    let aspect = Aspect::from_size(GOLDEN_W, GOLDEN_H);
+    let mut cases: Vec<(String, SceneRecipe)> = GOLDEN_SEEDS
+        .iter()
+        .map(|&seed| (format!("seed-{seed}"), recipe(seed, GOLDEN_W, GOLDEN_H)))
+        .collect();
+    for a in clairlune_scene::archetype::ARCHETYPE_INFO
+        .iter()
+        .filter(|a| a.implemented)
+    {
+        let ctx = ContentContext {
+            enabled_archetypes: vec![a.id.to_string()],
+            ..ContentContext::default()
+        };
+        cases.push((
+            format!("land-{}", a.id),
+            compose(LANDSCAPE_SEED, aspect, &ctx),
+        ));
+    }
+    cases
+}
 
 /// `tests/golden/` in the repository.
 pub fn golden_dir() -> PathBuf {
@@ -44,17 +70,21 @@ pub fn still(seed: u64, w: u32, h: u32, theme: Theme, buddy: bool) -> Still {
 /// Like [`still`], but `None` when the scene has no variant for `theme`
 /// (theme-locked, e.g. a night-only activity in the light theme).
 pub fn still_opt(seed: u64, w: u32, h: u32, theme: Theme, buddy: bool) -> Option<Still> {
-    let r = recipe(seed, w, h);
+    still_of(&recipe(seed, w, h), w, h, theme, buddy)
+}
+
+/// Renders a recipe's still, or `None` when it is theme-locked away from `theme`.
+pub fn still_of(r: &SceneRecipe, w: u32, h: u32, theme: Theme, buddy: bool) -> Option<Still> {
     let opts = BuildOptions {
         width: w,
         height: h,
         theme,
         buddy,
     };
-    match render_still(&r, &opts, None) {
+    match render_still(r, &opts, None) {
         Ok(s) => Some(s),
         Err(BuildError::ThemeLocked(_)) => None,
-        Err(e) => panic!("seed {seed}: {e}"),
+        Err(e) => panic!("seed {}: {e}", r.seed),
     }
 }
 

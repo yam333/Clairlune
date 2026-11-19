@@ -121,7 +121,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - [ ] Remaining 8 archetypes, platforms, props, weather, compatibility tables, constraint checks
   - [x] 12a Refactor `build` into `archetypes/` modules: shared pipeline (grid, focal, dome, sky, sprites, light, emitters) + per-archetype terrain and platform painters; canyon output byte-identical (goldens unchanged)
   - [x] 12b Weather particles (snow, rain, fireflies, leaves, dust): screen-space, seeded, periodic in the loop; archetype + activity + user filters already decide which
-  - [x] 12c mountains   - [x] 12d snowfield   - [ ] 12e forest   - [x] 12f desert
+  - [x] 12c mountains   - [x] 12d snowfield   - [x] 12e forest   - [x] 12f desert
     (shared `terrain/layers.rs`: silhouette layers with sub-row outlines `_ - .` for gentle
     curves, `/ \ ^ |` for steep ones, slope-following hatch, snow caps, mesa plateaus,
     occluding holes, text stamps such as pines; ledge styles ICE and DUNE)
