@@ -408,6 +408,8 @@ props = ["ski_tracks", "skis_in_snow"]
 
 **Scaling to many activities** (skiing, coffee, hiking, chess, tennis, wizard magic and more): the art comes from a character rig (poses, held items, costumes), interaction from a fixed library of effect types (particles at anchors, trails, projectiles, set-piece animations, lights, ground marks, scene hooks), and places from capabilities plus set pieces. Delivered in content waves. See `docs/activity-system.md`.
 
+**Scrolling scenes (journeys):** the camera travels along a periodic world (hiking a ridge, a train ride, a balloon flight) and loops seamlessly: every parallax layer is a strip that wraps around and moves a whole number of its own widths per loop. See `docs/scrolling-scenes.md`.
+
 **Starter activity list.** Build these incrementally; the list is open-ended:
 
 | Group | Activities |

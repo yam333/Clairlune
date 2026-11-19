@@ -112,6 +112,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - [ ] Activity Wave D: `projectile` (tennis, skipping stones, snowballs)
 - [ ] Activity Wave E: `fly`/`bob` (broom flight, kite, balloon, rowing)
 - [ ] Activity Wave F: `interior` archetype with a window view (coffee counter, chess indoors, coding, wizard's study)
+- [ ] Wave J, journeys (docs/scrolling-scenes.md): periodic noise (done: noise::*_periodic, exact-repeat tests), periodic layer builder for `mountains`, `journey` motion with feet on the near layer, integer-pixel layer offsets with whole periods per loop, CPU composition; first journey: hiking a ridge. GPU layer grids with wrap addressing in M7
 - **Status:** pending
 
 ### Phase 13: M5 Static wallpaper on all OSes
@@ -187,6 +188,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 | Clawd art is written as Lua (design files) and built into .aseprite by script | Reviewable drawing history in git; byte-reproducible rebuilds; can still be hand-edited in Aseprite |
 | Activities scale through a rig + effect library + set pieces, delivered in waves (docs/activity-system.md) | Hand-made frames per activity don't scale; each wave adds one engine capability and a batch of activities |
 | Saved wallpapers (archive, library, timeline) are frozen scene packages; GIF is export-only | GIFs loop and can't change theme or Buddy; recipes alone break when the generator changes (v2 recipes already fail on v3). See PLAN.md 9c |
+| Scrolling scenes loop by making every layer periodic and moving whole periods per loop | Seamless with no fade, finite memory, deterministic integer offsets (docs/scrolling-scenes.md) |
 | Theme-locked golden entries are recorded as `locked` in hashes.txt | Night-only stargaze seeds have no light image; the manifest still pins that they stay locked |
 | Golden tolerance is 0 differing pixels | The generator is designed to be byte-identical everywhere, so any difference is a real change. |
 
