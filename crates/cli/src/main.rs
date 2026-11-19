@@ -1,5 +1,7 @@
 //! `clairlune-cli`: developer tool for rendering scenes without the desktop app.
 
+mod contact;
+
 use clairlune_render::{render_still, save_png};
 use clairlune_scene::activity::builtin_catalog;
 use clairlune_scene::{
@@ -27,6 +29,8 @@ struct Cli {
 enum Command {
     /// Compose a scene from a seed (or load a recipe) and render a still PNG.
     Generate(GenerateArgs),
+    /// Render many seeds as small tiles in one image, to check variety at a glance.
+    ContactSheet(contact::ContactArgs),
 }
 
 #[derive(Args)]
@@ -60,7 +64,7 @@ struct GenerateArgs {
 }
 
 #[derive(Clone, Copy, ValueEnum)]
-enum ThemeArg {
+pub(crate) enum ThemeArg {
     Light,
     Dark,
 }
@@ -74,7 +78,7 @@ impl From<ThemeArg> for Theme {
     }
 }
 
-fn parse_size(s: &str) -> Result<(u32, u32), String> {
+pub(crate) fn parse_size(s: &str) -> Result<(u32, u32), String> {
     let (w, h) = s
         .split_once(['x', 'X'])
         .ok_or_else(|| format!("expected WIDTHxHEIGHT, got `{s}`"))?;
@@ -199,6 +203,7 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
     let result = match cli.command {
         Command::Generate(args) => generate(args),
+        Command::ContactSheet(args) => contact::contact_sheet(args),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

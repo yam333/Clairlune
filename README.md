@@ -29,6 +29,13 @@ Options:
 | `--recipe-out <path>` | Also write the scene recipe as JSON. |
 | `--time-ms <t>` | Render a specific animation time instead of the hero frame. |
 
+To check variety, render many seeds into one grid:
+
+```sh
+clairlune-cli contact-sheet --count 12 --theme dark --out sheet.png
+clairlune-cli contact-sheet --activity stroll --count 8 --out strolls.png
+```
+
 ## Workspace
 
 | Crate | Purpose |

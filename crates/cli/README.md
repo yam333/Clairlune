@@ -19,6 +19,13 @@ clairlune-cli generate --seed 7 --theme dark --size 3840x2160 --out wallpaper.pn
 | `--recipe-out <path>` | Also write the recipe as JSON. |
 | `--time-ms <t>` | Render a given animation time instead of the hero frame. |
 
+To check variety, render many seeds into one grid:
+
+```sh
+clairlune-cli contact-sheet --count 12 --theme dark --out sheet.png
+clairlune-cli contact-sheet --activity stroll --count 8 --out strolls.png
+```
+
 The same seed, size and theme always produce the same file, on any OS.
 
 > Unofficial fan project. Not affiliated with or endorsed by Anthropic. Clawd is Anthropic's character. With the buddy on, images contain fan art of Clawd; `--no-buddy` images contain only this project's own content.
