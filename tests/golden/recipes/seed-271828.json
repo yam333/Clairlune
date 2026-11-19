@@ -7,14 +7,14 @@
   },
   "content_ctx_hash": "cb4759852c0e3fe3",
   "activity": "play_guitar",
-  "archetype": "mountains",
+  "archetype": "canyon",
   "light_tod": "golden_hour",
   "dark_tod": "dusk",
   "platform": "rock_ledge",
   "props": [
     "campfire"
   ],
-  "weather": "stars",
+  "weather": "none",
   "composition": {
     "horizon_pm": 641,
     "focus_x_pm": 650,

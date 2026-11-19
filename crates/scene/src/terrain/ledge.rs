@@ -71,6 +71,19 @@ pub(crate) const DUNE: LedgeStyle = LedgeStyle {
     freq: (3.0, 45.0),
 };
 
+/// The forest's grassy bank: earth under a fringe of grass.
+pub(crate) const GRASS: LedgeStyle = LedgeStyle {
+    family: &glyphs::EARTH,
+    top: glyphs::id('"'),
+    top_shade: 0.85,
+    shade: (0.7, 0.35),
+    threshold: 0.25,
+    bias: 0.42,
+    widen: (0.8, 2.4, 0.5),
+    roughness: 6.0,
+    freq: (8.0, 30.0),
+};
+
 pub(crate) fn paint(ctx: &Ctx, cells: &mut [Cell], style: &LedgeStyle) {
     let co = &ctx.co;
     let comp = &ctx.recipe.composition;

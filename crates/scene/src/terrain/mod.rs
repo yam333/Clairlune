@@ -8,6 +8,7 @@
 
 pub(crate) mod canyon;
 pub(crate) mod desert;
+pub(crate) mod forest;
 pub(crate) mod layers;
 pub(crate) mod ledge;
 pub(crate) mod mountains;
@@ -20,7 +21,7 @@ use crate::recipe::{SceneRecipe, TimeOfDay};
 
 /// Archetypes this generator version can paint. Must match the `implemented`
 /// flags in `archetype::ARCHETYPE_INFO` (checked by a test).
-pub const PAINTED: [&str; 4] = ["canyon", "mountains", "desert", "snowfield"];
+pub const PAINTED: [&str; 5] = ["canyon", "mountains", "desert", "snowfield", "forest"];
 
 /// Normalised cell-centre coordinates.
 pub(crate) struct Coords {
@@ -100,6 +101,7 @@ pub(crate) fn background(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Vec<
         "mountains" => mountains::background(ctx, cells),
         "desert" => desert::background(ctx, cells),
         "snowfield" => snowfield::background(ctx, cells),
+        "forest" => forest::background(ctx, cells),
         other => unreachable!("archetype `{other}` is not painted"),
     }
 }
@@ -110,6 +112,7 @@ fn ledge_style(archetype: &str) -> &'static ledge::LedgeStyle {
         "canyon" | "mountains" => &ledge::ROCK,
         "desert" => &ledge::DUNE,
         "snowfield" => &ledge::ICE,
+        "forest" => &ledge::GRASS,
         other => unreachable!("archetype `{other}` is not painted"),
     }
 }

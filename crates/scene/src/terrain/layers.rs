@@ -179,7 +179,7 @@ pub(crate) fn paint(ctx: &Ctx, cells: &mut [Cell], layers: &[Layer]) -> Vec<f64>
 }
 
 /// Writes one cell if it is on screen, dimmed below the platform line.
-fn put(ctx: &Ctx, cells: &mut [Cell], col: i64, row: i64, glyph: u8, shade: f64) {
+pub(crate) fn put(ctx: &Ctx, cells: &mut [Cell], col: i64, row: i64, glyph: u8, shade: f64) {
     if col < 0 || row < 0 || col >= i64::from(ctx.cols) || row >= i64::from(ctx.rows) {
         return;
     }

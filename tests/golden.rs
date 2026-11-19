@@ -1,4 +1,5 @@
-//! Golden images: 10 fixed seeds x 2 themes at 640x360.
+//! Golden images at 640x360, both themes: 10 fixed seeds, plus one scene per
+//! implemented landscape (`land-<id>`).
 //!
 //! Two checks per image:
 //! 1. its hash matches `golden/hashes.txt` (byte-identical output; this is the
@@ -12,8 +13,8 @@
 use clairlune_render::encode_png;
 use clairlune_scene::Theme;
 use clairlune_tests::{
-    GOLDEN_H, GOLDEN_SEEDS, GOLDEN_W, blessing, decode_indexed_png, golden_dir, image_hash,
-    still_opt,
+    GOLDEN_H, GOLDEN_W, blessing, decode_indexed_png, golden_cases, golden_dir, image_hash,
+    still_of,
 };
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -53,10 +54,11 @@ fn golden_images() {
         "# name hash (FNV-1a of size + palette + pixels). Regenerate with CLAIRLUNE_BLESS=1.\n",
     );
     let mut failures = Vec::new();
-    for &seed in &GOLDEN_SEEDS {
+    let cases = golden_cases();
+    for (prefix, recipe) in &cases {
         for theme in [Theme::Dark, Theme::Light] {
-            let name = format!("seed-{seed}-{}", theme.as_str());
-            let Some(s) = still_opt(seed, GOLDEN_W, GOLDEN_H, theme, true) else {
+            let name = format!("{prefix}-{}", theme.as_str());
+            let Some(s) = still_of(recipe, GOLDEN_W, GOLDEN_H, theme, true) else {
                 // Theme-locked: the scene has no variant for this theme.
                 writeln!(manifest, "{name} locked").unwrap();
                 if !blessing() && expected.get(&name).map(String::as_str) != Some("locked") {
@@ -120,7 +122,7 @@ fn golden_images() {
         std::fs::write(&manifest_path, manifest).unwrap();
         eprintln!(
             "blessed {} golden images in {}",
-            GOLDEN_SEEDS.len() * 2,
+            cases.len() * 2,
             dir.display()
         );
         return;

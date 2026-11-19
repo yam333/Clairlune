@@ -7,10 +7,10 @@
   },
   "content_ctx_hash": "cb4759852c0e3fe3",
   "activity": "warm_hands",
-  "archetype": "desert",
+  "archetype": "mountains",
   "light_tod": "noon",
   "dark_tod": "dusk",
-  "platform": "dune_crest",
+  "platform": "rock_ledge",
   "props": [
     "campfire"
   ],
