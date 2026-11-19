@@ -20,7 +20,7 @@ pub mod palette;
 pub use atlas::GlyphAtlas;
 pub use bake::bake_static;
 pub use encode::{encode_png, save_png, to_rgba};
-pub use frame::render_frame;
+pub use frame::{hero_time, render_frame};
 pub use palette::IndexedPalette;
 
 use clairlune_scene::{BuildError, BuildOptions, SceneGraph, SceneRecipe, build};
@@ -63,7 +63,7 @@ pub fn render_still(
     let atlas = GlyphAtlas::for_grid(&graph.grid);
     let palette = IndexedPalette::new(&graph.family);
     let background = bake_static(&graph, &atlas);
-    let t = t_ms.unwrap_or(graph.t_hero_ms);
+    let t = t_ms.unwrap_or_else(|| hero_time(&graph));
     let image = render_frame(&background, &graph, &atlas, &palette, t);
     Ok(Still {
         image,

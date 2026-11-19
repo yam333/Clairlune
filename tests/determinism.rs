@@ -94,6 +94,34 @@ fn hero_frame_is_the_default_still() {
         buddy: true,
     };
     let default = render_still(&r, &opts, None).unwrap();
-    let explicit = render_still(&r, &opts, Some(default.graph.t_hero_ms)).unwrap();
+    let explicit =
+        render_still(&r, &opts, Some(clairlune_render::hero_time(&default.graph))).unwrap();
     assert_eq!(default.image, explicit.image);
+}
+
+/// Stills show the start state's first frame (never a blink or a mid-gesture).
+#[test]
+fn stills_show_the_start_pose() {
+    use clairlune_scene::activity::builtin_catalog;
+    use clairlune_scene::anim::state_at;
+    use clairlune_sprites::{Character, builtin_character};
+    let character = builtin_character();
+    for seed in 0..40 {
+        let r = recipe(seed, 640, 360);
+        let opts = BuildOptions {
+            width: 640,
+            height: 360,
+            theme: Theme::Dark,
+            buddy: true,
+        };
+        let graph = build(&r, &opts).unwrap();
+        let a = builtin_catalog()
+            .get(graph.activity.as_deref().unwrap())
+            .unwrap();
+        let t = clairlune_render::hero_time(&graph);
+        let st = state_at(a, seed, t, &|s| character.one_shot_ms(&a.id, s));
+        assert_eq!(st.state, a.animation.start, "seed {seed}");
+        let anim = character.animation(&a.id, &st.state).unwrap();
+        assert_eq!(anim.frame_index_at(t - st.since_ms, true), 0, "seed {seed}");
+    }
 }

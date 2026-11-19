@@ -178,7 +178,8 @@ fn generate(args: GenerateArgs) -> Result<(), String> {
     );
     println!(
         "  frame     t = {} ms (hero {} ms)",
-        still.t_ms, still.graph.t_hero_ms
+        still.t_ms,
+        clairlune_render::hero_time(&still.graph)
     );
     println!("  palette   {} colours", still.palette.len());
     println!(

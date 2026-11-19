@@ -219,6 +219,7 @@ version = "0.3.0"
 dependencies = [
  "clairlune-render",
  "clairlune-scene",
+ "clairlune-sprites",
  "png",
  "proptest",
 ]
