@@ -43,6 +43,14 @@
   `requires.sky`. Goldens gained `land-<id>` per landscape. Bug found and fixed while building the forest:
   `unit_from_hash(k >> n)` reads the high bits, so shifted hashes gave values near 0; use salted hashes.
 
+- Release 0.6.0 published (nine landscapes); verified with cargo install.
+- Phase 13 (M5, Windows): clairlune-platform (WallpaperHost, StillStore, snapshot/restore, known folders,
+  system theme); CLI monitors/set/restore; dirs dropped for its MPL dependency. Verified on 2 monitors.
+- Phase 14a (M6 core): the tray app runs on Windows: settings.toml (live reload), schedule, worker thread,
+  per-monitor apply, archive + retention, previous, export, follow-system theme, logs, single instance.
+  The user's wallpaper is remembered before the first change (never Clairlune's own). Verified live, then
+  restored the user's wallpaper and removed the test data.
+
 ### Test Results
 | Test | Expected | Actual | Status |
 |------|----------|--------|--------|

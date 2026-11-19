@@ -125,6 +125,61 @@ pub fn local_data_dir() -> Option<PathBuf> {
     }
 }
 
+/// The per-user configuration directory: Roaming AppData on Windows,
+/// `~/Library/Application Support` on macOS, `$XDG_CONFIG_HOME` (or
+/// `~/.config`) elsewhere.
+pub fn config_dir() -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        windows::roaming_app_data()
+    }
+    #[cfg(target_os = "macos")]
+    {
+        home_dir().map(|h| h.join("Library").join("Application Support"))
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .filter(|p| p.is_absolute())
+            .or_else(|| home_dir().map(|h| h.join(".config")))
+    }
+}
+
+/// The user's Pictures folder (exports go to `Pictures/Clairlune`).
+pub fn pictures_dir() -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        windows::pictures()
+    }
+    #[cfg(unix)]
+    {
+        home_dir().map(|h| h.join("Pictures"))
+    }
+}
+
+/// Clairlune's data directory (stills, archive, logs): `<local data>/clairlune`.
+pub fn app_data_dir() -> Option<PathBuf> {
+    local_data_dir().map(|d| d.join(clairlune_scene::ident::APP_ID))
+}
+
+/// Clairlune's configuration directory: `<config>/clairlune`.
+pub fn app_config_dir() -> Option<PathBuf> {
+    config_dir().map(|d| d.join(clairlune_scene::ident::APP_ID))
+}
+
+/// Whether the system asks apps for a dark appearance, when that is known.
+pub fn system_prefers_dark() -> Option<bool> {
+    #[cfg(windows)]
+    {
+        windows::apps_use_dark_theme()
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
 #[cfg(unix)]
 fn home_dir() -> Option<PathBuf> {
     std::env::var_os("HOME")

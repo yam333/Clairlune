@@ -19,6 +19,9 @@ allow = [
     "0BSD",
     "Unicode-3.0",
     "OFL-1.1",
+    # ISC is MIT-equivalent; libloading (winit's Linux backends load X11 and
+    # Wayland at runtime through it).
+    "ISC",
 ]
 confidence-threshold = 0.9
 

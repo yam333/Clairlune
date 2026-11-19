@@ -148,8 +148,21 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - **Status:** pending
 
 ### Phase 14: M6 App shell
-- [ ] Design research to docs/design.md, tokens, mockups, egui-vs-Slint spike
-- [ ] Single event loop, tray, settings, scheduler, themes, archive + retention, exports, start at login
+Order: the app core first (usable in still mode with no UI), then the design work, then the UI.
+- [x] 14a App core (crates/app), Windows first (verified live: set on 2 monitors, archive, logs, second launch refused, restore):
+  - settings.toml model (serde, defaults from PLAN.md 8, unknown keys tolerated) in `<config_dir>/clairlune/`
+  - one winit 0.30 event loop; tray-icon + muda menu (New wallpaper now, Theme, Previous, Save current PNG,
+    Open archive folder, Pause schedule, Settings (interim: open settings.toml), Quit); tray icon is a pixel moon,
+    not Clawd (the app's own mark must not borrow Anthropic's character)
+  - scheduler (change every N minutes, change at login) with ControlFlow::WaitUntil; generation on a worker
+    thread, results back as user events
+  - apply = per-monitor compose + render + StillStore + set_static; theme Follow system via dark-light
+  - archive entry per apply (recipes per monitor, thumb, PNG) + index.json + retention sweep (age, size cap)
+  - previous wallpaper from the archive; export current PNG to Pictures/Clairlune
+  - rolling log file in `<data_dir>/logs/`, panic hook; single instance via an OS file lock (opening Settings from a second launch waits for the IPC in 14d)
+- [ ] 14b Design research to docs/design.md (moodboard, decisions, AI-made tells), design tokens module
+- [ ] 14c egui-vs-Slint spike against PLAN.md 10a and 3.4 (tray + window opened and closed three times on one loop)
+- [ ] 14d Settings window (sidebar groups from PLAN.md 8), every state designed; start at login toggle
 - [ ] Frozen scene package (PLAN.md 9c): serialisable SceneGraph + background/sprite PNGs per theme; archive, library and timeline play from it, never from a GIF; test: a package saved by one generator version plays identically after GENERATOR_VERSION changes
 - **Status:** pending
 

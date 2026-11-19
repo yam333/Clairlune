@@ -16,7 +16,7 @@ Decided 2026-11-19 (resolves PLAN.md section 14, question 1).
 | macOS | next | `NSWorkspace.setDesktopImageURL` per screen, re-applied on Space changes. |
 | Linux | next | GNOME (`picture-uri` + `picture-uri-dark`), KDE (Plasma script), XFCE, Cinnamon, MATE; wlroots via our own layer-shell still surface. |
 
-Stills live in the local data directory (`%LOCALAPPDATA%\Clairlune\current` on Windows), each under a new file name because some systems don't reload a changed file at the same path. Old stills for a monitor are deleted after the new one is set.
+Stills live in the local data directory (`%LOCALAPPDATA%\clairlune\current` on Windows), each under a new file name because some systems don't reload a changed file at the same path. Old stills for a monitor are deleted after the new one is set.
 
 ## Why these minimums
 
