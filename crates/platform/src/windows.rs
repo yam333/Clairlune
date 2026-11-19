@@ -5,10 +5,14 @@
 
 use crate::{Capabilities, Monitor, PlatformError, Snapshot, WallpaperHost, sort_monitors};
 use std::path::{Path, PathBuf};
+use windows::Win32::Foundation::ERROR_FILE_NOT_FOUND;
 use windows::Win32::System::Com::{
     CLSCTX_ALL, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx, CoTaskMemFree,
 };
-use windows::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
+use windows::Win32::System::Registry::{
+    HKEY_CURRENT_USER, REG_SZ, RRF_RT_REG_DWORD, RRF_RT_REG_SZ, RegDeleteKeyValueW, RegGetValueW,
+    RegSetKeyValueW,
+};
 use windows::Win32::UI::HiDpi::{
     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext,
 };
@@ -47,6 +51,77 @@ pub(crate) fn pictures() -> Option<PathBuf> {
 }
 
 /// `AppsUseLightTheme` = 0 means dark. Missing (older Windows) means unknown.
+/// The per-user list of programs started at login.
+const RUN_KEY: windows::core::PCWSTR = w!(r"Software\Microsoft\Windows\CurrentVersion\Run");
+
+fn run_value_name() -> HSTRING {
+    HSTRING::from(clairlune_scene::APP_NAME)
+}
+
+/// The command registered to start at login, if any.
+pub(crate) fn start_at_login_command() -> Option<String> {
+    let name = run_value_name();
+    let mut size = 0u32;
+    let first = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            RUN_KEY,
+            &name,
+            RRF_RT_REG_SZ,
+            None,
+            None,
+            Some(&mut size),
+        )
+    };
+    if first.is_err() || size < 2 {
+        return None;
+    }
+    let mut buf = vec![0u16; (size as usize).div_ceil(2)];
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            RUN_KEY,
+            &name,
+            RRF_RT_REG_SZ,
+            None,
+            Some(buf.as_mut_ptr() as *mut core::ffi::c_void),
+            Some(&mut size),
+        )
+    };
+    if status.is_err() {
+        return None;
+    }
+    let end = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
+    Some(String::from_utf16_lossy(&buf[..end]))
+}
+
+/// Registers (or with `None` removes) the command started at login.
+pub(crate) fn set_start_at_login_command(command: Option<&str>) -> Result<(), PlatformError> {
+    let name = run_value_name();
+    let status = match command {
+        Some(cmd) => {
+            let wide: Vec<u16> = cmd.encode_utf16().chain([0]).collect();
+            unsafe {
+                RegSetKeyValueW(
+                    HKEY_CURRENT_USER,
+                    RUN_KEY,
+                    &name,
+                    REG_SZ.0,
+                    Some(wide.as_ptr() as *const core::ffi::c_void),
+                    (wide.len() * 2) as u32,
+                )
+            }
+        }
+        None => match unsafe { RegDeleteKeyValueW(HKEY_CURRENT_USER, RUN_KEY, &name) } {
+            e if e == ERROR_FILE_NOT_FOUND => return Ok(()),
+            e => e,
+        },
+    };
+    status
+        .ok()
+        .map_err(|e| PlatformError::Os(format!("start at login: {}", e.message())))
+}
+
 pub(crate) fn apps_use_dark_theme() -> Option<bool> {
     let mut value: u32 = 0;
     let mut size = std::mem::size_of::<u32>() as u32;
@@ -200,6 +275,12 @@ mod tests {
         }
         // Present on Windows 10 1809+; either answer is fine.
         let _ = apps_use_dark_theme();
+    }
+
+    #[test]
+    fn reads_the_login_items_without_changing_them() {
+        // Read-only: whatever is registered (often nothing) must read cleanly.
+        let _ = start_at_login_command();
     }
 
     #[test]

@@ -127,7 +127,6 @@ impl Settings {
     }
 
     /// Saves atomically (write a temporary file, then rename over).
-    #[cfg_attr(not(any(windows, target_os = "macos")), allow(dead_code))] // tray-only until the Linux tray lands
     pub fn save(&self, path: &Path) -> std::io::Result<()> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;

@@ -1,6 +1,6 @@
 //! The Settings window's content: a sidebar of sections (PLAN.md section 8),
 //! the current wallpaper as a status strip above every page, and rows of
-//! name, one-line description and control (docs/design.md sections 3-4).
+//! name, one-line description and control (docs/design.md sections 3-5).
 
 use super::style::{self, c, colors};
 use crate::settings::{Settings, ThemeMode};
@@ -49,7 +49,7 @@ impl Section {
     }
 }
 
-/// What the app shows about the wallpaper on screen.
+/// What the app shows about the wallpaper on screen and its own state.
 #[derive(Clone, Debug, Default)]
 pub struct Status {
     /// e.g. "stroll in cave".
@@ -59,6 +59,10 @@ pub struct Status {
     /// Minutes until the next scheduled change.
     pub next_in_minutes: Option<u64>,
     pub busy: bool,
+    /// Registered to start at login; `None` where this build can't manage it.
+    pub start_at_login: Option<bool>,
+    /// A one-line result to show under the status (export done, an error).
+    pub note: Option<String>,
 }
 
 /// Requests from the window to the app.
@@ -68,11 +72,17 @@ pub enum UiAction {
     NewWallpaper,
     Previous,
     OpenArchive,
+    OpenLogs,
+    SavePng,
+    SetStartAtLogin(bool),
+    RestoreWallpaper,
 }
 
 pub struct ViewState {
     pub section: Section,
     pub thumb: Option<egui::TextureHandle>,
+    /// The moon mark for empty states.
+    pub moon: Option<egui::TextureHandle>,
 }
 
 const INTERVALS: [(u32, &str); 8] = [
@@ -85,6 +95,39 @@ const INTERVALS: [(u32, &str); 8] = [
     (1440, "1 day"),
     (0, "Only on demand"),
 ];
+
+const LANDSCAPES: [(&str, &str); 9] = [
+    ("canyon", "Canyon"),
+    ("mountains", "Mountains"),
+    ("forest", "Forest"),
+    ("desert", "Desert"),
+    ("snowfield", "Snowfield"),
+    ("shore", "Shore"),
+    ("city_rooftops", "City rooftops"),
+    ("night_sky", "Night sky"),
+    ("cave", "Cave"),
+];
+
+const ACTIVITIES: [(&str, &str); 7] = [
+    ("warm_hands", "Warming hands by a fire"),
+    ("stroll", "Strolling"),
+    ("stargaze", "Stargazing (night only)"),
+    ("wizard_magic", "Casting spells"),
+    ("make_coffee", "Making coffee"),
+    ("read_lantern", "Reading by a lantern"),
+    ("play_guitar", "Playing guitar"),
+];
+
+/// Weather that shows as particles. Clear weather ("none", "stars") is
+/// always allowed so every scene has something to fall back to.
+const WEATHER: [(&str, &str); 5] = [
+    ("snow", "Snow"),
+    ("rain", "Rain"),
+    ("fireflies", "Fireflies"),
+    ("leaves", "Falling leaves"),
+    ("dust", "Dust"),
+];
+const CLEAR_WEATHER: [&str; 2] = ["none", "stars"];
 
 pub fn show(
     ui: &mut Ui,
@@ -115,7 +158,7 @@ pub fn show(
                 ui.set_max_width(size::PAGE_MAX);
                 status_strip(ui, theme, st, status, actions);
                 ui.add_space(space::S6);
-                page(ui, theme, st.section, settings, actions);
+                page(ui, theme, st.section, settings, status, actions);
             });
         });
 }
@@ -129,6 +172,7 @@ fn sidebar(ui: &mut Ui, theme: Theme, st: &mut ViewState) {
             vec2(ui.available_width(), size::CONTROL + 4.0),
             Sense::click(),
         );
+        resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Tab, true, selected, s.name()));
         if resp.hovered() && !selected {
             ui.painter()
                 .rect_filled(rect, radius::CONTROL, c(t.bg).gamma_multiply(0.6));
@@ -152,12 +196,7 @@ fn sidebar(ui: &mut Ui, theme: Theme, st: &mut ViewState) {
             color,
         );
         if resp.has_focus() {
-            ui.painter().rect_stroke(
-                rect.expand(1.0),
-                radius::CONTROL,
-                Stroke::new(size::FOCUS_RING, c(t.accent)),
-                egui::StrokeKind::Outside,
-            );
+            focus_ring(ui, theme, rect, radius::CONTROL);
         }
         if resp.clicked() {
             st.section = s;
@@ -172,8 +211,17 @@ fn sidebar(ui: &mut Ui, theme: Theme, st: &mut ViewState) {
     });
 }
 
+fn focus_ring(ui: &Ui, theme: Theme, rect: Rect, r: f32) {
+    ui.painter().rect_stroke(
+        rect.expand(size::FOCUS_OFFSET),
+        r + size::FOCUS_OFFSET,
+        Stroke::new(size::FOCUS_RING, c(colors(theme).accent)),
+        egui::StrokeKind::Outside,
+    );
+}
+
 /// The wallpaper on screen, its seed and theme, the next change, and the two
-/// actions people reach for most.
+/// actions people reach for most. With no wallpaper yet: the moon mark.
 fn status_strip(
     ui: &mut Ui,
     theme: Theme,
@@ -201,6 +249,15 @@ fn status_strip(
             None => {
                 ui.painter()
                     .rect_filled(rect, radius::PANEL, c(t.bg_raised));
+                if let Some(moon) = &st.moon {
+                    let m = Rect::from_center_size(rect.center(), vec2(48.0, 48.0));
+                    // Ivory reads on warm black; on paper it needs ink.
+                    let tint = match theme {
+                        Theme::Dark => egui::Color32::WHITE,
+                        Theme::Light => c(t.text_secondary),
+                    };
+                    egui::Image::new(moon).tint(tint).paint_at(ui, m);
+                }
             }
         }
         ui.painter().rect_stroke(
@@ -252,6 +309,10 @@ fn status_strip(
                     }
                 });
             });
+            if let Some(note) = &status.note {
+                ui.add_space(space::S1);
+                ui.label(RichText::new(note).color(c(t.text_secondary)));
+            }
         });
     });
 }
@@ -283,9 +344,20 @@ fn heading(ui: &mut Ui, theme: Theme, title: &str) {
     let t = colors(theme);
     ui.label(RichText::new(title).font(style::title()));
     ui.add_space(space::S2);
-    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 1.0), Sense::hover());
-    ui.painter().rect_filled(rect, 0.0, c(t.hairline));
+    hairline(ui, t.hairline);
     ui.add_space(space::S3);
+}
+
+fn hairline(ui: &mut Ui, color: crate::tokens::Rgb) {
+    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 1.0), Sense::hover());
+    ui.painter().rect_filled(rect, 0.0, c(color));
+}
+
+/// A group label inside a page.
+fn group(ui: &mut Ui, title: &str) {
+    ui.add_space(space::S2);
+    ui.label(RichText::new(title).font(style::section()));
+    ui.add_space(space::S1);
 }
 
 /// One setting: name and control on the first line, description under it.
@@ -309,16 +381,24 @@ fn toggle(ui: &mut Ui, theme: Theme, on: &mut bool, label: &str) -> egui::Respon
     }
     resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, true, *on, label));
     let k = ui.ctx().animate_bool_responsive(resp.id, *on);
+    let enabled = ui.is_enabled();
     let (fill, stroke) = if *on {
         (c(t.accent), c(t.accent))
     } else {
         (c(t.bg_raised), c(t.border_control))
     };
+    let fade = |col: egui::Color32| {
+        if enabled {
+            col
+        } else {
+            col.gamma_multiply(0.4)
+        }
+    };
     ui.painter().rect(
         rect,
         10.0,
-        fill,
-        Stroke::new(1.0, stroke),
+        fade(fill),
+        Stroke::new(1.0, fade(stroke)),
         egui::StrokeKind::Inside,
     );
     let x = egui::lerp(rect.left() + 10.0..=rect.right() - 10.0, k);
@@ -328,36 +408,32 @@ fn toggle(ui: &mut Ui, theme: Theme, on: &mut bool, label: &str) -> egui::Respon
         c(t.border_control)
     };
     ui.painter()
-        .circle_filled(egui::pos2(x, rect.center().y), 7.0, knob);
+        .circle_filled(egui::pos2(x, rect.center().y), 7.0, fade(knob));
     if resp.has_focus() {
-        ui.painter().rect_stroke(
-            rect.expand(size::FOCUS_OFFSET),
-            12.0,
-            Stroke::new(size::FOCUS_RING, c(t.accent)),
-            egui::StrokeKind::Outside,
-        );
+        focus_ring(ui, theme, rect, 10.0);
     }
     resp
 }
 
-/// A row of mutually exclusive choices; the chosen one is filled.
+/// A row of mutually exclusive choices; the chosen one is filled. Options
+/// marked `false` are shown but can't be chosen.
 fn segmented<T: PartialEq + Copy>(
     ui: &mut Ui,
     theme: Theme,
     value: &mut T,
-    options: &[(T, &str)],
+    options: &[(T, &str, bool)],
 ) -> bool {
     let t = colors(theme);
     let mut changed = false;
     ui.spacing_mut().item_spacing.x = space::S1;
-    for (v, label) in options.iter().rev() {
+    for (v, label, enabled) in options.iter().rev() {
         let on = *value == *v;
         let text = RichText::new(*label).color(if on { c(t.on_accent) } else { c(t.text) });
         let mut b = egui::Button::new(text).min_size(vec2(0.0, size::CONTROL));
         if on {
             b = b.fill(c(t.accent)).stroke(Stroke::NONE);
         }
-        if ui.add(b).clicked() && !on {
+        if ui.add_enabled(*enabled, b).clicked() && !on {
             *value = *v;
             changed = true;
         }
@@ -365,13 +441,51 @@ fn segmented<T: PartialEq + Copy>(
     changed
 }
 
+/// A list of checkboxes over a filter list where empty means "all". At
+/// least one stays checked.
+fn filter_checks(ui: &mut Ui, list: &mut Vec<String>, items: &[(&str, &str)], always: &[&str]) {
+    let all: Vec<String> = items.iter().map(|(id, _)| id.to_string()).collect();
+    let mut on: Vec<bool> = items
+        .iter()
+        .map(|(id, _)| list.is_empty() || list.iter().any(|x| x == id))
+        .collect();
+    let mut changed = false;
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing = vec2(space::S4, space::S2);
+        for (i, (_, label)) in items.iter().enumerate() {
+            let last_one = on[i] && on.iter().filter(|x| **x).count() == 1;
+            if ui
+                .add_enabled(!last_one, egui::Checkbox::new(&mut on[i], *label))
+                .changed()
+            {
+                changed = true;
+            }
+        }
+    });
+    if changed {
+        let picked: Vec<String> = all
+            .iter()
+            .zip(&on)
+            .filter(|(_, o)| **o)
+            .map(|(id, _)| id.clone())
+            .collect();
+        *list = if picked.len() == all.len() {
+            Vec::new()
+        } else {
+            always.iter().map(|s| s.to_string()).chain(picked).collect()
+        };
+    }
+}
+
 fn page(
     ui: &mut Ui,
     theme: Theme,
     section: Section,
     s: &mut Settings,
+    status: &Status,
     actions: &mut Vec<UiAction>,
 ) {
+    let t = colors(theme);
     let before = s.clone();
     heading(ui, theme, section.name());
     match section {
@@ -426,19 +540,51 @@ fn page(
                 ui,
                 theme,
                 "Appearance",
-                "Light and dark scenes use different times of day and palettes.",
+                "Light and dark scenes use different times of day and palettes. Night-only scenes stay dark.",
                 |ui| {
                     segmented(
                         ui,
                         theme,
                         &mut s.theme.mode,
                         &[
-                            (ThemeMode::FollowSystem, "Follow system"),
-                            (ThemeMode::Light, "Light"),
-                            (ThemeMode::Dark, "Dark"),
+                            (ThemeMode::FollowSystem, "Follow system", true),
+                            (ThemeMode::Light, "Light", true),
+                            (ThemeMode::Dark, "Dark", true),
                         ],
                     );
                 },
+            );
+        }
+        Section::Display => {
+            let mut still = true;
+            row(
+                ui,
+                theme,
+                "Wallpaper mode",
+                "Still frame sets one image through the system. Animated wallpapers arrive in a later version.",
+                |ui| {
+                    segmented(
+                        ui,
+                        theme,
+                        &mut still,
+                        &[(true, "Still frame", true), (false, "Live", false)],
+                    );
+                },
+            );
+            row(
+                ui,
+                theme,
+                "Monitors",
+                "Each monitor gets its own scene at its own resolution, all from one seed.",
+                |_| {},
+            );
+        }
+        Section::Live => {
+            ui.label(
+                RichText::new(
+                    "Animated wallpapers (embers, snow, Clawd moving) need the live renderer, which arrives in a later version. Until then the wallpaper is a still frame of the same scene.",
+                )
+                .color(c(t.text_secondary)),
             );
         }
         Section::Buddy => {
@@ -451,6 +597,26 @@ fn page(
                     toggle(ui, theme, &mut s.buddy.show, "Show Clawd");
                 },
             );
+            ui.label(
+                RichText::new("Clawd is Anthropic's character, drawn here as fan art. Turning him off keeps the scenes and their props.")
+                    .color(c(t.text_secondary)),
+            );
+        }
+        Section::Content => {
+            ui.label(
+                RichText::new(
+                    "New scenes pick from what's checked. Changes apply to the next wallpaper.",
+                )
+                .color(c(t.text_secondary)),
+            );
+            group(ui, "Landscapes");
+            filter_checks(ui, &mut s.content.archetypes, &LANDSCAPES, &[]);
+            ui.add_space(space::S4);
+            group(ui, "What Clawd does");
+            filter_checks(ui, &mut s.content.activities, &ACTIVITIES, &[]);
+            ui.add_space(space::S4);
+            group(ui, "Weather");
+            filter_checks(ui, &mut s.content.weather, &WEATHER, &CLEAR_WEATHER);
         }
         Section::Archive => {
             row(
@@ -483,8 +649,28 @@ fn page(
             row(
                 ui,
                 theme,
+                "Size limit",
+                "The oldest wallpapers go first when the archive grows past this.",
+                |ui| {
+                    egui::ComboBox::from_id_salt("cap")
+                        .selected_text(format!("{} GB", s.archive.max_mb.div_ceil(1024).max(1)))
+                        .width(160.0)
+                        .show_ui(ui, |ui| {
+                            for gb in [1u64, 2, 5, 10] {
+                                ui.selectable_value(
+                                    &mut s.archive.max_mb,
+                                    gb * 1024,
+                                    format!("{gb} GB"),
+                                );
+                            }
+                        });
+                },
+            );
+            row(
+                ui,
+                theme,
                 "Archive folder",
-                "Every wallpaper set, with its recipe.",
+                "Every wallpaper set, with its recipe and images.",
                 |ui| {
                     if ui.button("Open").clicked() {
                         actions.push(UiAction::OpenArchive);
@@ -492,18 +678,114 @@ fn page(
                 },
             );
         }
-        other => {
-            let t = colors(theme);
+        Section::Export => {
+            row(
+                ui,
+                theme,
+                "Save current as PNG",
+                "Copies the primary monitor's wallpaper to the export folder.",
+                |ui| {
+                    if ui.button("Save").clicked() {
+                        actions.push(UiAction::SavePng);
+                    }
+                },
+            );
+            ui.label(RichText::new("Export folder").font(style::body_strong()));
+            let hint = "Empty: Pictures\\Clairlune";
+            ui.add(
+                egui::TextEdit::singleline(&mut s.export.folder)
+                    .hint_text(hint)
+                    .desired_width(f32::INFINITY),
+            );
+            ui.label(RichText::new("Where saved images go.").color(c(t.text_secondary)));
+        }
+        Section::General => {
+            match status.start_at_login {
+                Some(mut on) => row(
+                    ui,
+                    theme,
+                    "Start at login",
+                    "Run Clairlune in the tray when you sign in.",
+                    |ui| {
+                        if toggle(ui, theme, &mut on, "Start at login").changed() {
+                            actions.push(UiAction::SetStartAtLogin(on));
+                        }
+                    },
+                ),
+                None => row(
+                    ui,
+                    theme,
+                    "Start at login",
+                    "Available with the installers for this system.",
+                    |ui| {
+                        ui.add_enabled_ui(false, |ui| {
+                            let mut off = false;
+                            toggle(ui, theme, &mut off, "Start at login");
+                        });
+                    },
+                ),
+            }
+            row(
+                ui,
+                theme,
+                "Restore my wallpaper",
+                "Puts back the wallpaper you had before Clairlune and pauses the schedule.",
+                |ui| {
+                    if ui.button("Restore").clicked() {
+                        actions.push(UiAction::RestoreWallpaper);
+                    }
+                },
+            );
+            row(ui, theme, "Logs", "Details for bug reports.", |ui| {
+                if ui.button("Open").clicked() {
+                    actions.push(UiAction::OpenLogs);
+                }
+            });
+            ui.add_space(space::S2);
+            hairline(ui, t.hairline);
+            ui.add_space(space::S3);
             ui.label(
                 RichText::new(format!(
-                    "{} settings arrive with the next part of the app. Until then they keep their defaults.",
-                    other.name()
+                    "Clairlune {}  generator {}",
+                    env!("CARGO_PKG_VERSION"),
+                    clairlune_scene::GENERATOR_VERSION
                 ))
+                .font(style::mono())
+                .color(c(t.text_secondary)),
+            );
+            ui.label(
+                RichText::new(
+                    "Unofficial fan project, not affiliated with or endorsed by Anthropic. Clawd is Anthropic's character. Code under MIT or Apache-2.0; fonts under the SIL Open Font License.",
+                )
                 .color(c(t.text_secondary)),
             );
         }
     }
     if *s != before {
         actions.push(UiAction::SettingsChanged);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn content_lists_cover_the_real_ids() {
+        for (id, _) in LANDSCAPES {
+            assert!(clairlune_scene::archetype::archetype(id).is_some(), "{id}");
+        }
+        let catalog = clairlune_scene::activity::builtin_catalog();
+        for (id, _) in ACTIVITIES {
+            assert!(catalog.get(id).is_some(), "{id}");
+        }
+        assert_eq!(
+            ACTIVITIES.len(),
+            catalog.activities.len(),
+            "a new activity needs a label"
+        );
+        for id in WEATHER.iter().map(|(id, _)| *id).chain(CLEAR_WEATHER) {
+            assert!(clairlune_scene::archetype::WEATHERS.contains(&id), "{id}");
+        }
     }
 }

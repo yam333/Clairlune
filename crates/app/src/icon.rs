@@ -5,7 +5,6 @@
 /// A crescent moon as RGBA, `size` x `size` pixels, hard-edged like the
 /// wallpapers' pixel art: an ivory disc cut by an offset disc, with a slightly
 /// darker rim.
-#[cfg_attr(not(any(windows, target_os = "macos")), allow(dead_code))] // tray-only until the Linux tray lands
 pub fn moon_rgba(size: u32) -> Vec<u8> {
     let s = f64::from(size);
     let (cx, cy, r) = (s * 0.5, s * 0.5, s * 0.42);

@@ -32,9 +32,13 @@ pub enum Outcome {
 }
 
 impl SettingsWindow {
-    pub fn open(event_loop: &ActiveEventLoop, theme: Theme) -> Result<SettingsWindow, String> {
+    pub fn open(
+        event_loop: &ActiveEventLoop,
+        theme: Theme,
+        section: view::Section,
+    ) -> Result<SettingsWindow, String> {
         let attrs = Window::default_attributes()
-            .with_title(format!("{APP_NAME} Settings"))
+            .with_title(format!("{APP_NAME} Settings: {}", section.name()))
             .with_inner_size(winit::dpi::LogicalSize::new(880.0, 600.0))
             .with_min_inner_size(winit::dpi::LogicalSize::new(640.0, 420.0))
             .with_enabled_buttons(winit::window::WindowButtons::CLOSE)
@@ -76,8 +80,9 @@ impl SettingsWindow {
             state,
             painter,
             view: ViewState {
-                section: view::Section::Schedule,
+                section,
                 thumb: None,
+                moon: None,
             },
             theme,
             screenshot_to: None,
@@ -110,6 +115,15 @@ impl SettingsWindow {
 
     pub fn set_section(&mut self, section: view::Section) {
         self.view.section = section;
+        self.window.request_redraw();
+    }
+
+    pub fn section(&self) -> view::Section {
+        self.view.section
+    }
+
+    pub fn clear_thumb(&mut self) {
+        self.view.thumb = None;
         self.window.request_redraw();
     }
 
@@ -158,11 +172,24 @@ impl SettingsWindow {
     fn paint(&mut self, settings: &mut Settings, status: &Status, actions: &mut Vec<UiAction>) {
         let input = self.state.take_egui_input(&self.window);
         let ctx = self.state.egui_ctx().clone();
+        if self.view.moon.is_none() {
+            let img =
+                egui::ColorImage::from_rgba_unmultiplied([96, 96], &crate::icon::moon_rgba(96));
+            self.view.moon = Some(ctx.load_texture("moon", img, egui::TextureOptions::NEAREST));
+        }
+        let shown = self.view.section;
         let theme = self.theme;
         let view = &mut self.view;
         let mut full = ctx.run_ui(input, |ui| {
             view::show(ui, theme, view, settings, status, actions);
         });
+        if self.view.section != shown {
+            // The title names the page (macOS HIG; harmless elsewhere).
+            self.window.set_title(&format!(
+                "{APP_NAME} Settings: {}",
+                self.view.section.name()
+            ));
+        }
         self.state
             .handle_platform_output(&self.window, std::mem::take(&mut full.platform_output));
         let prims = ctx.tessellate(std::mem::take(&mut full.shapes), full.pixels_per_point);

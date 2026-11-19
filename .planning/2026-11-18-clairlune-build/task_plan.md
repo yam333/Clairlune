@@ -162,7 +162,8 @@ Order: the app core first (usable in still mode with no UI), then the design wor
   - rolling log file in `<data_dir>/logs/`, panic hook; single instance via an OS file lock (opening Settings from a second launch waits for the IPC in 14d)
 - [x] 14b docs/design.md (sources and why each works, AI-made tells, decisions, wireframes, states, review checklist); crates/app/src/tokens.rs with WCAG contrast tests. Fonts: IBM Plex Sans (UI) + JetBrains Mono (data); one accent, the ember orange
 - [x] 14c Toolkit: egui (Slint's licences aren't permissive). `clairlune --ui-test` passes: Settings opened and closed 3x on one loop beside the tray, restyled from the tokens in both themes (docs/design.md section 8)
-- [ ] 14d Settings window (sidebar groups from PLAN.md 8), every state designed; start at login toggle
+- [x] 14d Settings window: all sections (Schedule, Theme, Display, Live, Buddy, Content, Archive, Export, General); moon empty state; inline notes for results and errors; start at login via the per-user Run key (Windows; the OS is the source of truth); Restore my wallpaper (pauses the schedule); title follows the section; reopens on the last section
+- [ ] 14e Frozen scene package (below), screenshot review on macOS/Linux, second launch opens Settings (IPC), Linux tray (ksni)
 - [ ] Frozen scene package (PLAN.md 9c): serialisable SceneGraph + background/sprite PNGs per theme; archive, library and timeline play from it, never from a GIF; test: a package saved by one generator version plays identically after GENERATOR_VERSION changes
 - **Status:** pending
 
