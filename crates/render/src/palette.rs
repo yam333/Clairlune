@@ -66,6 +66,11 @@ impl IndexedPalette {
                 }
             }
         }
+        for rgb in clairlune_sprites::builtin_character().colors() {
+            if !colors[SPRITE_BASE as usize..].contains(&rgb) {
+                colors.push(rgb);
+            }
+        }
         assert!(
             colors.len() <= TRANSPARENT_INDEX as usize,
             "palette over budget"

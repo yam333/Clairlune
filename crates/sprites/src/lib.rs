@@ -8,7 +8,7 @@ pub mod aseprite;
 pub mod character;
 pub mod sheet;
 
-pub use character::{Character, Placeholder, SheetCharacter};
+pub use character::{Character, Placeholder, SheetCharacter, builtin_character};
 pub use sheet::{Animation, Frame, SheetError, SpriteSheet};
 
 /// Sheets embedded from `assets/clawd/` by the build script.
