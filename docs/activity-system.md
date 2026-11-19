@@ -32,6 +32,10 @@ Clawd is geometric (a block body, eye blocks, stub arms, four legs), so the art 
 
 Anchors (`origin`, `head`, `hand_l`, `hand_r`, `item_tip`, `seat`) come out of the rig automatically, so effects and props always line up with the art.
 
+The rig prototype already draws the six key poses (from `assets/clawd/design/_template_poses.lua`): ski, coffee, hike / chess, tennis, wizard.
+
+![Pose catalogue](img/pose-catalogue.png)
+
 **Held items are drawn as code** (lines, small ellipses, pixel maps), so they can point in any direction. Pixel-art rotation of bitmaps looks bad, but an item made of lines redraws cleanly at any angle.
 
 **Costumes are layers**, not new characters. A wizard hat is one function that draws on top of the head anchor in every frame, so "wizard" works with every existing pose.
