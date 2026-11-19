@@ -32,4 +32,9 @@ clairlune-scene.workspace = true
 clairlune-render.workspace = true
 clairlune-sprites.workspace = true
 png.workspace = true
+gif.workspace = true
 proptest.workspace = true
+
+[[test]]
+name = "gif"
+path = "gif.rs"

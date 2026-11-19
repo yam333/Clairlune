@@ -1,6 +1,7 @@
 //! `clairlune-cli`: developer tool for rendering scenes without the desktop app.
 
 mod contact;
+mod gifcmd;
 
 use clairlune_render::{render_still, save_png};
 use clairlune_scene::activity::builtin_catalog;
@@ -99,6 +100,8 @@ enum Command {
     Generate(GenerateArgs),
     /// Render many seeds as small tiles in one image, to check variety at a glance.
     ContactSheet(contact::ContactArgs),
+    /// Export a seamless looping GIF (a sharing format; saved wallpapers use scene packages).
+    Gif(gifcmd::GifArgs),
 }
 
 #[derive(Args)]
@@ -165,7 +168,7 @@ pub(crate) fn parse_size(s: &str) -> Result<(u32, u32), String> {
 }
 
 /// A seed from OS entropy: `RandomState` keys come from the OS random source.
-fn random_seed() -> u64 {
+pub(crate) fn random_seed() -> u64 {
     RandomState::new().hash_one(0x5EED_u64)
 }
 
@@ -293,6 +296,7 @@ fn main() -> ExitCode {
     let result = match cli.command {
         Command::Generate(args) => generate(args),
         Command::ContactSheet(args) => contact::contact_sheet(args),
+        Command::Gif(args) => gifcmd::gif(args),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
