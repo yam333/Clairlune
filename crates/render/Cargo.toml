@@ -17,6 +17,7 @@ clairlune-scene.workspace = true
 clairlune-sprites.workspace = true
 skrifa.workspace = true
 png.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

@@ -144,6 +144,11 @@ impl SceneRecipe {
         self.light_tod.is_none() || self.dark_tod.is_none()
     }
 
+    /// Stable short id of the recipe (hash of its JSON), for logs and bug reports.
+    pub fn hash_hex(&self) -> String {
+        format!("{:016x}", hash_bytes(self.to_json().as_bytes()))
+    }
+
     /// Pretty JSON. Field order is fixed by the struct, so output is stable.
     pub fn to_json(&self) -> String {
         serde_json::to_string_pretty(self).expect("recipe serialises")

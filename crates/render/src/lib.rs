@@ -23,7 +23,10 @@ pub use encode::{encode_png, save_png, to_rgba};
 pub use frame::{hero_time, render_frame};
 pub use palette::IndexedPalette;
 
+use clairlune_scene::activity::builtin_catalog;
 use clairlune_scene::{BuildError, BuildOptions, SceneGraph, SceneRecipe, build};
+use clairlune_sprites::{Character, builtin_character};
+use std::time::Instant;
 
 /// An image of palette indices, row-major.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -59,12 +62,38 @@ pub fn render_still(
     opts: &BuildOptions,
     t_ms: Option<u64>,
 ) -> Result<Still, BuildError> {
+    let started = Instant::now();
     let graph = build(recipe, opts)?;
+    if opts.buddy
+        && graph.character.is_some()
+        && let Some(a) = graph
+            .activity
+            .as_deref()
+            .and_then(|id| builtin_catalog().get(id))
+        && builtin_character()
+            .animation(&a.id, &a.animation.start)
+            .is_some_and(|an| an.name == "placeholder")
+    {
+        tracing::warn!(target: "clairlune_render", activity = %a.id, "no drawn art for this activity; drawing the placeholder character");
+    }
     let atlas = GlyphAtlas::for_grid(&graph.grid);
     let palette = IndexedPalette::new(&graph.family);
     let background = bake_static(&graph, &atlas);
     let t = t_ms.unwrap_or_else(|| hero_time(&graph));
     let image = render_frame(&background, &graph, &atlas, &palette, t);
+    tracing::info!(
+        target: "clairlune_render",
+        seed = recipe.seed,
+        recipe_hash = %recipe.hash_hex(),
+        width = opts.width,
+        height = opts.height,
+        theme = opts.theme.as_str(),
+        buddy = opts.buddy,
+        t_ms = t,
+        palette = palette.len(),
+        elapsed_ms = started.elapsed().as_secs_f64() * 1e3,
+        "still rendered"
+    );
     Ok(Still {
         image,
         palette,

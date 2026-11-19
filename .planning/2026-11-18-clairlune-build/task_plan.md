@@ -165,6 +165,14 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - [x] 21d Fold the content waves into the milestone phases (M3 Wave A, etc.) and PLAN.md section 4.7
 - **Status:** complete
 
+### Phase 22: Logging system for debugging and QA (user request)
+- [x] 22a Design `docs/logging.md`: levels, targets, structured fields (seed, recipe hash, generator version, activity), what to log where, privacy, rotation/retention, crash reports, diagnostic bundle for bug reports, QA workflow
+- [x] 22b Instrument scene (compose/build decisions and fallbacks) and render (timings, character fallbacks) with `tracing`; no effect on output
+- [x] 22c CLI: `-v`/`-vv`, `--log-file` (JSON lines), `CLAIRLUNE_LOG` filter, startup environment line, panic hook that logs location and scene context
+- [x] 22d Verify: logs carry the seed and recipe hash; cargo-deny still passes; tests unaffected
+- [ ] App side (M6): rolling files in <data_dir>/logs (tracing-appender), 7 days / 50 MB retention, crash report files, 'Detailed logging' toggle, diagnostic bundle export
+- **Status:** complete
+
 ## Decisions Made
 | Decision | Rationale |
 |----------|-----------|
@@ -189,6 +197,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 | Activities scale through a rig + effect library + set pieces, delivered in waves (docs/activity-system.md) | Hand-made frames per activity don't scale; each wave adds one engine capability and a batch of activities |
 | Saved wallpapers (archive, library, timeline) are frozen scene packages; GIF is export-only | GIFs loop and can't change theme or Buddy; recipes alone break when the generator changes (v2 recipes already fail on v3). See PLAN.md 9c |
 | Scrolling scenes loop by making every layer periodic and moving whole periods per loop | Seamless with no fade, finite memory, deterministic integer offsets (docs/scrolling-scenes.md) |
+| Logging via `tracing`: every scene line carries seed + recipe hash; JSON-lines files; logs never feed back into generation | Any logged problem can be reproduced with `generate --recipe`; output stays deterministic (docs/logging.md) |
 | Theme-locked golden entries are recorded as `locked` in hashes.txt | Night-only stargaze seeds have no light image; the manifest still pins that they stay locked |
 | Golden tolerance is 0 differing pixels | The generator is designed to be byte-identical everywhere, so any difference is a real change. |
 
