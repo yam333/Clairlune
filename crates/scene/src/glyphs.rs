@@ -5,9 +5,9 @@
 //! use it. Families are ordered light to heavy.
 
 /// Every glyph the generator may place. Index 0 is the empty cell.
-pub const GLYPHS: [char; 26] = [
+pub const GLYPHS: [char; 28] = [
     ' ', '\'', '-', '/', '|', '\\', '.', '=', '<', '>', ':', 'o', 'x', 'O', '#', 'X', '%', '@',
-    '+', '^', '~', '`', ',', '*', ';', '"',
+    '+', '^', '~', '`', ',', '*', ';', '"', 'd', 'J',
 ];
 
 /// The empty cell.
@@ -68,6 +68,8 @@ pub const PLATFORM_TOP: u8 = id('^');
 pub const SKY_DUST: [u8; 4] = [id('.'), id('\''), id('`'), id(',')];
 /// Night sky stars, faint to bright.
 pub const STARS: [u8; 6] = [id('.'), id('`'), id('\''), id(','), id(':'), id('*')];
+/// Music notes (the font has no \u{266A}; `d` and `J` read as notes).
+pub const NOTES: [u8; 2] = [id('d'), id('J')];
 /// Ember glyphs by age: hot sparks first, fading dots last.
 pub const EMBERS: [u8; 5] = [id('*'), id('+'), id('\''), id('.'), id('`')];
 

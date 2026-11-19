@@ -220,6 +220,27 @@ pub const FALLEN_HAT: PixelMap = PixelMap {
     colors: &[('P', HAT), ('D', HAT_DARK), ('S', SPARK), ('w', WOOD)],
 };
 
+const INK_DARK: Rgb = Rgb::hex(0x2A2624);
+
+/// A closed book on the ground: the unattended variant of reading (project art, CC BY 4.0).
+pub const BOOK_CLOSED: PixelMap = PixelMap {
+    width: 7,
+    height: 3,
+    rows: &["RRRRRRR", "PPPPPPR", "RRRRRRR"],
+    colors: &[('R', COVER), ('P', PAGE)],
+};
+
+/// A guitar leaning upright: the unattended variant of playing (project art, CC BY 4.0).
+pub const GUITAR_REST: PixelMap = PixelMap {
+    width: 7,
+    height: 12,
+    rows: &[
+        "...KK..", "...d...", "...d...", "...d...", "...d...", "..WWW..", ".WWWWW.", ".WWKWW.",
+        "..WWW..", ".WWWWW.", ".WWWWW.", "..WWW..",
+    ],
+    colors: &[('K', INK_DARK), ('d', WOOD_DARK), ('W', WOOD)],
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;

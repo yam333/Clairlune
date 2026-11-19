@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 /// Prop ids the engine can draw.
-pub const PROPS: [&str; 8] = [
+pub const PROPS: [&str; 10] = [
     "campfire",
     "log_seat",
     "telescope",
@@ -22,21 +22,31 @@ pub const PROPS: [&str; 8] = [
     "camp_stove",
     "coffee_mug",
     "fallen_hat",
+    "book_closed",
+    "guitar_rest",
 ];
 /// Effect ids the engine can draw.
 pub const EFFECTS: [&str; 1] = ["embers"];
 /// Particle presets an `[[effects]]` entry can attach to an anchor.
-pub const PARTICLE_PRESETS: [&str; 2] = ["sparkles", "steam"];
+pub const PARTICLE_PRESETS: [&str; 3] = ["sparkles", "steam", "notes"];
 /// Anchor names the art exports (docs/clawd-style.md).
 pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "item_tip"];
 /// Generic prop attachment points.
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 5] = [
+const SOURCES: [(&str, &str); 7] = [
     (
         "make_coffee.toml",
         include_str!("../activities/make_coffee.toml"),
+    ),
+    (
+        "play_guitar.toml",
+        include_str!("../activities/play_guitar.toml"),
+    ),
+    (
+        "read_lantern.toml",
+        include_str!("../activities/read_lantern.toml"),
     ),
     ("stargaze.toml", include_str!("../activities/stargaze.toml")),
     ("stroll.toml", include_str!("../activities/stroll.toml")),

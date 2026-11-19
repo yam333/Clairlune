@@ -4,7 +4,11 @@
 Implement PLAN.md milestone by milestone. This session delivers M1 (headless deterministic generator + `clairlune-cli generate` that writes an indexed PNG), with tests and CI, and prepares the crates for crates.io. The user granted full access (no more approval stops), so publishing is part of this session.
 
 ## Next Step
-Release 0.5.0 (GIF export + wizard + coffee), then Wave A4 (reading, guitar) or Wave B (set pieces: chess, painting).
+Session roadmap (2026-11-19, usage reset), in order:
+1. ~~Phase 23: Wave A4~~ done
+2. Phase 12 (M4): refactor build into archetype modules (canyon byte-identical), weather particles, then mountains, snowfield, forest, desert, shore, city_rooftops, night_sky, cave; coverage + variety per archetype
+3. Phase 13 (M5): static wallpaper setting, Windows first (testable here), monitor enumeration
+4. Phase 14 (M6): app shell
 
 ## Current Phase
 Phase 10 (Phase 9 waits on the user's art)
@@ -104,7 +108,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
   - [x] A1 Engine: `[[effects]]` in activity TOML (type particles, preset sparkles|steam, at = anchor, states), validated; seeded periodic particle presets in scene; render draws them at the current frame's anchor (mirrored), ink or ember colour
   - [x] A2 Engine: `[character] headroom` so tall poses (hat, raised wand) get cleared space; light props spellbook and camp_stove
   - [x] A3 Content: props drawn as code (spellbook, camp stove, mug, fallen hat); wizard_magic and make_coffee designs + TOML; export, goldens, visual check
-  - [ ] A4 Content: reading by a lantern, guitar (with a `notes` particle preset)
+  - [x] A4 Content: reading by a lantern, guitar (with a `notes` particle preset)
 - [x] GIF: global palette, one sub-image per frame, delay dithering, native-size render; record sizes in tests (960x540 6 s: ~95-105 KB)
   - [x] 11a Loop length: multiples of the 6 s particle period (6 s, 12 s); 3 s and 10 s from PLAN.md 6.4 can't be seamless with 1-3 s particle lives
   - [x] 11b Character on the GIF clock: the activity's `gif.loop_script`, first looping state repeated, then time-scaled to fill the loop exactly; pace period snapped to divide the loop
@@ -115,6 +119,11 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 
 ### Phase 12: M4 More archetypes & activities
 - [ ] Remaining 8 archetypes, platforms, props, weather, compatibility tables, constraint checks
+  - [ ] 12a Refactor `build` into `archetypes/` modules: shared pipeline (grid, focal, dome, sky, sprites, light, emitters) + per-archetype terrain and platform painters; canyon output byte-identical (goldens unchanged)
+  - [ ] 12b Weather particles (snow, rain, fireflies, leaves, dust): screen-space, seeded, periodic in the loop; archetype + activity + user filters already decide which
+  - [ ] 12c mountains   - [ ] 12d snowfield   - [ ] 12e forest   - [ ] 12f desert
+  - [ ] 12g shore (water rows, pier)   - [ ] 12h city_rooftops (lit windows)   - [ ] 12i night_sky (moon, aurora)   - [ ] 12j cave (crystals)
+  - [ ] 12k Coverage test (every archetype x theme composes with shipped activities), variety per archetype, contact sheet review per archetype
 - [ ] `path`, `bob`, `fly` motion; contact-sheet CLI command
 - [ ] Activity Wave B: set pieces + `prop_anim` + `sit` + `ground_mark` (chess, easel painting, picnic, fishing)
 - [ ] Activity Wave C: `path` on slopes/trails + `trail` (skiing, sledding, hiking, sandboarding)
@@ -180,6 +189,13 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - [x] 22c CLI: `-v`/`-vv`, `--log-file` (JSON lines), `CLAIRLUNE_LOG` filter, startup environment line, panic hook that logs location and scene context
 - [x] 22d Verify: logs carry the seed and recipe hash; cargo-deny still passes; tests unaffected
 - [ ] App side (M6): rolling files in <data_dir>/logs (tracing-appender), 7 days / 50 MB retention, crash report files, 'Detailed logging' toggle, diagnostic bundle export
+- **Status:** complete
+
+### Phase 23: Wave A4 activities: reading by a lantern, guitar by the fire
+- [x] Rig: held items `book`, `guitar`; check `sit` pose reads well
+- [x] `notes` particle preset (font glyph check for musical notes)
+- [x] Props: closed book, guitar leaning (unattended variants)
+- [x] read_lantern and play_guitar designs + TOML, export, visual check, goldens
 - **Status:** complete
 
 ## Decisions Made
