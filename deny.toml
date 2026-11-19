@@ -22,6 +22,9 @@ allow = [
     # ISC is MIT-equivalent; libloading (winit's Linux backends load X11 and
     # Wayland at runtime through it).
     "ISC",
+    # Boost: permissive, no attribution needed in binaries. clipboard-win and
+    # error-code (copy and paste in the Settings window on Windows, via arboard).
+    "BSL-1.0",
 ]
 confidence-threshold = 0.9
 

@@ -215,3 +215,19 @@ Implemented in `crates/app/src/tokens.rs` (toolkit-independent constants; checke
 | `danger` | `#A3341F` | `#FF8A75` |
 
 Spacing: 0, 4, 8, 12, 16, 24, 32, 48, 64 px. Radii: 6 (controls), 10 (panels). Type: 12/16, 14/20, 16/22, 20/26, 26/32. Motion: 120, 160, 200 ms, ease-out `cubic-bezier(0.2, 0, 0, 1)`. Control height 28 px (32 px for primary buttons). Focus ring 2 px accent, 2 px offset.
+
+## 8. Toolkit: egui (spike, 2026-11-20)
+
+PLAN.md asked for an egui-vs-Slint spike against two bars: the design bar of section 10a, and the event-loop rule of PLAN.md section 3.4 (tray plus a window opened and closed three times on one loop).
+
+**Slint is ruled out by its licence.** It is offered under GPL-3.0, a royalty-free licence with conditions, or a paid licence. None of them is permissive, and Clairlune ships under MIT OR Apache-2.0 with a permissive-only dependency policy (`deny.toml`).
+
+**egui passes both bars.**
+- *Licence:* MIT OR Apache-2.0 (the whole stack: egui, egui-winit, egui-wgpu, wgpu). Its text stack (skrifa, harfrust, vello_cpu) avoids the unmaintained ttf-parser.
+- *Event loop:* egui-winit and egui-wgpu plug into our own winit 0.30 loop; no eframe. `clairlune --ui-test <dir>` scripts the pass criterion: Settings opened and closed three times beside the tray icon, a screenshot of each opening, then exit. First open 563 ms (GPU start-up), later opens about 290 ms. Every opening creates the window, GPU device and surface; closing drops them all, so nothing of the UI stays in memory while the app idles in the tray.
+- *Design bar:* restyled entirely from the tokens: IBM Plex Sans and JetBrains Mono (egui's default fonts are not even compiled in), our colours, radii, spacing and type sizes for both themes, hairlines, no shadows except the one elevation level, a custom switch and segmented control. One trap found: egui keeps a style per theme and follows the window's theme, so the app pins egui's theme and styles that one, or egui's stock light look shows through.
+- *Low power:* the settings window asks wgpu for the low-power (integrated) GPU.
+
+Versions: egui 0.37 (Rust 1.95 for the app crate only; the libraries and CLI keep 1.90), wgpu 30 with the native backends only (DX12, Metal, Vulkan, GLES; no WebGPU or WebGL).
+
+Screenshots from the spike: dark Schedule, light Theme, dark Archive pages. Open points for the Settings work (14d): the empty preview needs its designed empty state (moon or Clawd), the remaining sections, keyboard navigation through the sidebar, and a screenshot review pass on macOS and Linux.

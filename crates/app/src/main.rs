@@ -16,6 +16,7 @@ mod timefmt;
 mod tokens;
 #[cfg(any(windows, target_os = "macos"))]
 mod tray;
+mod ui;
 
 use apply::{Done, Job};
 use clairlune_scene::{APP_NAME, Theme};
@@ -52,8 +53,70 @@ struct App {
     shown_theme: Option<Theme>,
     /// The archive entry on screen.
     current: Option<String>,
+    /// What's on screen, for the Settings window.
+    status: ui::view::Status,
     #[cfg(any(windows, target_os = "macos"))]
     tray: Option<tray::Tray>,
+    /// The Settings window, while open.
+    settings_window: Option<ui::SettingsWindow>,
+    /// `--ui-test`: scripted open/close cycles with screenshots, then exit.
+    ui_test: Option<UiTest>,
+}
+
+/// The M6 toolkit spike's pass criterion, scripted: open and close Settings
+/// three times on the one event loop (alongside the tray), screenshot each
+/// opening in a different theme and section, then quit.
+struct UiTest {
+    out: PathBuf,
+    steps: Vec<(Duration, UiStep)>,
+    started: Instant,
+    next: usize,
+}
+
+#[derive(Clone, Copy)]
+enum UiStep {
+    Open(Theme, ui::view::Section),
+    Screenshot(&'static str),
+    Close,
+    Exit,
+}
+
+impl UiTest {
+    fn new(out: PathBuf) -> Self {
+        use ui::view::Section;
+        let ms = Duration::from_millis;
+        let mut steps = Vec::new();
+        let cycles = [
+            (Theme::Dark, Section::Schedule, "settings-dark-schedule.png"),
+            (Theme::Light, Section::Theme, "settings-light-theme.png"),
+            (Theme::Dark, Section::Archive, "settings-dark-archive.png"),
+        ];
+        for (i, (theme, section, shot)) in cycles.into_iter().enumerate() {
+            let t0 = 1500 * i as u64;
+            steps.push((ms(t0), UiStep::Open(theme, section)));
+            steps.push((ms(t0 + 700), UiStep::Screenshot(shot)));
+            steps.push((ms(t0 + 1200), UiStep::Close));
+        }
+        steps.push((ms(4800), UiStep::Exit));
+        UiTest {
+            out,
+            steps,
+            started: Instant::now(),
+            next: 0,
+        }
+    }
+
+    fn due(&mut self) -> Option<UiStep> {
+        let (at, step) = *self.steps.get(self.next)?;
+        (self.started.elapsed() >= at).then(|| {
+            self.next += 1;
+            step
+        })
+    }
+
+    fn wake(&self) -> Option<Instant> {
+        self.steps.get(self.next).map(|(at, _)| self.started + *at)
+    }
 }
 
 fn random_seed() -> u64 {
@@ -222,13 +285,111 @@ impl App {
                 self.submit(Job::Export { dest });
             }
             Action::OpenArchive => open(&self.data_dir.join("archive"), false),
-            Action::OpenSettings => {
+            Action::OpenSettings => self.open_settings(event_loop, None),
+            Action::Quit => event_loop.exit(),
+        }
+    }
+
+    /// Opens Settings (or brings it forward). Falls back to the settings file
+    /// in a text editor if no window can be made (no GPU, for example).
+    fn open_settings(&mut self, event_loop: &ActiveEventLoop, theme: Option<Theme>) {
+        if let Some(w) = &self.settings_window {
+            w.request_redraw();
+            return;
+        }
+        let theme = theme.unwrap_or_else(|| apply::resolve_theme(self.settings.theme.mode));
+        match ui::SettingsWindow::open(event_loop, theme) {
+            Ok(w) => {
+                self.settings_window = Some(w);
+                self.refresh_window_thumb();
+            }
+            Err(e) => {
+                tracing::warn!(target: "clairlune", error = %e, "no settings window; opening the file");
                 if !self.settings_path.exists() {
                     self.save_settings();
                 }
                 open(&self.settings_path, true);
             }
-            Action::Quit => event_loop.exit(),
+        }
+    }
+
+    /// Loads the current wallpaper's thumbnail into the open Settings window.
+    fn refresh_window_thumb(&mut self) {
+        let (Some(w), Some(name)) = (&mut self.settings_window, &self.current) else {
+            return;
+        };
+        let path = self.data_dir.join("archive").join(name).join("thumb.png");
+        if let Some((size, rgba)) = std::fs::read(&path)
+            .ok()
+            .and_then(|b| ui::decode_png_rgba(&b))
+        {
+            w.set_thumb(size, &rgba);
+        }
+    }
+
+    fn status(&self) -> ui::view::Status {
+        let mut s = self.status.clone();
+        s.busy = self.busy;
+        s.next_in_minutes = self
+            .next_change
+            .map(|t| t.saturating_duration_since(Instant::now()).as_secs() / 60);
+        s
+    }
+
+    fn on_ui_action(&mut self, action: ui::view::UiAction, event_loop: &ActiveEventLoop) {
+        use ui::view::UiAction;
+        match action {
+            UiAction::SettingsChanged => {
+                self.save_settings();
+                #[cfg(any(windows, target_os = "macos"))]
+                if let Some(t) = &self.tray {
+                    t.show_theme(self.settings.theme.mode);
+                    t.show_paused(self.settings.schedule.paused);
+                }
+                self.reschedule();
+                let theme = apply::resolve_theme(self.settings.theme.mode);
+                if let Some(w) = &mut self.settings_window {
+                    w.set_theme(theme);
+                }
+                self.check();
+            }
+            UiAction::NewWallpaper => {
+                self.new_wallpaper();
+                self.reschedule();
+            }
+            UiAction::Previous => self.reapply(true),
+            UiAction::OpenArchive => open(&self.data_dir.join("archive"), false),
+        }
+        let _ = event_loop;
+    }
+
+    fn run_ui_test(&mut self, event_loop: &ActiveEventLoop) {
+        while let Some(step) = self.ui_test.as_mut().and_then(UiTest::due) {
+            match step {
+                UiStep::Open(theme, section) => {
+                    let opened = Instant::now();
+                    self.open_settings(event_loop, Some(theme));
+                    if let Some(w) = &mut self.settings_window {
+                        w.set_section(section);
+                    }
+                    tracing::info!(target: "clairlune", ms = opened.elapsed().as_millis() as u64, "ui test: settings opened");
+                }
+                UiStep::Screenshot(name) => {
+                    let out = self.ui_test.as_ref().map(|t| t.out.join(name));
+                    if let (Some(w), Some(out)) = (&mut self.settings_window, out) {
+                        w.screenshot_to = Some(out);
+                        w.request_redraw();
+                    }
+                }
+                UiStep::Close => {
+                    self.settings_window = None;
+                    tracing::info!(target: "clairlune", "ui test: settings closed");
+                }
+                UiStep::Exit => {
+                    tracing::info!(target: "clairlune", "ui test passed: settings opened and closed 3 times on one loop");
+                    event_loop.exit();
+                }
+            }
         }
     }
 
@@ -254,6 +415,10 @@ impl App {
                 };
                 let text = format!("{APP_NAME}: {what} (seed {seed})");
                 tracing::debug!(target: "clairlune", monitors, ms, "{text}");
+                self.status.what = what;
+                self.status.seed = Some(seed);
+                self.status.theme = Some(theme);
+                self.refresh_window_thumb();
                 #[cfg(any(windows, target_os = "macos"))]
                 if let Some(t) = &self.tray {
                     t.set_busy(false);
@@ -294,6 +459,20 @@ impl ApplicationHandler<AppEvent> for App {
         }
         let latest = self.archive().and_then(|a| a.latest());
         self.current = latest.as_ref().map(|e| e.name.clone());
+        if let Some(e) = &latest {
+            self.status.what = match &e.activity {
+                Some(a) => format!(
+                    "{} in {}",
+                    a.replace('_', " "),
+                    e.archetype.replace('_', " ")
+                ),
+                None => e.archetype.replace('_', " "),
+            };
+            self.status.seed = Some(e.seed);
+        }
+        if self.ui_test.is_some() {
+            return; // UI test: leave the wallpaper alone
+        }
         self.shown_theme = latest.and_then(|e| match e.theme.as_str() {
             "light" => Some(Theme::Light),
             "dark" => Some(Theme::Dark),
@@ -307,7 +486,25 @@ impl ApplicationHandler<AppEvent> for App {
 
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
 
-    fn window_event(&mut self, _: &ActiveEventLoop, _: WindowId, _: WindowEvent) {}
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
+        let status = self.status();
+        let mut actions = Vec::new();
+        let Some(w) = self.settings_window.as_mut().filter(|w| w.id() == id) else {
+            return;
+        };
+        let before = self.settings.clone();
+        let outcome = w.on_event(&event, &mut self.settings, &status, &mut actions);
+        if let ui::Outcome::Close = outcome {
+            self.settings_window = None;
+            tracing::debug!(target: "clairlune", "settings closed");
+        }
+        if self.settings == before {
+            actions.retain(|a| *a != ui::view::UiAction::SettingsChanged);
+        }
+        for a in actions {
+            self.on_ui_action(a, event_loop);
+        }
+    }
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: AppEvent) {
         match event {
@@ -324,6 +521,7 @@ impl ApplicationHandler<AppEvent> for App {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        self.run_ui_test(event_loop);
         let now = Instant::now();
         if self.next_change.is_some_and(|t| now >= t) && !self.busy {
             self.new_wallpaper();
@@ -333,10 +531,13 @@ impl ApplicationHandler<AppEvent> for App {
             self.check();
             self.next_check = now + CHECK_EVERY;
         }
-        let wake = match self.next_change {
+        let mut wake = match self.next_change {
             Some(t) => t.min(self.next_check),
             None => self.next_check,
         };
+        if let Some(t) = self.ui_test.as_ref().and_then(|t| t.wake()) {
+            wake = wake.min(t);
+        }
         event_loop.set_control_flow(ControlFlow::WaitUntil(wake));
     }
 
@@ -402,9 +603,39 @@ fn single_instance(data_dir: &Path) -> Result<std::fs::File, String> {
     }
 }
 
+fn spawn_worker(
+    rx: mpsc::Receiver<Job>,
+    proxy: EventLoopProxy<AppEvent>,
+    archive_dir: PathBuf,
+) -> std::io::Result<()> {
+    std::thread::Builder::new()
+        .name("clairlune-worker".into())
+        .spawn(move || {
+            apply::worker(
+                rx,
+                move |d| {
+                    let _ = proxy.send_event(AppEvent::Done(d));
+                },
+                archive_dir,
+            )
+        })
+        .map(|_| ())
+}
+
 fn main() {
     clairlune_platform::init_dpi_awareness();
-    let Some(data_dir) = clairlune_platform::app_data_dir() else {
+    // `--ui-test <dir>`: the scripted Settings check, in a scratch data folder,
+    // leaving the wallpaper alone.
+    let args: Vec<String> = std::env::args().collect();
+    let ui_test_out = args
+        .iter()
+        .position(|a| a == "--ui-test")
+        .map(|i| PathBuf::from(args.get(i + 1).cloned().unwrap_or_else(|| ".".into())));
+    let data_dir = match &ui_test_out {
+        Some(out) => Some(out.join("data")),
+        None => clairlune_platform::app_data_dir(),
+    };
+    let Some(data_dir) = data_dir else {
         eprintln!("{APP_NAME}: no data directory");
         return;
     };
@@ -417,9 +648,12 @@ fn main() {
             return;
         }
     };
-    let settings_path = clairlune_platform::app_config_dir()
-        .unwrap_or_else(|| data_dir.clone())
-        .join("settings.toml");
+    let settings_path = match &ui_test_out {
+        Some(_) => data_dir.join("settings.toml"),
+        None => clairlune_platform::app_config_dir()
+            .unwrap_or_else(|| data_dir.clone())
+            .join("settings.toml"),
+    };
     let settings = Settings::load(&settings_path);
     tracing::info!(
         target: "clairlune",
@@ -449,22 +683,17 @@ fn main() {
 
     let (jobs, rx) = mpsc::channel();
     let archive_dir = data_dir.join("archive");
-    let worker = std::thread::Builder::new()
-        .name("clairlune-worker".into())
-        .spawn(move || {
-            apply::worker(
-                rx,
-                move |d| {
-                    let _ = proxy.send_event(AppEvent::Done(d));
-                },
-                archive_dir,
-            )
-        });
+    // The UI test never touches the wallpaper, so it runs without a worker.
+    let worker = if ui_test_out.is_some() {
+        drop(rx);
+        Ok(())
+    } else {
+        spawn_worker(rx, proxy, archive_dir)
+    };
     if let Err(e) = worker {
         tracing::error!(target: "clairlune", error = %e, "no worker thread");
         return;
     }
-
     let mut app = App {
         settings_stamp: file_stamp(&settings_path),
         settings,
@@ -478,6 +707,9 @@ fn main() {
         current: None,
         #[cfg(any(windows, target_os = "macos"))]
         tray: None,
+        settings_window: None,
+        status: ui::view::Status::default(),
+        ui_test: ui_test_out.map(UiTest::new),
     };
     if let Err(e) = event_loop.run_app(&mut app) {
         tracing::error!(target: "clairlune", error = %e, "event loop ended with an error");

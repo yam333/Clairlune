@@ -28,3 +28,5 @@ Other original art (props such as the campfire, icons, UI)
 Fonts
   JetBrains Mono, Copyright 2020 The JetBrains Mono Project Authors,
   SIL Open Font License 1.1 (crates/render/assets/fonts/OFL.txt).
+  IBM Plex Sans, Copyright 2017 IBM Corp. with Reserved Font Name "Plex",
+  SIL Open Font License 1.1 (crates/app/assets/fonts/OFL.txt).

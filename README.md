@@ -52,7 +52,7 @@ clairlune-cli contact-sheet --archetype shore --count 6 --theme light --out shor
 cargo run --release -p clairlune
 ```
 
-A moon appears in the notification area. The app sets a new wallpaper at start and then every hour, one scene per monitor, and keeps the last week in an archive. Its menu has New wallpaper, Previous wallpaper, Theme (Follow system / Light / Dark), Pause schedule, Save current as PNG (to `Pictures\Clairlune`), Open archive folder, and Settings, which for now opens `%APPDATA%\clairlune\settings.toml`; edits there apply within seconds. Logs are in `%LOCALAPPDATA%\clairlune\logs`. Before its first change the app remembers your own wallpaper; `clairlune-cli restore` puts it back.
+A moon appears in the notification area. The app sets a new wallpaper at start and then every hour, one scene per monitor, and keeps the last week in an archive. Its menu has New wallpaper, Previous wallpaper, Theme (Follow system / Light / Dark), Pause schedule, Save current as PNG (to `Pictures\Clairlune`), Open archive folder, and Settings, a window with the current wallpaper and the schedule, theme, Clawd and archive settings (more sections follow). Settings live in `%APPDATA%\clairlune\settings.toml`; edits there apply within seconds too. Logs are in `%LOCALAPPDATA%\clairlune\logs`. Before its first change the app remembers your own wallpaper; `clairlune-cli restore` puts it back.
 
 ## Set it as your wallpaper from the CLI (Windows)
 
@@ -84,6 +84,6 @@ With the buddy turned on, wallpapers contain a drawing of Clawd, which is Anthro
 
 Code: either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
 
-The bundled JetBrains Mono font is under the [SIL Open Font License 1.1](crates/render/assets/fonts/OFL.txt).
+The bundled fonts, JetBrains Mono and IBM Plex Sans, are under the SIL Open Font License 1.1 ([JetBrains Mono](crates/render/assets/fonts/OFL.txt), [IBM Plex Sans](crates/app/assets/fonts/OFL.txt)).
 
 Clawd artwork is fan art and is **not** covered by the code licence. See [NOTICE](NOTICE).
