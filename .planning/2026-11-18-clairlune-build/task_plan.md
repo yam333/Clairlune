@@ -94,7 +94,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - [x] 10e Motion `stationary` + `pace`; the character becomes a time-dependent track in the SceneGraph; activities: warm hands at the campfire (stationary), pace the ledge (pace), stargaze (stationary, night only = theme-locked); unattended props per activity
 - [x] 10f `clairlune-sprites` crate: Aseprite json-array loader, `Character` trait, anchors from slices, palette/alpha validation; placeholder character behind the same trait
 - [x] 10g CLI `--activity <id>`; variety test (no activity above 2x its share)
-- [ ] 10h Render through `Character`: draw frames by state at time t (state machine + sheet frames), anchor-attached effects, sheet colours in the palette, engine-drawn light-theme outline. Lands with M3 animation, since today every state shows the single placeholder frame
+- [x] 10h Render through `Character`: draw frames by state at time t (state machine + sheet frames), anchor-attached effects, sheet colours in the palette, engine-drawn light-theme outline. Lands with M3 animation, since today every state shows the single placeholder frame
 - [ ] Deferred: `preview-activity` window with hot reload (needs the winit loop from M6/M7)
 - **Status:** in_progress
 
