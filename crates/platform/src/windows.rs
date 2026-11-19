@@ -283,6 +283,23 @@ mod tests {
         let _ = start_at_login_command();
     }
 
+    /// Writes the user's login items, so it only runs when asked:
+    /// `cargo test -p clairlune-platform -- --ignored`. Restores what was there.
+    #[test]
+    #[ignore]
+    fn login_item_round_trip() {
+        let before = start_at_login_command();
+        let fake = r#""C:\nowhere\clairlune-test.exe""#;
+        set_start_at_login_command(Some(fake)).unwrap();
+        assert_eq!(start_at_login_command().as_deref(), Some(fake));
+        set_start_at_login_command(before.as_deref()).unwrap();
+        assert_eq!(start_at_login_command(), before);
+        // Removing a value that isn't there is fine.
+        if before.is_none() {
+            set_start_at_login_command(None).unwrap();
+        }
+    }
+
     #[test]
     fn local_app_data_exists() {
         let dir = local_app_data().expect("Local AppData");
