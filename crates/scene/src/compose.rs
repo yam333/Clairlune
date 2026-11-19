@@ -45,7 +45,20 @@ pub fn compose_with(
             (!fits.is_empty()).then_some((a, fits))
         })
         .collect();
+    tracing::debug!(
+        target: "clairlune_scene::compose",
+        seed,
+        candidates = ?eligible.iter().map(|(a, f)| (a.id.as_str(), f.len())).collect::<Vec<_>>(),
+        "activity candidates (id, fitting archetypes)"
+    );
     let picked = pick_activity(seed, &eligible, ctx);
+    if picked.is_none() {
+        tracing::warn!(
+            target: "clairlune_scene::compose",
+            seed,
+            "no eligible activity; archetype-first fallback without a character"
+        );
+    }
 
     // Step 1: archetype.
     let fallback = [&ARCHETYPE_INFO[0]];
@@ -117,7 +130,7 @@ pub fn compose_with(
     let light_family = pal.choose(&light).id.to_string();
     let dark_family = pal.choose(&dark).id.to_string();
 
-    SceneRecipe {
+    let recipe = SceneRecipe {
         generator_version: GENERATOR_VERSION,
         seed,
         aspect,
@@ -146,6 +159,26 @@ pub fn compose_with(
             light: light_family,
             dark: dark_family,
         },
+    };
+    log_composed(&recipe, eligible.len());
+    recipe
+}
+
+/// One `info` line per composed scene, with everything needed to reproduce it.
+fn log_composed(r: &SceneRecipe, eligible: usize) {
+    if tracing::enabled!(target: "clairlune_scene::compose", tracing::Level::INFO) {
+        tracing::info!(
+            target: "clairlune_scene::compose",
+            seed = r.seed,
+            recipe_hash = %r.hash_hex(),
+            generator_version = r.generator_version,
+            activity = r.activity.as_deref().unwrap_or("-"),
+            archetype = %r.archetype,
+            light_tod = ?r.light_tod,
+            dark_tod = ?r.dark_tod,
+            eligible,
+            "scene composed"
+        );
     }
 }
 

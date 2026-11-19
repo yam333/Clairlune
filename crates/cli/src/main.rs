@@ -23,6 +23,74 @@ use std::time::Instant;
 struct Cli {
     #[command(subcommand)]
     command: Command,
+    /// More log output on stderr: -v info, -vv debug, -vvv trace. CLAIRLUNE_LOG overrides.
+    #[arg(short, long, action = clap::ArgAction::Count, global = true)]
+    verbose: u8,
+    /// Also write logs as JSON lines to this file (debug level unless CLAIRLUNE_LOG is set).
+    #[arg(long, global = true)]
+    log_file: Option<PathBuf>,
+}
+
+/// What the CLI is working on, for crash reports.
+static SCENE_CONTEXT: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+
+fn set_scene_context(s: String) {
+    if let Ok(mut g) = SCENE_CONTEXT.lock() {
+        *g = s;
+    }
+}
+
+/// stderr (human-readable) plus an optional JSON-lines file (docs/logging.md).
+fn init_logging(verbose: u8, log_file: Option<&std::path::Path>) -> Result<(), String> {
+    use tracing_subscriber::{EnvFilter, Layer, fmt, prelude::*};
+    let level = match verbose {
+        0 => "warn",
+        1 => "info",
+        2 => "debug",
+        _ => "trace",
+    };
+    let filter = |default: &str| {
+        EnvFilter::try_from_env("CLAIRLUNE_LOG").unwrap_or_else(|_| EnvFilter::new(default))
+    };
+    let stderr = fmt::layer()
+        .with_writer(std::io::stderr)
+        .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stderr()))
+        .with_filter(filter(level));
+    let file = match log_file {
+        Some(p) => {
+            let f =
+                std::fs::File::create(p).map_err(|e| format!("log file {}: {e}", p.display()))?;
+            let file_level = if verbose >= 3 { "trace" } else { "debug" };
+            Some(
+                fmt::layer()
+                    .json()
+                    .with_writer(std::sync::Mutex::new(f))
+                    .with_filter(filter(file_level)),
+            )
+        }
+        None => None,
+    };
+    tracing_subscriber::registry()
+        .with(stderr)
+        .with(file)
+        .init();
+    Ok(())
+}
+
+/// Logs panics with their location and the scene being made, then points at --log-file.
+fn install_panic_hook() {
+    std::panic::set_hook(Box::new(|info| {
+        let scene = SCENE_CONTEXT.lock().map(|g| g.clone()).unwrap_or_default();
+        let location = info
+            .location()
+            .map(|l| format!("{}:{}", l.file(), l.line()))
+            .unwrap_or_default();
+        let backtrace = std::backtrace::Backtrace::force_capture();
+        tracing::error!(target: "clairlune_cli", %location, scene = %scene, panic = %info, %backtrace, "panic");
+        eprintln!(
+            "clairlune-cli crashed at {location} while working on: {scene}. Re-run with --log-file <path> -vv for details."
+        );
+    }));
 }
 
 #[derive(Subcommand)]
@@ -127,6 +195,14 @@ fn generate(args: GenerateArgs) -> Result<(), String> {
             compose(seed, Aspect::from_size(width, height), &ctx)
         }
     };
+    set_scene_context(format!(
+        "seed {} activity {} recipe {} {}x{}",
+        recipe.seed,
+        recipe.activity.as_deref().unwrap_or("-"),
+        recipe.hash_hex(),
+        width,
+        height
+    ));
     let opts = BuildOptions {
         width,
         height,
@@ -201,6 +277,19 @@ fn generate(args: GenerateArgs) -> Result<(), String> {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
+    if let Err(e) = init_logging(cli.verbose, cli.log_file.as_deref()) {
+        eprintln!("error: {e}");
+        return ExitCode::FAILURE;
+    }
+    install_panic_hook();
+    tracing::info!(
+        target: "clairlune_cli",
+        version = env!("CARGO_PKG_VERSION"),
+        generator_version = clairlune_scene::GENERATOR_VERSION,
+        os = std::env::consts::OS,
+        arch = std::env::consts::ARCH,
+        "clairlune-cli starting"
+    );
     let result = match cli.command {
         Command::Generate(args) => generate(args),
         Command::ContactSheet(args) => contact::contact_sheet(args),
