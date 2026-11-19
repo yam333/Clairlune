@@ -65,6 +65,37 @@ fn draw_particle(
     }
 }
 
+/// The still-frame time used for stills, thumbnails and the static wallpaper:
+/// the first moment at or after the scene's ember-based hero time (50 ms steps,
+/// up to 10 s) when the character shows the first frame of its activity's start
+/// state, so a still never catches a blink or a mid-gesture. Independent of the
+/// Buddy toggle, so toggling it keeps the same moment.
+pub fn hero_time(graph: &SceneGraph) -> u64 {
+    let base = graph.t_hero_ms;
+    let activity = graph
+        .activity
+        .as_deref()
+        .and_then(|id| builtin_catalog().get(id));
+    let (Some(a), Some(_)) = (activity, graph.character) else {
+        return base;
+    };
+    let character = builtin_character();
+    for k in 0..200u64 {
+        let t = base + k * 50;
+        let st = state_at(a, graph.seed, t, &|s| character.one_shot_ms(&a.id, s));
+        if st.state != a.animation.start {
+            continue;
+        }
+        let looping = a.animation.states.get(&st.state).is_some_and(|d| d.looping);
+        if let Some(anim) = character.animation(&a.id, &st.state)
+            && anim.frame_index_at(t - st.since_ms, looping) == 0
+        {
+            return t;
+        }
+    }
+    base
+}
+
 /// Draws the character's animation frame for the activity state at `t`,
 /// aligned on the art's origin (feet row, body centre) inside its layout box,
 /// mirrored when it faces left. All character art comes through `Character`.

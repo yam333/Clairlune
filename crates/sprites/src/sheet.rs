@@ -47,20 +47,25 @@ impl Animation {
     /// Frame shown `elapsed_ms` after the state started. Looping animations wrap;
     /// one-shots hold their last frame.
     pub fn frame_at(&self, elapsed_ms: u64, looping: bool) -> &Frame {
+        &self.frames[self.frame_index_at(elapsed_ms, looping)]
+    }
+
+    /// Index of the frame shown `elapsed_ms` after the state started.
+    pub fn frame_index_at(&self, elapsed_ms: u64, looping: bool) -> usize {
         let total = self.duration_ms().max(1);
         let mut t = if looping {
             elapsed_ms % total
         } else {
             elapsed_ms.min(total - 1)
         };
-        for f in &self.frames {
+        for (i, f) in self.frames.iter().enumerate() {
             let d = u64::from(f.duration_ms);
             if t < d {
-                return f;
+                return i;
             }
             t -= d;
         }
-        self.frames.last().expect("animations have frames")
+        self.frames.len() - 1
     }
 }
 

@@ -30,5 +30,6 @@ path = "perf.rs"
 [dependencies]
 clairlune-scene.workspace = true
 clairlune-render.workspace = true
+clairlune-sprites.workspace = true
 png.workspace = true
 proptest.workspace = true
