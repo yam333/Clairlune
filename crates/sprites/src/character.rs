@@ -44,7 +44,11 @@ impl Placeholder {
             .flat_map(|y| (0..m.width).map(move |x| m.pixel(x, y)))
             .collect();
         let mut anchors = BTreeMap::new();
-        anchors.insert(ORIGIN.to_string(), ((m.width / 2) as i32, m.height as i32));
+        // Origin sits on the lowest foot row, at the body centre (as in the art).
+        anchors.insert(
+            ORIGIN.to_string(),
+            ((m.width / 2) as i32, m.height as i32 - 1),
+        );
         let frame = Frame {
             width: m.width,
             height: m.height,
@@ -181,7 +185,7 @@ mod tests {
         let a = p.animation("anything", "any").unwrap();
         let f = &a.frames[0];
         assert_eq!((f.width, f.height), (15, 9));
-        assert_eq!(f.origin(), (7, 9));
+        assert_eq!(f.origin(), (7, 8));
         assert_eq!(p.one_shot_ms("x", "y"), DEFAULT_ONE_SHOT_MS);
     }
 
