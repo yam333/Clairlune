@@ -7,7 +7,11 @@
 //! returns the highest silhouette per column, for the sky pass) and `platform`.
 
 pub(crate) mod canyon;
+pub(crate) mod desert;
+pub(crate) mod layers;
 pub(crate) mod ledge;
+pub(crate) mod mountains;
+pub(crate) mod snowfield;
 
 use crate::graph::{Cell, GridSpec};
 use crate::hash::{hash3, unit_from_hash};
@@ -16,7 +20,7 @@ use crate::recipe::{SceneRecipe, TimeOfDay};
 
 /// Archetypes this generator version can paint. Must match the `implemented`
 /// flags in `archetype::ARCHETYPE_INFO` (checked by a test).
-pub const PAINTED: [&str; 1] = ["canyon"];
+pub const PAINTED: [&str; 4] = ["canyon", "mountains", "desert", "snowfield"];
 
 /// Normalised cell-centre coordinates.
 pub(crate) struct Coords {
@@ -93,16 +97,32 @@ pub(crate) fn family_glyph(
 pub(crate) fn background(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Vec<f64> {
     match archetype {
         "canyon" => canyon::background(ctx, cells),
+        "mountains" => mountains::background(ctx, cells),
+        "desert" => desert::background(ctx, cells),
+        "snowfield" => snowfield::background(ctx, cells),
+        other => unreachable!("archetype `{other}` is not painted"),
+    }
+}
+
+/// The archetype's platform style.
+fn ledge_style(archetype: &str) -> &'static ledge::LedgeStyle {
+    match archetype {
+        "canyon" | "mountains" => &ledge::ROCK,
+        "desert" => &ledge::DUNE,
+        "snowfield" => &ledge::ICE,
         other => unreachable!("archetype `{other}` is not painted"),
     }
 }
 
 /// Paints the archetype's platform under the focal group.
 pub(crate) fn platform(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) {
-    match archetype {
-        "canyon" => ledge::paint(ctx, cells, &ledge::ROCK),
-        other => unreachable!("archetype `{other}` is not painted"),
-    }
+    ledge::paint(ctx, cells, ledge_style(archetype));
+}
+
+/// The glyph on the platform's top row, the surface the feet stand on.
+#[cfg(test)]
+pub(crate) fn platform_top(archetype: &str) -> u8 {
+    ledge_style(archetype).top
 }
 
 #[cfg(test)]

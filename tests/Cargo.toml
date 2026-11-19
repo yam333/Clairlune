@@ -38,3 +38,7 @@ proptest.workspace = true
 [[test]]
 name = "gif"
 path = "gif.rs"
+
+[[test]]
+name = "coverage"
+path = "coverage.rs"

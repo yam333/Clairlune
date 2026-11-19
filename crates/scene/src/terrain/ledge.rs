@@ -45,6 +45,32 @@ pub(crate) const ROCK: LedgeStyle = LedgeStyle {
     freq: (9.0, 38.0),
 };
 
+/// The snowfield's ice shelf: a smooth slab of `-=+#`, narrow and steep.
+pub(crate) const ICE: LedgeStyle = LedgeStyle {
+    family: &glyphs::ICE,
+    top: glyphs::id('='),
+    top_shade: 0.9,
+    shade: (0.75, 0.35),
+    threshold: 0.15,
+    bias: 0.38,
+    widen: (0.8, 2.4, 0.4),
+    roughness: 4.0,
+    freq: (6.0, 20.0),
+};
+
+/// The desert's dune crest: soft sand spreading wide, with wind ripples.
+pub(crate) const DUNE: LedgeStyle = LedgeStyle {
+    family: &glyphs::SAND,
+    top: glyphs::id('~'),
+    top_shade: 0.85,
+    shade: (0.75, 0.40),
+    threshold: 0.22,
+    bias: 0.40,
+    widen: (1.6, 4.8, 1.2),
+    roughness: 5.0,
+    freq: (3.0, 45.0),
+};
+
 pub(crate) fn paint(ctx: &Ctx, cells: &mut [Cell], style: &LedgeStyle) {
     let co = &ctx.co;
     let comp = &ctx.recipe.composition;

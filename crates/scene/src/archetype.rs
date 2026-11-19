@@ -63,7 +63,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 9] = [
     },
     ArchetypeInfo {
         id: "mountains",
-        implemented: false,
+        implemented: true,
         terrain: &["ledge", "cliff", "slope"],
         surface: &["rock", "snow"],
         weather: &["none", "snow", "stars"],
@@ -87,7 +87,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 9] = [
     },
     ArchetypeInfo {
         id: "desert",
-        implemented: false,
+        implemented: true,
         terrain: &["dune", "slope", "flat"],
         surface: &["sand"],
         weather: &["none", "dust", "stars"],
@@ -95,7 +95,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 9] = [
     },
     ArchetypeInfo {
         id: "snowfield",
-        implemented: false,
+        implemented: true,
         terrain: &["slope", "flat", "ledge"],
         surface: &["snow", "ice"],
         weather: &["none", "snow", "stars"],

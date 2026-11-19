@@ -354,6 +354,12 @@ mod tests {
         for seed in 0..30 {
             // Dark: every activity has a dark variant.
             let g = graph(seed, 1280, 720, Theme::Dark, true);
+            let archetype = compose(
+                seed,
+                Aspect::from_size(1280, 720),
+                &ContentContext::default(),
+            )
+            .archetype;
             let row = ((g.ground_y as u32) - g.grid.origin_y) / g.grid.cell_h;
             for t in (0..20_000).step_by(1_250) {
                 let c = g
@@ -367,7 +373,7 @@ mod tests {
                 let col = ((c.x + c.width() as i32 / 2) as u32 - g.grid.origin_x) / g.grid.cell_w;
                 assert_eq!(
                     g.cell(col, row).glyph,
-                    glyphs::PLATFORM_TOP,
+                    terrain::platform_top(&archetype),
                     "seed {seed} t {t}"
                 );
             }

@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "33f2d17e96338754",
+  "content_ctx_hash": "cb4759852c0e3fe3",
   "activity": "wizard_magic",
-  "archetype": "canyon",
+  "archetype": "snowfield",
   "light_tod": "morning",
   "dark_tod": "night",
-  "platform": "rock_ledge",
+  "platform": "ice_shelf",
   "props": [
     "spellbook"
   ],
-  "weather": "none",
+  "weather": "stars",
   "composition": {
     "horizon_pm": 672,
     "focus_x_pm": 694,

@@ -30,6 +30,9 @@ pub struct ContactArgs {
     /// Only this activity.
     #[arg(long)]
     activity: Option<String>,
+    /// Only this landscape.
+    #[arg(long)]
+    archetype: Option<String>,
     /// Render without the character.
     #[arg(long)]
     no_buddy: bool,
@@ -52,6 +55,9 @@ pub fn contact_sheet(args: ContactArgs) -> Result<(), String> {
     }
 
     let mut ctx = ContentContext::default();
+    if let Some(id) = &args.archetype {
+        crate::restrict_archetype(&mut ctx, id)?;
+    }
     if let Some(id) = &args.activity {
         if builtin_catalog().get(id).is_none() {
             return Err(format!("unknown activity `{id}`"));
@@ -90,8 +96,9 @@ pub fn contact_sheet(args: ContactArgs) -> Result<(), String> {
             }
         }
         println!(
-            "  seed {seed:>6}  {:<10}  {}",
+            "  seed {seed:>6}  {:<13} {:<14} {}",
             recipe.activity.as_deref().unwrap_or("-"),
+            recipe.archetype,
             opts.theme.as_str()
         );
     }

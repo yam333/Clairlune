@@ -5,9 +5,9 @@
 //! use it. Families are ordered light to heavy.
 
 /// Every glyph the generator may place. Index 0 is the empty cell.
-pub const GLYPHS: [char; 28] = [
+pub const GLYPHS: [char; 32] = [
     ' ', '\'', '-', '/', '|', '\\', '.', '=', '<', '>', ':', 'o', 'x', 'O', '#', 'X', '%', '@',
-    '+', '^', '~', '`', ',', '*', ';', '"', 'd', 'J',
+    '+', '^', '~', '`', ',', '*', ';', '"', 'd', 'J', '_', 'v', '!', '&',
 ];
 
 /// The empty cell.
@@ -68,6 +68,23 @@ pub const PLATFORM_TOP: u8 = id('^');
 pub const SKY_DUST: [u8; 4] = [id('.'), id('\''), id('`'), id(',')];
 /// Night sky stars, faint to bright.
 pub const STARS: [u8; 6] = [id('.'), id('`'), id('\''), id(','), id(':'), id('*')];
+/// Distant haze: far mountains, far dunes.
+pub const DISTANT: [u8; 4] = [id('`'), id('.'), id('\''), id(':')];
+/// Ridges and hills.
+pub const RIDGE: [u8; 6] = [id('.'), id(':'), id('-'), id('='), id('+'), id('x')];
+/// Snow surfaces, sparse.
+pub const SNOW: [u8; 4] = [id('.'), id('\''), id('`'), id(',')];
+/// Sand: dunes with horizontal ripples.
+pub const SAND: [u8; 5] = [id('.'), id(','), id(':'), id('-'), id('~')];
+/// Foliage: tree canopies, bushes.
+pub const FOLIAGE: [u8; 5] = [id('.'), id('o'), id('&'), id('%'), id('@')];
+/// Water rows.
+pub const WATER: [u8; 3] = [id('-'), id('~'), id('=')];
+/// Ice shelf body.
+pub const ICE: [u8; 4] = [id('-'), id('='), id('+'), id('#')];
+/// Grass and earth: forest floor.
+pub const EARTH: [u8; 5] = [id('.'), id(','), id(':'), id('o'), id('%')];
+
 /// Music notes (the font has no \u{266A}; `d` and `J` read as notes).
 pub const NOTES: [u8; 2] = [id('d'), id('J')];
 /// Ember glyphs by age: hot sparks first, fading dots last.

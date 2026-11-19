@@ -5,12 +5,12 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "33f2d17e96338754",
+  "content_ctx_hash": "cb4759852c0e3fe3",
   "activity": "stargaze",
-  "archetype": "canyon",
+  "archetype": "desert",
   "light_tod": null,
   "dark_tod": "deep_dusk",
-  "platform": "rock_ledge",
+  "platform": "dune_crest",
   "props": [
     "telescope"
   ],
