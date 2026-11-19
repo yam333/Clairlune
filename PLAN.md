@@ -593,8 +593,9 @@ Changing a setting applies live where possible. Resolution, theme and Buddy chan
 └── 2026-11-18T17-56-03Z_seed-1234567890/   # UTC timestamp, so DST can't collide names
     ├── recipe.json        # always: one recipe per monitor, scene_epoch, content_ctx hash
     ├── thumb.png          # always (480 px wide)
+    ├── scene/             # always: the frozen scene package (§9c), so re-apply is exact
     ├── wallpaper.png      # if enabled
-    └── wallpaper.gif      # if enabled
+    └── wallpaper.gif      # if enabled (an export for sharing; never used to re-apply)
 ```
 
 - An `index.json` (or a small SQLite via `rusqlite`, if search or filters are wanted later) lists entries with timestamp, seed, theme, archetype and pinned status.
@@ -622,6 +623,7 @@ The archive is temporary history. The **library** is where the user keeps wallpa
   ├── item.json      # id, name, created_at, tags, display, theme, buddy, generator_version
   ├── recipe.json
   ├── thumb.png
+  ├── scene/         # frozen scene package (§9c): plays exactly as it did when current
   └── wallpaper.png  # full-resolution hero frame rendered at save time (canonical look)
   ```
 
@@ -635,7 +637,7 @@ The archive is temporary history. The **library** is where the user keeps wallpa
   | `buddy` | `follow`, `on`, `off` | `follow` | Show Clawd for this item, or follow the global toggle. |
   | `tags` | list of text | empty | Used by timeline pools. |
 
-- **Why the recipe is stored:** library items render at whatever resolution the screen currently has. The saved PNG is the canonical look. If the resolution or aspect ratio changes, the item is re-rendered from the recipe. If `generator_version` changed since saving, the re-render may differ, so the item shows an "approximate" badge and the saved PNG is used for Still mode when its size still fits. GIFs are not stored, because live playback renders from the recipe (§5.3). GIF export works from any library item.
+- **What plays when an item is used:** the frozen scene package (§9c), not a GIF and not a fresh re-render. That is what makes a saved item behave exactly like the wallpaper it was when it was current, live or still, after app updates. The recipe is kept to re-render at other sizes or in the other theme. GIF export works from any library item, but GIF is only for sharing.
 - **Enums**: everywhere in this plan, override fields use exactly `follow` plus explicit values (`display`: `follow` / `live` / `still`; `theme`: `follow` / `light` / `dark`; `buddy`: `follow` / `on` / `off`). Timeline slot overrides use the same values, where `follow` means "follow the item, then the global setting".
 - **Library browser:**
   - Grid of thumbnails with name, a live/still badge, and a theme badge.
@@ -735,6 +737,35 @@ content = { type = "random", archetypes = ["night_sky", "canyon"] }
   - Drag an item from a library sidebar onto a day bar to insert a slot at that time.
 - Each day row has: Copy to…, Clear, and "Preview": scrub a time cursor to see which wallpaper would be active.
 - A "Today" marker shows the current time and the active slot.
+
+---
+
+## 9c. Saved scene format (archive, library, timeline)
+
+**Decision (2026-11-19):** saved wallpapers are stored as a **frozen scene package**. GIF and PNG are export formats for sharing only. A GIF is not used for saved wallpapers because:
+- live mode is not a loop (seeded variations, §4.4), and a GIF would turn a saved live scene into a short repeating clip;
+- a GIF can't switch theme, toggle Buddy or adapt to another screen size;
+- a 4K GIF is tens of MB, and decoding it per frame wastes CPU (§6.4).
+
+**Why not just the recipe:** re-rendering from the recipe depends on the generator, which changes between versions (`generator_version`). A recipe-only item would look different, or stop loading, after an update. The package removes that dependency.
+
+**The package** (`scene/` inside an archive entry or library item) holds the output of `scene::build` at save time, not the inputs:
+
+| File | Contents |
+|---|---|
+| `package.json` | package format version, recipe, size, theme, palette, layout box, character track, props, unattended props, emitters, lighting parameters, loop length, hero time, the activity definition (states, transitions, timings) snapshotted |
+| `background-<theme>.png` | the static bake (indexed PNG, no animated elements) |
+| `sprites-<theme>.png` + JSON | only the character and prop frames this scene uses |
+
+It is written for each theme the scene supports, at each monitor's size at save time.
+
+**Playback** reads the package directly. The live renderer (§5.3) only needs a background, sprite frames, a state machine and particle parameters, so it plays a saved scene exactly as it played when current. That includes Clawd's ongoing state machine, both Buddy states and both themes. The package format is small and versioned separately from the generator, and old package versions stay readable.
+
+**Different screen size:**
+- If the generator version is unchanged, re-render from the recipe and write a new package for the new size.
+- If it changed, scale the frozen package with OS "fill" and nearest-neighbour sampling (§1.3), which always works. Offer "Re-render with the current generator" as an explicit action, which may change the look.
+
+**Size:** about 0.3-1 MB per theme at 4K (indexed background plus a few small sprite frames), far smaller than a GIF.
 
 ---
 

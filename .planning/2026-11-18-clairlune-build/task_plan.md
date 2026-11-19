@@ -122,6 +122,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 ### Phase 14: M6 App shell
 - [ ] Design research to docs/design.md, tokens, mockups, egui-vs-Slint spike
 - [ ] Single event loop, tray, settings, scheduler, themes, archive + retention, exports, start at login
+- [ ] Frozen scene package (PLAN.md 9c): serialisable SceneGraph + background/sprite PNGs per theme; archive, library and timeline play from it, never from a GIF; test: a package saved by one generator version plays identically after GENERATOR_VERSION changes
 - **Status:** pending
 
 ### Phase 15: M6b Library + Timeline
@@ -185,6 +186,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 | Minimum OS: Windows 10 22H2, macOS 13 (universal), Linux glibc 2.35 | See docs/platform-support.md |
 | Clawd art is written as Lua (design files) and built into .aseprite by script | Reviewable drawing history in git; byte-reproducible rebuilds; can still be hand-edited in Aseprite |
 | Activities scale through a rig + effect library + set pieces, delivered in waves (docs/activity-system.md) | Hand-made frames per activity don't scale; each wave adds one engine capability and a batch of activities |
+| Saved wallpapers (archive, library, timeline) are frozen scene packages; GIF is export-only | GIFs loop and can't change theme or Buddy; recipes alone break when the generator changes (v2 recipes already fail on v3). See PLAN.md 9c |
 | Theme-locked golden entries are recorded as `locked` in hashes.txt | Night-only stargaze seeds have no light image; the manifest still pins that they stay locked |
 | Golden tolerance is 0 differing pixels | The generator is designed to be byte-identical everywhere, so any difference is a real change. |
 
