@@ -2,6 +2,7 @@
 
 mod contact;
 mod gifcmd;
+mod setcmd;
 
 use clairlune_render::{render_still, save_png};
 use clairlune_scene::activity::builtin_catalog;
@@ -102,6 +103,12 @@ enum Command {
     ContactSheet(contact::ContactArgs),
     /// Export a seamless looping GIF (a sharing format; saved wallpapers use scene packages).
     Gif(gifcmd::GifArgs),
+    /// List the monitors: ids, physical sizes and current wallpapers.
+    Monitors,
+    /// Render a scene per monitor at its physical size and set it as the wallpaper.
+    Set(setcmd::SetArgs),
+    /// Put back the wallpaper you had before Clairlune first set one.
+    Restore,
 }
 
 #[derive(Args)]
@@ -188,6 +195,20 @@ pub(crate) fn restrict_archetype(ctx: &mut ContentContext, id: &str) -> Result<(
     Ok(())
 }
 
+/// Limits composition to one activity; errors list the ones that exist.
+pub(crate) fn restrict_activity(ctx: &mut ContentContext, id: &str) -> Result<(), String> {
+    let catalog = builtin_catalog();
+    if catalog.get(id).is_none() {
+        let ids: Vec<&str> = catalog.activities.iter().map(|a| a.id.as_str()).collect();
+        return Err(format!(
+            "unknown activity `{id}`; available: {}",
+            ids.join(", ")
+        ));
+    }
+    ctx.enabled_activities = vec![id.to_string()];
+    Ok(())
+}
+
 /// A seed from OS entropy: `RandomState` keys come from the OS random source.
 pub(crate) fn random_seed() -> u64 {
     RandomState::new().hash_one(0x5EED_u64)
@@ -209,15 +230,7 @@ fn generate(args: GenerateArgs) -> Result<(), String> {
                 restrict_archetype(&mut ctx, id)?;
             }
             if let Some(id) = &args.activity {
-                let catalog = builtin_catalog();
-                if catalog.get(id).is_none() {
-                    let ids: Vec<&str> = catalog.activities.iter().map(|a| a.id.as_str()).collect();
-                    return Err(format!(
-                        "unknown activity `{id}`; available: {}",
-                        ids.join(", ")
-                    ));
-                }
-                ctx.enabled_activities = vec![id.clone()];
+                restrict_activity(&mut ctx, id)?;
             }
             compose(seed, Aspect::from_size(width, height), &ctx)
         }
@@ -321,6 +334,9 @@ fn main() -> ExitCode {
         Command::Generate(args) => generate(args),
         Command::ContactSheet(args) => contact::contact_sheet(args),
         Command::Gif(args) => gifcmd::gif(args),
+        Command::Monitors => setcmd::monitors(),
+        Command::Set(args) => setcmd::set(args),
+        Command::Restore => setcmd::restore(),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

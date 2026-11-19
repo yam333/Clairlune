@@ -139,6 +139,10 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - **Status:** pending
 
 ### Phase 13: M5 Static wallpaper on all OSes
+- [x] 13a `clairlune-platform` crate: `WallpaperHost` trait (monitors, current, set_static, snapshot, restore), `StillStore` (unique names, prune, first-takeover snapshot), `local_data_dir` without `dirs` (MPL dependency)
+- [x] 13b Windows host: `IDesktopWallpaper` per monitor, device-path ids, physical rects under Per-Monitor DPI v2, Fill position; CLI `monitors`, `set`, `restore`; verified on a 2-monitor desktop (set, check, restore)
+- [ ] 13c macOS host   - [ ] 13d GNOME / KDE / XFCE / Cinnamon / MATE hosts   - [ ] 13e wlroots still surface
+- [ ] 13f hotplug / resolution / DPI change handling (needs the app event loop, M6)
 - [ ] `platform` crate static hosts (Windows, macOS, GNOME, KDE, XFCE, Cinnamon, MATE, wlroots)
 - [ ] Unique file names, monitor ids, physical-pixel sizing, hotplug
 - **Status:** pending
