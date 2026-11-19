@@ -9,7 +9,7 @@ rust-version = "1.90"
 license = "MIT OR Apache-2.0"
 authors = ["Clairlune contributors"]
 readme = "README.md"
-repository = "https://github.com/yam333/clairlune"
+repository = "https://github.com/yam333/Clairlune"
 
 [workspace.dependencies]
 # Our own crates. The version is required so `cargo publish` can resolve them.
