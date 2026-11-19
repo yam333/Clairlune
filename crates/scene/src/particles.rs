@@ -38,12 +38,16 @@ pub struct Particle {
     pub y: f64,
     pub glyph: u8,
     pub level: u8,
+    /// Drawn in ink colour (snow, rain, dust) instead of ember colour.
+    pub ink: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EmitterKind {
     /// Upward-drifting plume that widens with height.
     Embers,
+    /// Screen-wide weather particles.
+    Weather(WeatherKind),
 }
 
 /// A particle emitter placed in the image.
@@ -58,6 +62,10 @@ pub struct Emitter {
     /// Multiplies every particle's level (dimmer in daylight).
     pub intensity: f64,
     pub embers: Vec<Ember>,
+    /// Weather particles (empty for embers).
+    pub drops: Vec<Drop>,
+    /// Image size in pixels, for screen-space weather.
+    pub size: (f64, f64),
 }
 
 /// The ember set for a seed. Independent of size and theme, so the hero time is too.
@@ -117,7 +125,22 @@ impl Emitter {
                         y: self.origin_y + dy * self.unit,
                         glyph,
                         level: lv.min(6.0) as u8,
+                        ink: false,
                     })
+                })
+                .collect(),
+            EmitterKind::Weather(kind) => self
+                .drops
+                .iter()
+                .map(|d| {
+                    let (x, y, glyph, level) = drop_state(kind, d, t_ms);
+                    Particle {
+                        x: x * self.size.0,
+                        y: y * self.size.1,
+                        glyph,
+                        level,
+                        ink: kind.ink(),
+                    }
                 })
                 .collect(),
         }
@@ -158,6 +181,169 @@ pub fn hero_time(embers: &[Ember]) -> u64 {
         }
     }
     best.1
+}
+
+/// Screen-wide weather (PLAN.md section 4.2, step 6). Every motion completes a
+/// whole number of cycles per [`LOOP_MS`], so weather loops seamlessly.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WeatherKind {
+    Snow,
+    Rain,
+    Fireflies,
+    Leaves,
+    Dust,
+}
+
+impl WeatherKind {
+    /// The kind for a recipe's weather id (`none` and `stars` have no particles).
+    pub fn from_id(id: &str) -> Option<Self> {
+        match id {
+            "snow" => Some(WeatherKind::Snow),
+            "rain" => Some(WeatherKind::Rain),
+            "fireflies" => Some(WeatherKind::Fireflies),
+            "leaves" => Some(WeatherKind::Leaves),
+            "dust" => Some(WeatherKind::Dust),
+            _ => None,
+        }
+    }
+
+    /// Ink-coloured (cool) or ember-coloured (warm, glowing).
+    pub fn ink(self) -> bool {
+        matches!(
+            self,
+            WeatherKind::Snow | WeatherKind::Rain | WeatherKind::Dust
+        )
+    }
+}
+
+/// One weather particle, in normalised screen coordinates.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Drop {
+    x0: f64,
+    y0: f64,
+    /// Whole vertical (or horizontal, for dust) wraps per loop.
+    wraps: u32,
+    sway: f64,
+    cycles: u32,
+    phase: f64,
+    glyph: u8,
+    level: u8,
+}
+
+/// The weather particles for a seed; the count scales with the aspect ratio.
+pub fn weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
+    use crate::glyphs::id;
+    let mut rng = Rng::stream(seed, "weather_particles");
+    let per = match kind {
+        WeatherKind::Snow => 70.0,
+        WeatherKind::Rain => 110.0,
+        WeatherKind::Fireflies => 14.0,
+        WeatherKind::Leaves => 22.0,
+        WeatherKind::Dust => 40.0,
+    };
+    let count = (per * aspect).round() as u32;
+    (0..count)
+        .map(|_| {
+            let x0 = rng.unit();
+            let y0 = rng.unit();
+            let phase = rng.unit();
+            let big = rng.chance(1, 4);
+            match kind {
+                WeatherKind::Snow => Drop {
+                    x0,
+                    y0,
+                    wraps: rng.range_u32(1, 2),
+                    sway: rng.range_f64(0.003, 0.010),
+                    cycles: rng.range_u32(1, 3),
+                    phase,
+                    glyph: if big {
+                        id('*')
+                    } else {
+                        *rng.choose(&[id('.'), id('\''), id('`')])
+                    },
+                    level: if big { 5 } else { rng.range_u32(2, 4) as u8 },
+                },
+                WeatherKind::Rain => Drop {
+                    x0,
+                    y0,
+                    wraps: rng.range_u32(6, 9),
+                    sway: 0.0,
+                    cycles: 1,
+                    phase,
+                    glyph: *rng.choose(&[id('/'), id('|'), id('\'')]),
+                    level: rng.range_u32(2, 3) as u8,
+                },
+                WeatherKind::Fireflies => Drop {
+                    x0,
+                    // Low in the scene, among the terrain.
+                    y0: 0.45 + 0.5 * y0,
+                    wraps: rng.range_u32(1, 3),
+                    sway: rng.range_f64(0.01, 0.03),
+                    cycles: rng.range_u32(1, 2),
+                    phase,
+                    glyph: id('.'),
+                    level: 0,
+                },
+                WeatherKind::Leaves => Drop {
+                    x0,
+                    y0,
+                    wraps: 1,
+                    sway: rng.range_f64(0.01, 0.03),
+                    cycles: rng.range_u32(2, 3),
+                    phase,
+                    glyph: *rng.choose(&[id(','), id('`'), id('\'')]),
+                    level: rng.range_u32(2, 4) as u8,
+                },
+                WeatherKind::Dust => Drop {
+                    x0,
+                    y0: 0.3 + 0.65 * y0,
+                    wraps: 1,
+                    sway: rng.range_f64(0.002, 0.008),
+                    cycles: rng.range_u32(1, 2),
+                    phase,
+                    glyph: *rng.choose(&[id('.'), id('`')]),
+                    level: rng.range_u32(1, 2) as u8,
+                },
+            }
+        })
+        .collect()
+}
+
+fn frac(x: f64) -> f64 {
+    x - x.floor()
+}
+
+/// Position (normalised), glyph and level of a weather particle at `t`.
+fn drop_state(kind: WeatherKind, d: &Drop, t_ms: u64) -> (f64, f64, u8, u8) {
+    use crate::glyphs::id;
+    let u = (t_ms % LOOP_MS) as f64 / LOOP_MS as f64;
+    let wave = |cycles: u32, phase: f64| sin(TAU * (f64::from(cycles) * u + phase));
+    match kind {
+        WeatherKind::Snow | WeatherKind::Leaves => (
+            frac(d.x0 + d.sway * wave(d.cycles, d.phase)),
+            frac(d.y0 + f64::from(d.wraps) * u),
+            d.glyph,
+            d.level,
+        ),
+        WeatherKind::Rain => (d.x0, frac(d.y0 + f64::from(d.wraps) * u), d.glyph, d.level),
+        WeatherKind::Fireflies => {
+            // Wander on a small closed curve and pulse.
+            let glow = 0.5 + 0.5 * wave(d.wraps, d.phase * 2.0);
+            let level = (1.0 + 4.0 * glow).round() as u8;
+            (
+                frac(d.x0 + d.sway * wave(d.cycles, d.phase)),
+                d.y0 + 0.5 * d.sway * wave(d.cycles + 1, d.phase + 0.25),
+                if level >= 4 { id('*') } else { d.glyph },
+                level,
+            )
+        }
+        WeatherKind::Dust => (
+            frac(d.x0 + f64::from(d.wraps) * u),
+            d.y0 + d.sway * wave(d.cycles, d.phase),
+            d.glyph,
+            d.level,
+        ),
+    }
 }
 
 /// Particle presets attached to an anchor of the character (activity effects).
@@ -263,6 +449,36 @@ pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64) -> Vec<PresetParti
 }
 
 #[cfg(test)]
+mod weather_tests {
+    use super::*;
+
+    #[test]
+    fn weather_loops_and_moves() {
+        for kind in [
+            WeatherKind::Snow,
+            WeatherKind::Rain,
+            WeatherKind::Fireflies,
+            WeatherKind::Leaves,
+            WeatherKind::Dust,
+        ] {
+            let e = Emitter {
+                kind: EmitterKind::Weather(kind),
+                origin_x: 0.0,
+                origin_y: 0.0,
+                unit: 1.0,
+                intensity: 1.0,
+                embers: Vec::new(),
+                drops: weather_set(kind, 9, 16.0 / 9.0),
+                size: (1920.0, 1080.0),
+            };
+            assert!(!e.drops.is_empty());
+            assert_eq!(e.sample(1234), e.sample(1234 + LOOP_MS), "{kind:?}");
+            assert_ne!(e.sample(0), e.sample(700), "{kind:?} should move");
+        }
+    }
+}
+
+#[cfg(test)]
 mod preset_tests {
     use super::*;
 
@@ -298,6 +514,8 @@ mod tests {
             unit: 1000.0,
             intensity: 1.0,
             embers: ember_set(5),
+            drops: Vec::new(),
+            size: (0.0, 0.0),
         };
         assert_eq!(e.sample(1234), e.sample(1234 + LOOP_MS));
         assert_eq!(e.sample(0), e.sample(LOOP_MS * 3));

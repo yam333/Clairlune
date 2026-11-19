@@ -10,7 +10,9 @@ use crate::graph::{Cell, Glow, Lighting, SceneGraph, grid_spec};
 use crate::hash::hash_label;
 use crate::math::pm;
 use crate::palette::{self, PaletteFamily, Theme};
-use crate::particles::{Emitter, EmitterKind, LOOP_MS, ember_set, hero_time};
+use crate::particles::{
+    Emitter, EmitterKind, LOOP_MS, WeatherKind, ember_set, hero_time, weather_set,
+};
 use crate::recipe::{GENERATOR_VERSION, SceneRecipe, TimeOfDay};
 use crate::rng::Rng;
 use crate::{focal, terrain};
@@ -260,9 +262,31 @@ fn build_scene(
                 Theme::Light => 0.85,
             },
             embers,
+            drops: Vec::new(),
+            size: (wf, hf),
         })
         .into_iter()
         .collect();
+    // ---- Weather across the whole screen (fireflies only after dark). ----
+    let mut emitters: Vec<Emitter> = emitters;
+    if let Some(kind) = WeatherKind::from_id(&recipe.weather)
+        && (kind != WeatherKind::Fireflies
+            || matches!(
+                tod,
+                TimeOfDay::Dusk | TimeOfDay::DeepDusk | TimeOfDay::Night
+            ))
+    {
+        emitters.push(Emitter {
+            kind: EmitterKind::Weather(kind),
+            origin_x: 0.0,
+            origin_y: 0.0,
+            unit,
+            intensity: 1.0,
+            embers: Vec::new(),
+            drops: weather_set(kind, seed, aspect),
+            size: (wf, hf),
+        });
+    }
 
     SceneGraph {
         width: w,
