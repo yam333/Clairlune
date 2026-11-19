@@ -57,8 +57,9 @@ struct App {
     status: ui::view::Status,
     #[cfg(any(windows, target_os = "macos"))]
     tray: Option<tray::Tray>,
-    /// The Settings window, while open.
+    /// The Settings window, while open, and the section it last showed.
     settings_window: Option<ui::SettingsWindow>,
+    last_section: ui::view::Section,
     /// `--ui-test`: scripted open/close cycles with screenshots, then exit.
     ui_test: Option<UiTest>,
 }
@@ -88,8 +89,8 @@ impl UiTest {
         let mut steps = Vec::new();
         let cycles = [
             (Theme::Dark, Section::Schedule, "settings-dark-schedule.png"),
-            (Theme::Light, Section::Theme, "settings-light-theme.png"),
-            (Theme::Dark, Section::Archive, "settings-dark-archive.png"),
+            (Theme::Light, Section::Content, "settings-light-content.png"),
+            (Theme::Dark, Section::General, "settings-dark-general.png"),
         ];
         for (i, (theme, section, shot)) in cycles.into_iter().enumerate() {
             let t0 = 1500 * i as u64;
@@ -117,6 +118,13 @@ impl UiTest {
     fn wake(&self) -> Option<Instant> {
         self.steps.get(self.next).map(|(at, _)| self.started + *at)
     }
+}
+
+fn capitalise_first(s: &str) -> String {
+    let mut c = s.chars();
+    c.next()
+        .map(|f| f.to_uppercase().chain(c).collect())
+        .unwrap_or_default()
 }
 
 fn random_seed() -> u64 {
@@ -214,7 +222,6 @@ impl App {
         }
     }
 
-    #[cfg_attr(not(any(windows, target_os = "macos")), allow(dead_code))] // tray-only until the Linux tray lands
     fn save_settings(&mut self) {
         if let Err(e) = self.settings.save(&self.settings_path) {
             tracing::warn!(target: "clairlune", error = %e, "could not save settings");
@@ -275,13 +282,7 @@ impl App {
                 self.reschedule();
             }
             Action::SavePng => {
-                let dest = if self.settings.export.folder.is_empty() {
-                    clairlune_platform::pictures_dir()
-                        .unwrap_or_else(|| self.data_dir.clone())
-                        .join(APP_NAME)
-                } else {
-                    PathBuf::from(&self.settings.export.folder)
-                };
+                let dest = self.export_dir();
                 self.submit(Job::Export { dest });
             }
             Action::OpenArchive => open(&self.data_dir.join("archive"), false),
@@ -298,7 +299,11 @@ impl App {
             return;
         }
         let theme = theme.unwrap_or_else(|| apply::resolve_theme(self.settings.theme.mode));
-        match ui::SettingsWindow::open(event_loop, theme) {
+        self.status.start_at_login = std::env::current_exe()
+            .ok()
+            .and_then(|exe| clairlune_platform::start_at_login(&exe));
+        self.status.note = None;
+        match ui::SettingsWindow::open(event_loop, theme, self.last_section) {
             Ok(w) => {
                 self.settings_window = Some(w);
                 self.refresh_window_thumb();
@@ -359,6 +364,40 @@ impl App {
             }
             UiAction::Previous => self.reapply(true),
             UiAction::OpenArchive => open(&self.data_dir.join("archive"), false),
+            UiAction::OpenLogs => open(&self.data_dir.join("logs"), false),
+            UiAction::SavePng => {
+                let dest = self.export_dir();
+                self.submit(Job::Export { dest });
+            }
+            UiAction::SetStartAtLogin(on) => {
+                let result = std::env::current_exe()
+                    .map_err(|e| e.to_string())
+                    .and_then(|exe| {
+                        clairlune_platform::set_start_at_login(&exe, on)
+                            .map_err(|e| e.to_string())
+                            .map(|()| clairlune_platform::start_at_login(&exe))
+                    });
+                match result {
+                    Ok(state) => self.status.start_at_login = state,
+                    Err(e) => {
+                        self.status.note = Some(format!("Couldn't change start at login: {e}"))
+                    }
+                }
+            }
+            UiAction::RestoreWallpaper => {
+                // Pause first, or the schedule would replace it again.
+                self.settings.schedule.paused = true;
+                self.save_settings();
+                self.reschedule();
+                #[cfg(any(windows, target_os = "macos"))]
+                if let Some(t) = &self.tray {
+                    t.show_paused(true);
+                }
+                self.submit(Job::Restore);
+            }
+        }
+        if let Some(w) = &self.settings_window {
+            w.request_redraw();
         }
         let _ = event_loop;
     }
@@ -390,6 +429,17 @@ impl App {
                     event_loop.exit();
                 }
             }
+        }
+    }
+
+    /// The export folder: the setting, or `Pictures/Clairlune`.
+    fn export_dir(&self) -> PathBuf {
+        if self.settings.export.folder.trim().is_empty() {
+            clairlune_platform::pictures_dir()
+                .unwrap_or_else(|| self.data_dir.clone())
+                .join(APP_NAME)
+        } else {
+            PathBuf::from(self.settings.export.folder.trim())
         }
     }
 
@@ -427,13 +477,32 @@ impl App {
             }
             Done::Exported(path) => {
                 tracing::info!(target: "clairlune", path = %path.display(), "saved");
+                self.status.note = Some(format!("Saved {}", path.display()));
                 if let Some(dir) = path.parent() {
                     open(dir, false);
+                }
+            }
+            Done::Restored => {
+                self.busy = false;
+                self.current = None;
+                self.status.what.clear();
+                self.status.seed = None;
+                self.status.theme = None;
+                self.status.note =
+                    Some("Your wallpaper is back. The schedule is paused.".to_string());
+                if let Some(w) = &mut self.settings_window {
+                    w.clear_thumb();
+                }
+                #[cfg(any(windows, target_os = "macos"))]
+                if let Some(t) = &self.tray {
+                    t.set_busy(false);
+                    t.set_tooltip(APP_NAME);
                 }
             }
             Done::Failed(e) => {
                 self.busy = false;
                 tracing::debug!(target: "clairlune", error = %e, "shown in the tray tooltip");
+                self.status.note = Some(capitalise_first(&e));
                 #[cfg(any(windows, target_os = "macos"))]
                 if let Some(t) = &self.tray {
                     t.set_busy(false);
@@ -494,6 +563,7 @@ impl ApplicationHandler<AppEvent> for App {
         };
         let before = self.settings.clone();
         let outcome = w.on_event(&event, &mut self.settings, &status, &mut actions);
+        self.last_section = w.section();
         if let ui::Outcome::Close = outcome {
             self.settings_window = None;
             tracing::debug!(target: "clairlune", "settings closed");
@@ -708,6 +778,7 @@ fn main() {
         #[cfg(any(windows, target_os = "macos"))]
         tray: None,
         settings_window: None,
+        last_section: ui::view::Section::Schedule,
         status: ui::view::Status::default(),
         ui_test: ui_test_out.map(UiTest::new),
     };

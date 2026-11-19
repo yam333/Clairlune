@@ -168,6 +168,42 @@ pub fn app_config_dir() -> Option<PathBuf> {
     config_dir().map(|d| d.join(clairlune_scene::ident::APP_ID))
 }
 
+/// The command line that starts `exe` at login.
+fn login_command(exe: &Path) -> String {
+    format!("\"{}\"", exe.display())
+}
+
+/// Whether `exe` is registered to start at login; `None` where this build
+/// can't manage login items yet.
+pub fn start_at_login(exe: &Path) -> Option<bool> {
+    #[cfg(windows)]
+    {
+        let want = login_command(exe);
+        Some(windows::start_at_login_command().is_some_and(|c| c.eq_ignore_ascii_case(&want)))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = login_command(exe);
+        None
+    }
+}
+
+/// Registers or removes `exe` as a login item (per user, no admin rights).
+pub fn set_start_at_login(exe: &Path, enable: bool) -> Result<(), PlatformError> {
+    #[cfg(windows)]
+    {
+        let cmd = login_command(exe);
+        windows::set_start_at_login_command(enable.then_some(cmd.as_str()))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (exe, enable);
+        Err(PlatformError::Unsupported(
+            "starting at login arrives with the installers".into(),
+        ))
+    }
+}
+
 /// Whether the system asks apps for a dark appearance, when that is known.
 pub fn system_prefers_dark() -> Option<bool> {
     #[cfg(windows)]

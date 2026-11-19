@@ -14,7 +14,6 @@ use std::sync::mpsc;
 use std::time::Instant;
 
 /// Work for the worker thread.
-#[cfg_attr(not(any(windows, target_os = "macos")), allow(dead_code))] // tray-only until the Linux tray lands
 pub enum Job {
     /// A new scene per monitor from a base seed.
     New { seed: u64, settings: Box<Settings> },
@@ -29,6 +28,8 @@ pub enum Job {
     },
     /// Copy the current wallpaper's primary image to the export folder.
     Export { dest: PathBuf },
+    /// Put back the wallpaper the user had before Clairlune.
+    Restore,
 }
 
 /// What happened, for the tray tooltip and logs.
@@ -44,6 +45,8 @@ pub enum Done {
         ms: u64,
     },
     Exported(PathBuf),
+    /// The user's own wallpaper is back.
+    Restored,
     Failed(String),
 }
 
@@ -192,6 +195,7 @@ pub fn worker(
 fn run(job: Job, host: Option<&dyn WallpaperHost>, store: &StillStore, archive: &Archive) -> Done {
     match job {
         Job::Export { dest } => export(archive, &dest),
+        Job::Restore => restore(host, store),
         Job::New { seed, settings } => apply(None, seed, &settings, true, host, store, archive),
         Job::Recipes {
             recipes,
@@ -305,6 +309,20 @@ fn apply(
         monitors: monitors.len(),
         ms,
     })
+}
+
+/// Puts back the remembered wallpaper and removes Clairlune's stills.
+fn restore(host: Option<&dyn WallpaperHost>, store: &StillStore) -> Result<Done, String> {
+    let host = host.ok_or("no wallpaper host on this system")?;
+    let snapshot = store
+        .original()
+        .map_err(|e| e.to_string())?
+        .ok_or("there is no earlier wallpaper to put back")?;
+    host.restore(&snapshot).map_err(|e| e.to_string())?;
+    store.forget_original().map_err(|e| e.to_string())?;
+    let removed = store.clear_stills();
+    tracing::info!(target: "clairlune", removed, "restored the user's wallpaper");
+    Ok(Done::Restored)
 }
 
 /// Copies the newest entry's primary image to `dest`.

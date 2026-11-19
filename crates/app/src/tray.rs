@@ -47,7 +47,7 @@ impl Tray {
         let pause = CheckMenuItem::new("Pause schedule", true, paused, None);
         let save = MenuItem::new("Save current as PNG", true, None);
         let archive = MenuItem::new("Open archive folder", true, None);
-        let settings = MenuItem::new("Settings (opens settings.toml)", true, None);
+        let settings = MenuItem::new("Settings\u{2026}", true, None);
         let quit = MenuItem::new("Quit Clairlune", true, None);
         let menu = Menu::new();
         menu.append_items(&[
