@@ -13,9 +13,22 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 /// Prop ids the engine can draw.
-pub const PROPS: [&str; 4] = ["campfire", "log_seat", "telescope", "lantern"];
+pub const PROPS: [&str; 8] = [
+    "campfire",
+    "log_seat",
+    "telescope",
+    "lantern",
+    "spellbook",
+    "camp_stove",
+    "coffee_mug",
+    "fallen_hat",
+];
 /// Effect ids the engine can draw.
 pub const EFFECTS: [&str; 1] = ["embers"];
+/// Particle presets an `[[effects]]` entry can attach to an anchor.
+pub const PARTICLE_PRESETS: [&str; 2] = ["sparkles", "steam"];
+/// Anchor names the art exports (docs/clawd-style.md).
+pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "item_tip"];
 /// Generic prop attachment points.
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
@@ -44,6 +57,43 @@ pub struct Activity {
     pub effects_by_state: BTreeMap<String, Vec<String>>,
     pub gif: Option<GifDef>,
     pub unattended: Unattended,
+    #[serde(default)]
+    pub character: CharacterDef,
+    /// Effects attached to the character (docs/activity-system.md section 3).
+    #[serde(default)]
+    pub effects: Vec<EffectDef>,
+}
+
+/// Per-activity character settings.
+#[derive(Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(deny_unknown_fields)]
+pub struct CharacterDef {
+    /// Extra cleared space above the character's box, in sprite pixels
+    /// (a wizard hat, a raised wand).
+    #[serde(default)]
+    pub headroom: u32,
+}
+
+/// An effect attached to an anchor of the character's current frame.
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct EffectDef {
+    /// Effect type; `particles` for now.
+    #[serde(rename = "type")]
+    pub kind: String,
+    /// One of [`PARTICLE_PRESETS`].
+    pub preset: String,
+    /// Anchor name, e.g. `item_tip`.
+    pub at: String,
+    /// States in which the effect runs; empty means all.
+    #[serde(default)]
+    pub states: Vec<String>,
+}
+
+impl EffectDef {
+    pub fn active_in(&self, state: &str) -> bool {
+        self.states.is_empty() || self.states.iter().any(|s| s == state)
+    }
 }
 
 fn one() -> f64 {
@@ -245,6 +295,25 @@ impl Activity {
             for e in &def.effects {
                 if !EFFECTS.contains(&e.as_str()) {
                     err(format!("prop `{prop}`: unknown effect `{e}`"));
+                }
+            }
+        }
+        for e in &self.effects {
+            if e.kind != "particles" {
+                err(format!(
+                    "effect type `{}` is not implemented (only `particles`)",
+                    e.kind
+                ));
+            }
+            if !PARTICLE_PRESETS.contains(&e.preset.as_str()) {
+                err(format!("unknown particle preset `{}`", e.preset));
+            }
+            if !ANCHORS.contains(&e.at.as_str()) {
+                err(format!("effect anchor `{}` is not a known anchor", e.at));
+            }
+            for s in &e.states {
+                if !states.contains_key(s) {
+                    err(format!("effect names undefined state `{s}`"));
                 }
             }
         }

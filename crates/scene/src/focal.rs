@@ -53,6 +53,10 @@ fn prop_kind(id: &str) -> Option<SpriteKind> {
         "log_seat" => Some(SpriteKind::LogSeat),
         "telescope" => Some(SpriteKind::Telescope),
         "lantern" => Some(SpriteKind::Lantern),
+        "spellbook" => Some(SpriteKind::Spellbook),
+        "camp_stove" => Some(SpriteKind::CampStove),
+        "coffee_mug" => Some(SpriteKind::CoffeeMug),
+        "fallen_hat" => Some(SpriteKind::FallenHat),
         _ => None,
     }
 }
@@ -141,7 +145,8 @@ pub fn layout(
     let mut light = None;
     let mut embers_at = None;
     let (mut left_cursor, mut right_cursor) = (cx - half_band - gap, cx + half_band + gap);
-    let mut height = ch;
+    // Tall poses (a hat, a raised wand) get extra cleared space above the box.
+    let mut height = ch + (activity.character.headroom * scale) as i32;
     for (kind, left, id) in &sides {
         let map = kind.map();
         let (pw, ph) = ((map.width * scale) as i32, (map.height * scale) as i32);
@@ -173,6 +178,20 @@ pub fn layout(
                     strength: 1.0,
                 });
                 embers_at = Some((pcx, f64::from(y + s)));
+            }
+            "spellbook" if light.is_none() => {
+                light = Some(LightSource {
+                    cx: pcx,
+                    cy: f64::from(y) + f64::from(ph) * 0.3,
+                    strength: 0.45,
+                });
+            }
+            "camp_stove" if light.is_none() => {
+                light = Some(LightSource {
+                    cx: pcx,
+                    cy: f64::from(y) + f64::from(ph) * 0.7,
+                    strength: 0.35,
+                });
             }
             "lantern" if light.is_none() => {
                 light = Some(LightSource {

@@ -9,8 +9,9 @@ use crate::palette::{IndexedPalette, LEVELS, ink_level};
 use clairlune_scene::activity::builtin_catalog;
 use clairlune_scene::anim::state_at;
 use clairlune_scene::graph::CHARACTER_BOX;
+use clairlune_scene::particles::{Preset, preset_particles};
 use clairlune_scene::{SceneGraph, SpriteInstance, SpriteKind};
-use clairlune_sprites::{Character, builtin_character};
+use clairlune_sprites::{Character, Frame, builtin_character};
 
 /// Composites one frame at `t_ms` over a baked background (live clock).
 pub fn render_frame(
@@ -35,7 +36,7 @@ pub fn render_frame_clocked(
 ) -> IndexedImage {
     let mut img = background.clone();
     for (col, row, p) in graph.particles_at(t_ms) {
-        draw_particle(&mut img, graph, atlas, col, row, p.glyph, p.level);
+        draw_particle(&mut img, graph, atlas, col, row, p.glyph, p.level, false);
     }
     for sprite in graph.sprites_at(t_ms) {
         if sprite.kind == SpriteKind::Character {
@@ -43,7 +44,12 @@ pub fn render_frame_clocked(
                 (Clock::Loop(loop_ms), Some(track)) => loop_track(track, loop_ms).at(t_ms),
                 _ => sprite,
             };
-            draw_character(&mut img, graph, &sprite, palette, t_ms, clock);
+            if let Some(pose) = character_pose(graph, &sprite, t_ms, clock) {
+                // Effects first: a particle replaces its whole cell, so the
+                // character is drawn on top of them.
+                draw_effects(&mut img, graph, atlas, &pose, t_ms);
+                draw_pose(&mut img, &pose, palette);
+            }
             continue;
         }
         draw_sprite(&mut img, &sprite, palette);
@@ -51,7 +57,9 @@ pub fn render_frame_clocked(
     img
 }
 
-/// A particle replaces its whole cell: background band, then the glyph in ember colour.
+/// A particle replaces its whole cell: background band, then the glyph in ember
+/// colour, or in ink colour when `ink` (faint wisps such as steam).
+#[allow(clippy::too_many_arguments)]
 fn draw_particle(
     img: &mut IndexedImage,
     graph: &SceneGraph,
@@ -60,6 +68,7 @@ fn draw_particle(
     row: u32,
     glyph: u8,
     level: u8,
+    ink: bool,
 ) {
     let g = &graph.grid;
     let shade =
@@ -74,10 +83,10 @@ fn draw_particle(
             let x = x0 + mx;
             let band = graph.lighting.band_in_row(&rt, x);
             let lvl = ink_level(mask[(my * g.cell_w + mx) as usize], shade);
-            img.pixels[y as usize * w + x as usize] = if lvl > 0 {
-                IndexedPalette::ember(band, lvl)
-            } else {
-                band
+            img.pixels[y as usize * w + x as usize] = match (lvl > 0, ink) {
+                (false, _) => band,
+                (true, false) => IndexedPalette::ember(band, lvl),
+                (true, true) => IndexedPalette::ink(band, lvl),
             };
         }
     }
@@ -114,27 +123,49 @@ pub fn hero_time(graph: &SceneGraph) -> u64 {
     base
 }
 
-/// Draws the character's animation frame for the activity state at `t`,
-/// aligned on the art's origin (feet row, body centre) inside its layout box,
-/// mirrored when it faces left. All character art comes through `Character`.
-fn draw_character(
-    img: &mut IndexedImage,
-    graph: &SceneGraph,
-    s: &SpriteInstance,
-    palette: &IndexedPalette,
-    t_ms: u64,
-    clock: Clock,
-) {
+/// The character's current frame and where it sits on screen: the art's origin
+/// (feet row, body centre) aligned inside the layout box, mirrored when it faces
+/// left. All character art comes through `Character`.
+struct Pose {
+    frame: &'static Frame,
+    state: String,
+    /// Screen pixel of the origin pixel's top-left corner.
+    x0: i32,
+    y0: i32,
+    sc: i32,
+    mirror: bool,
+}
+
+impl Pose {
+    /// Screen position of the centre of frame pixel `(col, row)`.
+    fn screen(&self, col: i32, row: i32) -> (i32, i32) {
+        let (ox, oy) = self.frame.origin();
+        let dx = (col - ox) * if self.mirror { -1 } else { 1 };
+        (
+            self.x0 + dx * self.sc + self.sc / 2,
+            self.y0 + (row - oy) * self.sc + self.sc / 2,
+        )
+    }
+}
+
+/// Picks the frame for the activity state at `t` (state machine when live, the
+/// loop script when looping) and places it.
+fn character_pose(graph: &SceneGraph, s: &SpriteInstance, t_ms: u64, clock: Clock) -> Option<Pose> {
     let character = builtin_character();
     let activity = graph
         .activity
         .as_deref()
         .and_then(|id| builtin_catalog().get(id));
-    let (anim, elapsed, looping) = match (activity, clock) {
+    let (anim, state, elapsed, looping) = match (activity, clock) {
         (Some(a), Clock::Loop(loop_ms)) => {
             let script = LoopScript::new(a, character, loop_ms);
             let (state, elapsed) = script.at(t_ms);
-            (character.animation(&a.id, state), elapsed, true)
+            (
+                character.animation(&a.id, state),
+                state.to_string(),
+                elapsed,
+                true,
+            )
         }
         (Some(a), Clock::Live) => {
             let st = state_at(a, graph.seed, t_ms, &|state| {
@@ -143,19 +174,85 @@ fn draw_character(
             let looping = a.animation.states.get(&st.state).is_some_and(|d| d.looping);
             (
                 character.animation(&a.id, &st.state),
+                st.state.clone(),
                 t_ms - st.since_ms,
                 looping,
             )
         }
-        (None, _) => (character.animation("", "idle"), t_ms, true),
+        (None, _) => (
+            character.animation("", "idle"),
+            "idle".to_string(),
+            t_ms,
+            true,
+        ),
     };
-    let Some(anim) = anim else { return };
-    let f = anim.frame_at(elapsed, looping);
-    let (ox, oy) = f.origin();
+    let frame = anim?.frame_at(elapsed, looping);
     let sc = s.scale as i32;
-    // Origin pixel's top-left on screen: box centre column, box bottom row.
-    let x0 = s.x + (CHARACTER_BOX.0 as i32 / 2) * sc;
-    let y0 = s.y + (CHARACTER_BOX.1 as i32 - 1) * sc;
+    Some(Pose {
+        frame,
+        state,
+        x0: s.x + (CHARACTER_BOX.0 as i32 / 2) * sc,
+        y0: s.y + (CHARACTER_BOX.1 as i32 - 1) * sc,
+        sc,
+        mirror: s.mirror,
+    })
+}
+
+/// The activity's `[[effects]]` for the current state, at their anchors on the
+/// current frame. Particles snap to cells like the embers.
+fn draw_effects(
+    img: &mut IndexedImage,
+    graph: &SceneGraph,
+    atlas: &GlyphAtlas,
+    pose: &Pose,
+    t_ms: u64,
+) {
+    let Some(a) = graph
+        .activity
+        .as_deref()
+        .and_then(|id| builtin_catalog().get(id))
+    else {
+        return;
+    };
+    let g = &graph.grid;
+    let dir = if pose.mirror { -1.0 } else { 1.0 };
+    for (i, e) in a.effects.iter().enumerate() {
+        if !e.active_in(&pose.state) {
+            continue;
+        }
+        let (Some(&(ax, ay)), Some(preset)) =
+            (pose.frame.anchors.get(&e.at), Preset::from_id(&e.preset))
+        else {
+            continue;
+        };
+        let (cx, cy) = pose.screen(ax, ay);
+        let seed = graph.seed.wrapping_add(i as u64 + 1);
+        for p in preset_particles(preset, seed, t_ms) {
+            let x = f64::from(cx) + p.dx * dir * f64::from(pose.sc);
+            let y = f64::from(cy) + p.dy * f64::from(pose.sc);
+            let col = ((x - f64::from(g.origin_x)) / f64::from(g.cell_w)).floor();
+            let row = ((y - f64::from(g.origin_y)) / f64::from(g.cell_h)).floor();
+            if col < 0.0 || row < 0.0 || col >= f64::from(g.cols) || row >= f64::from(g.rows) {
+                continue;
+            }
+            draw_particle(
+                img,
+                graph,
+                atlas,
+                col as u32,
+                row as u32,
+                p.glyph,
+                p.level,
+                preset == Preset::Steam,
+            );
+        }
+    }
+}
+
+fn draw_pose(img: &mut IndexedImage, pose: &Pose, palette: &IndexedPalette) {
+    let f = pose.frame;
+    let (ox, oy) = f.origin();
+    let (x0, y0, sc, s) = (pose.x0, pose.y0, pose.sc, pose);
     let (w, h) = (img.width as i32, img.height as i32);
     for row in 0..f.height {
         for col in 0..f.width {
