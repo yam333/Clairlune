@@ -10,7 +10,7 @@ Every wallpaper is generated locally from a seed: a landscape built from text gl
 
 ## Status
 
-Early development. The generator and a developer CLI work today: nine landscapes (canyon, mountains, forest, desert, snowfield, shore, city rooftops, night sky, cave), seven activities for Clawd, weather, stills and seamless looping GIFs. Setting the wallpaper and the desktop app (tray, settings, live wallpapers) come in later milestones; see [PLAN.md](PLAN.md).
+Early development. The generator and a developer CLI work today: nine landscapes (canyon, mountains, forest, desert, snowfield, shore, city rooftops, night sky, cave), seven activities for Clawd, weather, stills and seamless looping GIFs. On Windows the CLI can already set the wallpaper, one scene per monitor. The desktop app (tray, settings, schedule, live wallpapers) and the other systems come in later milestones; see [PLAN.md](PLAN.md).
 
 ## Try the generator
 
@@ -46,6 +46,17 @@ clairlune-cli contact-sheet --activity stroll --count 8 --out strolls.png
 clairlune-cli contact-sheet --archetype shore --count 6 --theme light --out shores.png
 ```
 
+## Set it as your wallpaper (Windows)
+
+```sh
+clairlune-cli monitors                 # ids, physical sizes, current wallpapers
+clairlune-cli set --seed 7             # one scene per monitor, at each monitor's resolution
+clairlune-cli set --archetype shore --theme light
+clairlune-cli restore                  # put back the wallpaper you had before
+```
+
+The primary monitor gets the seed you give; the others get seeds derived from it and their monitor id, so each screen has its own scene and the same seed always gives the same set. The first `set` remembers your current wallpaper (per monitor, and the fit mode) so `restore` can put it back. Stills are kept in `%LOCALAPPDATA%\Clairlune\current`, each under a new file name. macOS and Linux follow in this milestone.
+
 ## Workspace
 
 | Crate | Purpose |
@@ -53,6 +64,7 @@ clairlune-cli contact-sheet --archetype shore --count 6 --theme light --out shor
 | `clairlune-scene` (`crates/scene`) | Pure, deterministic: seed → recipe → scene graph. No I/O. |
 | `clairlune-sprites` (`crates/sprites`) | Aseprite sheet loader, anchors, the `Character` trait. |
 | `clairlune-render` (`crates/render`) | Glyph atlas, palette-index compositor, PNG export. |
+| `clairlune-platform` (`crates/platform`) | Monitors and setting the wallpaper (Windows today). |
 | `clairlune-cli` (`crates/cli`) | Developer tool. |
 | `clairlune` (`crates/app`) | The desktop app (placeholder until milestone M6). |
 
