@@ -36,7 +36,9 @@ pub fn render_frame_clocked(
 ) -> IndexedImage {
     let mut img = background.clone();
     for (col, row, p) in graph.particles_at(t_ms) {
-        draw_particle(&mut img, graph, atlas, col, row, p.glyph, p.level, false);
+        draw_particle(
+            &mut img, graph, atlas, col, row, p.glyph, p.level, false, false,
+        );
     }
     for sprite in graph.sprites_at(t_ms) {
         if sprite.kind == SpriteKind::Character {
@@ -45,10 +47,10 @@ pub fn render_frame_clocked(
                 _ => sprite,
             };
             if let Some(pose) = character_pose(graph, &sprite, t_ms, clock) {
-                // Effects first: a particle replaces its whole cell, so the
-                // character is drawn on top of them.
-                draw_effects(&mut img, graph, atlas, &pose, t_ms);
+                // Effects go on top as an overlay (only the glyph's own pixels),
+                // so steam over a mug or sparkles over the hat stay visible.
                 draw_pose(&mut img, &pose, palette);
+                draw_effects(&mut img, graph, atlas, &pose, t_ms);
             }
             continue;
         }
@@ -57,8 +59,9 @@ pub fn render_frame_clocked(
     img
 }
 
-/// A particle replaces its whole cell: background band, then the glyph in ember
-/// colour, or in ink colour when `ink` (faint wisps such as steam).
+/// Draws a particle glyph in ember colour, or ink colour when `ink` (faint
+/// wisps such as steam). Normally it replaces its whole cell (background band,
+/// then the glyph); with `overlay` only the glyph's pixels are written.
 #[allow(clippy::too_many_arguments)]
 fn draw_particle(
     img: &mut IndexedImage,
@@ -69,6 +72,7 @@ fn draw_particle(
     glyph: u8,
     level: u8,
     ink: bool,
+    overlay: bool,
 ) {
     let g = &graph.grid;
     let shade =
@@ -83,6 +87,9 @@ fn draw_particle(
             let x = x0 + mx;
             let band = graph.lighting.band_in_row(&rt, x);
             let lvl = ink_level(mask[(my * g.cell_w + mx) as usize], shade);
+            if overlay && lvl == 0 {
+                continue; // overlay: leave whatever is under the glyph
+            }
             img.pixels[y as usize * w + x as usize] = match (lvl > 0, ink) {
                 (false, _) => band,
                 (true, false) => IndexedPalette::ember(band, lvl),
@@ -244,6 +251,7 @@ fn draw_effects(
                 p.glyph,
                 p.level,
                 preset == Preset::Steam,
+                true,
             );
         }
     }

@@ -1,0 +1,45 @@
+# A wizard practising spells beside an open, glowing spellbook.
+id = "wizard_magic"
+weight = 1.0
+
+[requires]
+terrain = ["ledge", "flat", "cliff", "rooftop"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
+weather = ["none", "stars"]
+
+[motion]
+type = "stationary"
+
+[character]
+headroom = 10
+
+[props.spellbook]
+attach = "either_side"
+
+[animation]
+start = "cast"
+
+[animation.states.ponder]
+loop = true
+dwell_s = [3, 7]
+next = { cast = 0.8, twirl = 0.2 }
+
+[animation.states.cast]
+loop = true
+dwell_s = [3, 6]
+next = { ponder = 0.5, twirl = 0.5 }
+
+[animation.states.twirl]
+next = { cast = 0.5, ponder = 0.5 }
+
+[[effects]]
+type = "particles"
+preset = "sparkles"
+at = "item_tip"
+states = ["cast", "twirl"]
+
+[gif]
+loop_script = ["cast", "twirl", "ponder"]
+
+[unattended]
+props = ["fallen_hat"]

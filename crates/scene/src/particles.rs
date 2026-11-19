@@ -224,9 +224,9 @@ pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64) -> Vec<PresetParti
             }
             Preset::Steam => {
                 // Rising and swaying, faint.
-                let rise = (5.0 + 5.0 * b) * p;
+                let rise = (8.0 + 6.0 * b) * p;
                 let sway = 1.2 * sin(TAU * (p + c)) * p;
-                let level = (3.0 * (1.0 - p) + 0.5).round() as u8;
+                let level = (4.0 * (1.0 - p) + 0.5).round() as u8;
                 if level == 0 || p < 0.08 {
                     continue;
                 }

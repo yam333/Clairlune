@@ -4,7 +4,7 @@
 Implement PLAN.md milestone by milestone. This session delivers M1 (headless deterministic generator + `clairlune-cli generate` that writes an indexed PNG), with tests and CI, and prepares the crates for crates.io. The user granted full access (no more approval stops), so publishing is part of this session.
 
 ## Next Step
-Phase 11: Activity Wave A (anchor particles, held items, light) starting with wizard magic and making coffee; or the live-mode Smoothness timing when the live renderer exists (M7).
+Release 0.5.0 (GIF export + wizard + coffee), then Wave A4 (reading, guitar) or Wave B (set pieces: chess, painting).
 
 ## Current Phase
 Phase 10 (Phase 9 waits on the user's art)
@@ -103,7 +103,8 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - [ ] Activity Wave A (docs/activity-system.md): frames by state (10h), anchor `particles` effects, held items, `light`; activities: wizard magic, making coffee (camp stove), reading by a lantern, guitar
   - [x] A1 Engine: `[[effects]]` in activity TOML (type particles, preset sparkles|steam, at = anchor, states), validated; seeded periodic particle presets in scene; render draws them at the current frame's anchor (mirrored), ink or ember colour
   - [x] A2 Engine: `[character] headroom` so tall poses (hat, raised wand) get cleared space; light props spellbook and camp_stove
-  - [ ] A3 Content: props drawn as code (spellbook, camp stove, mug, fallen hat); wizard_magic and make_coffee designs + TOML; export, goldens, visual check
+  - [x] A3 Content: props drawn as code (spellbook, camp stove, mug, fallen hat); wizard_magic and make_coffee designs + TOML; export, goldens, visual check
+  - [ ] A4 Content: reading by a lantern, guitar (with a `notes` particle preset)
 - [x] GIF: global palette, one sub-image per frame, delay dithering, native-size render; record sizes in tests (960x540 6 s: ~95-105 KB)
   - [x] 11a Loop length: multiples of the 6 s particle period (6 s, 12 s); 3 s and 10 s from PLAN.md 6.4 can't be seamless with 1-3 s particle lives
   - [x] 11b Character on the GIF clock: the activity's `gif.loop_script`, first looping state repeated, then time-scaled to fill the loop exactly; pace period snapped to divide the loop
@@ -207,6 +208,8 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 | Scrolling scenes loop by making every layer periodic and moving whole periods per loop | Seamless with no fade, finite memory, deterministic integer offsets (docs/scrolling-scenes.md) |
 | Logging via `tracing`: every scene line carries seed + recipe hash; JSON-lines files; logs never feed back into generation | Any logged problem can be reproduced with `generate --recipe`; output stays deterministic (docs/logging.md) |
 | GIF loops are 6 s or 12 s (multiples of the particle period), not 3/10 s | Particle lives of 1-3 s only all divide multiples of 6 s, so only those loop seamlessly |
+| Anchor effects draw after the character as an overlay (glyph pixels only) | Steam over a held mug and sparkles near the hat stay visible; embers keep replacing whole cells |
+| An activity's GIF loop repeats its first looping state, so the showpiece state should be `start` | The wizard's loop was mostly pondering until `cast` became the start state |
 | Theme-locked golden entries are recorded as `locked` in hashes.txt | Night-only stargaze seeds have no light image; the manifest still pins that they stay locked |
 | Golden tolerance is 0 differing pixels | The generator is designed to be byte-identical everywhere, so any difference is a real change. |
 
