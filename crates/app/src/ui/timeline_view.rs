@@ -1369,9 +1369,12 @@ mod tests {
                 timeline: &mut self.tl,
             };
             let st = &mut self.st;
-            let _ = self.ctx.run_ui(input, |ui| {
-                show(ui, Theme::Dark, st, &mut model, &mut actions)
-            });
+            // No painter here: release the frame's texture uploads unused.
+            self.ctx
+                .run_ui(input, |ui| {
+                    show(ui, Theme::Dark, st, &mut model, &mut actions)
+                })
+                .drop_without_applying_deltas();
             self.changed += actions
                 .iter()
                 .filter(|a| **a == UiAction::TimelineChanged)
