@@ -74,6 +74,10 @@ pub struct Status {
     pub live: Option<String>,
     /// Why Live can't be chosen in this build (`None` where it can).
     pub live_supported: Option<String>,
+    /// How many crash reports there are.
+    pub crash_reports: usize,
+    /// Detailed logging is on until this local time ("18:40 tomorrow").
+    pub detailed_until: Option<String>,
 }
 
 /// Requests from the window to the app.
@@ -84,6 +88,9 @@ pub enum UiAction {
     Previous,
     OpenArchive,
     OpenLogs,
+    OpenCrashReports,
+    ExportDiagnostics,
+    SetDetailedLogging(bool),
     SavePng,
     SaveGif,
     SetStartAtLogin(bool),
@@ -940,6 +947,44 @@ fn page(
                     actions.push(UiAction::OpenLogs);
                 }
             });
+            let detailed_text = match &status.detailed_until {
+                Some(until) => format!("On until {until}, then back to normal."),
+                None => "Logs much more for a day, for a bug report.".to_string(),
+            };
+            row(ui, theme, "Detailed logging", &detailed_text, |ui| {
+                let mut on = status.detailed_until.is_some();
+                if toggle(ui, theme, &mut on, "Detailed logging").changed() {
+                    actions.push(UiAction::SetDetailedLogging(on));
+                }
+            });
+            row(
+                ui,
+                theme,
+                "Diagnostics",
+                "One zip for a bug report: system facts, recent logs, crash reports, recipes and settings, with your home folder written as ~. Nothing is sent anywhere.",
+                |ui| {
+                    if ui.button("Export").clicked() {
+                        actions.push(UiAction::ExportDiagnostics);
+                    }
+                },
+            );
+            if status.crash_reports > 0 {
+                let n = status.crash_reports;
+                row(
+                    ui,
+                    theme,
+                    "Crash reports",
+                    &format!(
+                        "{n} report{} from times Clairlune stopped unexpectedly.",
+                        if n == 1 { "" } else { "s" }
+                    ),
+                    |ui| {
+                        if ui.button("Open").clicked() {
+                            actions.push(UiAction::OpenCrashReports);
+                        }
+                    },
+                );
+            }
             ui.add_space(space::S2);
             hairline(ui, t.hairline);
             ui.add_space(space::S3);

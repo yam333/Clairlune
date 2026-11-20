@@ -225,7 +225,7 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 - [x] 22b Instrument scene (compose/build decisions and fallbacks) and render (timings, character fallbacks) with `tracing`; no effect on output
 - [x] 22c CLI: `-v`/`-vv`, `--log-file` (JSON lines), `CLAIRLUNE_LOG` filter, startup environment line, panic hook that logs location and scene context
 - [x] 22d Verify: logs carry the seed and recipe hash; cargo-deny still passes; tests unaffected
-- [ ] App side (M6): rolling files in <data_dir>/logs (tracing-appender), 7 days / 50 MB retention, crash report files, 'Detailed logging' toggle, diagnostic bundle export
+- [x] App side: rolling files in <data_dir>/logs, 7 days / 50 MB, crash reports, Detailed logging, diagnostic bundle (24d)
 - **Status:** complete
 
 ### Phase 23: Wave A4 activities: reading by a lantern, guitar by the fire
@@ -281,7 +281,7 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 - [x] 24a Monitor changes: a hidden top-level watcher window (Windows) hears WM_DISPLAYCHANGE / WM_DPICHANGED / work-area changes and TaskbarCreated; after 1.5 s of quiet the app compares the monitor layout (winit: name, position, size) with the one the wallpaper was made for and re-applies the current scenes if it differs (same seeds, saved scenes replayed where sizes match); elsewhere it polls every 5 s. Explorer restarts restart live at once. Tested by posting the messages to the watcher only
 - [x] 24b Repeat avoidance: the worker keeps the last 12 picks in <data>/recent.json and composes each monitor with them, so a wallpaper never starts with the activity just shown and two monitors differ (test)
 - [x] 24c Archive window (docs/design.md wireframe): newest first, grouped Today / Yesterday / date, the entry on screen marked; one action bar: Use as wallpaper, Pin/Unpin, Save to library, Save PNG/GIF, two-step Delete; header shows retention and size against the cap; tray "Archive..." and Settings open it (folder button inside); UI test screenshot
-- [ ] 24d Logging extras: crash report files, Detailed logging toggle, diagnostic bundle export, 50 MB cap
+- [x] 24d Logging extras: crash reports in <data>/crashes (version, system, panic, backtrace, last 200 log lines, recipes on screen; the next launch says so once), Detailed logging for 24 h (reloadable filter), diagnostic bundle zip (about, 3 days of logs, crash reports, current + last 5 recipes, settings and timeline; home folder as ~), logs pruned to 50 MB at start. Tests for each
 - [ ] 24e Timeline: pre-render the next slot before its boundary; re-resolve at once on wake and time-zone change
 - [ ] 24f `preview-activity` developer window with hot reload
 - **Status:** in progress

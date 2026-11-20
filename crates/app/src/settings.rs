@@ -19,6 +19,14 @@ pub struct Settings {
     pub buddy: Buddy,
     pub archive: ArchiveSettings,
     pub export: Export,
+    pub general: General,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct General {
+    /// Detailed logging until this Unix time (0: off).
+    pub detailed_logging_until: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
