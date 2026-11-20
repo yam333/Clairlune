@@ -3,6 +3,7 @@
 //! when it opens and dropped when it closes, so nothing of the UI is held
 //! while the app sits in the tray.
 
+pub mod archive_view;
 pub mod library_view;
 pub mod style;
 pub mod timeline_view;
@@ -25,6 +26,7 @@ pub enum Kind {
     Settings,
     Library,
     Timeline,
+    Archive,
 }
 
 /// What the windows show, borrowed from the app for one frame.
@@ -37,6 +39,11 @@ pub struct Model<'a> {
     pub uses: &'a std::collections::BTreeMap<String, Vec<String>>,
     /// The daily timeline, edited in place by the Timeline window.
     pub timeline: &'a mut crate::timeline::Timeline,
+    /// The archive's entries (oldest first), its folder, and the entry on
+    /// screen.
+    pub archive: &'a [crate::archive::Entry],
+    pub archive_dir: &'a Path,
+    pub current_entry: Option<&'a str>,
 }
 
 /// Library thumbnails as textures, each loaded once per window.
@@ -66,6 +73,7 @@ pub struct UiWindow {
     kind: Kind,
     library: library_view::LibraryState,
     timeline: timeline_view::TimelineState,
+    archive: archive_view::ArchiveState,
     window: Arc<Window>,
     state: egui_winit::State,
     painter: egui_wgpu::winit::Painter,
@@ -96,6 +104,7 @@ impl UiWindow {
                 (640.0, 420.0),
             ),
             Kind::Library => (format!("{APP_NAME} Library"), 980.0, 660.0, (640.0, 420.0)),
+            Kind::Archive => (format!("{APP_NAME} Archive"), 980.0, 660.0, (640.0, 420.0)),
             Kind::Timeline => (
                 format!("{APP_NAME} Timeline"),
                 1280.0,
@@ -145,6 +154,7 @@ impl UiWindow {
             kind,
             library: library_view::LibraryState::default(),
             timeline: timeline_view::TimelineState::default(),
+            archive: archive_view::ArchiveState::default(),
             window,
             state,
             painter,
@@ -169,6 +179,12 @@ impl UiWindow {
     /// Selects a library item in the Library window.
     pub fn select_item(&mut self, item: &Item) {
         self.library.select(item);
+        self.window.request_redraw();
+    }
+
+    /// Selects an entry in the Archive window.
+    pub fn select_entry(&mut self, name: &str) {
+        self.archive.select(name);
         self.window.request_redraw();
     }
 
@@ -267,13 +283,31 @@ impl UiWindow {
         let view = &mut self.view;
         let library = &mut self.library;
         let timeline = &mut self.timeline;
+        let archive = &mut self.archive;
         if library.moon.is_none() {
             library.moon = view.moon.clone();
+        }
+        if archive.moon.is_none() {
+            archive.moon = view.moon.clone();
         }
         let mut full = ctx.run_ui(input, |ui| match kind {
             Kind::Settings => view::show(ui, theme, view, model.settings, model.status, actions),
             Kind::Library => library_view::show(ui, theme, library, model, actions),
             Kind::Timeline => timeline_view::show(ui, theme, timeline, model, actions),
+            Kind::Archive => archive_view::show(
+                ui,
+                theme,
+                archive,
+                &archive_view::ArchiveModel {
+                    entries: model.archive,
+                    dir: model.archive_dir,
+                    current: model.current_entry,
+                    keep_days: model.settings.archive.keep_days,
+                    max_mb: model.settings.archive.max_mb,
+                    status: model.status,
+                },
+                actions,
+            ),
         });
         if kind == Kind::Settings && self.view.section != shown {
             // The title names the page (macOS HIG; harmless elsewhere).

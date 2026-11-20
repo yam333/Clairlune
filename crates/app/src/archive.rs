@@ -175,6 +175,35 @@ impl Archive {
         Ok(entry)
     }
 
+    /// An entry by name.
+    pub fn get(&self, name: &str) -> Option<Entry> {
+        self.entries().into_iter().find(|e| e.name == name)
+    }
+
+    /// Pins an entry (retention never removes it) or unpins it.
+    pub fn set_pinned(&self, name: &str, pinned: bool) -> io::Result<()> {
+        let mut index = self.load_index();
+        let e = index
+            .entries
+            .iter_mut()
+            .find(|e| e.name == name)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, name.to_string()))?;
+        e.pinned = pinned;
+        self.save_index(&index)
+    }
+
+    /// Deletes an entry for good.
+    pub fn delete(&self, name: &str) -> io::Result<()> {
+        let mut index = self.load_index();
+        match fs::remove_dir_all(self.dir.join(name)) {
+            Ok(()) => {}
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e),
+        }
+        index.entries.retain(|e| e.name != name);
+        self.save_index(&index)
+    }
+
     /// The recipes of an entry.
     #[cfg(test)]
     pub fn recipes(&self, entry: &Entry) -> io::Result<EntryRecipes> {
@@ -334,6 +363,21 @@ mod tests {
         let names: Vec<String> = a.entries().into_iter().map(|e| e.name).collect();
         assert_eq!(names, vec![pinned.name, newest.name]);
         assert!(!a.dir().join(&old.name).exists());
+        fs::remove_dir_all(a.dir()).unwrap();
+    }
+
+    #[test]
+    fn pin_and_delete() {
+        let a = temp("pin");
+        let one = a.add(&entry(1, DAY, 10)).unwrap();
+        let two = a.add(&entry(2, 2 * DAY, 10)).unwrap();
+        a.set_pinned(&one.name, true).unwrap();
+        assert!(a.get(&one.name).unwrap().pinned);
+        assert!(a.set_pinned("nope", true).is_err());
+        a.delete(&two.name).unwrap();
+        assert!(a.get(&two.name).is_none());
+        assert!(!a.dir().join(&two.name).exists());
+        a.delete(&two.name).unwrap(); // already gone: fine
         fs::remove_dir_all(a.dir()).unwrap();
     }
 

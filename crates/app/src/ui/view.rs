@@ -91,6 +91,18 @@ pub enum UiAction {
     SaveToLibrary,
     OpenLibrary,
     EditTimeline,
+    OpenArchiveFolder,
+    ApplyArchive(String),
+    PinArchive {
+        name: String,
+        pinned: bool,
+    },
+    SaveArchiveToLibrary(String),
+    ExportArchive {
+        name: String,
+        gif: bool,
+    },
+    DeleteArchive(String),
     /// The Timeline window changed the timeline (already in the model).
     TimelineChanged,
     ApplyLibrary(String),

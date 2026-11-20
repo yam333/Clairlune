@@ -280,7 +280,7 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 ### Phase 24: App gaps (user: "Do all", 2026-11-20)
 - [x] 24a Monitor changes: a hidden top-level watcher window (Windows) hears WM_DISPLAYCHANGE / WM_DPICHANGED / work-area changes and TaskbarCreated; after 1.5 s of quiet the app compares the monitor layout (winit: name, position, size) with the one the wallpaper was made for and re-applies the current scenes if it differs (same seeds, saved scenes replayed where sizes match); elsewhere it polls every 5 s. Explorer restarts restart live at once. Tested by posting the messages to the watcher only
 - [x] 24b Repeat avoidance: the worker keeps the last 12 picks in <data>/recent.json and composes each monitor with them, so a wallpaper never starts with the activity just shown and two monitors differ (test)
-- [ ] 24c Archive browser window (docs/design.md wireframe): grid by day, apply, pin, save to library, export, delete
+- [x] 24c Archive window (docs/design.md wireframe): newest first, grouped Today / Yesterday / date, the entry on screen marked; one action bar: Use as wallpaper, Pin/Unpin, Save to library, Save PNG/GIF, two-step Delete; header shows retention and size against the cap; tray "Archive..." and Settings open it (folder button inside); UI test screenshot
 - [ ] 24d Logging extras: crash report files, Detailed logging toggle, diagnostic bundle export, 50 MB cap
 - [ ] 24e Timeline: pre-render the next slot before its boundary; re-resolve at once on wake and time-zone change
 - [ ] 24f `preview-activity` developer window with hot reload
