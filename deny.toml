@@ -25,6 +25,8 @@ allow = [
     # Boost: permissive, no attribution needed in binaries. clipboard-win and
     # error-code (copy and paste in the Settings window on Windows, via arboard).
     "BSL-1.0",
+    # Public-domain dedication: ksni (the Linux StatusNotifier tray).
+    "Unlicense",
 ]
 confidence-threshold = 0.9
 

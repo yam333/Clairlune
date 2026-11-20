@@ -15,7 +15,6 @@ mod ipc;
 mod settings;
 mod timefmt;
 mod tokens;
-#[cfg(any(windows, target_os = "macos"))]
 mod tray;
 mod ui;
 
@@ -35,7 +34,6 @@ use winit::window::WindowId;
 const CHECK_EVERY: Duration = Duration::from_secs(20);
 
 enum AppEvent {
-    #[cfg(any(windows, target_os = "macos"))]
     Menu(tray_icon::menu::MenuEvent),
     Done(Done),
     /// A second launch asked for Settings.
@@ -58,7 +56,6 @@ struct App {
     current: Option<String>,
     /// What's on screen, for the Settings window.
     status: ui::view::Status,
-    #[cfg(any(windows, target_os = "macos"))]
     tray: Option<tray::Tray>,
     /// The Settings window, while open, and the section it last showed.
     settings_window: Option<ui::SettingsWindow>,
@@ -177,7 +174,6 @@ impl App {
         }
         if !export {
             self.busy = true;
-            #[cfg(any(windows, target_os = "macos"))]
             if let Some(t) = &self.tray {
                 t.set_busy(true);
             }
@@ -244,7 +240,6 @@ impl App {
                 tracing::info!(target: "clairlune", "settings changed on disk");
                 let schedule_changed = new.schedule != self.settings.schedule;
                 self.settings = new;
-                #[cfg(any(windows, target_os = "macos"))]
                 if let Some(t) = &self.tray {
                     t.show_theme(self.settings.theme.mode);
                     t.show_paused(self.settings.schedule.paused);
@@ -261,7 +256,6 @@ impl App {
         }
     }
 
-    #[cfg(any(windows, target_os = "macos"))]
     fn on_action(&mut self, action: tray::Action, event_loop: &ActiveEventLoop) {
         use tray::Action;
         match action {
@@ -352,7 +346,6 @@ impl App {
         match action {
             UiAction::SettingsChanged => {
                 self.save_settings();
-                #[cfg(any(windows, target_os = "macos"))]
                 if let Some(t) = &self.tray {
                     t.show_theme(self.settings.theme.mode);
                     t.show_paused(self.settings.schedule.paused);
@@ -399,7 +392,6 @@ impl App {
                 self.settings.schedule.paused = true;
                 self.save_settings();
                 self.reschedule();
-                #[cfg(any(windows, target_os = "macos"))]
                 if let Some(t) = &self.tray {
                     t.show_paused(true);
                 }
@@ -444,14 +436,7 @@ impl App {
 
     /// Whether a tray icon is up (the app's usual face).
     fn has_tray(&self) -> bool {
-        #[cfg(any(windows, target_os = "macos"))]
-        {
-            self.tray.is_some()
-        }
-        #[cfg(not(any(windows, target_os = "macos")))]
-        {
-            false
-        }
+        self.tray.is_some()
     }
 
     fn export_gif(&mut self) {
@@ -503,7 +488,6 @@ impl App {
                 self.status.seed = Some(seed);
                 self.status.theme = Some(theme);
                 self.refresh_window_thumb();
-                #[cfg(any(windows, target_os = "macos"))]
                 if let Some(t) = &self.tray {
                     t.set_busy(false);
                     t.set_tooltip(&text);
@@ -533,7 +517,6 @@ impl App {
                 if let Some(w) = &mut self.settings_window {
                     w.clear_thumb();
                 }
-                #[cfg(any(windows, target_os = "macos"))]
                 if let Some(t) = &self.tray {
                     t.set_busy(false);
                     t.set_tooltip(APP_NAME);
@@ -543,7 +526,6 @@ impl App {
                 self.busy = false;
                 tracing::debug!(target: "clairlune", error = %e, "shown in the tray tooltip");
                 self.status.note = Some(capitalise_first(&e));
-                #[cfg(any(windows, target_os = "macos"))]
                 if let Some(t) = &self.tray {
                     t.set_busy(false);
                     t.set_tooltip(&format!("{APP_NAME}: {e}"));
@@ -558,13 +540,13 @@ impl ApplicationHandler<AppEvent> for App {
         if cause != StartCause::Init {
             return;
         }
-        // No tray here (yet): Settings is the app's only face, so it opens at
-        // launch and closing it quits (PLAN.md section 10, "No tray available").
+        // No tray (no host on this desktop, or it failed): Settings is the
+        // app's only face, so it opens at launch and closing it quits
+        // (PLAN.md section 10, "No tray available").
         if !self.has_tray() && self.ui_test.is_none() {
             self.open_settings(event_loop, None);
         }
         // macOS wants the tray created once the loop runs.
-        #[cfg(any(windows, target_os = "macos"))]
         {
             match tray::Tray::new(self.settings.theme.mode, self.settings.schedule.paused) {
                 Ok(t) => self.tray = Some(t),
@@ -626,7 +608,6 @@ impl ApplicationHandler<AppEvent> for App {
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: AppEvent) {
         match event {
-            #[cfg(any(windows, target_os = "macos"))]
             AppEvent::Menu(e) => {
                 if let Some(action) = self.tray.as_ref().and_then(|t| t.action(e.id())) {
                     tracing::debug!(target: "clairlune", ?action, "menu");
@@ -793,7 +774,6 @@ fn main() {
         }
     };
     let proxy: EventLoopProxy<AppEvent> = event_loop.create_proxy();
-    #[cfg(any(windows, target_os = "macos"))]
     {
         let p = proxy.clone();
         tray_icon::menu::MenuEvent::set_event_handler(Some(move |e| {
@@ -833,7 +813,6 @@ fn main() {
         next_check: Instant::now() + CHECK_EVERY,
         shown_theme: None,
         current: None,
-        #[cfg(any(windows, target_os = "macos"))]
         tray: None,
         settings_window: None,
         last_section: ui::view::Section::Schedule,
