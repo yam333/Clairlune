@@ -45,4 +45,36 @@ tray-icon.workspace = true
 [target.'cfg(target_os = "linux")'.dependencies]
 tray-icon = { workspace = true, features = ["ksni"] }
 
+[target.'cfg(windows)'.build-dependencies]
+embed-resource = "3.0.12"
+
 [dev-dependencies]
+
+# Installers (cargo-packager). Build first, then package:
+#   cargo build --release -p clairlune && cargo packager --release -p clairlune
+# Windows: a per-user setup.exe (no admin rights); macOS: a .app in a DMG.
+# CI does both on version tags (.github/workflows/release.yml).
+[package.metadata.packager]
+product-name = "Clairlune"
+identifier = "app.clairlune"
+description = "Procedural, animated ASCII-art desktop wallpapers"
+publisher = "Clairlune contributors"
+category = "Utility"
+icons = [
+    "packaging/icons/32.png",
+    "packaging/icons/64.png",
+    "packaging/icons/128.png",
+    "packaging/icons/256.png",
+    "packaging/icons/512.png",
+    "packaging/icons/1024.png",
+]
+out-dir = "../../target/packages"
+binaries = [{ path = "clairlune", main = true }]
+formats = ["nsis", "dmg"]
+
+[package.metadata.packager.nsis]
+installer-mode = "currentUser"
+
+[package.metadata.packager.macos]
+minimum-system-version = "13.0"
+info-plist-path = "packaging/macos/Info.plist"

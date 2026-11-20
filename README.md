@@ -12,6 +12,17 @@ Every wallpaper is generated locally from a seed: a landscape built from text gl
 
 Early development. The generator and a developer CLI work today: nine landscapes (canyon, mountains, forest, desert, snowfield, shore, city rooftops, night sky, cave), seven activities for Clawd, weather, stills and seamless looping GIFs. On Windows the tray app already runs: a new wallpaper on a schedule, one scene per monitor, playing live behind the desktop icons (or as a still frame), with an archive of past ones, a library of the ones you keep and a daily timeline. Other systems come in later milestones; see [PLAN.md](PLAN.md).
 
+## Install
+
+Download the installer for your system from the repository's **Releases** page:
+
+- **Windows:** `clairlune_<version>_x64-setup.exe`. Run it; it installs for your account only, so it needs no administrator rights. Clairlune then appears in the Start menu, and Settings > Apps uninstalls it.
+- **macOS (Apple Silicon or Intel):** `clairlune_<version>_aarch64.dmg` or `clairlune_<version>_x64.dmg`. Open it and drag Clairlune to Applications. The app isn't notarized by Apple yet, so the first time macOS refuses to open it: open System Settings > Privacy & Security, scroll down to the message about Clairlune, and click Open Anyway.
+
+Clairlune runs in the notification area (Windows) or the menu bar (macOS), with a moon icon.
+
+From source, with Rust installed: `cargo install --path crates/app`.
+
 ## Try the generator
 
 ```sh
