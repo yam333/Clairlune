@@ -27,6 +27,10 @@ path = "properties.rs"
 name = "perf"
 path = "perf.rs"
 
+[[test]]
+name = "live"
+path = "live.rs"
+
 [dependencies]
 clairlune-scene.workspace = true
 clairlune-render.workspace = true

@@ -4,6 +4,10 @@
 //!
 //! The activity, character and prop art come through [`SceneArt`], so the same
 //! code plays live scenes (built-in art) and saved ones (their own copy).
+//!
+//! Every draw records the rectangle it writes, so [`IncrementalFrame`] can make
+//! the next frame from the last one by restoring and redrawing only those
+//! rectangles (the live wallpaper, PLAN.md section 5.3), and report what changed.
 
 use crate::IndexedImage;
 use crate::art::{BuiltinArt, SceneArt};
@@ -52,9 +56,125 @@ pub fn render_frame_with_art(
     art: &dyn SceneArt,
 ) -> IndexedImage {
     let mut img = background.clone();
+    let mut drawn = Vec::new();
+    compose(
+        &mut img, &mut drawn, graph, atlas, palette, t_ms, clock, art,
+    );
+    img
+}
+
+/// A rectangle of pixels, inside the image it belongs to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct PixelRect {
+    pub x: u32,
+    pub y: u32,
+    pub w: u32,
+    pub h: u32,
+}
+
+impl PixelRect {
+    /// `[x0, x1) x [y0, y1)` clipped to a `width x height` image; `None` when
+    /// nothing is left.
+    fn clipped(x0: i32, y0: i32, x1: i32, y1: i32, width: u32, height: u32) -> Option<Self> {
+        let (x0, y0) = (x0.max(0), y0.max(0));
+        let (x1, y1) = (x1.min(width as i32), y1.min(height as i32));
+        (x1 > x0 && y1 > y0).then(|| PixelRect {
+            x: x0 as u32,
+            y: y0 as u32,
+            w: (x1 - x0) as u32,
+            h: (y1 - y0) as u32,
+        })
+    }
+
+    pub fn contains(&self, x: u32, y: u32) -> bool {
+        x >= self.x && x < self.x + self.w && y >= self.y && y < self.y + self.h
+    }
+}
+
+/// A frame kept between calls: each new time redraws only what the last
+/// frame and this one draw over the background. The image always equals
+/// [`render_frame_with_art`] at the last time given.
+#[derive(Clone, Debug)]
+pub struct IncrementalFrame {
+    image: IndexedImage,
+    /// What the frame drew over the background (restored before the next).
+    drawn: Vec<PixelRect>,
+}
+
+impl IncrementalFrame {
+    /// Starts as the bare background (nothing drawn yet).
+    pub fn new(background: &IndexedImage) -> Self {
+        IncrementalFrame {
+            image: background.clone(),
+            drawn: Vec::new(),
+        }
+    }
+
+    pub fn image(&self) -> &IndexedImage {
+        &self.image
+    }
+
+    /// Moves to `t_ms` and returns the rectangles whose pixels may have
+    /// changed (sorted, without repeats): the only ones a copy of the last
+    /// frame needs, such as a GPU texture.
+    #[allow(clippy::too_many_arguments)]
+    pub fn advance(
+        &mut self,
+        background: &IndexedImage,
+        graph: &SceneGraph,
+        atlas: &GlyphAtlas,
+        palette: &IndexedPalette,
+        t_ms: u64,
+        clock: Clock,
+        art: &dyn SceneArt,
+    ) -> Vec<PixelRect> {
+        debug_assert_eq!(
+            (background.width, background.height),
+            (self.image.width, self.image.height)
+        );
+        let w = self.image.width as usize;
+        for r in &self.drawn {
+            for y in r.y..r.y + r.h {
+                let a = y as usize * w + r.x as usize;
+                let b = a + r.w as usize;
+                self.image.pixels[a..b].copy_from_slice(&background.pixels[a..b]);
+            }
+        }
+        let mut drawn = Vec::with_capacity(self.drawn.len());
+        compose(
+            &mut self.image,
+            &mut drawn,
+            graph,
+            atlas,
+            palette,
+            t_ms,
+            clock,
+            art,
+        );
+        let mut changed: Vec<PixelRect> = self.drawn.iter().chain(&drawn).copied().collect();
+        changed.sort_unstable();
+        changed.dedup();
+        self.drawn = drawn;
+        changed
+    }
+}
+
+/// Draws the animated elements at `t_ms` over `img` (the background, or a
+/// frame restored to it) and records each rectangle written in `drawn`.
+#[allow(clippy::too_many_arguments)]
+fn compose(
+    img: &mut IndexedImage,
+    drawn: &mut Vec<PixelRect>,
+    graph: &SceneGraph,
+    atlas: &GlyphAtlas,
+    palette: &IndexedPalette,
+    t_ms: u64,
+    clock: Clock,
+    art: &dyn SceneArt,
+) {
     for (col, row, p) in graph.particles_at(t_ms) {
         draw_particle(
-            &mut img, graph, atlas, col, row, p.glyph, p.level, p.ink, false,
+            img, drawn, graph, atlas, col, row, p.glyph, p.level, p.ink, false,
         );
     }
     for sprite in graph.sprites_at(t_ms) {
@@ -66,14 +186,13 @@ pub fn render_frame_with_art(
             if let Some(pose) = character_pose(graph, art, &sprite, t_ms, clock) {
                 // Effects go on top as an overlay (only the glyph's own pixels),
                 // so steam over a mug or sparkles over the hat stay visible.
-                draw_pose(&mut img, &pose, palette);
-                draw_effects(&mut img, graph, art, atlas, &pose, t_ms);
+                draw_pose(img, drawn, &pose, palette);
+                draw_effects(img, drawn, graph, art, atlas, &pose, t_ms);
             }
             continue;
         }
-        draw_sprite(&mut img, &sprite, art, palette);
+        draw_sprite(img, drawn, &sprite, art, palette);
     }
-    img
 }
 
 /// Draws a particle glyph in ember colour, or ink colour when `ink` (faint
@@ -82,6 +201,7 @@ pub fn render_frame_with_art(
 #[allow(clippy::too_many_arguments)]
 fn draw_particle(
     img: &mut IndexedImage,
+    drawn: &mut Vec<PixelRect>,
     graph: &SceneGraph,
     atlas: &GlyphAtlas,
     col: u32,
@@ -96,6 +216,13 @@ fn draw_particle(
         ((u32::from(level.min(LEVELS)) * 255 + u32::from(LEVELS) / 2) / u32::from(LEVELS)) as u8;
     let mask = atlas.mask(glyph);
     let (x0, y0) = (g.origin_x + col * g.cell_w, g.origin_y + row * g.cell_h);
+    // Cells lie inside the image (the grid is laid out within it).
+    drawn.push(PixelRect {
+        x: x0,
+        y: y0,
+        w: g.cell_w,
+        h: g.cell_h,
+    });
     let w = img.width as usize;
     for my in 0..g.cell_h {
         let y = y0 + my;
@@ -229,6 +356,7 @@ fn character_pose<'a>(
 /// current frame. Particles snap to cells like the embers.
 fn draw_effects(
     img: &mut IndexedImage,
+    drawn: &mut Vec<PixelRect>,
     graph: &SceneGraph,
     art: &dyn SceneArt,
     atlas: &GlyphAtlas,
@@ -261,6 +389,7 @@ fn draw_effects(
             }
             draw_particle(
                 img,
+                drawn,
                 graph,
                 atlas,
                 col as u32,
@@ -274,11 +403,33 @@ fn draw_effects(
     }
 }
 
-fn draw_pose(img: &mut IndexedImage, pose: &Pose, palette: &IndexedPalette) {
+fn draw_pose(
+    img: &mut IndexedImage,
+    drawn: &mut Vec<PixelRect>,
+    pose: &Pose,
+    palette: &IndexedPalette,
+) {
     let f = pose.frame;
     let (ox, oy) = f.origin();
     let (x0, y0, sc, s) = (pose.x0, pose.y0, pose.sc, pose);
     let (w, h) = (img.width as i32, img.height as i32);
+    // The frame's box on screen (mirroring flips it around the origin).
+    let (fw, fh) = (f.width as i32, f.height as i32);
+    let (left, right) = if s.mirror {
+        (x0 - (fw - 1 - ox) * sc, x0 + (ox + 1) * sc)
+    } else {
+        (x0 - ox * sc, x0 + (fw - ox) * sc)
+    };
+    if let Some(r) = PixelRect::clipped(
+        left,
+        y0 - oy * sc,
+        right,
+        y0 + (fh - oy) * sc,
+        img.width,
+        img.height,
+    ) {
+        drawn.push(r);
+    }
     for row in 0..f.height {
         for col in 0..f.width {
             let Some(rgb) = f.pixel(col, row) else {
@@ -302,6 +453,7 @@ fn draw_pose(img: &mut IndexedImage, pose: &Pose, palette: &IndexedPalette) {
 
 fn draw_sprite(
     img: &mut IndexedImage,
+    drawn: &mut Vec<PixelRect>,
     s: &SpriteInstance,
     art: &dyn SceneArt,
     palette: &IndexedPalette,
@@ -312,6 +464,16 @@ fn draw_sprite(
     let (w, h) = (img.width as i32, img.height as i32);
     let scale = s.scale as i32;
     let (mw, mh) = (map.width(), map.height());
+    if let Some(r) = PixelRect::clipped(
+        s.x,
+        s.y,
+        s.x + mw as i32 * scale,
+        s.y + mh as i32 * scale,
+        img.width,
+        img.height,
+    ) {
+        drawn.push(r);
+    }
     for my in 0..mh {
         for mx in 0..mw {
             let sx = if s.mirror { mw - 1 - mx } else { mx };

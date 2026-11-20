@@ -4,14 +4,10 @@
 Implement PLAN.md milestone by milestone. This session delivers M1 (headless deterministic generator + `clairlune-cli generate` that writes an indexed PNG), with tests and CI, and prepares the crates for crates.io. The user granted full access (no more approval stops), so publishing is part of this session.
 
 ## Next Step
-Session roadmap (2026-11-19, usage reset), in order:
-1. ~~Phase 23: Wave A4~~ done
-2. Phase 12 (M4): refactor build into archetype modules (canyon byte-identical), weather particles, then mountains, snowfield, forest, desert, shore, city_rooftops, night_sky, cave; coverage + variety per archetype
-3. Phase 13 (M5): static wallpaper setting, Windows first (testable here), monitor enumeration
-4. Phase 14 (M6): app shell
+Roadmap (2026-11-20, after release 0.8.0): Phase 16 (M7 live wallpapers), Windows first, in the order of its steps below. Phases 12-15 are done; 14f waits on a Mac.
 
 ## Current Phase
-Phase 10 (Phase 9 waits on the user's art)
+Phase 16 (M7)
 
 ## Scope of this session
 Phases 1-8 (through M1 and publish prep). Phases 9-17 are later milestones, listed so the whole roadmap is tracked in one place.
@@ -176,8 +172,16 @@ Order: the app core first (usable in still mode with no UI), then the design wor
 - **Status:** pending
 
 ### Phase 16: M7 Live wallpaper hosts
-- [ ] Platform spikes, wgpu renderer with palette lookup, pause rules, softbuffer fallback, budgets
-- **Status:** pending
+Design (2026-11-20): the CPU compositor stays the single source of pixels. A live compositor keeps one index frame and redraws only the rects that changed (last frame's and this frame's particles and sprites), so a frame costs a few small rects, not a 4K copy. The GPU presenter holds the frame as an R8 index texture plus a 256-entry palette and draws one full-screen triangle with an exact lookup (no filtering, no blending, non-sRGB surface), uploading only the changed rects. So live pixels equal the PNG by construction, and the softbuffer fallback can reuse the same rects.
+- [x] 16a Incremental compositor in render: IncrementalFrame (restore last frame's rects, redraw, report changed rects), ScenePackage::incremental/advance; tests/live.rs: byte-identical to full frames for every landscape, effects and weather, both clocks, buddy on/off, a pause jump; changed rects cover every changed pixel (mutation-checked)
+- [ ] 16b Windows desktop-layer host spike: WorkerW behind the icons (classic and 24H2 layouts, detected at runtime), one child window per monitor in virtual-screen coordinates, re-attach on TaskbarCreated, static wallpaper re-set on exit; try it live here, then restore
+- [ ] 16c wgpu presenter: index texture + palette lookup, partial uploads, Fifo + WaitUntil at the Smoothness rate (6/12/24/30/60), starts at hero time; GPU readback equals the CPU frame (ignored where no adapter)
+- [ ] 16d Display setting Live/Still (Settings, tray), Smoothness, switching without a new scene; live hosts follow apply/Previous/theme/Buddy/library/timeline
+- [ ] 16e Pause rules: fullscreen app on that monitor, desktop occluded, session locked or display off, battery (drop to Battery saver by default, optional pause)
+- [ ] 16f softbuffer fallback when wgpu can't start (dirty rects, 8 fps)
+- [ ] 16g Budgets measured at 4K/12 fps (CPU, GPU, RSS) and written down
+- [ ] 16h Linux (X11 desktop window, wlr layer-shell) and macOS (desktop-level NSWindow) hosts: compile-checked, unit-tested where possible, marked untried
+- **Status:** in progress
 
 ### Phase 17: M8 Polish & packaging
 - [ ] Span mode, sunrise/sunset, cargo-packager installers, notarization, art-source CI check
