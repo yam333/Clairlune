@@ -31,7 +31,7 @@ const DITHER_WIDTH: f64 = 0.4;
 const BAYER4: [[u8; 4]; 4] = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
 
 /// Cell grid geometry for one output size.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct GridSpec {
     pub cols: u32,
     pub rows: u32,
@@ -63,14 +63,14 @@ pub fn grid_spec(width: u32, height: u32) -> GridSpec {
 }
 
 /// One character cell. `glyph` indexes `glyphs::GLYPHS`; `shade` is ink strength.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Cell {
     pub glyph: u8,
     pub shade: u8,
 }
 
 /// Radial warm light around a light source.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Glow {
     pub cx: f64,
     pub cy: f64,
@@ -83,7 +83,7 @@ pub struct Glow {
 /// 4 (bands 0-3, brighter toward the centre) and the glow pulls `c` toward 8
 /// (bands 4-7, warmer toward the light). Ink in bands 4-7 is tinted toward the
 /// accent, so glow and glyph tint come from one lookup.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Lighting {
     pub vignette_cx: f64,
     pub vignette_cy: f64,
@@ -160,7 +160,7 @@ impl Lighting {
 }
 
 /// What a sprite instance shows.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SpriteKind {
     /// The character (placeholder pixel map in M1).
     Character,
@@ -220,7 +220,7 @@ impl SpriteKind {
 }
 
 /// How the character moves over time.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Motion {
     /// Fixed spot (left edge x).
     Stationary { x: i32 },
@@ -233,7 +233,7 @@ pub enum Motion {
 }
 
 /// The character's placement as a pure function of time.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CharacterTrack {
     /// Top edge (feet on the ground line).
     pub y: i32,
@@ -282,7 +282,7 @@ impl CharacterTrack {
 }
 
 /// A sprite placed in the image at an integer nearest-neighbour scale.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SpriteInstance {
     pub kind: SpriteKind,
     /// Top-left pixel.
@@ -302,7 +302,7 @@ impl SpriteInstance {
 }
 
 /// Everything needed to render one scene at one size and theme.
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct SceneGraph {
     pub width: u32,
     pub height: u32,
@@ -311,9 +311,13 @@ pub struct SceneGraph {
     pub buddy: bool,
     /// The recipe seed (drives the character's state machine).
     pub seed: u64,
+    /// Not stored in scene packages (playback uses the package's palette).
+    #[serde(skip, default = "crate::palette::fallback_family")]
     pub family: PaletteFamily,
     pub grid: GridSpec,
-    /// Row-major, `grid.cols * grid.rows`.
+    /// Row-major, `grid.cols * grid.rows`. Not stored in scene packages,
+    /// which keep the baked background instead.
+    #[serde(skip)]
     pub cells: Vec<Cell>,
     pub lighting: Lighting,
     /// The activity id, or `None` for an archetype-first fallback scene.

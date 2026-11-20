@@ -164,7 +164,7 @@ Order: the app core first (usable in still mode with no UI), then the design wor
 - [x] 14c Toolkit: egui (Slint's licences aren't permissive). `clairlune --ui-test` passes: Settings opened and closed 3x on one loop beside the tray, restyled from the tokens in both themes (docs/design.md section 8)
 - [x] 14d Settings window: all sections (Schedule, Theme, Display, Live, Buddy, Content, Archive, Export, General); moon empty state; inline notes for results and errors; start at login via the per-user Run key (Windows; the OS is the source of truth); Restore my wallpaper (pauses the schedule); title follows the section; reopens on the last section
 - [ ] 14e Frozen scene package (below), screenshot review on macOS/Linux, second launch opens Settings (IPC), Linux tray (ksni)
-- [ ] Frozen scene package (PLAN.md 9c): serialisable SceneGraph + background/sprite PNGs per theme; archive, library and timeline play from it, never from a GIF; test: a package saved by one generator version plays identically after GENERATOR_VERSION changes
+- [x] Frozen scene package (PLAN.md 9c): render::package (format 1: package.json + background-<theme>.png + sprites.png; 0.4-1.1 MB for both themes at 4K). Art comes through render::art::SceneArt, so playback never touches the generator, catalog or built-in art. Tests: capture == live, save/load, ignores the recipe, newer formats refused, committed golden package. The archive stores one per monitor; Previous and theme changes replay them when the monitor matches
 - **Status:** pending
 
 ### Phase 15: M6b Library + Timeline

@@ -6,9 +6,9 @@
 use crate::archive::{Archive, Entry, EntryRecipes, MonitorScene, NewEntry};
 use crate::settings::{Settings, ThemeMode};
 use clairlune_platform::{Monitor, StillStore, WallpaperHost};
-use clairlune_render::{Still, encode_png, render_still};
+use clairlune_render::{IndexedImage, IndexedPalette, ScenePackage, encode_png};
 use clairlune_scene::hash::hash_label;
-use clairlune_scene::{Aspect, BuildError, BuildOptions, SceneRecipe, Theme, compose};
+use clairlune_scene::{Aspect, SceneRecipe, Theme, compose};
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::Instant;
@@ -21,6 +21,9 @@ pub enum Job {
     /// change): same scenes, rendered for the current monitors and theme.
     Recipes {
         recipes: Box<EntryRecipes>,
+        /// The archive entry they came from: its frozen scenes are played as
+        /// saved when the monitors still match.
+        entry: Option<String>,
         settings: Box<Settings>,
         /// Archive it as a new entry (previous wallpaper) or only re-render
         /// the current one (theme change).
@@ -75,44 +78,73 @@ pub fn monitor_seed(base: u64, m: &Monitor) -> u64 {
     }
 }
 
-/// Renders a recipe in the wanted theme, or in the theme it is locked to.
-fn render(
-    recipe: &SceneRecipe,
-    w: u32,
-    h: u32,
-    theme: Theme,
-    buddy: bool,
-) -> Result<(Still, Theme), String> {
-    let opts = |theme| BuildOptions {
-        width: w,
-        height: h,
-        theme,
-        buddy,
-    };
-    match render_still(recipe, &opts(theme), None) {
-        Ok(s) => Ok((s, theme)),
-        Err(BuildError::ThemeLocked(_)) => {
-            let other = if theme == Theme::Light {
-                Theme::Dark
-            } else {
-                Theme::Light
-            };
-            render_still(recipe, &opts(other), None)
-                .map(|s| (s, other))
-                .map_err(|e| e.to_string())
-        }
-        Err(e) => Err(e.to_string()),
-    }
-}
-
-fn png_of(s: &Still) -> Result<Vec<u8>, String> {
+fn png_of(img: &IndexedImage, palette: &IndexedPalette) -> Result<Vec<u8>, String> {
     let mut png = Vec::new();
-    encode_png(&s.image, &s.palette, &mut png).map_err(|e| e.to_string())?;
+    encode_png(img, palette, &mut png).map_err(|e| e.to_string())?;
     Ok(png)
 }
 
-/// The scenes for this run: new ones from a seed, or saved recipes matched to
-/// the connected monitors (by id; unmatched monitors derive from the first).
+/// Nearest-neighbour shrink to `width` (thumbnails keep the palette).
+fn shrink(img: &IndexedImage, width: u32) -> IndexedImage {
+    let width = width.min(img.width).max(1);
+    let height = ((u64::from(img.height) * u64::from(width)) / u64::from(img.width)).max(1) as u32;
+    let mut pixels = Vec::with_capacity((width * height) as usize);
+    for y in 0..height {
+        let sy = (u64::from(y) * u64::from(img.height) / u64::from(height)) as usize;
+        for x in 0..width {
+            let sx = (u64::from(x) * u64::from(img.width) / u64::from(width)) as usize;
+            pixels.push(img.pixels[sy * img.width as usize + sx]);
+        }
+    }
+    IndexedImage {
+        width,
+        height,
+        pixels,
+    }
+}
+
+/// One frozen scene per monitor. A saved entry's scenes are replayed as they
+/// were saved when the monitor id and size still match (no generator
+/// involved); otherwise the recipe is rendered again, and new wallpapers are
+/// composed from the seed. Returns the base seed, the scenes, and how many
+/// were replayed.
+fn packages(
+    saved: Option<(&EntryRecipes, Option<&str>)>,
+    seed: u64,
+    monitors: &[Monitor],
+    settings: &Settings,
+    archive: &Archive,
+) -> Result<(u64, Vec<ScenePackage>, usize), String> {
+    let (base_seed, recipes) = scenes(saved.map(|(r, _)| r), seed, monitors, settings);
+    let mut out = Vec::new();
+    let mut replayed = 0;
+    for (m, recipe) in monitors.iter().zip(&recipes) {
+        let frozen = saved.and_then(|(r, entry)| {
+            let entry = entry?;
+            let j = r
+                .monitors
+                .iter()
+                .position(|s| s.monitor == m.id && (s.width, s.height) == (m.width, m.height))?;
+            match archive.package(entry, j) {
+                Ok(p) => Some(p),
+                Err(e) => {
+                    tracing::warn!(target: "clairlune", entry, error = %e, "saved scene unreadable; rendering the recipe");
+                    None
+                }
+            }
+        });
+        let pkg = match frozen {
+            Some(p) => {
+                replayed += 1;
+                p
+            }
+            None => ScenePackage::capture(recipe, m.width, m.height).map_err(|e| e.to_string())?,
+        };
+        out.push(pkg);
+    }
+    Ok((base_seed, out, replayed))
+}
+
 fn scenes(
     job_recipes: Option<&EntryRecipes>,
     seed: u64,
@@ -205,15 +237,24 @@ fn run(job: Job, host: Option<&dyn WallpaperHost>, store: &StillStore, archive: 
         Job::New { seed, settings } => apply(None, seed, &settings, true, host, store, archive),
         Job::Recipes {
             recipes,
+            entry,
             settings,
             archive: add,
-        } => apply(Some(&recipes), 0, &settings, add, host, store, archive),
+        } => apply(
+            Some((&recipes, entry.as_deref())),
+            0,
+            &settings,
+            add,
+            host,
+            store,
+            archive,
+        ),
     }
     .unwrap_or_else(Done::Failed)
 }
 
 fn apply(
-    recipes: Option<&EntryRecipes>,
+    saved: Option<(&EntryRecipes, Option<&str>)>,
     seed: u64,
     settings: &Settings,
     add_to_archive: bool,
@@ -237,20 +278,30 @@ fn apply(
         return Err("no monitors found".into());
     }
     let wanted = resolve_theme(settings.theme.mode);
-    let (base_seed, recipes) = scenes(recipes, seed, &monitors, settings);
+    let (base_seed, packages, replayed) = packages(saved, seed, &monitors, settings, archive)?;
+    let recipes: Vec<SceneRecipe> = packages.iter().map(|p| p.recipe.clone()).collect();
     let mut pngs = Vec::new();
     let mut used_theme = wanted;
-    for (i, (m, r)) in monitors.iter().zip(&recipes).enumerate() {
-        let (still, theme) = render(r, m.width, m.height, wanted, settings.buddy.show)?;
+    let mut primary_still = None;
+    for (i, pkg) in packages.iter().enumerate() {
+        // Night-only scenes keep their theme.
+        let theme = if pkg.themes().contains(&wanted) {
+            wanted
+        } else {
+            pkg.themes()[0]
+        };
+        let (img, palette) = pkg
+            .still(theme, settings.buddy.show)
+            .ok_or("scene has no frames")?;
+        pngs.push(png_of(&img, palette)?);
         if i == 0 {
             used_theme = theme;
+            primary_still = Some((img, palette.clone()));
         }
-        pngs.push(png_of(&still)?);
     }
-    // The thumbnail: the primary scene, 480 px wide.
-    let (pw, ph) = (monitors[0].width, monitors[0].height);
-    let th = ((480.0 * f64::from(ph) / f64::from(pw)).round() as u32).max(270);
-    let (thumb, _) = render(&recipes[0], 480, th, used_theme, settings.buddy.show)?;
+    // The thumbnail: the primary scene shrunk to 480 px wide.
+    let (img, palette) = primary_still.ok_or("no monitors")?;
+    let thumb = shrink(&img, 480);
     let entry_recipes = EntryRecipes {
         base_seed,
         theme: used_theme.as_str().to_string(),
@@ -271,7 +322,8 @@ fn apply(
                 created: crate::timefmt::now_unix(),
                 recipes: entry_recipes.clone(),
                 pngs: pngs.clone(),
-                thumb_png: png_of(&thumb)?,
+                thumb_png: png_of(&thumb, &palette)?,
+                packages,
             })
             .map_err(|e| format!("archive: {e}"))?;
         let swept = archive.sweep(
@@ -303,6 +355,7 @@ fn apply(
         archetype = %primary.archetype,
         activity = primary.activity.as_deref().unwrap_or("-"),
         recipe_hash = %primary.hash_hex(),
+        replayed,
         ms,
         "wallpaper applied"
     );
@@ -340,4 +393,87 @@ fn export(archive: &Archive, dest: &std::path::Path) -> Result<Done, String> {
     std::fs::copy(&src, &out).map_err(|e| format!("{}: {e}", src.display()))?;
     tracing::info!(target: "clairlune", path = %out.display(), "exported");
     Ok(Done::Exported(out))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn monitor(w: u32, h: u32) -> Monitor {
+        Monitor {
+            id: r"\?\DISPLAY#TEST#1".into(),
+            x: 0,
+            y: 0,
+            width: w,
+            height: h,
+            primary: true,
+        }
+    }
+
+    #[test]
+    fn saved_scenes_replay_when_the_monitor_matches() {
+        let dir = std::env::temp_dir().join(format!("clairlune-apply-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let archive = Archive::open(&dir).unwrap();
+        let settings = Settings::default();
+        let m = monitor(640, 360);
+        // A new wallpaper: composed and captured.
+        let (seed, pkgs, replayed) =
+            packages(None, 77, std::slice::from_ref(&m), &settings, &archive).unwrap();
+        assert_eq!((seed, replayed), (77, 0));
+        let recipes = EntryRecipes {
+            base_seed: seed,
+            theme: "dark".into(),
+            monitors: vec![MonitorScene {
+                monitor: m.id.clone(),
+                width: 640,
+                height: 360,
+                recipe: pkgs[0].recipe.clone(),
+            }],
+        };
+        let entry = archive
+            .add(&NewEntry {
+                created: 1,
+                recipes: recipes.clone(),
+                pngs: vec![vec![0; 4]],
+                thumb_png: vec![0; 4],
+                packages: pkgs,
+            })
+            .unwrap();
+        // Same monitor: replayed from the package.
+        let (_, again, replayed) = packages(
+            Some((&recipes, Some(&entry.name))),
+            0,
+            std::slice::from_ref(&m),
+            &settings,
+            &archive,
+        )
+        .unwrap();
+        assert_eq!(replayed, 1);
+        assert_eq!(again[0].recipe, recipes.monitors[0].recipe);
+        // A different size: rendered again from the recipe.
+        let (_, resized, replayed) = packages(
+            Some((&recipes, Some(&entry.name))),
+            0,
+            &[monitor(800, 450)],
+            &settings,
+            &archive,
+        )
+        .unwrap();
+        assert_eq!(replayed, 0);
+        assert_eq!((resized[0].width, resized[0].height), (800, 450));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn thumbnails_shrink_to_width() {
+        let img = IndexedImage {
+            width: 1920,
+            height: 1080,
+            pixels: vec![3; 1920 * 1080],
+        };
+        let t = shrink(&img, 480);
+        assert_eq!((t.width, t.height), (480, 270));
+        assert!(t.pixels.iter().all(|&p| p == 3));
+    }
 }

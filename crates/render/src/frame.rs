@@ -1,17 +1,20 @@
 //! Frame compositing: the baked background plus animated elements at time `t`.
 //! Particles snap to the cell grid (exact palette, small GIF diffs); sprites use
 //! integer nearest-neighbour scaling.
+//!
+//! The activity, character and prop art come through [`SceneArt`], so the same
+//! code plays live scenes (built-in art) and saved ones (their own copy).
 
 use crate::IndexedImage;
+use crate::art::{BuiltinArt, SceneArt};
 use crate::atlas::GlyphAtlas;
 use crate::clock::{Clock, LoopScript, loop_track};
 use crate::palette::{IndexedPalette, LEVELS, ink_level};
-use clairlune_scene::activity::builtin_catalog;
 use clairlune_scene::anim::state_at;
 use clairlune_scene::graph::CHARACTER_BOX;
 use clairlune_scene::particles::{Preset, preset_particles};
 use clairlune_scene::{SceneGraph, SpriteInstance, SpriteKind};
-use clairlune_sprites::{Character, Frame, builtin_character};
+use clairlune_sprites::Frame;
 
 /// Composites one frame at `t_ms` over a baked background (live clock).
 pub fn render_frame(
@@ -34,6 +37,20 @@ pub fn render_frame_clocked(
     t_ms: u64,
     clock: Clock,
 ) -> IndexedImage {
+    let art = BuiltinArt::for_graph(graph);
+    render_frame_with_art(background, graph, atlas, palette, t_ms, clock, &art)
+}
+
+/// Composites one frame with the given art (built-in, or a saved scene's).
+pub fn render_frame_with_art(
+    background: &IndexedImage,
+    graph: &SceneGraph,
+    atlas: &GlyphAtlas,
+    palette: &IndexedPalette,
+    t_ms: u64,
+    clock: Clock,
+    art: &dyn SceneArt,
+) -> IndexedImage {
     let mut img = background.clone();
     for (col, row, p) in graph.particles_at(t_ms) {
         draw_particle(
@@ -46,15 +63,15 @@ pub fn render_frame_clocked(
                 (Clock::Loop(loop_ms), Some(track)) => loop_track(track, loop_ms).at(t_ms),
                 _ => sprite,
             };
-            if let Some(pose) = character_pose(graph, &sprite, t_ms, clock) {
+            if let Some(pose) = character_pose(graph, art, &sprite, t_ms, clock) {
                 // Effects go on top as an overlay (only the glyph's own pixels),
                 // so steam over a mug or sparkles over the hat stay visible.
                 draw_pose(&mut img, &pose, palette);
-                draw_effects(&mut img, graph, atlas, &pose, t_ms);
+                draw_effects(&mut img, graph, art, atlas, &pose, t_ms);
             }
             continue;
         }
-        draw_sprite(&mut img, &sprite, palette);
+        draw_sprite(&mut img, &sprite, art, palette);
     }
     img
 }
@@ -105,15 +122,16 @@ fn draw_particle(
 /// state, so a still never catches a blink or a mid-gesture. Independent of the
 /// Buddy toggle, so toggling it keeps the same moment.
 pub fn hero_time(graph: &SceneGraph) -> u64 {
+    hero_time_with_art(graph, &BuiltinArt::for_graph(graph))
+}
+
+/// [`hero_time`] with the given art.
+pub fn hero_time_with_art(graph: &SceneGraph, art: &dyn SceneArt) -> u64 {
     let base = graph.t_hero_ms;
-    let activity = graph
-        .activity
-        .as_deref()
-        .and_then(|id| builtin_catalog().get(id));
-    let (Some(a), Some(_)) = (activity, graph.character) else {
+    let (Some(a), Some(_)) = (art.activity(), graph.character) else {
         return base;
     };
-    let character = builtin_character();
+    let character = art.character();
     for k in 0..200u64 {
         let t = base + k * 50;
         let st = state_at(a, graph.seed, t, &|s| character.one_shot_ms(&a.id, s));
@@ -133,8 +151,8 @@ pub fn hero_time(graph: &SceneGraph) -> u64 {
 /// The character's current frame and where it sits on screen: the art's origin
 /// (feet row, body centre) aligned inside the layout box, mirrored when it faces
 /// left. All character art comes through `Character`.
-struct Pose {
-    frame: &'static Frame,
+struct Pose<'a> {
+    frame: &'a Frame,
     state: String,
     /// Screen pixel of the origin pixel's top-left corner.
     x0: i32,
@@ -143,7 +161,7 @@ struct Pose {
     mirror: bool,
 }
 
-impl Pose {
+impl Pose<'_> {
     /// Screen position of the centre of frame pixel `(col, row)`.
     fn screen(&self, col: i32, row: i32) -> (i32, i32) {
         let (ox, oy) = self.frame.origin();
@@ -157,13 +175,15 @@ impl Pose {
 
 /// Picks the frame for the activity state at `t` (state machine when live, the
 /// loop script when looping) and places it.
-fn character_pose(graph: &SceneGraph, s: &SpriteInstance, t_ms: u64, clock: Clock) -> Option<Pose> {
-    let character = builtin_character();
-    let activity = graph
-        .activity
-        .as_deref()
-        .and_then(|id| builtin_catalog().get(id));
-    let (anim, state, elapsed, looping) = match (activity, clock) {
+fn character_pose<'a>(
+    graph: &SceneGraph,
+    art: &'a dyn SceneArt,
+    s: &SpriteInstance,
+    t_ms: u64,
+    clock: Clock,
+) -> Option<Pose<'a>> {
+    let character = art.character();
+    let (anim, state, elapsed, looping) = match (art.activity(), clock) {
         (Some(a), Clock::Loop(loop_ms)) => {
             let script = LoopScript::new(a, character, loop_ms);
             let (state, elapsed) = script.at(t_ms);
@@ -210,15 +230,12 @@ fn character_pose(graph: &SceneGraph, s: &SpriteInstance, t_ms: u64, clock: Cloc
 fn draw_effects(
     img: &mut IndexedImage,
     graph: &SceneGraph,
+    art: &dyn SceneArt,
     atlas: &GlyphAtlas,
     pose: &Pose,
     t_ms: u64,
 ) {
-    let Some(a) = graph
-        .activity
-        .as_deref()
-        .and_then(|id| builtin_catalog().get(id))
-    else {
+    let Some(a) = art.activity() else {
         return;
     };
     let g = &graph.grid;
@@ -283,13 +300,21 @@ fn draw_pose(img: &mut IndexedImage, pose: &Pose, palette: &IndexedPalette) {
     }
 }
 
-fn draw_sprite(img: &mut IndexedImage, s: &SpriteInstance, palette: &IndexedPalette) {
-    let map = s.kind.map();
+fn draw_sprite(
+    img: &mut IndexedImage,
+    s: &SpriteInstance,
+    art: &dyn SceneArt,
+    palette: &IndexedPalette,
+) {
+    let Some(map) = art.prop(s.kind) else {
+        return;
+    };
     let (w, h) = (img.width as i32, img.height as i32);
     let scale = s.scale as i32;
-    for my in 0..map.height {
-        for mx in 0..map.width {
-            let sx = if s.mirror { map.width - 1 - mx } else { mx };
+    let (mw, mh) = (map.width(), map.height());
+    for my in 0..mh {
+        for mx in 0..mw {
+            let sx = if s.mirror { mw - 1 - mx } else { mx };
             let Some(rgb) = map.pixel(sx, my) else {
                 continue;
             };

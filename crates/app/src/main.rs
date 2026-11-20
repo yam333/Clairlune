@@ -216,6 +216,7 @@ impl App {
         match archive.recipes(&entry) {
             Ok(recipes) => self.submit(Job::Recipes {
                 recipes: Box::new(recipes),
+                entry: Some(entry.name.clone()),
                 settings: Box::new(self.settings.clone()),
                 archive: previous,
             }),

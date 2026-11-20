@@ -260,3 +260,53 @@ mod tests {
         assert!(c.missing_art(builtin_catalog()).contains(&"stroll"));
     }
 }
+
+/// A character made of a fixed set of animations, keyed by activity and
+/// state: what a saved scene needs, captured once from another character so
+/// the scene plays the same after the built-in art changes.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PackagedCharacter {
+    animations: BTreeMap<(String, String), Animation>,
+}
+
+impl PackagedCharacter {
+    /// Copies what `from` shows for each `(activity, state)`, including its
+    /// fallbacks (a state without art shows whatever `from` shows for it).
+    pub fn capture<'a>(
+        from: &dyn Character,
+        keys: impl IntoIterator<Item = (&'a str, &'a str)>,
+    ) -> Self {
+        let mut out = Self::default();
+        for (activity, state) in keys {
+            if let Some(anim) = from.animation(activity, state) {
+                out.insert(activity, state, anim.clone());
+            }
+        }
+        out
+    }
+
+    pub fn insert(&mut self, activity: &str, state: &str, animation: Animation) {
+        self.animations
+            .insert((activity.to_string(), state.to_string()), animation);
+    }
+
+    /// `((activity, state), animation)` pairs, in a stable order.
+    pub fn iter(&self) -> impl Iterator<Item = (&(String, String), &Animation)> {
+        self.animations.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.animations.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.animations.is_empty()
+    }
+}
+
+impl Character for PackagedCharacter {
+    fn animation(&self, activity: &str, state: &str) -> Option<&Animation> {
+        self.animations
+            .get(&(activity.to_string(), state.to_string()))
+    }
+}

@@ -21,7 +21,7 @@ impl Theme {
 }
 
 /// An sRGB colour.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Rgb {
     pub r: u8,
     pub g: u8,
@@ -121,6 +121,11 @@ pub const FAMILIES: [PaletteFamily; 4] = [
         tint_strength: 0.50,
     },
 ];
+
+/// A stand-in for fields that don't travel with saved scenes.
+pub(crate) fn fallback_family() -> PaletteFamily {
+    FAMILIES[0]
+}
 
 /// Looks up a family by id.
 pub fn family(id: &str) -> Option<&'static PaletteFamily> {

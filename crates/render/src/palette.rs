@@ -28,6 +28,12 @@ pub struct IndexedPalette {
 }
 
 impl IndexedPalette {
+    /// A palette from stored colours (scene packages), in the layout `new`
+    /// produces.
+    pub fn from_colors(colors: Vec<Rgb>) -> Self {
+        IndexedPalette { colors }
+    }
+
     pub fn new(family: &PaletteFamily) -> Self {
         let mut colors = Vec::with_capacity(128);
         let band = |b: u8| -> Rgb {
