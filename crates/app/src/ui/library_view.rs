@@ -8,7 +8,6 @@ use crate::library::{BuddyChoice, Item, ThemeChoice};
 use crate::tokens::{radius, size, space};
 use clairlune_scene::Theme;
 use egui::{Align, Layout, RichText, Sense, Stroke, Ui, vec2};
-use std::collections::HashMap;
 use std::path::Path;
 
 #[derive(Default)]
@@ -17,7 +16,7 @@ pub struct LibraryState {
     /// The selected item's name while it's being edited.
     name_edit: String,
     confirm_delete: bool,
-    thumbs: HashMap<String, Option<egui::TextureHandle>>,
+    thumbs: super::Thumbs,
     /// The moon mark for the empty state (shared with the window).
     pub moon: Option<egui::TextureHandle>,
 }
@@ -39,15 +38,7 @@ fn thumb<'a>(
     dir: &Path,
     id: &str,
 ) -> Option<&'a egui::TextureHandle> {
-    st.thumbs
-        .entry(id.to_string())
-        .or_insert_with(|| {
-            let bytes = std::fs::read(dir.join(id).join("thumb.png")).ok()?;
-            let (size, rgba) = super::decode_png_rgba(&bytes)?;
-            let img = egui::ColorImage::from_rgba_unmultiplied(size, &rgba);
-            Some(ui.ctx().load_texture(id, img, egui::TextureOptions::LINEAR))
-        })
-        .as_ref()
+    st.thumbs.get(ui.ctx(), dir, id)
 }
 
 pub fn show(

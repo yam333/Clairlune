@@ -5,6 +5,7 @@
 
 pub mod library_view;
 pub mod style;
+pub mod timeline_view;
 pub mod view;
 
 use crate::library::Item;
@@ -23,6 +24,7 @@ use winit::window::{Window, WindowId};
 pub enum Kind {
     Settings,
     Library,
+    Timeline,
 }
 
 /// What the windows show, borrowed from the app for one frame.
@@ -33,11 +35,37 @@ pub struct Model<'a> {
     pub library_dir: &'a Path,
     /// Where the timeline uses each library item ("Monday 07:00").
     pub uses: &'a std::collections::BTreeMap<String, Vec<String>>,
+    /// The daily timeline, edited in place by the Timeline window.
+    pub timeline: &'a mut crate::timeline::Timeline,
+}
+
+/// Library thumbnails as textures, each loaded once per window.
+#[derive(Default)]
+pub struct Thumbs(std::collections::HashMap<String, Option<egui::TextureHandle>>);
+
+impl Thumbs {
+    pub fn get(
+        &mut self,
+        ctx: &egui::Context,
+        library_dir: &Path,
+        id: &str,
+    ) -> Option<&egui::TextureHandle> {
+        self.0
+            .entry(id.to_string())
+            .or_insert_with(|| {
+                let bytes = std::fs::read(library_dir.join(id).join("thumb.png")).ok()?;
+                let (size, rgba) = decode_png_rgba(&bytes)?;
+                let img = egui::ColorImage::from_rgba_unmultiplied(size, &rgba);
+                Some(ctx.load_texture(id, img, egui::TextureOptions::LINEAR))
+            })
+            .as_ref()
+    }
 }
 
 pub struct UiWindow {
     kind: Kind,
     library: library_view::LibraryState,
+    timeline: timeline_view::TimelineState,
     window: Arc<Window>,
     state: egui_winit::State,
     painter: egui_wgpu::winit::Painter,
@@ -60,18 +88,25 @@ impl UiWindow {
         theme: Theme,
         section: view::Section,
     ) -> Result<UiWindow, String> {
-        let (title, w, h) = match kind {
+        let (title, w, h, min) = match kind {
             Kind::Settings => (
                 format!("{APP_NAME} Settings: {}", section.name()),
                 880.0,
                 600.0,
+                (640.0, 420.0),
             ),
-            Kind::Library => (format!("{APP_NAME} Library"), 980.0, 660.0),
+            Kind::Library => (format!("{APP_NAME} Library"), 980.0, 660.0, (640.0, 420.0)),
+            Kind::Timeline => (
+                format!("{APP_NAME} Timeline"),
+                1280.0,
+                720.0,
+                (980.0, 560.0),
+            ),
         };
         let attrs = Window::default_attributes()
             .with_title(title)
             .with_inner_size(winit::dpi::LogicalSize::new(w, h))
-            .with_min_inner_size(winit::dpi::LogicalSize::new(640.0, 420.0))
+            .with_min_inner_size(winit::dpi::LogicalSize::new(min.0, min.1))
             .with_enabled_buttons(winit::window::WindowButtons::CLOSE)
             .with_theme(Some(match theme {
                 Theme::Light => winit::window::Theme::Light,
@@ -109,6 +144,7 @@ impl UiWindow {
         Ok(UiWindow {
             kind,
             library: library_view::LibraryState::default(),
+            timeline: timeline_view::TimelineState::default(),
             window,
             state,
             painter,
@@ -133,6 +169,12 @@ impl UiWindow {
     /// Selects a library item in the Library window.
     pub fn select_item(&mut self, item: &Item) {
         self.library.select(item);
+        self.window.request_redraw();
+    }
+
+    /// Selects a slot in the Timeline window.
+    pub fn select_slot(&mut self, day: usize, index: usize) {
+        self.timeline.select(day, index);
         self.window.request_redraw();
     }
 
@@ -224,12 +266,14 @@ impl UiWindow {
         let kind = self.kind;
         let view = &mut self.view;
         let library = &mut self.library;
+        let timeline = &mut self.timeline;
         if library.moon.is_none() {
             library.moon = view.moon.clone();
         }
         let mut full = ctx.run_ui(input, |ui| match kind {
             Kind::Settings => view::show(ui, theme, view, model.settings, model.status, actions),
             Kind::Library => library_view::show(ui, theme, library, model, actions),
+            Kind::Timeline => timeline_view::show(ui, theme, timeline, model, actions),
         });
         if kind == Kind::Settings && self.view.section != shown {
             // The title names the page (macOS HIG; harmless elsewhere).

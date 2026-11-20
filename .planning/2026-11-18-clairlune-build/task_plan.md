@@ -168,11 +168,11 @@ Order: the app core first (usable in still mode with no UI), then the design wor
 - [x] Frozen scene package (PLAN.md 9c): render::package (format 1: package.json + background-<theme>.png + sprites.png; 0.4-1.1 MB for both themes at 4K). Art comes through render::art::SceneArt, so playback never touches the generator, catalog or built-in art. Tests: capture == live, save/load, ignores the recipe, newer formats refused, committed golden package. The archive stores one per monitor; Previous and theme changes replay them when the monitor matches
 - **Status:** pending
 
-### Phase 15: M6b Library + Timeline
+### Phase 15: M6b Library + Timeline (complete)
 - [x] 15a Library (PLAN.md 9a): `library.rs` (items copy an archive entry incl. frozen scenes; item.json with name, tags, display/theme/buddy choices), Save to library (tray, Settings), Library window (grid, selection action bar: use as wallpaper, rename, theme/Clawd choices, PNG/GIF export, two-step delete), applying an item replays its scenes with its choices
 - [x] 15b Timeline model + timeline.toml (the plan's format) + resolver by UTC instants, generic over chrono::TimeZone; tests in America/New_York: spring-forward gap, repeated hour fires once, same-instant ties, midnight wrap, empty days, weekly layout
 - [x] 15c Timeline runtime: Rotation mode (Generate/Timeline), 20 s re-evaluation, item/pool (shuffle with no repeat, sequential with positions in state.json)/random slots, slot > item > global choices, manual New wallpaper holds until the next slot, tooltip shows the next slot; deleting a library item the timeline uses asks to remove those slots or use random there
-- [ ] 15d Timeline editor window
+- [x] 15d Timeline editor window: a 24-hour bar per day (single or weekly), slots show their wallpaper, now marker; drag edges (15 min snap, Shift: minutes), double-click to split, drag saved wallpapers or Random from the sidebar, Add/Copy to.../Clear per day, weekly to single asks which day, 50-step Undo, hover preview; inspector for start (typed or Earlier/Later), saved/pool/random content, theme, Clawd, display; keyboard: arrows select, Delete, Ctrl+Z. Headless egui interaction tests (drag, split, drop, keys) run on CI; UI test screenshots in both themes
 - **Status:** pending
 
 ### Phase 16: M7 Live wallpaper hosts

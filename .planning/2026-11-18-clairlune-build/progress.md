@@ -57,6 +57,12 @@
   opt-level 0 in dev. Published 0.7.0 (6 crates, first clairlune-platform); verified `cargo install
   clairlune` + `--ui-test` on the installed binary.
 
+- M6b 15b-15d (2026-11-20): timeline.toml + resolver by UTC instants (DST tests in New York), runtime
+  (Rotation mode, pools in state.json, manual New wallpaper holds until the next slot, edits only re-render
+  when the active slot's content changed), and the Timeline window. Interactions verified headlessly by
+  feeding egui synthetic pointer and key events (orca computer can't drag on Windows without taking the
+  user's mouse); screenshots reviewed in light and dark.
+
 ### Test Results
 | Test | Expected | Actual | Status |
 |------|----------|--------|--------|
