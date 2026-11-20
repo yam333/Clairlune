@@ -51,6 +51,12 @@
   The user's wallpaper is remembered before the first change (never Clairlune's own). Verified live, then
   restored the user's wallpaper and removed the test data.
 
+- 14b-14d + release 0.7.0 (2026-11-20): docs/design.md + tokens (WCAG-checked); egui chosen (Slint's licences
+  aren't permissive); Settings window with every section, start at login (Run key), restore, IPC so a second
+  launch opens Settings, no-tray fallback. CI test step back to ~4 min after building the GUI stack at
+  opt-level 0 in dev. Published 0.7.0 (6 crates, first clairlune-platform); verified `cargo install
+  clairlune` + `--ui-test` on the installed binary.
+
 ### Test Results
 | Test | Expected | Actual | Status |
 |------|----------|--------|--------|
