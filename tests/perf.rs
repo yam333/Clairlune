@@ -42,7 +42,7 @@ fn bake_4k_within_budget() {
     let atlas = GlyphAtlas::for_grid(&graph.grid);
     let t_bake = best_of(5, || bake_static(&graph, &atlas));
     let bg = bake_static(&graph, &atlas);
-    let palette = IndexedPalette::new(&graph.family);
+    let palette = IndexedPalette::for_graph(&graph);
     let t_frame = best_of(5, || {
         render_frame(&bg, &graph, &atlas, &palette, graph.t_hero_ms)
     });

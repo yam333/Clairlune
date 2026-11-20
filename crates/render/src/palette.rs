@@ -34,7 +34,33 @@ impl IndexedPalette {
         IndexedPalette { colors }
     }
 
+    /// The palette a scene graph renders with: generator 4 and later give
+    /// light scenes a stronger ink ramp (below); everything else keeps the
+    /// original, linear one.
+    pub fn for_graph(graph: &clairlune_scene::SceneGraph) -> Self {
+        let strong = graph.generator >= 4 && graph.family.theme == clairlune_scene::Theme::Light;
+        Self::with_ramp(&graph.family, strong)
+    }
+
+    /// The original palette: ink levels blend linearly from background to
+    /// ink.
     pub fn new(family: &PaletteFamily) -> Self {
+        Self::with_ramp(family, false)
+    }
+
+    /// With `strong`, ink levels follow `1 - (1 - l/6)^1.8`: thin strokes and
+    /// faint far layers come out about twice as dark, so ASCII on a light
+    /// background reads as clearly as light strokes on a dark one. Full ink
+    /// stays full ink.
+    fn with_ramp(family: &PaletteFamily, strong: bool) -> Self {
+        let level = |l: u8| -> f64 {
+            let x = f64::from(l) / f64::from(LEVELS);
+            if strong {
+                1.0 - clairlune_scene::math::pow(1.0 - x, 1.8)
+            } else {
+                x
+            }
+        };
         let mut colors = Vec::with_capacity(128);
         let band = |b: u8| -> Rgb {
             if b < 4 {
@@ -56,7 +82,7 @@ impl IndexedPalette {
                     .mix(family.accent, family.tint_strength * f64::from(b - 3) / 4.0)
             };
             for l in 1..=LEVELS {
-                colors.push(band(b).mix(ink, f64::from(l) / f64::from(LEVELS)));
+                colors.push(band(b).mix(ink, level(l)));
             }
         }
         for b in 0..BANDS {

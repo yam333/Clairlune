@@ -339,6 +339,10 @@ pub struct SceneGraph {
     /// scenes saved before the calm pace, which keep their motion.
     #[serde(default)]
     pub pace: u8,
+    /// The generator version that built it (0 in older saved scenes); the
+    /// palette follows it, so older scenes keep their colours.
+    #[serde(default)]
+    pub generator: u32,
 }
 
 impl SceneGraph {

@@ -33,7 +33,7 @@ fn decoded_frames_equal_rendered_frames() {
         // Reference renderer.
         let graph = build(&recipe, &opts).unwrap();
         let atlas = GlyphAtlas::for_grid(&graph.grid);
-        let palette = IndexedPalette::new(&graph.family);
+        let palette = IndexedPalette::for_graph(&graph);
         let bg = bake_static(&graph, &atlas);
 
         let mut dec_opts = gif::DecodeOptions::new();
@@ -88,7 +88,7 @@ fn loops_have_no_seam() {
             };
             let graph = build(&recipe, &opts).unwrap();
             let atlas = GlyphAtlas::for_grid(&graph.grid);
-            let palette = IndexedPalette::new(&graph.family);
+            let palette = IndexedPalette::for_graph(&graph);
             let bg = bake_static(&graph, &atlas);
             let clock = Clock::Loop(loop_ms);
             let first = render_frame_clocked(&bg, &graph, &atlas, &palette, 0, clock);

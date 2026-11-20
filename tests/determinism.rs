@@ -74,7 +74,7 @@ fn periodic_elements_loop_seamlessly() {
         };
         let graph = build(&r, &opts).unwrap();
         let atlas = GlyphAtlas::for_grid(&graph.grid);
-        let palette = IndexedPalette::new(&graph.family);
+        let palette = IndexedPalette::for_graph(&graph);
         let bg = bake_static(&graph, &atlas);
         for t in [0, 750, 2500, 5999] {
             let a = render_frame(&bg, &graph, &atlas, &palette, t);

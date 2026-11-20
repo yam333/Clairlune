@@ -55,7 +55,7 @@ fn a_captured_package_plays_like_the_live_scene() {
                 };
                 let graph = build(&r, &opts).unwrap();
                 let atlas = GlyphAtlas::for_grid(&graph.grid);
-                let palette = IndexedPalette::new(&graph.family);
+                let palette = IndexedPalette::for_graph(&graph);
                 let bg = bake_static(&graph, &atlas);
                 for clock in [Clock::Live, Clock::Loop(graph.loop_ms)] {
                     for t in times(&pkg, theme) {

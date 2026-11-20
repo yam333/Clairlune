@@ -158,7 +158,7 @@ impl ScenePackage {
         };
         for mut graph in graphs {
             let atlas = GlyphAtlas::for_grid(&graph.grid);
-            let palette = IndexedPalette::new(&graph.family);
+            let palette = IndexedPalette::for_graph(&graph);
             let background = bake_static(&graph, &atlas);
             // The background replaces the cells; a loaded package has none.
             graph.cells = Vec::new();
