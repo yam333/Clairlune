@@ -271,6 +271,15 @@ pub const KITE_REST: PixelMap = PixelMap {
     ],
 };
 
+/// A few flat stones in a pile: the unattended variant of skipping stones
+/// (project art, CC BY 4.0).
+pub const STONE_PILE: PixelMap = PixelMap {
+    width: 7,
+    height: 3,
+    rows: &["..sS...", ".SSsSs.", "sSSSsSS"],
+    colors: &[('S', STEEL), ('s', STEEL_DARK)],
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -291,6 +300,7 @@ mod tests {
             GUITAR_REST,
             BUCKET,
             KITE_REST,
+            STONE_PILE,
         ] {
             assert_eq!(map.rows.len() as u32, map.height);
             for row in map.rows {

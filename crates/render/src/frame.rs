@@ -14,6 +14,7 @@ use crate::art::{BuiltinArt, SceneArt};
 use crate::atlas::GlyphAtlas;
 use crate::clock::{Clock, LoopScript, loop_track};
 use crate::palette::{IndexedPalette, LEVELS, ink_level};
+use crate::projectile::draw_projectile;
 use crate::tether::{Anchor, draw_tether};
 use clairlune_scene::anim::state_at;
 use clairlune_scene::graph::CHARACTER_BOX;
@@ -341,6 +342,8 @@ pub fn hero_time_with_art(graph: &SceneGraph, art: &dyn SceneArt) -> u64 {
 struct Pose<'a> {
     frame: &'a Frame,
     state: String,
+    /// Time into the state, in ms (thrown things fly on it).
+    elapsed: u64,
     /// Screen pixel of the origin pixel's top-left corner.
     x0: i32,
     y0: i32,
@@ -405,6 +408,7 @@ fn character_pose<'a>(
     Some(Pose {
         frame,
         state,
+        elapsed,
         x0: s.x + (CHARACTER_BOX.0 as i32 / 2) * sc,
         y0: s.y + (CHARACTER_BOX.1 as i32 - 1) * sc,
         sc,
@@ -434,6 +438,37 @@ fn draw_effects(
     let dir = if pose.mirror { -1.0 } else { 1.0 };
     for (i, e) in a.effects.iter().enumerate() {
         if !e.active_in(&pose.state) {
+            continue;
+        }
+        if e.kind == "projectile" {
+            // Thrown from where the anchor is on the state's first frame, so
+            // the flight doesn't jump when the pose changes mid-air.
+            let first = art
+                .character()
+                .animation(&a.id, &pose.state)
+                .and_then(|an| an.frames.first())
+                .and_then(|f| f.anchors.get(&e.at).copied());
+            if let Some((ax, ay)) = first {
+                let (x, y) = pose.screen(ax, ay);
+                let anchor = Anchor {
+                    x,
+                    y,
+                    sc: pose.sc,
+                    dir: if pose.mirror { -1 } else { 1 },
+                    state: &pose.state,
+                };
+                draw_projectile(
+                    img,
+                    drawn,
+                    graph,
+                    atlas,
+                    palette,
+                    &e.preset,
+                    &anchor,
+                    pose.elapsed,
+                    clock,
+                );
+            }
             continue;
         }
         if e.kind == "tether" {

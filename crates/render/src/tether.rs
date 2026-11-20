@@ -189,7 +189,7 @@ fn kite_string(
 /// A rectangle in a sprite colour, or in strong ink when the palette lacks
 /// the colour.
 #[allow(clippy::too_many_arguments)]
-fn fill(
+pub(crate) fn fill(
     img: &mut IndexedImage,
     drawn: &mut Vec<PixelRect>,
     graph: &SceneGraph,
@@ -274,7 +274,7 @@ fn line(
 /// A glyph at pixel `(x, y)`: at that position with `Clock::Smooth`, else in
 /// the cell holding it.
 #[allow(clippy::too_many_arguments)]
-fn glyph(
+pub(crate) fn glyph(
     img: &mut IndexedImage,
     drawn: &mut Vec<PixelRect>,
     graph: &SceneGraph,

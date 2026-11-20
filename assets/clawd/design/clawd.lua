@@ -74,7 +74,7 @@ M.along = along
 --   eyes     "open" | "closed" | "left" | "right" | "up" | "happy" | "focus"
 --   arm_l, arm_r   "rest" | "out" | "up" | { dx, dy } hand position from the shoulder
 --   reach, wiggle  extra length / 1 px raise for "out" and "up" arms
---   hold     { item, angle, hand = "r" }  item: wand, racket, ski_pole, walking_stick, mug, chess_piece, rod
+--   hold     { item, angle, hand = "r" }  item: wand, racket, ski_pole, walking_stick, mug, chess_piece, rod, stone
 --   costume  { "wizard_hat", "beanie", "goggles", "backpack", "scarf" }
 --   legs     "stand" | "walk_a" | "walk_b" | "ski"
 function M.pose(o)
@@ -175,6 +175,11 @@ function ITEMS.rod(c, x, y, deg)
   local tx, ty = along(x, y, deg, 14)
   line(c, x, y, tx, ty, P.wood)
   return { tx, ty }
+end
+function ITEMS.stone(c, x, y)
+  -- A flat skimming stone between the fingers.
+  c.rect(x, y - 1, 2, 1, P.metal_dark)
+  return { x, y - 1 }
 end
 function ITEMS.chess_piece(c, x, y)
   c.px(x, y - 3, P.ink)

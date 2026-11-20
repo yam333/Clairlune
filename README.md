@@ -45,7 +45,7 @@ Options:
 | `--theme light\|dark` | Palette and time of day. |
 | `--size <W>x<H>` | Output size in pixels. |
 | `--out <path>` | Output PNG (indexed, at most 255 colours). |
-| `--activity <id>` | Force an activity: `warm_hands`, `stroll`, `stargaze` (night only), `wizard_magic`, `make_coffee`, `read_lantern`, `play_guitar`, `fishing` (shore only), `fly_kite` (daytime). |
+| `--activity <id>` | Force an activity: `warm_hands`, `stroll`, `stargaze` (night only), `wizard_magic`, `make_coffee`, `read_lantern`, `play_guitar`, `fishing` (shore only), `fly_kite` (daytime), `skip_stones` (shore only). |
 | `--archetype <id>` | Force a landscape: `canyon`, `mountains`, `forest`, `desert`, `snowfield`, `shore`, `city_rooftops`, `night_sky`, `cave`. |
 | `--no-buddy` | Render the same scene without the character. |
 | `--recipe-out <path>` | Also write the scene recipe as JSON. |

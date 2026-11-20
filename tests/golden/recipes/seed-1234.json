@@ -5,12 +5,12 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "6a5a6da84d7ea68c",
-  "activity": "fishing",
-  "archetype": "shore",
+  "content_ctx_hash": "3f2c6f39a17b6d29",
+  "activity": "fly_kite",
+  "archetype": "city_rooftops",
   "light_tod": "golden_hour",
-  "dark_tod": "dusk",
-  "platform": "pier",
+  "dark_tod": null,
+  "platform": "rooftop_edge",
   "props": [],
   "weather": "none",
   "composition": {

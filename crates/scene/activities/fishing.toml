@@ -1,6 +1,8 @@
 # Fishing off the end of the pier: a line down to a float bobbing on the water.
 id = "fishing"
-weight = 1.0
+# Shore only, like the other pier activity: together they weigh as one, so
+# the shore doesn't come up more often than the other landscapes.
+weight = 0.5
 
 [requires]
 terrain = ["shore"]
