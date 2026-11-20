@@ -1248,7 +1248,7 @@ impl App {
                     if let Some(w) = &mut self.settings_window {
                         w.set_section(section);
                     }
-                    tracing::info!(target: "clairlune", ms = opened.elapsed().as_millis() as u64, "ui test: settings opened");
+                    tracing::info!(target: "clairlune", ms = opened.elapsed().as_millis() as u64, memory_mb = memory_mb(), "ui test: settings opened");
                 }
                 UiStep::Screenshot(name) => {
                     let out = self.ui_test.as_ref().map(|t| t.out.join(name));
@@ -1274,11 +1274,12 @@ impl App {
                     {
                         w.select_item(first);
                     }
-                    tracing::info!(target: "clairlune", items = self.library_items.len(), "ui test: library opened");
+                    tracing::info!(target: "clairlune", items = self.library_items.len(), memory_mb = memory_mb(), "ui test: library opened");
                 }
                 UiStep::CloseLibrary => {
                     self.library_window = None;
-                    tracing::info!(target: "clairlune", "ui test: library closed");
+                    self.trim_if_idle();
+                    tracing::info!(target: "clairlune", memory_mb = memory_mb(), "ui test: library closed");
                 }
                 UiStep::OpenTimeline(theme, day, index) => {
                     self.open_timeline(event_loop);
@@ -1286,11 +1287,12 @@ impl App {
                         w.set_theme(theme);
                         w.select_slot(day, index);
                     }
-                    tracing::info!(target: "clairlune", "ui test: timeline opened");
+                    tracing::info!(target: "clairlune", memory_mb = memory_mb(), "ui test: timeline opened");
                 }
                 UiStep::CloseTimeline => {
                     self.timeline_window = None;
-                    tracing::info!(target: "clairlune", "ui test: timeline closed");
+                    self.trim_if_idle();
+                    tracing::info!(target: "clairlune", memory_mb = memory_mb(), "ui test: timeline closed");
                 }
                 UiStep::OpenArchive => {
                     self.open_archive(event_loop);
@@ -1298,21 +1300,40 @@ impl App {
                     if let (Some(w), Some(name)) = (&mut self.archive_window, pick) {
                         w.select_entry(&name);
                     }
-                    tracing::info!(target: "clairlune", entries = self.archive_items.len(), "ui test: archive opened");
+                    tracing::info!(target: "clairlune", entries = self.archive_items.len(), memory_mb = memory_mb(), "ui test: archive opened");
                 }
                 UiStep::CloseArchive => {
                     self.archive_window = None;
-                    tracing::info!(target: "clairlune", "ui test: archive closed");
+                    self.trim_if_idle();
+                    tracing::info!(target: "clairlune", memory_mb = memory_mb(), "ui test: archive closed");
                 }
                 UiStep::Close => {
                     self.settings_window = None;
-                    tracing::info!(target: "clairlune", "ui test: settings closed");
+                    self.trim_if_idle();
+                    tracing::info!(target: "clairlune", memory_mb = memory_mb(), "ui test: settings closed");
                 }
                 UiStep::Exit => {
                     tracing::info!(target: "clairlune", "ui test passed: settings opened and closed 3 times on one loop");
                     event_loop.exit();
                 }
             }
+        }
+    }
+
+    /// With no window open, gives the memory a closed window or a finished
+    /// render touched back to the system, so the app idles small.
+    fn trim_if_idle(&self) {
+        let open = [
+            &self.settings_window,
+            &self.library_window,
+            &self.timeline_window,
+            &self.archive_window,
+        ]
+        .iter()
+        .any(|w| w.is_some());
+        if !open {
+            #[cfg(windows)]
+            clairlune_platform::windows_live::trim_memory();
         }
     }
 
@@ -1363,6 +1384,7 @@ impl App {
                 self.shown_theme = Some(theme);
                 self.live.show(live);
                 self.refresh_archive();
+                self.trim_if_idle();
                 let what = match activity {
                     Some(a) => {
                         format!("{} in {}", a.replace('_', " "), archetype.replace('_', " "))
@@ -1555,6 +1577,7 @@ impl ApplicationHandler<AppEvent> for App {
                 ui::Kind::Timeline => self.timeline_window = None,
                 ui::Kind::Archive => self.archive_window = None,
             }
+            self.trim_if_idle();
         }
         if self.settings == before {
             actions.retain(|a| *a != ui::view::UiAction::SettingsChanged);
