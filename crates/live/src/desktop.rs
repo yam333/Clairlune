@@ -21,6 +21,9 @@ use raw_window_handle::{HasWindowHandle, RawDisplayHandle, WindowsDisplayHandle}
 use std::num::NonZeroU32;
 use std::time::{Duration, Instant};
 
+/// The GDI fallback's frame-rate cap (Balanced).
+pub const GDI_MAX_FPS: u32 = 12;
+
 // One per monitor: the size difference between the variants doesn't matter.
 #[allow(clippy::large_enum_variant)]
 enum Present {
@@ -160,6 +163,16 @@ impl Desktop {
     /// "raised" (Windows 11 24H2+) or "classic".
     pub fn layout(&self) -> &'static str {
         self.layer.layout()
+    }
+
+    /// The highest frame rate worth asking for: GDI copies every changed
+    /// pixel on the CPU, so without a GPU live plays at most at Balanced.
+    pub fn max_fps(&self) -> u32 {
+        if self.d3d.is_none() && self.gpu.is_none() {
+            GDI_MAX_FPS
+        } else {
+            60
+        }
     }
 
     /// "d3d11 (adapter)", "gpu (adapter)" or "gdi".

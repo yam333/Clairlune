@@ -114,12 +114,18 @@ impl Live {
         }
     }
 
-    /// The frame rate now: Battery saver's 6 fps on battery when asked.
+    /// The frame rate now: Battery saver's 6 fps on battery when asked, and
+    /// no more than the presenter is worth (GDI: Balanced).
     fn effective_fps(&self) -> u32 {
+        #[cfg(windows)]
+        let cap = self.desktop.as_ref().map_or(60, |d| d.max_fps());
+        #[cfg(not(windows))]
+        let cap = 60;
+        let fps = self.fps.min(cap);
         if self.on_battery && self.battery_saver {
-            self.fps.min(6)
+            fps.min(6)
         } else {
-            self.fps
+            fps
         }
     }
 
@@ -158,10 +164,15 @@ impl Live {
             Ok(mut desktop) => {
                 desktop.cover_policy = cover_policy(self.cover_pause);
                 let n = self.scenes.len();
+                let capped = if desktop.max_fps() < self.fps {
+                    " (without a GPU, at most Balanced)"
+                } else {
+                    ""
+                };
                 self.status = Some(format!(
-                    "Playing on {n} monitor{} at {} fps.",
+                    "Playing on {n} monitor{} at {} fps{capped}.",
                     if n == 1 { "" } else { "s" },
-                    self.fps
+                    self.fps.min(desktop.max_fps())
                 ));
                 self.desktop = Some(desktop);
                 self.next = Some(Instant::now());
