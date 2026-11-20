@@ -27,7 +27,8 @@ pub use bake::bake_static;
 pub use clock::Clock;
 pub use encode::{encode_png, save_png, to_rgba};
 pub use frame::{
-    hero_time, hero_time_with_art, render_frame, render_frame_clocked, render_frame_with_art,
+    IncrementalFrame, PixelRect, hero_time, hero_time_with_art, render_frame, render_frame_clocked,
+    render_frame_with_art,
 };
 pub use gif_export::{
     GifError, GifStats, Smoothness, encode_gif, encode_package_gif, frame_delays, valid_loop_ms,

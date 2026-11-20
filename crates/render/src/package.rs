@@ -24,7 +24,7 @@ use crate::art::{OwnedPixmap, Pixmap, SceneArt};
 use crate::atlas::GlyphAtlas;
 use crate::bake::bake_static;
 use crate::clock::Clock;
-use crate::frame::{hero_time_with_art, render_frame_with_art};
+use crate::frame::{IncrementalFrame, PixelRect, hero_time_with_art, render_frame_with_art};
 use crate::palette::IndexedPalette;
 use crate::{IndexedImage, encode_png};
 use clairlune_scene::activity::{Activity, builtin_catalog};
@@ -219,6 +219,36 @@ impl ScenePackage {
             &self.art,
         );
         Some((img, &t.palette))
+    }
+
+    /// A frame to play the scene live, starting from the bare background;
+    /// move it with [`ScenePackage::advance`].
+    pub fn incremental(&self, theme: Theme) -> Option<IncrementalFrame> {
+        self.theme(theme)
+            .map(|t| IncrementalFrame::new(&t.background))
+    }
+
+    /// Moves a live frame to `t_ms` and returns the rectangles that changed;
+    /// the frame then equals [`ScenePackage::frame`] at that time.
+    pub fn advance(
+        &self,
+        frame: &mut IncrementalFrame,
+        theme: Theme,
+        buddy: bool,
+        t_ms: u64,
+        clock: Clock,
+    ) -> Option<Vec<PixelRect>> {
+        let t = self.theme(theme)?;
+        let graph = if buddy { &t.graph } else { &t.graph_unattended };
+        Some(frame.advance(
+            &t.background,
+            graph,
+            &t.atlas,
+            &t.palette,
+            t_ms,
+            clock,
+            &self.art,
+        ))
     }
 
     /// The still (hero) frame in a theme.
