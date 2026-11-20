@@ -64,6 +64,7 @@ fn prop_kind(id: &str) -> Option<SpriteKind> {
         "stone_pile" => Some(SpriteKind::StonePile),
         "easel" => Some(SpriteKind::Easel),
         "snowman" => Some(SpriteKind::Snowman),
+        "basket" => Some(SpriteKind::Basket),
         _ => None,
     }
 }
@@ -249,7 +250,9 @@ pub fn layout(
                 ((2.0 * f64::from(x_max - x_min) / px_per_s.max(1.0)) * 1000.0).round() as u64;
             // Never above 6 % of the screen height.
             let lift = (f64::from(comp.fly_lift_pm) / 1000.0 * f64::from(h)) as i32;
-            let lift = lift.min(ground_y - ch - (h as f64 * 0.06) as i32).max(0);
+            let lift = lift
+                .min(ground_y - height - (h as f64 * 0.06) as i32)
+                .max(0);
             Motion::Fly {
                 x_min,
                 x_max: x_max.max(x_min),

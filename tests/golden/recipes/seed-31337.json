@@ -5,15 +5,13 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "c8b80cf9783fd898",
-  "activity": "snowballs",
-  "archetype": "snowfield",
+  "content_ctx_hash": "9728113e67509462",
+  "activity": "fly_kite",
+  "archetype": "desert",
   "light_tod": "morning",
-  "dark_tod": "dusk",
-  "platform": "ice_shelf",
-  "props": [
-    "snowman"
-  ],
+  "dark_tod": null,
+  "platform": "dune_crest",
+  "props": [],
   "weather": "none",
   "composition": {
     "horizon_pm": 622,

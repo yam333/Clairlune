@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "c8b80cf9783fd898",
-  "activity": "stroll",
-  "archetype": "cave",
-  "light_tod": "golden_hour",
-  "dark_tod": "dusk",
-  "platform": "rock_ledge",
+  "content_ctx_hash": "9728113e67509462",
+  "activity": "broom_flight",
+  "archetype": "city_rooftops",
+  "light_tod": null,
+  "dark_tod": "night",
+  "platform": "rooftop_edge",
   "props": [
-    "lantern"
+    "spellbook"
   ],
   "weather": "none",
   "composition": {
@@ -23,8 +23,9 @@
     "platform_margin_pm": 29,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 212,
-    "pace_half_pm": 139
+    "motion_speed_cc": 538,
+    "pace_half_pm": 0,
+    "fly_lift_pm": 251
   },
   "palette": {
     "light": "paper_day",

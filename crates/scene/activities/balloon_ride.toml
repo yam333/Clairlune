@@ -1,0 +1,41 @@
+# A hot-air balloon drifting slowly across the daytime sky, Clawd looking
+# out over the basket's rim.
+id = "balloon_ride"
+weight = 1.0
+
+[requires]
+terrain = ["ledge", "flat", "rooftop", "dune", "shore", "slope"]
+time_of_day = ["morning", "noon", "golden_hour"]
+weather = ["none", "dust"]
+sky = true
+
+[motion]
+type = "fly"
+speed_cells_per_s = [0.8, 1.5]
+
+[character]
+# The envelope above the basket, in sprite pixels.
+headroom = 30
+
+[animation]
+start = "drift"
+
+[animation.states.drift]
+loop = true
+dwell_s = [6, 12]
+next = { look = 0.6, wave = 0.4 }
+
+[animation.states.look]
+loop = true
+dwell_s = [2, 4]
+next = { drift = 1.0 }
+
+# One-shot: a wave over the rim.
+[animation.states.wave]
+next = { drift = 1.0 }
+
+[gif]
+loop_script = ["drift", "look"]
+
+[unattended]
+props = ["basket"]

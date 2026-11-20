@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "c8b80cf9783fd898",
-  "activity": "read_lantern",
-  "archetype": "snowfield",
-  "light_tod": "golden_hour",
+  "content_ctx_hash": "9728113e67509462",
+  "activity": "warm_hands",
+  "archetype": "night_sky",
+  "light_tod": "noon",
   "dark_tod": "dusk",
-  "platform": "ice_shelf",
+  "platform": "floating_island",
   "props": [
-    "lantern"
+    "campfire"
   ],
-  "weather": "stars",
+  "weather": "none",
   "composition": {
     "horizon_pm": 587,
     "focus_x_pm": 355,

@@ -339,6 +339,21 @@ pub const SNOWMAN: PixelMap = PixelMap {
     ],
 };
 
+/// An empty wicker basket on the ground: the unattended variant of the
+/// balloon ride (project art, CC BY 4.0).
+pub const BASKET: PixelMap = PixelMap {
+    width: 9,
+    height: 5,
+    rows: &[
+        "d.......d",
+        "WWWWWWWWW",
+        "WdWdWdWdW",
+        "WWWWWWWWW",
+        ".WdWdWdW.",
+    ],
+    colors: &[('W', WOOD), ('d', WOOD_DARK)],
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -362,6 +377,7 @@ mod tests {
             STONE_PILE,
             EASEL,
             SNOWMAN,
+            BASKET,
         ] {
             assert_eq!(map.rows.len() as u32, map.height);
             for row in map.rows {
