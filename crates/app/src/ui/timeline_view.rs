@@ -1367,6 +1367,9 @@ mod tests {
                 library_dir: dir,
                 uses: &self.uses,
                 timeline: &mut self.tl,
+                archive: &[],
+                archive_dir: dir,
+                current_entry: None,
             };
             let st = &mut self.st;
             // No painter here: release the frame's texture uploads unused.

@@ -68,7 +68,7 @@ impl Tray {
         let save_lib = MenuItem::new("Save to library", true, None);
         let library = MenuItem::new("Library\u{2026}", true, None);
         let timeline = MenuItem::new("Timeline\u{2026}", true, None);
-        let archive = MenuItem::new("Open archive folder", true, None);
+        let archive = MenuItem::new("Archive\u{2026}", true, None);
         let settings = MenuItem::new("Settings\u{2026}", true, None);
         let quit = MenuItem::new("Quit Clairlune", true, None);
         let menu = Menu::new();

@@ -126,6 +126,9 @@ struct App {
     library_window: Option<ui::UiWindow>,
     /// The Timeline window, while open.
     timeline_window: Option<ui::UiWindow>,
+    /// The Archive window, while open, and the entries it lists.
+    archive_window: Option<ui::UiWindow>,
+    archive_items: Vec<archive::Entry>,
     library_items: Vec<library::Item>,
     /// Where the timeline uses each library item.
     library_uses: std::collections::BTreeMap<String, Vec<String>>,
@@ -151,6 +154,8 @@ enum UiStep {
     /// The Timeline window in a theme, with a slot (day, index) selected.
     OpenTimeline(Theme, usize, usize),
     CloseTimeline,
+    OpenArchive,
+    CloseArchive,
     /// Of the Library window when it's open, else of Settings.
     Screenshot(&'static str),
     Close,
@@ -187,7 +192,10 @@ impl UiTest {
             steps.push((ms(t0 + 900), UiStep::Screenshot(shot)));
             steps.push((ms(t0 + 1400), UiStep::CloseTimeline));
         }
-        steps.push((ms(10100), UiStep::Exit));
+        steps.push((ms(10100), UiStep::OpenArchive));
+        steps.push((ms(10900), UiStep::Screenshot("archive.png")));
+        steps.push((ms(11400), UiStep::CloseArchive));
+        steps.push((ms(11900), UiStep::Exit));
         UiTest {
             out,
             steps,
@@ -674,7 +682,7 @@ impl App {
             Action::SaveToLibrary => self.save_to_library(),
             Action::OpenLibrary => self.open_library(event_loop),
             Action::OpenTimeline => self.open_timeline(event_loop),
-            Action::OpenArchive => open(&self.data_dir.join("archive"), false),
+            Action::OpenArchive => self.open_archive(event_loop),
             Action::OpenSettings => self.open_settings(event_loop, None),
             Action::Quit => event_loop.exit(),
         }
@@ -728,6 +736,7 @@ impl App {
             &self.settings_window,
             &self.library_window,
             &self.timeline_window,
+            &self.archive_window,
         ]
         .into_iter()
         .flatten()
@@ -750,11 +759,14 @@ impl App {
 
     /// Copies the archive entry on screen into the library.
     fn save_to_library(&mut self) {
+        let dir = self.current.clone();
+        self.save_dir_to_library(dir);
+    }
+
+    /// Copies an archive entry into the library.
+    fn save_dir_to_library(&mut self, dir: Option<PathBuf>) {
         let note = (|| {
-            let dir = self
-                .current
-                .clone()
-                .ok_or("There's no wallpaper to save yet.")?;
+            let dir = dir.ok_or("There's no wallpaper to save yet.")?;
             let lib = self
                 .library()
                 .ok_or("The library folder can't be opened.")?;
@@ -763,10 +775,8 @@ impl App {
             }
             let archive = self.archive().ok_or("The archive can't be opened.")?;
             let name = dir.file_name().map(|n| n.to_string_lossy().into_owned());
-            let entry = archive
-                .entries()
-                .into_iter()
-                .find(|e| Some(&e.name) == name.as_ref())
+            let entry = name
+                .and_then(|n| archive.get(&n))
                 .ok_or("This wallpaper is no longer in the archive.")?;
             lib.save_entry(&dir, &entry, timefmt::now_unix())
                 .map(|item| item.name)
@@ -777,6 +787,78 @@ impl App {
             Err(e) => e.to_string(),
         });
         self.refresh_library();
+    }
+
+    fn refresh_archive(&mut self) {
+        self.archive_items = self.archive().map(|a| a.entries()).unwrap_or_default();
+        if let Some(w) = &self.archive_window {
+            w.request_redraw();
+        }
+    }
+
+    fn open_archive(&mut self, event_loop: &ActiveEventLoop) {
+        self.refresh_archive();
+        if self.archive_window.is_some() {
+            return;
+        }
+        let theme = apply::resolve_theme(self.settings.theme.mode);
+        match ui::UiWindow::open(event_loop, ui::Kind::Archive, theme, self.last_section) {
+            Ok(w) => self.archive_window = Some(w),
+            Err(e) => {
+                tracing::warn!(target: "clairlune", error = %e, "no archive window; opening the folder");
+                open(&self.data_dir.join("archive"), false);
+            }
+        }
+    }
+
+    /// The Archive window's requests.
+    fn on_archive_action(&mut self, action: ui::view::UiAction) {
+        use ui::view::UiAction;
+        let Some(archive) = self.archive() else {
+            return;
+        };
+        let dir_of = |name: &str| archive.dir().join(name);
+        match action {
+            UiAction::ApplyArchive(name) => {
+                self.current_theme = None;
+                self.current_buddy = None;
+                self.apply_folder(dir_of(&name), None, None, false);
+            }
+            UiAction::PinArchive { name, pinned } => {
+                if let Err(e) = archive.set_pinned(&name, pinned) {
+                    self.status.note = Some(format!("Couldn't pin it: {e}"));
+                }
+            }
+            UiAction::SaveArchiveToLibrary(name) => {
+                self.save_dir_to_library(Some(dir_of(&name)));
+            }
+            UiAction::ExportArchive { name, gif } => {
+                let dest = self.export_dir();
+                let source = Some(dir_of(&name));
+                if gif {
+                    self.submit(Job::ExportGif {
+                        dest,
+                        source,
+                        theme: apply::resolve_theme(self.settings.theme.mode),
+                        buddy: self.settings.buddy.show,
+                    });
+                } else {
+                    self.submit(Job::Export { dest, source });
+                }
+            }
+            UiAction::DeleteArchive(name) => {
+                let dir = dir_of(&name);
+                if self.current.as_deref() == Some(dir.as_path()) {
+                    self.current = None;
+                }
+                self.status.note = Some(match archive.delete(&name) {
+                    Ok(()) => "Deleted from the archive.".to_string(),
+                    Err(e) => format!("Couldn't delete it: {e}"),
+                });
+            }
+            _ => {}
+        }
+        self.refresh_archive();
     }
 
     fn library_choices(item: &library::Item, settings: &Settings) -> (Option<Theme>, Option<bool>) {
@@ -971,6 +1053,7 @@ impl App {
                     &mut self.settings_window,
                     &mut self.library_window,
                     &mut self.timeline_window,
+                    &mut self.archive_window,
                 ]
                 .into_iter()
                 .flatten()
@@ -983,7 +1066,13 @@ impl App {
             UiAction::EditTimeline => self.open_timeline(event_loop),
             UiAction::TimelineChanged => self.timeline_edited(),
             UiAction::Previous => self.reapply(true),
-            UiAction::OpenArchive => open(&self.data_dir.join("archive"), false),
+            UiAction::OpenArchive => self.open_archive(event_loop),
+            UiAction::OpenArchiveFolder => open(&self.data_dir.join("archive"), false),
+            a @ (UiAction::ApplyArchive(_)
+            | UiAction::PinArchive { .. }
+            | UiAction::SaveArchiveToLibrary(_)
+            | UiAction::ExportArchive { .. }
+            | UiAction::DeleteArchive(_)) => self.on_archive_action(a),
             UiAction::OpenLogs => open(&self.data_dir.join("logs"), false),
             UiAction::SavePng => {
                 let dest = self.export_dir();
@@ -1046,6 +1135,7 @@ impl App {
                     let out = self.ui_test.as_ref().map(|t| t.out.join(name));
                     // The window opened last.
                     let target = [
+                        &mut self.archive_window,
                         &mut self.timeline_window,
                         &mut self.library_window,
                         &mut self.settings_window,
@@ -1082,6 +1172,18 @@ impl App {
                 UiStep::CloseTimeline => {
                     self.timeline_window = None;
                     tracing::info!(target: "clairlune", "ui test: timeline closed");
+                }
+                UiStep::OpenArchive => {
+                    self.open_archive(event_loop);
+                    let pick = self.archive_items.get(1).map(|e| e.name.clone());
+                    if let (Some(w), Some(name)) = (&mut self.archive_window, pick) {
+                        w.select_entry(&name);
+                    }
+                    tracing::info!(target: "clairlune", entries = self.archive_items.len(), "ui test: archive opened");
+                }
+                UiStep::CloseArchive => {
+                    self.archive_window = None;
+                    tracing::info!(target: "clairlune", "ui test: archive closed");
                 }
                 UiStep::Close => {
                     self.settings_window = None;
@@ -1140,6 +1242,7 @@ impl App {
                 self.current = source;
                 self.shown_theme = Some(theme);
                 self.live.show(live);
+                self.refresh_archive();
                 let what = match activity {
                     Some(a) => {
                         format!("{} in {}", a.replace('_', " "), archetype.replace('_', " "))
@@ -1273,10 +1376,18 @@ impl ApplicationHandler<AppEvent> for App {
         let mut actions = Vec::new();
         let before = self.settings.clone();
         let library_dir = self.data_dir.join("library");
+        let archive_dir = self.data_dir.join("archive");
+        let current_entry = self
+            .current
+            .as_ref()
+            .filter(|p| p.starts_with(&archive_dir))
+            .and_then(|p| p.file_name())
+            .map(|n| n.to_string_lossy().into_owned());
         let Some(w) = [
             &mut self.settings_window,
             &mut self.library_window,
             &mut self.timeline_window,
+            &mut self.archive_window,
         ]
         .into_iter()
         .flatten()
@@ -1290,6 +1401,9 @@ impl ApplicationHandler<AppEvent> for App {
             library_dir: &library_dir,
             uses: &self.library_uses,
             timeline: &mut self.timeline,
+            archive: &self.archive_items,
+            archive_dir: &archive_dir,
+            current_entry: current_entry.as_deref(),
         };
         let outcome = w.on_event(&event, &mut model, &mut actions);
         let kind = w.kind();
@@ -1305,12 +1419,14 @@ impl ApplicationHandler<AppEvent> for App {
                         && self.ui_test.is_none()
                         && self.library_window.is_none()
                         && self.timeline_window.is_none()
+                        && self.archive_window.is_none()
                     {
                         event_loop.exit();
                     }
                 }
                 ui::Kind::Library => self.library_window = None,
                 ui::Kind::Timeline => self.timeline_window = None,
+                ui::Kind::Archive => self.archive_window = None,
             }
         }
         if self.settings == before {
@@ -1701,6 +1817,8 @@ fn main() {
         settings_window: None,
         library_window: None,
         timeline_window: None,
+        archive_window: None,
+        archive_items: Vec::new(),
         library_items: Vec::new(),
         library_uses: std::collections::BTreeMap::new(),
         last_section: ui::view::Section::Schedule,
