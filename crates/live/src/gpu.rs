@@ -214,8 +214,7 @@ impl Gpu {
 
     /// Puts the player's current frame and palette on the GPU.
     pub fn canvas(&self, player: &Player) -> Canvas {
-        let img = player.image();
-        let (width, height) = (img.width, img.height);
+        let (width, height) = player.size();
         let texture = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("live frame indices"),
             size: wgpu::Extent3d {
@@ -285,9 +284,7 @@ impl Gpu {
         if rects.is_empty() {
             return;
         }
-        let img = player.image();
-        debug_assert_eq!((img.width, img.height), (canvas.width, canvas.height));
-        let w = img.width as usize;
+        debug_assert_eq!(player.size(), (canvas.width, canvas.height));
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
         let spans = merge_spans(rects);
         canvas.packed.clear();
@@ -295,11 +292,10 @@ impl Gpu {
         for r in &spans {
             let pitch = (r.w as usize).div_ceil(align) * align;
             let offset = canvas.packed.len() as u64;
-            for y in r.y as usize..(r.y + r.h) as usize {
-                let a = y * w + r.x as usize;
+            for y in r.y..r.y + r.h {
                 canvas
                     .packed
-                    .extend_from_slice(&img.pixels[a..a + r.w as usize]);
+                    .extend_from_slice(player.index_row(r.x, y, r.w));
                 let len = canvas.packed.len();
                 canvas.packed.resize(len + pitch - r.w as usize, 0);
             }

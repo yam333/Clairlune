@@ -75,6 +75,8 @@ impl Default for WallpaperMode {
 #[serde(default)]
 pub struct DisplaySettings {
     pub mode: WallpaperMode,
+    /// One scene spread across all monitors instead of one each.
+    pub span: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

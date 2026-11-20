@@ -191,7 +191,7 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 - **Status:** in progress
 
 ### Phase 17: M8 Polish & packaging
-- [ ] Span mode, notarization (needs an Apple Developer ID). Done: cargo-packager installers (25g), art-source CI check (scripts/check_sprites.py in CI), sunrise/sunset (2026-11-20: theme mode Schedule, dark between two times or from sunset to sunrise at a typed "lat, lon"; app/src/sun.rs, NOAA equations, offline, polar day/night; tests against New York, London, Tokyo within 3 min; Settings Theme page and tray; UI test screenshot settings-light-theme.png)
+- [ ] Notarization (needs an Apple Developer ID). Done: span mode (2026-11-20: Settings > Display > Monitors "Spread across"; one scene composed, packaged and archived at the monitors' bounding box with the focal group centred on the primary monitor (focus_x_pm), each monitor's still cropped from it, and live players showing their part through Player::new_view, which keeps the presenters' rects and copies in view coordinates; tests: view == crop of the full frame at every step, span geometry incl. negative coordinates, end-to-end apply with a fake host; best side by side; mixed-DPI Macs untried), cargo-packager installers (25g), art-source CI check (scripts/check_sprites.py in CI), sunrise/sunset (2026-11-20: theme mode Schedule, dark between two times or from sunset to sunrise at a typed "lat, lon"; app/src/sun.rs, NOAA equations, offline, polar day/night; tests against New York, London, Tokyo within 3 min; Settings Theme page and tray; UI test screenshot settings-light-theme.png)
 - **Status:** pending
 
 ### Phase 18: Release 0.2.0 so crates.io matches main

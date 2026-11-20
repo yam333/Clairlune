@@ -825,8 +825,15 @@ fn page(
                 ui,
                 theme,
                 "Monitors",
-                "Each monitor gets its own scene at its own resolution, all from one seed.",
-                |_| {},
+                "One scene each, at each monitor's own resolution, or one wide scene spread across all of them (best with monitors side by side).",
+                |ui| {
+                    segmented(
+                        ui,
+                        theme,
+                        &mut s.display.span,
+                        &[(false, "One each", true), (true, "Spread across", true)],
+                    );
+                },
             );
         }
         Section::Live => {

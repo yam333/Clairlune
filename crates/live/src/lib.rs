@@ -70,11 +70,37 @@ pub struct Player {
     started: Instant,
     /// `Clock::Live` (particles on the cell grid) or `Clock::Smooth`.
     clock: Clock,
+    /// The part of the frame this player shows (one monitor of a scene
+    /// spread over several); the whole frame otherwise.
+    view: PixelRect,
 }
 
 impl Player {
     /// `None` if the scene has no such theme.
     pub fn new(pkg: Arc<ScenePackage>, theme: Theme, buddy: bool) -> Option<Player> {
+        let view = PixelRect {
+            x: 0,
+            y: 0,
+            w: pkg.width,
+            h: pkg.height,
+        };
+        Self::new_view(pkg, theme, buddy, view)
+    }
+
+    /// A player showing only `view` of the scene's frame (span mode: each
+    /// monitor shows its part of one scene). Every method then works in the
+    /// view's own coordinates. `None` if the scene has no such theme or the
+    /// view isn't inside the frame.
+    pub fn new_view(
+        pkg: Arc<ScenePackage>,
+        theme: Theme,
+        buddy: bool,
+        view: PixelRect,
+    ) -> Option<Player> {
+        if view.w == 0 || view.h == 0 || view.x + view.w > pkg.width || view.y + view.h > pkg.height
+        {
+            return None;
+        }
         let frame = pkg.incremental(theme)?;
         let mut colors = [0u32; 256];
         for (i, c) in pkg.palette(theme)?.colors().iter().enumerate() {
@@ -90,6 +116,7 @@ impl Player {
             t0,
             started: Instant::now(),
             clock: Clock::Live,
+            view,
         })
     }
 
@@ -101,13 +128,22 @@ impl Player {
         self.clock = if on { Clock::Smooth } else { Clock::Live };
     }
 
+    /// The size of what this player shows.
     pub fn size(&self) -> (u32, u32) {
-        (self.pkg.width, self.pkg.height)
+        (self.view.w, self.view.h)
     }
 
-    /// The current frame as palette indices.
+    /// The whole current frame as palette indices (not just the view).
     pub fn image(&self) -> &IndexedImage {
         self.frame.image()
+    }
+
+    /// Palette indices of `w` pixels of row `y` from column `x`, in the
+    /// view's coordinates.
+    pub fn index_row(&self, x: u32, y: u32, w: u32) -> &[u8] {
+        let img = self.frame.image();
+        let a = (self.view.y + y) as usize * img.width as usize + (self.view.x + x) as usize;
+        &img.pixels[a..a + w as usize]
     }
 
     /// The palette as 0RGB, by index.
@@ -121,50 +157,72 @@ impl Player {
         self.t0 + self.started.elapsed().as_millis() as u64
     }
 
-    /// Moves to `t_ms`; returns the rectangles that changed.
+    /// Moves to `t_ms`; returns the rectangles that changed, in the view's
+    /// coordinates (changes outside the view are left out).
     pub fn advance(&mut self, t_ms: u64) -> Vec<PixelRect> {
-        self.pkg
+        let rects = self
+            .pkg
             .advance(&mut self.frame, self.theme, self.buddy, t_ms, self.clock)
-            .unwrap_or_default()
+            .unwrap_or_default();
+        let v = self.view;
+        if (v.x, v.y, v.w, v.h) == (0, 0, self.pkg.width, self.pkg.height) {
+            return rects;
+        }
+        rects
+            .iter()
+            .filter_map(|r| {
+                let x0 = r.x.max(v.x);
+                let y0 = r.y.max(v.y);
+                let x1 = (r.x + r.w).min(v.x + v.w);
+                let y1 = (r.y + r.h).min(v.y + v.h);
+                (x1 > x0 && y1 > y0).then(|| PixelRect {
+                    x: x0 - v.x,
+                    y: y0 - v.y,
+                    w: x1 - x0,
+                    h: y1 - y0,
+                })
+            })
+            .collect()
     }
 
-    /// Writes those rectangles of the current frame into a 0RGB buffer of the
-    /// frame's size.
+    /// Writes those rectangles (view coordinates) of the current frame into
+    /// a 0RGB buffer of the view's size.
     pub fn write(&self, buf: &mut [u32], rects: &[PixelRect]) {
-        let img = self.frame.image();
-        let w = img.width as usize;
-        debug_assert_eq!(buf.len(), img.pixels.len());
+        let w = self.view.w as usize;
+        debug_assert_eq!(buf.len(), w * self.view.h as usize);
         for r in rects {
             for y in r.y..r.y + r.h {
                 let a = y as usize * w + r.x as usize;
-                let b = a + r.w as usize;
-                for (out, &i) in buf[a..b].iter_mut().zip(&img.pixels[a..b]) {
+                let row = self.index_row(r.x, y, r.w);
+                for (out, &i) in buf[a..a + r.w as usize].iter_mut().zip(row) {
                     *out = self.colors[usize::from(i)];
                 }
             }
         }
     }
 
-    /// One rectangle of the current frame as 0RGB pixels, row by row.
+    /// One rectangle (view coordinates) of the current frame as 0RGB
+    /// pixels, row by row.
     pub fn rect_pixels(&self, r: &PixelRect, out: &mut Vec<u32>) {
-        let img = self.frame.image();
-        let w = img.width as usize;
         out.clear();
         for y in r.y..r.y + r.h {
-            let a = y as usize * w + r.x as usize;
             out.extend(
-                img.pixels[a..a + r.w as usize]
+                self.index_row(r.x, y, r.w)
                     .iter()
                     .map(|&i| self.colors[usize::from(i)]),
             );
         }
     }
 
-    /// Writes the whole current frame.
+    /// Writes the whole view.
     pub fn write_all(&self, buf: &mut [u32]) {
-        for (out, &i) in buf.iter_mut().zip(&self.frame.image().pixels) {
-            *out = self.colors[usize::from(i)];
-        }
+        let whole = PixelRect {
+            x: 0,
+            y: 0,
+            w: self.view.w,
+            h: self.view.h,
+        };
+        self.write(buf, &[whole]);
     }
 }
 
@@ -215,5 +273,57 @@ mod tests {
             let (full, palette) = p.pkg.frame(p.theme, true, t, Clock::Live).unwrap();
             assert_eq!(rgb(&buf), to_rgba(&full, palette), "t {t}");
         }
+    }
+
+    /// Span mode: a player showing part of a wide scene keeps a buffer of
+    /// just that part exact, from its own changed rects, like a whole-frame
+    /// player does.
+    #[test]
+    fn a_view_shows_its_part_of_the_frame_exactly() {
+        let (w, h) = (640, 180);
+        let r = compose(7, Aspect::from_size(w, h), &ContentContext::default());
+        let pkg = Arc::new(ScenePackage::capture(&r, w, h).unwrap());
+        let theme = pkg.themes()[0];
+        // The right half, as a second monitor of the same height.
+        let view = PixelRect {
+            x: 320,
+            y: 0,
+            w: 320,
+            h: 180,
+        };
+        let mut p = Player::new_view(pkg.clone(), theme, true, view).unwrap();
+        assert_eq!(p.size(), (320, 180));
+        let mut buf = vec![0u32; 320 * 180];
+        let t0 = p.t0;
+        p.advance(t0);
+        p.write_all(&mut buf);
+        let crop = |t: u64| -> Vec<u32> {
+            let (full, palette) = pkg.frame(theme, true, t, Clock::Live).unwrap();
+            let colors: Vec<u32> = palette
+                .colors()
+                .iter()
+                .map(|c| (u32::from(c.r) << 16) | (u32::from(c.g) << 8) | u32::from(c.b))
+                .collect();
+            (0..180)
+                .flat_map(|y| (320..640).map(move |x| (x, y)))
+                .map(|(x, y)| colors[usize::from(full.pixels[y * 640 + x])])
+                .collect()
+        };
+        assert_eq!(buf, crop(t0));
+        for k in 1..40u64 {
+            let t = t0 + k * 83;
+            let rects = p.advance(t);
+            assert!(rects.iter().all(|r| r.x + r.w <= 320 && r.y + r.h <= 180));
+            p.write(&mut buf, &rects);
+            assert_eq!(buf, crop(t), "t {t}");
+        }
+        // A view outside the frame is refused.
+        let outside = PixelRect {
+            x: 400,
+            y: 0,
+            w: 320,
+            h: 180,
+        };
+        assert!(Player::new_view(pkg, theme, true, outside).is_none());
     }
 }
