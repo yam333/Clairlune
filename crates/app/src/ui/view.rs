@@ -130,7 +130,12 @@ pub struct ViewState {
     pub thumb: Option<egui::TextureHandle>,
     /// The moon mark for empty states.
     pub moon: Option<egui::TextureHandle>,
+    /// A brief note over the page and when it appeared.
+    pub toast: Option<(String, std::time::Instant)>,
 }
+
+/// How long a brief note stays.
+const TOAST: std::time::Duration = std::time::Duration::from_secs(2);
 
 const INTERVALS: [(u32, &str); 8] = [
     (15, "15 minutes"),
@@ -205,9 +210,54 @@ pub fn show(
                 ui.set_max_width(size::PAGE_MAX);
                 status_strip(ui, theme, st, status, actions);
                 ui.add_space(space::S6);
+                let buddy = settings.buddy.show;
                 page(ui, theme, st.section, settings, status, actions);
+                if settings.buddy.show != buddy {
+                    let text = if settings.buddy.show {
+                        "Clawd joins the next wallpaper"
+                    } else {
+                        "Clawd skips the next wallpaper"
+                    };
+                    st.toast = Some((text.to_string(), std::time::Instant::now()));
+                }
             });
         });
+    toast(ui, theme, st);
+}
+
+/// A faint note at the bottom of the window that fades after two seconds.
+fn toast(ui: &mut Ui, theme: Theme, st: &mut ViewState) {
+    let Some((text, since)) = &st.toast else {
+        return;
+    };
+    let age = since.elapsed();
+    if age >= TOAST {
+        st.toast = None;
+        return;
+    }
+    // Fade in quickly and out over the last half second.
+    let a = age.as_secs_f32();
+    let left = TOAST.as_secs_f32() - a;
+    let alpha = (a / 0.15).min(left / 0.5).clamp(0.0, 1.0);
+    let t = colors(theme);
+    egui::Area::new(egui::Id::unique("toast"))
+        .order(egui::Order::Foreground)
+        .anchor(Align2::CENTER_BOTTOM, vec2(0.0, -space::S6))
+        .interactable(false)
+        .show(ui.ctx(), |ui| {
+            egui::Frame::new()
+                .fill(c(t.bg_raised).gamma_multiply(alpha))
+                .stroke(Stroke::new(
+                    size::HAIRLINE,
+                    c(t.hairline).gamma_multiply(alpha),
+                ))
+                .corner_radius(radius::PANEL)
+                .inner_margin(egui::Margin::symmetric(space::S4 as i8, space::S2 as i8))
+                .show(ui, |ui| {
+                    ui.label(RichText::new(text).color(c(t.text_secondary).gamma_multiply(alpha)));
+                });
+        });
+    ui.ctx().request_repaint();
 }
 
 fn sidebar(ui: &mut Ui, theme: Theme, st: &mut ViewState) {
@@ -705,20 +755,34 @@ fn page(
             );
         }
         Section::Live => {
+            // Every setting plays at the same speed; only the choppiness and
+            // the work differ.
             const SMOOTHNESS: [(u32, &str, &str); 5] = [
                 (
                     6,
                     "Battery saver",
-                    "6 fps. Lowest power; Clawd still moves, more choppily.",
+                    "6 frames a second: the lightest, and the choppiest. Every setting moves at the same speed.",
                 ),
                 (
                     12,
                     "Balanced",
-                    "12 fps. The pace the pixel art is drawn at.",
+                    "12 frames a second, the pixel art's own rhythm. Every setting moves at the same speed.",
                 ),
-                (24, "Smooth", "24 fps. Smoother snow, sparks and drifting."),
-                (30, "Very smooth", "30 fps."),
-                (60, "Ultra smooth", "60 fps. Highest power."),
+                (
+                    24,
+                    "Smooth",
+                    "24 frames a second: smoother, a little more work. Every setting moves at the same speed.",
+                ),
+                (
+                    30,
+                    "Very smooth",
+                    "30 frames a second. Every setting moves at the same speed.",
+                ),
+                (
+                    60,
+                    "Ultra smooth",
+                    "60 frames a second: the smoothest, the most work. Every setting moves at the same speed.",
+                ),
             ];
             let current = SMOOTHNESS
                 .iter()
@@ -734,6 +798,25 @@ fn page(
                         }
                     });
             });
+            row(
+                ui,
+                theme,
+                "Pause behind full-screen apps",
+                "When an app is maximized or full screen, the wallpaper under it stops moving.",
+                |ui| {
+                    use crate::settings::CoverPause;
+                    segmented(
+                        ui,
+                        theme,
+                        &mut s.live.pause_when_covered,
+                        &[
+                            (CoverPause::ThatMonitor, "That monitor", true),
+                            (CoverPause::AllMonitors, "All monitors", true),
+                            (CoverPause::Off, "Off", true),
+                        ],
+                    );
+                },
+            );
             row(
                 ui,
                 theme,
@@ -759,7 +842,7 @@ fn page(
             );
             ui.label(
                 RichText::new(
-                    "Live pauses while the computer is locked or the displays are off, and on any monitor a maximized or full-screen app covers. Frames are drawn on the graphics card the monitor is plugged into.",
+                    "Live also pauses while the computer is locked or the displays are off. Frames are drawn on the graphics card the monitor is plugged into.",
                 )
                 .color(c(t.text_secondary)),
             );
@@ -772,19 +855,12 @@ fn page(
             }
         }
         Section::Buddy => {
-            row(
-                ui,
-                theme,
-                "Show Clawd",
-                "The pixel-art character in each scene.",
-                |ui| {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("Show Clawd").font(style::body_strong()));
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     toggle(ui, theme, &mut s.buddy.show, "Show Clawd");
-                },
-            );
-            ui.label(
-                RichText::new("Clawd is Anthropic's character, drawn here as fan art. Turning him off keeps the scenes and their props.")
-                    .color(c(t.text_secondary)),
-            );
+                });
+            });
         }
         Section::Content => {
             ui.label(
