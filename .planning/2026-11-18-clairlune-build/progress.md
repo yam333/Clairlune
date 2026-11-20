@@ -73,6 +73,16 @@
 - Release 0.9.0 (2026-11-20): live wallpapers on Windows (new crate clairlune-live), the fix for Settings opening
   at every launch, license files for clairlune-platform and clairlune-live.
 
+- Release 0.10.0 (2026-11-20): calm pace (generator 4), D3D11 live, installers, macOS hosts (untried), package
+  channels (Homebrew/Scoop tap live, winget PR waiting on the user's CLA, AUR files). Repo public.
+
+- 2026-11-20..21, toward 0.11.0: Phase 12 waves B-F and J. Activities skip_stones, broom_flight, paint_easel,
+  snowballs, balloon_ride, picnic, chess, tennis, rowing, skiing, hike_ridge; the interior landscape (window view);
+  journeys (scrolling layers, tests/journey.rs, live 4K frame 2.5 ms + 2.3 ms to 0RGB, tried live on this desktop at
+  30 fps, wallpaper restored after; `clairlune-cli live` sets the still on Windows, so restore is needed). Theme
+  schedule, span mode, --version. Linux live (Wayland layer shell + X11) and the wlroots still surface, compile-checked
+  only. The archetype pick now balances landscapes by how many activities they host.
+
 ### Test Results
 | Test | Expected | Actual | Status |
 |------|----------|--------|--------|

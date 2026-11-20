@@ -179,6 +179,7 @@ fn build_scene(
         gx1,
         group_cx,
         tod,
+        unsheltered: std::cell::RefCell::new(vec![None; cols as usize]),
     };
     let co = &ctx.co;
 
@@ -223,6 +224,9 @@ fn build_scene(
 
     // ---- The archetype's platform under the focal group (a journey walks
     // on its nearest layer instead). ----
+    // (What it paints is the ground the group stands on: the dithered look
+    // keeps it readable.)
+    let before_platform = (recipe.look == "dither").then(|| cells.clone());
     if journeyed.is_none() {
         terrain::platform(&recipe.archetype, &ctx, &mut cells);
     }
@@ -287,6 +291,30 @@ fn build_scene(
             glyph: set[gi],
             shade: terrain::shade_u8(if bright { hi } else { shade }),
         };
+    }
+
+    // ---- The look (line art as painted, or dithered masses) and contrast. ----
+    if recipe.look == "dither" {
+        let land_line = ctx.land_line(&sky_limit);
+        let ground: Vec<bool> = match &before_platform {
+            Some(before) => before.iter().zip(&cells).map(|(a, b)| a != b).collect(),
+            None => vec![false; cells.len()],
+        };
+        crate::look::dither(
+            &ctx,
+            &mut cells,
+            &crate::look::Dither {
+                sky_limit: &land_line,
+                theme: opts.theme,
+                tod,
+                contrast: &recipe.contrast,
+                dome: &dome,
+                sea_top: (recipe.archetype == "shore").then(|| terrain::shore::sea_top(&ctx)),
+                ground: &ground,
+            },
+        );
+    } else {
+        crate::look::line_contrast(&mut cells, &recipe.contrast);
     }
 
     // ---- Light: vignette at the centre, warm glow around a light source. ----
@@ -361,9 +389,17 @@ fn build_scene(
                     .round() as i32
             })
             .collect();
+        let mut layers = j.layers;
+        for l in &mut layers {
+            if recipe.look == "dither" {
+                crate::look::dither_strip(&mut l.cells, l.cols, opts.theme, &recipe.contrast);
+            } else {
+                crate::look::line_contrast(&mut l.cells, &recipe.contrast);
+            }
+        }
         crate::graph::Journey {
             loop_ms: u64::from(comp.journey_ms),
-            layers: j.layers,
+            layers,
             ground,
             feet_x,
         }

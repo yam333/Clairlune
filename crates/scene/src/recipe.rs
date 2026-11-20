@@ -26,6 +26,25 @@ pub const ARCHETYPES: [&str; crate::archetype::ARCHETYPE_INFO.len()] = {
     ids
 };
 
+/// How a scene can be drawn: `line` (glyph line art, the original) or
+/// `dither` (brightness as glyph density, dithered between sizes).
+pub const LOOKS: [&str; 2] = ["line", "dither"];
+/// Ink contrast, softest first.
+pub const CONTRASTS: [&str; 3] = ["soft", "normal", "high"];
+
+fn line() -> String {
+    "line".into()
+}
+fn is_line(v: &str) -> bool {
+    v == "line"
+}
+fn normal() -> String {
+    "normal".into()
+}
+fn is_normal(v: &str) -> bool {
+    v == "normal"
+}
+
 /// Reduced aspect ratio, e.g. 16:9.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Aspect {
@@ -143,6 +162,13 @@ pub struct SceneRecipe {
     pub weather: String,
     pub composition: Composition,
     pub palette: PalettePick,
+    /// One of [`LOOKS`]. Recipes from before looks have none: line. Not
+    /// written when it is line, so they stay as they were.
+    #[serde(default = "line", skip_serializing_if = "is_line")]
+    pub look: String,
+    /// One of [`CONTRASTS`]; normal when absent (and then not written).
+    #[serde(default = "normal", skip_serializing_if = "is_normal")]
+    pub contrast: String,
 }
 
 impl SceneRecipe {
@@ -193,6 +219,13 @@ pub struct ContentContext {
     pub recent: Vec<HistoryEntry>,
     /// Hash of the activity data files.
     pub data_hash: u64,
+    /// Looks scenes may be drawn in (of [`LOOKS`]); none means line.
+    #[serde(default)]
+    pub enabled_looks: Vec<String>,
+    /// One of [`CONTRASTS`] for every scene, or `vary` for a different one
+    /// each time.
+    #[serde(default = "normal")]
+    pub contrast: String,
 }
 
 impl Default for ContentContext {
@@ -210,6 +243,8 @@ impl Default for ContentContext {
                 .collect(),
             recent: Vec::new(),
             data_hash: crate::activity::builtin_data_hash(),
+            enabled_looks: LOOKS.iter().map(|s| s.to_string()).collect(),
+            contrast: normal(),
         }
     }
 }

@@ -145,6 +145,9 @@ const INTERVALS: [(u32, &str); 8] = [
     (0, "Only on demand"),
 ];
 
+/// The looks, by their ids in the recipe.
+pub(super) const LOOKS: [(&str, &str); 2] = [("line", "Line art"), ("dither", "Dithered")];
+
 pub(super) const LANDSCAPES: [(&str, &str); 10] = [
     ("canyon", "Canyon"),
     ("mountains", "Mountains"),
@@ -797,6 +800,36 @@ fn page(
             if s.theme.mode == ThemeMode::Schedule {
                 theme_schedule(ui, theme, s);
             }
+            ui.add_space(space::S4);
+            group(ui, "Look");
+            ui.label(
+                RichText::new(
+                    "Line art draws the land in strokes of text. Dithered draws it as light and dark masses, every character a dot or a bar sized by how bright it is there. Changes apply to the next wallpaper.",
+                )
+                .color(c(t.text_secondary)),
+            );
+            filter_checks(ui, &mut s.content.looks, &LOOKS, &[]);
+            ui.add_space(space::S2);
+            row(
+                ui,
+                theme,
+                "Contrast",
+                "How strong the ink is against the background. Vary picks one for each wallpaper.",
+                |ui| {
+                    use crate::settings::Contrast;
+                    segmented(
+                        ui,
+                        theme,
+                        &mut s.content.contrast,
+                        &[
+                            (Contrast::Soft, "Soft", true),
+                            (Contrast::Normal, "Normal", true),
+                            (Contrast::High, "High", true),
+                            (Contrast::Vary, "Vary", true),
+                        ],
+                    );
+                },
+            );
         }
         Section::Display => {
             use crate::settings::WallpaperMode;

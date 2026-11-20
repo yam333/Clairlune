@@ -76,6 +76,8 @@ pub(crate) fn background(ctx: &Ctx, cells: &mut [Cell]) -> Vec<f64> {
     let outdoor = VIEWS[(pick(seed, 4) * VIEWS.len() as f64) as usize % VIEWS.len()];
     let mut view = vec![Cell::default(); cells.len()];
     let _ = super::background(outdoor, ctx, &mut view);
+    // The view's sky objects aren't this room's: forget their shelter.
+    ctx.unsheltered.borrow_mut().fill(None);
     let horizon_row = i64::from(ctx.platform_row);
     let target = w.r0 + (w.r1 - w.r0) * 7 / 10;
     let dy = horizon_row - target;

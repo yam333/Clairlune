@@ -5,7 +5,7 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "45aa898c3b81fad4",
+  "content_ctx_hash": "e4f6987838cc0dea",
   "activity": "broom_flight",
   "archetype": "desert",
   "light_tod": null,
@@ -30,5 +30,6 @@
   "palette": {
     "light": "paper_day",
     "dark": "slate_night"
-  }
+  },
+  "look": "dither"
 }

@@ -103,14 +103,42 @@ proptest! {
         prop_assert_eq!(dark.grid, light.grid);
         prop_assert_eq!(dark.ground_y, light.ground_y);
         prop_assert_eq!(dark.sprites_at(0), light.sprites_at(0));
-        let ground_row = ((dark.ground_y as u32) - dark.grid.origin_y) / dark.grid.cell_h;
-        let from = (ground_row * dark.grid.cols) as usize;
+        // Line art: the same shapes. Dithered: ink is light on dark and
+        // dark on light, so only the ground line under the group matches.
+        let cells = layout_cells(&dark, recipe(seed, w, h).look == "line");
         let shape = |g: &SceneGraph| -> Vec<bool> {
-            g.cells[from..].iter().map(|c| c.glyph != 0).collect()
+            cells.iter().map(|&i| g.cells[i].glyph != 0).collect()
         };
         prop_assert_eq!(shape(&dark), shape(&light));
         prop_assert_eq!(dark.t_hero_ms, light.t_hero_ms);
     }
+}
+
+/// The cells whose shape must not change with the theme: line art keeps
+/// everything from the ground row down; the dithered look inks light on
+/// dark and dark on light, so only the ground under the character.
+fn layout_cells(g: &SceneGraph, line: bool) -> Vec<usize> {
+    let cols = g.grid.cols as usize;
+    let ground_row = ((g.ground_y as u32 - g.grid.origin_y) / g.grid.cell_h) as usize;
+    if line {
+        return (ground_row * cols..g.cells.len()).collect();
+    }
+    // A character in the air or on the water stands on nothing.
+    if g.character.is_none_or(|t| t.flies()) {
+        return Vec::new();
+    }
+    let Some(c) = g
+        .sprites_at(0)
+        .into_iter()
+        .find(|s| s.kind == SpriteKind::Character)
+    else {
+        return Vec::new();
+    };
+    let col = |x: i32| {
+        ((x.max(g.grid.origin_x as i32) as u32 - g.grid.origin_x) / g.grid.cell_w) as usize
+    };
+    let (c0, c1) = (col(c.x), col(c.x + c.width() as i32 - 1).min(cols - 1));
+    (c0..=c1).map(|cl| ground_row * cols + cl).collect()
 }
 
 /// The theme check above on every landscape: random seeds reach some of them
@@ -140,10 +168,9 @@ fn theme_toggle_keeps_the_layout_on_every_landscape() {
                     build(&r, &opts).unwrap()
                 };
                 let (dark, light) = (g(Theme::Dark), g(Theme::Light));
-                let ground_row = ((dark.ground_y as u32) - dark.grid.origin_y) / dark.grid.cell_h;
-                let from = (ground_row * dark.grid.cols) as usize;
+                let cells = layout_cells(&dark, r.look == "line");
                 let shape = |g: &SceneGraph| -> Vec<bool> {
-                    g.cells[from..].iter().map(|c| c.glyph != 0).collect()
+                    cells.iter().map(|&i| g.cells[i].glyph != 0).collect()
                 };
                 assert_eq!(
                     shape(&dark),

@@ -143,6 +143,12 @@ struct GenerateArgs {
     /// Force a landscape (e.g. `mountains`). Lists the ids when unknown.
     #[arg(long, conflicts_with = "recipe")]
     archetype: Option<String>,
+    /// Force a look: `line` (line art) or `dither` (light and dark masses).
+    #[arg(long, conflicts_with = "recipe")]
+    look: Option<String>,
+    /// Ink contrast: `soft`, `normal`, `high`, or `vary` (one per seed).
+    #[arg(long, conflicts_with = "recipe")]
+    contrast: Option<String>,
     /// Render without the character (the unattended variant).
     #[arg(long)]
     no_buddy: bool,
@@ -153,7 +159,7 @@ struct GenerateArgs {
     #[arg(long)]
     time_ms: Option<u64>,
     /// Play a saved scene package instead (see `package`); no generator involved.
-    #[arg(long, conflicts_with_all = ["seed", "recipe", "activity", "archetype", "recipe_out"])]
+    #[arg(long, conflicts_with_all = ["seed", "recipe", "activity", "archetype", "look", "contrast", "recipe_out"])]
     package: Option<PathBuf>,
 }
 
@@ -223,6 +229,31 @@ pub(crate) fn restrict_activity(ctx: &mut ContentContext, id: &str) -> Result<()
 }
 
 /// A seed from OS entropy: `RandomState` keys come from the OS random source.
+/// Forces a look and a contrast (either may be left to the defaults).
+pub(crate) fn restrict_look(
+    ctx: &mut ContentContext,
+    look: Option<&str>,
+    contrast: Option<&str>,
+) -> Result<(), String> {
+    use clairlune_scene::recipe::{CONTRASTS, LOOKS};
+    if let Some(l) = look {
+        if !LOOKS.contains(&l) {
+            return Err(format!("unknown look `{l}`; looks: {}", LOOKS.join(", ")));
+        }
+        ctx.enabled_looks = vec![l.to_string()];
+    }
+    if let Some(c) = contrast {
+        if !CONTRASTS.contains(&c) && c != "vary" {
+            return Err(format!(
+                "unknown contrast `{c}`; contrasts: {}, vary",
+                CONTRASTS.join(", ")
+            ));
+        }
+        ctx.contrast = c.to_string();
+    }
+    Ok(())
+}
+
 pub(crate) fn random_seed() -> u64 {
     RandomState::new().hash_one(0x5EED_u64)
 }
@@ -254,6 +285,7 @@ fn generate(args: GenerateArgs) -> Result<(), String> {
             if let Some(id) = &args.activity {
                 restrict_activity(&mut ctx, id)?;
             }
+            restrict_look(&mut ctx, args.look.as_deref(), args.contrast.as_deref())?;
             compose(seed, Aspect::from_size(width, height), &ctx)
         }
     };
