@@ -4,8 +4,9 @@
 Implement PLAN.md milestone by milestone. This session delivers M1 (headless deterministic generator + `clairlune-cli generate` that writes an indexed PNG), with tests and CI, and prepares the crates for crates.io. The user granted full access (no more approval stops), so publishing is part of this session.
 
 ## Next Step
-Roadmap (2026-11-20, user: "Do all" after 0.9.0). Order: what can be tested here first, then content, then other OSes (compiled and unit-tested, untried), then packaging.
-1. Phase 24: app gaps: monitor hotplug/resolution/DPI, repeat avoidance (recent history in state.json), archive browser window, logging extras (crash reports, detailed toggle, diagnostic bundle, 50 MB cap), timeline pre-render + wake/time-zone re-resolve, preview-activity dev window
+Roadmap (2026-11-20, user: "Do all" after 0.9.0; the user's feedback from trying it comes first). Order: what can be tested here first, then content, then other OSes (compiled and unit-tested, untried), then packaging.
+0. Phase 25: the user's feedback from trying the app (smoothness pace bug, weight, pause option, Buddy page, light theme, richer scenes)
+1. Phase 24: app gaps (24a-24e done): preview-activity dev window left
 2. Phase 16 leftovers: smoother motion (sub-cell particles, interpolation), CPU fallback (16f)
 3. Phase 12 content: motions path/bob/fly, Waves B-F, J
 4. Phase 13/16h/14f: Linux live hosts, macOS static + live hosts, wlroots still surface
@@ -285,3 +286,12 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 - [x] 24e Timeline: the next slot is made 4 s ahead and shown at its start (jobs carry a show-at instant; tried here: prepared at :56.000, shown at :00.05); the watcher window reports resume from sleep and clock or time-zone changes, which re-resolve at once
 - [ ] 24f `preview-activity` developer window with hot reload
 - **Status:** in progress
+
+### Phase 25: The user's feedback from trying the app (2026-11-20)
+- [ ] 25a Smoothness is a pace bug, not a feature: higher settings make effects faster (the fire looks bad at the smoothest setting). Every animation (fire, embers, particles, props, Clawd) keeps its own slow pace on every setting; Smoothness only changes how often a frame is drawn, so lower settings are choppier and lighter, never slower or faster. Find what samples raw time instead of each element's own frame timing, fix it, and slow the fire down. Test: an element's frame at time t is the same whatever the frame rate (sample 6 vs 60 fps, compare)
+- [ ] 25b Make the app much lighter. The user saw CPU 0.2 %, GPU 2.5-5.5 %, memory 400 MB+. Measure each state (tray only, live, a Settings/Library/Timeline window open, after closing it) and cut: UI windows release their GPU device on close and use small memory hints (likely where the 400 MB comes from; the live part measured 147 MB here); draw nothing when a frame doesn't change; fewer full-screen redraws (partial presents, e.g. DXGI Present1 dirty rects, or one shared device); lower GPU time per frame; set budgets and test them
+- [ ] 25c Pause option for maximized and full-screen apps: today a monitor pauses on its own when a maximized or full-screen app covers it (16e), with no setting. Add Settings > Live "Pause when an app is maximized or full screen": on that monitor (default) / on all monitors / off
+- [ ] 25d Buddy page: remove the "Show Clawd" description. When the toggle changes, a faint note in Settings for 2 s, at most 5 words, saying the change applies to the next wallpaper (e.g. "Clawd skips the next wallpaper" / "Clawd joins the next wallpaper"); check that this matches what the toggle really does
+- [ ] 25e Light theme: the ASCII is often too faint to notice. Raise the ink contrast and glyph density in the light palettes and bands so the art reads as clearly as in the dark theme; review every landscape in light, update goldens
+- [ ] 25f Richer scenes: some wallpapers look basic. Add complexity to some of them (more layers, detail, props and life in the plainer landscapes and variants), keeping the calm look; contact-sheet review, goldens, GENERATOR_VERSION bump if output changes
+- **Status:** pending
