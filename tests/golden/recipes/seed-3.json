@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "f87c9ab78e5b6914",
-  "activity": "stroll",
+  "content_ctx_hash": "c8b80cf9783fd898",
+  "activity": "wizard_magic",
   "archetype": "city_rooftops",
   "light_tod": "golden_hour",
   "dark_tod": "dusk",
   "platform": "rooftop_edge",
   "props": [
-    "lantern"
+    "spellbook"
   ],
   "weather": "none",
   "composition": {
@@ -23,8 +23,8 @@
     "platform_margin_pm": 40,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 333,
-    "pace_half_pm": 135
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "sand_day",

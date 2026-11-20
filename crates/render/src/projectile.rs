@@ -14,6 +14,10 @@ use crate::palette::IndexedPalette;
 use crate::tether::{Anchor, fill, glyph};
 use clairlune_scene::{Rgb, SceneGraph, Theme};
 
+/// A snowball: snow-white on dark scenes, slate on light ones.
+const SNOW_LIGHT: Rgb = Rgb::hex(0xEEEAE0);
+const SNOW_DARK: Rgb = Rgb::hex(0x5E6B7A);
+
 /// The stone: light on dark scenes, slate on light ones, so it shows.
 const STONE_LIGHT: Rgb = Rgb::hex(0xC8C2B0);
 const STONE_DARK: Rgb = Rgb::hex(0x3B4450);
@@ -32,8 +36,80 @@ pub(crate) fn draw_projectile(
     elapsed_ms: u64,
     clock: Clock,
 ) {
-    if preset == "skipping_stone" {
-        skipping_stone(img, drawn, graph, atlas, palette, a, elapsed_ms, clock);
+    match preset {
+        "skipping_stone" => skipping_stone(img, drawn, graph, atlas, palette, a, elapsed_ms, clock),
+        "snowball" => snowball(img, drawn, graph, atlas, palette, a, elapsed_ms, clock),
+        _ => {}
+    }
+}
+
+/// A snowball from the hand to the snowman's middle on a short arc, then a
+/// puff of snow where it hits.
+#[allow(clippy::too_many_arguments)]
+fn snowball(
+    img: &mut IndexedImage,
+    drawn: &mut Vec<PixelRect>,
+    graph: &SceneGraph,
+    atlas: &GlyphAtlas,
+    palette: &IndexedPalette,
+    a: &Anchor,
+    elapsed_ms: u64,
+    clock: Clock,
+) {
+    use clairlune_scene::SpriteKind;
+    let Some(target) = graph.props.iter().find(|s| s.kind == SpriteKind::Snowman) else {
+        return;
+    };
+    let tx = f64::from(target.x) + f64::from(target.width()) / 2.0;
+    let ty = f64::from(target.y) + f64::from(target.height()) * 0.55;
+    let (x0, y0) = (f64::from(a.x), f64::from(a.y));
+    const FLIGHT_MS: u64 = 650;
+    const PUFF_MS: u64 = 500;
+    let g = &graph.grid;
+    if elapsed_ms < FLIGHT_MS {
+        let u = elapsed_ms as f64 / FLIGHT_MS as f64;
+        let h = ((tx - x0).abs() * 0.35).max(f64::from(g.cell_h) * 2.0);
+        let x = x0 + (tx - x0) * u;
+        let y = y0 + (ty - y0) * u - 4.0 * h * u * (1.0 - u);
+        let ball = match graph.theme {
+            Theme::Dark => SNOW_LIGHT,
+            Theme::Light => SNOW_DARK,
+        };
+        let sc = a.sc;
+        fill(
+            img,
+            drawn,
+            graph,
+            x.round() as i32 - sc,
+            y.round() as i32 - sc,
+            sc * 2,
+            sc * 2,
+            palette.sprite_index(ball),
+        );
+    } else if elapsed_ms < FLIGHT_MS + PUFF_MS {
+        // The puff: flecks flying out from the hit, fading.
+        let q = (elapsed_ms - FLIGHT_MS) as f64 / PUFF_MS as f64;
+        let level = ((1.0 - q) * 5.0).round().max(1.0) as u8;
+        let r = f64::from(g.cell_w) * (0.5 + 1.5 * q);
+        for (dx, dy, ch) in [
+            (-1.0, -0.6, b'*'),
+            (1.0, -0.8, b'\''),
+            (0.0, -1.2, b'*'),
+            (-0.6, 0.4, b'.'),
+            (0.8, 0.3, b'.'),
+        ] {
+            glyph(
+                img,
+                drawn,
+                graph,
+                atlas,
+                tx + dx * r,
+                ty + dy * r * 0.8,
+                ch,
+                level,
+                clock,
+            );
+        }
     }
 }
 

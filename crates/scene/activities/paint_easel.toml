@@ -1,0 +1,38 @@
+# Painting outdoors at an easel: brushstrokes, a step back to look, a
+# satisfied nod.
+id = "paint_easel"
+weight = 1.0
+
+[requires]
+terrain = ["ledge", "flat", "rooftop", "shore", "dune"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk"]
+weather = ["none", "dust", "leaves"]
+
+[motion]
+type = "stationary"
+
+[props.easel]
+attach = "either_side"
+
+[animation]
+start = "paint"
+
+[animation.states.paint]
+loop = true
+dwell_s = [5, 10]
+next = { step_back = 0.6, admire = 0.4 }
+
+# One-shot: a step back to look, head tilted.
+[animation.states.step_back]
+next = { paint = 0.7, admire = 0.3 }
+
+[animation.states.admire]
+loop = true
+dwell_s = [2, 4]
+next = { paint = 1.0 }
+
+[gif]
+loop_script = ["paint", "step_back"]
+
+[unattended]
+props = ["easel"]

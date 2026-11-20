@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 /// Prop ids the engine can draw.
-pub const PROPS: [&str; 13] = [
+pub const PROPS: [&str; 15] = [
     "campfire",
     "log_seat",
     "telescope",
@@ -27,6 +27,8 @@ pub const PROPS: [&str; 13] = [
     "bucket",
     "kite_rest",
     "stone_pile",
+    "easel",
+    "snowman",
 ];
 /// Effect ids the engine can draw.
 pub const EFFECTS: [&str; 1] = ["embers"];
@@ -37,7 +39,7 @@ pub const PARTICLE_PRESETS: [&str; 3] = ["sparkles", "steam", "notes"];
 pub const TETHER_PRESETS: [&str; 2] = ["fishing_line", "kite_string"];
 /// Projectile presets: something thrown on its own arc, timed from the start
 /// of the effect's state.
-pub const PROJECTILE_PRESETS: [&str; 1] = ["skipping_stone"];
+pub const PROJECTILE_PRESETS: [&str; 2] = ["skipping_stone", "snowball"];
 /// Which way the character faces, when it matters: `water` (the open water,
 /// on the shore) or `open` (the middle of the screen, where the sky is
 /// widest).
@@ -48,7 +50,7 @@ pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "i
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 11] = [
+const SOURCES: [(&str, &str); 13] = [
     (
         "broom_flight.toml",
         include_str!("../activities/broom_flight.toml"),
@@ -58,6 +60,10 @@ const SOURCES: [(&str, &str); 11] = [
     (
         "make_coffee.toml",
         include_str!("../activities/make_coffee.toml"),
+    ),
+    (
+        "paint_easel.toml",
+        include_str!("../activities/paint_easel.toml"),
     ),
     (
         "play_guitar.toml",
@@ -70,6 +76,10 @@ const SOURCES: [(&str, &str); 11] = [
     (
         "skip_stones.toml",
         include_str!("../activities/skip_stones.toml"),
+    ),
+    (
+        "snowballs.toml",
+        include_str!("../activities/snowballs.toml"),
     ),
     ("stargaze.toml", include_str!("../activities/stargaze.toml")),
     ("stroll.toml", include_str!("../activities/stroll.toml")),
@@ -371,6 +381,9 @@ impl Activity {
                     "effect type `{other}` is not implemented (`particles`, `tether`, `projectile`)"
                 )),
             }
+            if e.preset == "snowball" && !self.props.contains_key("snowman") {
+                err("a snowball needs a snowman to throw at (props.snowman)".into());
+            }
             if ["fishing_line", "skipping_stone"].contains(&e.preset.as_str())
                 && self.requires.terrain != ["shore"]
             {
@@ -554,6 +567,16 @@ mod tests {
         ] {
             assert!(all.contains(needle), "missing `{needle}` in:\n{all}");
         }
+    }
+
+    #[test]
+    fn sources_are_sorted_by_file_name_like_a_folder_listing() {
+        // The data hash follows this order, and tools that read the folder
+        // (the preview window) sort by name, so both must agree.
+        let names: Vec<&str> = SOURCES.iter().map(|(n, _)| *n).collect();
+        let mut sorted = names.clone();
+        sorted.sort_unstable();
+        assert_eq!(names, sorted);
     }
 
     #[test]

@@ -1,0 +1,739 @@
+{
+ "frames": [
+  {
+   "filename": "paint#0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 300
+  },
+  {
+   "filename": "paint#1",
+   "frame": {
+    "x": 24,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 300
+  },
+  {
+   "filename": "paint#2",
+   "frame": {
+    "x": 48,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 300
+  },
+  {
+   "filename": "paint#3",
+   "frame": {
+    "x": 72,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 300
+  },
+  {
+   "filename": "paint#4",
+   "frame": {
+    "x": 0,
+    "y": 20,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 160
+  },
+  {
+   "filename": "paint#5",
+   "frame": {
+    "x": 24,
+    "y": 20,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 400
+  },
+  {
+   "filename": "step_back#0",
+   "frame": {
+    "x": 48,
+    "y": 20,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 300
+  },
+  {
+   "filename": "step_back#1",
+   "frame": {
+    "x": 72,
+    "y": 20,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 700
+  },
+  {
+   "filename": "step_back#2",
+   "frame": {
+    "x": 24,
+    "y": 20,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 300
+  },
+  {
+   "filename": "admire#0",
+   "frame": {
+    "x": 0,
+    "y": 40,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 800
+  },
+  {
+   "filename": "admire#1",
+   "frame": {
+    "x": 24,
+    "y": 40,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 800
+  }
+ ],
+ "meta": {
+  "image": "paint_easel.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 96,
+   "h": 60
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "paint",
+    "from": 0,
+    "to": 5,
+    "direction": "forward",
+    "color": "#000000ff"
+   },
+   {
+    "name": "step_back",
+    "from": 6,
+    "to": 8,
+    "direction": "forward",
+    "color": "#000000ff"
+   },
+   {
+    "name": "admire",
+    "from": 9,
+    "to": 10,
+    "direction": "forward",
+    "color": "#000000ff"
+   }
+  ],
+  "slices": [
+   {
+    "name": "origin",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 5,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 6,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 7,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 8,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 9,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 10,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "head",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 11,
+       "y": 7,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 11,
+       "y": 7,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 11,
+       "y": 7,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 11,
+       "y": 7,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 11,
+       "y": 7,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 5,
+      "bounds": {
+       "x": 11,
+       "y": 7,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 6,
+      "bounds": {
+       "x": 10,
+       "y": 7,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 7,
+      "bounds": {
+       "x": 10,
+       "y": 7,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 8,
+      "bounds": {
+       "x": 11,
+       "y": 7,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 9,
+      "bounds": {
+       "x": 11,
+       "y": 7,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 10,
+      "bounds": {
+       "x": 11,
+       "y": 6,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "hand_l",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 2,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 2,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 2,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 2,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 2,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 5,
+      "bounds": {
+       "x": 2,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 6,
+      "bounds": {
+       "x": 1,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 7,
+      "bounds": {
+       "x": 1,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 8,
+      "bounds": {
+       "x": 2,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 9,
+      "bounds": {
+       "x": 2,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 10,
+      "bounds": {
+       "x": 2,
+       "y": 10,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "hand_r",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 22,
+       "y": 10,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 22,
+       "y": 9,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 23,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 22,
+       "y": 10,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 22,
+       "y": 10,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 5,
+      "bounds": {
+       "x": 22,
+       "y": 10,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 6,
+      "bounds": {
+       "x": 19,
+       "y": 13,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 7,
+      "bounds": {
+       "x": 19,
+       "y": 13,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 8,
+      "bounds": {
+       "x": 22,
+       "y": 10,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 9,
+      "bounds": {
+       "x": 20,
+       "y": 13,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 10,
+      "bounds": {
+       "x": 20,
+       "y": 12,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "item_tip",
+    "keys": [
+     {
+      "frame": 6,
+      "bounds": {
+       "x": 22,
+       "y": 8,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 7,
+      "bounds": {
+       "x": 22,
+       "y": 8,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 9,
+      "bounds": {
+       "x": 22,
+       "y": 7,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 10,
+      "bounds": {
+       "x": 22,
+       "y": 6,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   }
+  ],
+  "source": "assets/clawd/src/paint_easel.aseprite",
+  "source_sha256": "df489c8bc1b6b23b1726df2fbce61a3fe0cf48aa9ded51db246696ce5bcabde2"
+ }
+}
