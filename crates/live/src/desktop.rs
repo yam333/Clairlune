@@ -127,6 +127,11 @@ impl Desktop {
         Ok(desktop)
     }
 
+    /// "raised" (Windows 11 24H2+) or "classic".
+    pub fn layout(&self) -> &'static str {
+        self.layer.layout()
+    }
+
     /// "gpu (adapter)" or "gdi".
     pub fn presenter(&self) -> String {
         match &self.gpu {

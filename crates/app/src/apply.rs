@@ -10,7 +10,7 @@ use clairlune_render::{IndexedImage, IndexedPalette, ScenePackage, encode_png};
 use clairlune_scene::hash::hash_label;
 use clairlune_scene::{Aspect, SceneRecipe, Theme, compose};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
+use std::sync::{Arc, mpsc};
 use std::time::Instant;
 
 /// Work for the worker thread.
@@ -50,6 +50,19 @@ pub enum Job {
     Restore,
 }
 
+/// One monitor's scene as applied, for playing it live.
+#[derive(Clone, Debug)]
+#[cfg_attr(not(windows), allow(dead_code))] // live playback is Windows-only so far
+pub struct LiveScene {
+    pub monitor: Monitor,
+    pub package: Arc<ScenePackage>,
+    pub theme: Theme,
+    pub buddy: bool,
+    /// The still set as this monitor's wallpaper (the live frame at the hero
+    /// time), set again when live playback stops.
+    pub still: Option<PathBuf>,
+}
+
 /// What happened, for the tray tooltip and logs.
 #[derive(Clone, Debug)]
 pub enum Done {
@@ -62,6 +75,8 @@ pub enum Done {
         activity: Option<String>,
         monitors: usize,
         ms: u64,
+        /// Each monitor's scene, to play live (empty without a host).
+        live: Vec<LiveScene>,
     },
     Exported(PathBuf),
     /// This system has no wallpaper host yet: scenes are made and archived,
@@ -321,8 +336,10 @@ fn apply(
         .unwrap_or_else(|| resolve_theme(settings.theme.mode));
     let buddy = saved.and_then(|s| s.buddy).unwrap_or(settings.buddy.show);
     let (base_seed, packages, replayed) = packages(saved, seed, &monitors, settings)?;
+    let packages: Vec<Arc<ScenePackage>> = packages.into_iter().map(Arc::new).collect();
     let recipes: Vec<SceneRecipe> = packages.iter().map(|p| p.recipe.clone()).collect();
     let mut pngs = Vec::new();
+    let mut themes = Vec::new();
     let mut used_theme = wanted;
     let mut primary_still = None;
     for (i, pkg) in packages.iter().enumerate() {
@@ -332,6 +349,7 @@ fn apply(
         } else {
             pkg.themes()[0]
         };
+        themes.push(theme);
         let (img, palette) = pkg.still(theme, buddy).ok_or("scene has no frames")?;
         pngs.push(png_of(&img, palette)?);
         if i == 0 {
@@ -363,7 +381,7 @@ fn apply(
                 recipes: entry_recipes.clone(),
                 pngs: pngs.clone(),
                 thumb_png: png_of(&thumb, &palette)?,
-                packages,
+                packages: packages.clone(),
             })
             .map_err(|e| format!("archive: {e}"))?;
         let swept = archive.sweep(
@@ -378,11 +396,19 @@ fn apply(
     } else {
         saved.and_then(|s| s.dir.map(Path::to_path_buf))
     };
+    let mut live = Vec::new();
     if let Some(host) = host {
-        for (m, png) in monitors.iter().zip(&pngs) {
+        for (i, (m, png)) in monitors.iter().zip(&pngs).enumerate() {
             let path = store.write(&m.id, png).map_err(|e| format!("still: {e}"))?;
             host.set_static(m, &path).map_err(|e| e.to_string())?;
             store.prune(&m.id, &path);
+            live.push(LiveScene {
+                monitor: m.clone(),
+                package: packages[i].clone(),
+                theme: themes[i],
+                buddy,
+                still: Some(path),
+            });
         }
     }
     let primary = &recipes[0];
@@ -397,6 +423,7 @@ fn apply(
         recipe_hash = %primary.hash_hex(),
         replayed,
         ms,
+        memory_mb = crate::memory_mb(),
         "wallpaper applied"
     );
     Ok(Done::Applied {
@@ -407,6 +434,7 @@ fn apply(
         activity: primary.activity.clone(),
         monitors: monitors.len(),
         ms,
+        live,
     })
 }
 
@@ -527,7 +555,7 @@ mod tests {
                 recipes: recipes.clone(),
                 pngs: vec![vec![0; 4]],
                 thumb_png: vec![0; 4],
-                packages: pkgs,
+                packages: pkgs.into_iter().map(Arc::new).collect(),
             })
             .unwrap();
         let entry_dir = archive.dir().join(&entry.name);
