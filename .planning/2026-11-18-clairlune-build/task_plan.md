@@ -106,7 +106,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - **Status:** in_progress
 
 ### Phase 11: M3 Animation + GIF export
-- [x] Live state machine vs GIF loop scripts, particles, fire flicker, Smoothness levels (motion interpolation: Phase 16 leftovers)
+- [x] Live state machine vs GIF loop scripts, particles, fire flicker, Smoothness levels. Motion interpolation (2026-11-20): `Clock::Smooth` draws particles (emitters and activity effects) as glyph overlays at their own pixel positions, so a higher frame rate moves them smoothly instead of a cell at a time; live hosts on a GPU (Direct3D 11, wgpu, Metal) and the preview use it, stills, GIFs and the GDI fallback keep the grid (PLAN.md 4.4). Tests: incremental == full under Smooth, 6 and 60 fps agree at shared moments, particle rects off the grid only when smooth. Character motion is already per pixel
 - [x] Activity Wave A (docs/activity-system.md): frames by state (10h), anchor `particles` effects, held items, `light`; activities: wizard magic, making coffee (camp stove), reading by a lantern, guitar
   - [x] A1 Engine: `[[effects]]` in activity TOML (type particles, preset sparkles|steam, at = anchor, states), validated; seeded periodic particle presets in scene; render draws them at the current frame's anchor (mirrored), ink or ember colour
   - [x] A2 Engine: `[character] headroom` so tall poses (hat, raised wand) get cleared space; light props spellbook and camp_stove

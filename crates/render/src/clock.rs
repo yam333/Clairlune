@@ -1,7 +1,11 @@
 //! Which moment of the character's life a frame shows.
 //!
 //! - `Clock::Live`: the seeded state machine plays freely (PLAN.md section 4.4);
-//!   live mode never repeats exactly.
+//!   live mode never repeats exactly. Particles sit on the cell grid: stills,
+//!   thumbnails and the CPU fallback.
+//! - `Clock::Smooth`: the same, with particles at sub-cell pixel positions,
+//!   so a higher frame rate moves them smoothly instead of a cell at a time:
+//!   live playback on a GPU (PLAN.md section 4.4).
 //! - `Clock::Loop(loop_ms)`: a seamless loop for GIF export. The character follows
 //!   the activity's `gif.loop_script`, its first looping state repeated to fill
 //!   the loop, then time-scaled so the script ends exactly at `loop_ms`; pacing
@@ -16,6 +20,7 @@ use clairlune_sprites::Character;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Clock {
     Live,
+    Smooth,
     Loop(u64),
 }
 

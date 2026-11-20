@@ -214,6 +214,8 @@ impl Desktop {
         }
         let window = LiveWindow::create(&self.layer, &monitor).map_err(|e| e.to_string())?;
         window.show();
+        // Smooth particles on the GPU paths; GDI (below) keeps the grid.
+        player.set_smooth(self.soft.is_none());
         let t = player.now_ms();
         player.advance(t);
         if self.soft.is_none()
@@ -257,6 +259,9 @@ impl Desktop {
             self.soft = Some(softbuffer::Context::new(Win32Display).map_err(|e| e.to_string())?);
         }
         let context = self.soft.as_ref().expect("just set");
+        player.set_smooth(false);
+        let t = player.now_ms();
+        player.advance(t);
         let mut surface = softbuffer::Surface::new(context, window).map_err(|e| e.to_string())?;
         surface
             .resize(nz(monitor.width), nz(monitor.height))

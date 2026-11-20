@@ -143,6 +143,7 @@ impl MacDesktop {
                 color_space: Default::default(),
             };
             surface.configure(&g.device, &config);
+            player.set_smooth(true);
             let t = player.now_ms();
             player.advance(t);
             let canvas = g.canvas(&player);

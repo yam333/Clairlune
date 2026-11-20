@@ -59,7 +59,8 @@ fn a_package_played_incrementally_matches_full_frames() {
         for theme in pkg.themes() {
             let hero = pkg.hero_ms(theme).unwrap();
             for buddy in [true, false] {
-                for clock in [Clock::Live, Clock::Loop(pkg.graph(theme).unwrap().loop_ms)] {
+                let loop_ms = pkg.graph(theme).unwrap().loop_ms;
+                for clock in [Clock::Live, Clock::Smooth, Clock::Loop(loop_ms)] {
                     let mut live = pkg.incremental(theme).unwrap();
                     let mut last = live.image().clone();
                     for t in times(hero) {
@@ -122,24 +123,64 @@ fn every_frame_rate_shows_the_same_moment() {
         let pkg = ScenePackage::capture(&r, W, H).unwrap();
         let theme = pkg.themes()[0];
         let hero = pkg.hero_ms(theme).unwrap();
-        let mut slow = pkg.incremental(theme).unwrap();
-        let mut fast = pkg.incremental(theme).unwrap();
-        // Ten seconds: 6 fps draws every 1000/6 ms, 60 fps every 1000/60 ms;
-        // they meet every 500 ms.
-        for k in 0..=600u64 {
-            let t = hero + k * 1000 / 60;
-            pkg.advance(&mut fast, theme, true, t, Clock::Live).unwrap();
-            if k % 10 == 0 {
-                pkg.advance(&mut slow, theme, true, t, Clock::Live).unwrap();
-                if k % 30 == 0 {
-                    assert!(
-                        slow.image() == fast.image(),
-                        "seed {} at {} ms: 6 and 60 fps differ",
-                        r.seed,
-                        t - hero
-                    );
+        for clock in [Clock::Live, Clock::Smooth] {
+            let mut slow = pkg.incremental(theme).unwrap();
+            let mut fast = pkg.incremental(theme).unwrap();
+            // Ten seconds: 6 fps draws every 1000/6 ms, 60 fps every 1000/60
+            // ms; they meet every 500 ms.
+            for k in 0..=600u64 {
+                let t = hero + k * 1000 / 60;
+                pkg.advance(&mut fast, theme, true, t, clock).unwrap();
+                if k % 10 == 0 {
+                    pkg.advance(&mut slow, theme, true, t, clock).unwrap();
+                    if k % 30 == 0 {
+                        assert!(
+                            slow.image() == fast.image(),
+                            "seed {} {clock:?} at {} ms: 6 and 60 fps differ",
+                            r.seed,
+                            t - hero
+                        );
+                    }
                 }
             }
         }
     }
+}
+
+/// What a higher frame rate buys with sub-cell particles: on the cell grid a
+/// particle hops a whole cell now and then, so a faster rate shows the same
+/// hops; with `Clock::Smooth` it sits at its own pixel position, between
+/// cells, and moves a little every frame.
+#[test]
+fn smooth_particles_sit_between_cells() {
+    let ctx = ContentContext {
+        enabled_activities: vec!["warm_hands".to_string()],
+        ..ContentContext::default()
+    };
+    let r = compose(3, Aspect::from_size(1280, 720), &ctx);
+    let pkg = ScenePackage::capture(&r, 1280, 720).unwrap();
+    let theme = pkg.themes()[0];
+    let hero = pkg.hero_ms(theme).unwrap();
+    let g = pkg.graph(theme).unwrap().grid;
+    // Particle rects are one cell in size (sprites are bigger); count those
+    // on the grid and off it over two seconds at 60 fps.
+    let placement = |clock: Clock| -> (usize, usize) {
+        let mut frame = pkg.incremental(theme).unwrap();
+        let (mut on, mut off) = (0, 0);
+        for k in 0..=120u64 {
+            let rects = pkg
+                .advance(&mut frame, theme, false, hero + k * 1000 / 60, clock)
+                .unwrap();
+            for r in rects.iter().filter(|r| (r.w, r.h) == (g.cell_w, g.cell_h)) {
+                let aligned = (r.x - g.origin_x).is_multiple_of(g.cell_w)
+                    && (r.y - g.origin_y).is_multiple_of(g.cell_h);
+                if aligned { on += 1 } else { off += 1 }
+            }
+        }
+        (on, off)
+    };
+    let (on, off) = placement(Clock::Live);
+    assert!(on > 100 && off == 0, "grid: {on} on, {off} off");
+    let (on, off) = placement(Clock::Smooth);
+    assert!(off > 100 && off > on * 4, "smooth: {on} on, {off} off");
 }
