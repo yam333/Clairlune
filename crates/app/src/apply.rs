@@ -9,7 +9,7 @@ use clairlune_platform::{Monitor, StillStore, WallpaperHost};
 use clairlune_render::{IndexedImage, IndexedPalette, ScenePackage, encode_png};
 use clairlune_scene::hash::hash_label;
 use clairlune_scene::{Aspect, SceneRecipe, Theme, compose};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Instant;
 
@@ -21,19 +21,28 @@ pub enum Job {
     /// change): same scenes, rendered for the current monitors and theme.
     Recipes {
         recipes: Box<EntryRecipes>,
-        /// The archive entry they came from: its frozen scenes are played as
-        /// saved when the monitors still match.
-        entry: Option<String>,
+        /// The folder they came from (archive entry or library item): its
+        /// frozen scenes are played as saved when the monitors still match.
+        source: Option<PathBuf>,
+        /// A library item's own theme and Clawd choices, over the settings.
+        theme: Option<Theme>,
+        buddy: Option<bool>,
         settings: Box<Settings>,
         /// Archive it as a new entry (previous wallpaper) or only re-render
         /// the current one (theme change).
         archive: bool,
     },
     /// Copy the current wallpaper's primary image to the export folder.
-    Export { dest: PathBuf },
-    /// Export the current wallpaper's saved scene as a looping GIF.
+    /// From `source` (an archive entry or library item folder), or the newest
+    /// archive entry.
+    Export {
+        dest: PathBuf,
+        source: Option<PathBuf>,
+    },
+    /// Export a saved scene as a looping GIF.
     ExportGif {
         dest: PathBuf,
+        source: Option<PathBuf>,
         theme: Theme,
         buddy: bool,
     },
@@ -45,7 +54,8 @@ pub enum Job {
 #[derive(Clone, Debug)]
 pub enum Done {
     Applied {
-        entry_name: String,
+        /// The folder of what's on screen (archive entry or library item).
+        source: Option<PathBuf>,
         seed: u64,
         theme: Theme,
         archetype: String,
@@ -84,14 +94,14 @@ pub fn monitor_seed(base: u64, m: &Monitor) -> u64 {
     }
 }
 
-fn png_of(img: &IndexedImage, palette: &IndexedPalette) -> Result<Vec<u8>, String> {
+pub(crate) fn png_of(img: &IndexedImage, palette: &IndexedPalette) -> Result<Vec<u8>, String> {
     let mut png = Vec::new();
     encode_png(img, palette, &mut png).map_err(|e| e.to_string())?;
     Ok(png)
 }
 
 /// Nearest-neighbour shrink to `width` (thumbnails keep the palette).
-fn shrink(img: &IndexedImage, width: u32) -> IndexedImage {
+pub(crate) fn shrink(img: &IndexedImage, width: u32) -> IndexedImage {
     let width = width.min(img.width).max(1);
     let height = ((u64::from(img.height) * u64::from(width)) / u64::from(img.width)).max(1) as u32;
     let mut pixels = Vec::with_capacity((width * height) as usize);
@@ -115,26 +125,26 @@ fn shrink(img: &IndexedImage, width: u32) -> IndexedImage {
 /// composed from the seed. Returns the base seed, the scenes, and how many
 /// were replayed.
 fn packages(
-    saved: Option<(&EntryRecipes, Option<&str>)>,
+    saved: Option<Source>,
     seed: u64,
     monitors: &[Monitor],
     settings: &Settings,
-    archive: &Archive,
 ) -> Result<(u64, Vec<ScenePackage>, usize), String> {
-    let (base_seed, recipes) = scenes(saved.map(|(r, _)| r), seed, monitors, settings);
+    let (base_seed, recipes) = scenes(saved.map(|s| s.recipes), seed, monitors, settings);
     let mut out = Vec::new();
     let mut replayed = 0;
     for (m, recipe) in monitors.iter().zip(&recipes) {
-        let frozen = saved.and_then(|(r, entry)| {
-            let entry = entry?;
-            let j = r
+        let frozen = saved.and_then(|src| {
+            let dir = src.dir?;
+            let j = src
+                .recipes
                 .monitors
                 .iter()
                 .position(|s| s.monitor == m.id && (s.width, s.height) == (m.width, m.height))?;
-            match archive.package(entry, j) {
+            match ScenePackage::load(&dir.join("scene").join(j.to_string())) {
                 Ok(p) => Some(p),
                 Err(e) => {
-                    tracing::warn!(target: "clairlune", entry, error = %e, "saved scene unreadable; rendering the recipe");
+                    tracing::warn!(target: "clairlune", dir = %dir.display(), error = %e, "saved scene unreadable; rendering the recipe");
                     None
                 }
             }
@@ -238,17 +248,29 @@ pub fn worker(
 
 fn run(job: Job, host: Option<&dyn WallpaperHost>, store: &StillStore, archive: &Archive) -> Done {
     match job {
-        Job::Export { dest } => export(archive, &dest),
-        Job::ExportGif { dest, theme, buddy } => export_gif(archive, &dest, theme, buddy),
+        Job::Export { dest, source } => export(archive, &dest, source.as_deref()),
+        Job::ExportGif {
+            dest,
+            source,
+            theme,
+            buddy,
+        } => export_gif(archive, &dest, source.as_deref(), theme, buddy),
         Job::Restore => restore(host, store),
         Job::New { seed, settings } => apply(None, seed, &settings, true, host, store, archive),
         Job::Recipes {
             recipes,
-            entry,
+            source,
+            theme,
+            buddy,
             settings,
             archive: add,
         } => apply(
-            Some((&recipes, entry.as_deref())),
+            Some(Source {
+                recipes: &recipes,
+                dir: source.as_deref(),
+                theme,
+                buddy,
+            }),
             0,
             &settings,
             add,
@@ -260,8 +282,18 @@ fn run(job: Job, host: Option<&dyn WallpaperHost>, store: &StillStore, archive: 
     .unwrap_or_else(Done::Failed)
 }
 
+/// Saved scenes to show again, and how.
+#[derive(Clone, Copy)]
+struct Source<'a> {
+    recipes: &'a EntryRecipes,
+    /// Folder holding `scene/<i>/` packages.
+    dir: Option<&'a Path>,
+    theme: Option<Theme>,
+    buddy: Option<bool>,
+}
+
 fn apply(
-    saved: Option<(&EntryRecipes, Option<&str>)>,
+    saved: Option<Source>,
     seed: u64,
     settings: &Settings,
     add_to_archive: bool,
@@ -284,8 +316,11 @@ fn apply(
     if monitors.is_empty() {
         return Err("no monitors found".into());
     }
-    let wanted = resolve_theme(settings.theme.mode);
-    let (base_seed, packages, replayed) = packages(saved, seed, &monitors, settings, archive)?;
+    let wanted = saved
+        .and_then(|s| s.theme)
+        .unwrap_or_else(|| resolve_theme(settings.theme.mode));
+    let buddy = saved.and_then(|s| s.buddy).unwrap_or(settings.buddy.show);
+    let (base_seed, packages, replayed) = packages(saved, seed, &monitors, settings)?;
     let recipes: Vec<SceneRecipe> = packages.iter().map(|p| p.recipe.clone()).collect();
     let mut pngs = Vec::new();
     let mut used_theme = wanted;
@@ -297,9 +332,7 @@ fn apply(
         } else {
             pkg.themes()[0]
         };
-        let (img, palette) = pkg
-            .still(theme, settings.buddy.show)
-            .ok_or("scene has no frames")?;
+        let (img, palette) = pkg.still(theme, buddy).ok_or("scene has no frames")?;
         pngs.push(png_of(&img, palette)?);
         if i == 0 {
             used_theme = theme;
@@ -323,7 +356,7 @@ fn apply(
             })
             .collect(),
     };
-    let entry_name = if add_to_archive {
+    let source = if add_to_archive {
         let entry = archive
             .add(&NewEntry {
                 created: crate::timefmt::now_unix(),
@@ -341,9 +374,9 @@ fn apply(
         if swept.removed > 0 {
             tracing::info!(target: "clairlune", removed = swept.removed, freed = swept.freed, "archive retention");
         }
-        entry.name
+        Some(archive.dir().join(&entry.name))
     } else {
-        archive.latest().map(|e| e.name).unwrap_or_default()
+        saved.and_then(|s| s.dir.map(Path::to_path_buf))
     };
     if let Some(host) = host {
         for (m, png) in monitors.iter().zip(&pngs) {
@@ -367,7 +400,7 @@ fn apply(
         "wallpaper applied"
     );
     Ok(Done::Applied {
-        entry_name,
+        source,
         seed: base_seed,
         theme: used_theme,
         archetype: primary.archetype.clone(),
@@ -391,17 +424,34 @@ fn restore(host: Option<&dyn WallpaperHost>, store: &StillStore) -> Result<Done,
     Ok(Done::Restored)
 }
 
-/// Exports the newest entry's primary scene as a 6 s looping GIF, played from
+/// The folder to export from: `source`, or the newest archive entry.
+fn export_source(archive: &Archive, source: Option<&Path>) -> Result<PathBuf, String> {
+    match source {
+        Some(dir) => Ok(dir.to_path_buf()),
+        None => {
+            let entry: Entry = archive.latest().ok_or("nothing to export yet")?;
+            Ok(archive.dir().join(entry.name))
+        }
+    }
+}
+
+fn file_stem(dir: &Path) -> String {
+    dir.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "clairlune".into())
+}
+
+/// Exports a saved scene (primary monitor) as a 6 s looping GIF, played from
 /// its frozen package, so it matches what was on screen.
 fn export_gif(
     archive: &Archive,
-    dest: &std::path::Path,
+    dest: &Path,
+    source: Option<&Path>,
     theme: Theme,
     buddy: bool,
 ) -> Result<Done, String> {
-    let entry: Entry = archive.latest().ok_or("nothing to export yet")?;
-    let pkg = archive
-        .package(&entry.name, 0)
+    let dir = export_source(archive, source)?;
+    let pkg = ScenePackage::load(&dir.join("scene").join("0"))
         .map_err(|e| format!("saved scene: {e}"))?;
     let theme = if pkg.themes().contains(&theme) {
         theme
@@ -409,7 +459,7 @@ fn export_gif(
         pkg.themes()[0]
     };
     std::fs::create_dir_all(dest).map_err(|e| e.to_string())?;
-    let out = dest.join(format!("{}.gif", entry.name));
+    let out = dest.join(format!("{}.gif", file_stem(&dir)));
     let file = std::io::BufWriter::new(std::fs::File::create(&out).map_err(|e| e.to_string())?);
     let stats = clairlune_render::encode_package_gif(
         &pkg,
@@ -424,12 +474,12 @@ fn export_gif(
     Ok(Done::Exported(out))
 }
 
-/// Copies the newest entry's primary image to `dest`.
-fn export(archive: &Archive, dest: &std::path::Path) -> Result<Done, String> {
-    let entry: Entry = archive.latest().ok_or("nothing to export yet")?;
+/// Copies a saved scene's primary image to `dest`.
+fn export(archive: &Archive, dest: &Path, source: Option<&Path>) -> Result<Done, String> {
+    let dir = export_source(archive, source)?;
     std::fs::create_dir_all(dest).map_err(|e| e.to_string())?;
-    let src = archive.dir().join(&entry.name).join("wallpaper-0.png");
-    let out = dest.join(format!("{}.png", entry.name));
+    let src = dir.join("wallpaper-0.png");
+    let out = dest.join(format!("{}.png", file_stem(&dir)));
     std::fs::copy(&src, &out).map_err(|e| format!("{}: {e}", src.display()))?;
     tracing::info!(target: "clairlune", path = %out.display(), "exported");
     Ok(Done::Exported(out))
@@ -459,7 +509,7 @@ mod tests {
         let m = monitor(640, 360);
         // A new wallpaper: composed and captured.
         let (seed, pkgs, replayed) =
-            packages(None, 77, std::slice::from_ref(&m), &settings, &archive).unwrap();
+            packages(None, 77, std::slice::from_ref(&m), &settings).unwrap();
         assert_eq!((seed, replayed), (77, 0));
         let recipes = EntryRecipes {
             base_seed: seed,
@@ -480,26 +530,21 @@ mod tests {
                 packages: pkgs,
             })
             .unwrap();
+        let entry_dir = archive.dir().join(&entry.name);
+        let src = Source {
+            recipes: &recipes,
+            dir: Some(&entry_dir),
+            theme: None,
+            buddy: None,
+        };
         // Same monitor: replayed from the package.
-        let (_, again, replayed) = packages(
-            Some((&recipes, Some(&entry.name))),
-            0,
-            std::slice::from_ref(&m),
-            &settings,
-            &archive,
-        )
-        .unwrap();
+        let (_, again, replayed) =
+            packages(Some(src), 0, std::slice::from_ref(&m), &settings).unwrap();
         assert_eq!(replayed, 1);
         assert_eq!(again[0].recipe, recipes.monitors[0].recipe);
         // A different size: rendered again from the recipe.
-        let (_, resized, replayed) = packages(
-            Some((&recipes, Some(&entry.name))),
-            0,
-            &[monitor(800, 450)],
-            &settings,
-            &archive,
-        )
-        .unwrap();
+        let (_, resized, replayed) =
+            packages(Some(src), 0, &[monitor(800, 450)], &settings).unwrap();
         assert_eq!(replayed, 0);
         assert_eq!((resized[0].width, resized[0].height), (800, 450));
         let _ = std::fs::remove_dir_all(&dir);

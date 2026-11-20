@@ -77,6 +77,12 @@ pub enum UiAction {
     SaveGif,
     SetStartAtLogin(bool),
     RestoreWallpaper,
+    SaveToLibrary,
+    OpenLibrary,
+    ApplyLibrary(String),
+    UpdateLibrary(Box<crate::library::Item>),
+    DeleteLibrary(String),
+    ExportLibrary { id: String, gif: bool },
 }
 
 pub struct ViewState {
@@ -300,13 +306,16 @@ fn status_strip(
             };
             ui.label(RichText::new(next).color(c(t.text_secondary)));
             ui.add_space(space::S3);
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.add_enabled_ui(!status.busy, |ui| {
                     if primary_button(ui, theme, "New wallpaper").clicked() {
                         actions.push(UiAction::NewWallpaper);
                     }
                     if ui.button("Previous").clicked() {
                         actions.push(UiAction::Previous);
+                    }
+                    if ui.button("Save to library").clicked() {
+                        actions.push(UiAction::SaveToLibrary);
                     }
                 });
             });
@@ -326,7 +335,7 @@ fn capitalise(s: &str) -> String {
     }
 }
 
-fn primary_button(ui: &mut Ui, theme: Theme, label: &str) -> egui::Response {
+pub(super) fn primary_button(ui: &mut Ui, theme: Theme, label: &str) -> egui::Response {
     let t = colors(theme);
     ui.add(
         egui::Button::new(
@@ -341,7 +350,7 @@ fn primary_button(ui: &mut Ui, theme: Theme, label: &str) -> egui::Response {
 }
 
 /// A section heading with a hairline under it.
-fn heading(ui: &mut Ui, theme: Theme, title: &str) {
+pub(super) fn heading(ui: &mut Ui, theme: Theme, title: &str) {
     let t = colors(theme);
     ui.label(RichText::new(title).font(style::title()));
     ui.add_space(space::S2);
@@ -349,7 +358,7 @@ fn heading(ui: &mut Ui, theme: Theme, title: &str) {
     ui.add_space(space::S3);
 }
 
-fn hairline(ui: &mut Ui, color: crate::tokens::Rgb) {
+pub(super) fn hairline(ui: &mut Ui, color: crate::tokens::Rgb) {
     let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 1.0), Sense::hover());
     ui.painter().rect_filled(rect, 0.0, c(color));
 }
@@ -418,7 +427,7 @@ fn toggle(ui: &mut Ui, theme: Theme, on: &mut bool, label: &str) -> egui::Respon
 
 /// A row of mutually exclusive choices; the chosen one is filled. Options
 /// marked `false` are shown but can't be chosen.
-fn segmented<T: PartialEq + Copy>(
+pub(super) fn segmented<T: PartialEq + Copy>(
     ui: &mut Ui,
     theme: Theme,
     value: &mut T,
@@ -427,7 +436,14 @@ fn segmented<T: PartialEq + Copy>(
     let t = colors(theme);
     let mut changed = false;
     ui.spacing_mut().item_spacing.x = space::S1;
-    for (v, label, enabled) in options.iter().rev() {
+    // Right-to-left rows (controls on the right of a setting) add from the
+    // right, so the options go in reversed to read left to right.
+    let ordered: Vec<_> = if ui.layout().prefer_right_to_left() {
+        options.iter().rev().collect()
+    } else {
+        options.iter().collect()
+    };
+    for (v, label, enabled) in ordered {
         let on = *value == *v;
         let text = RichText::new(*label).color(if on { c(t.on_accent) } else { c(t.text) });
         let mut b = egui::Button::new(text).min_size(vec2(0.0, size::CONTROL));
@@ -665,6 +681,17 @@ fn page(
                                 );
                             }
                         });
+                },
+            );
+            row(
+                ui,
+                theme,
+                "Library",
+                "Wallpapers you saved. They are never deleted automatically.",
+                |ui| {
+                    if ui.button("Open").clicked() {
+                        actions.push(UiAction::OpenLibrary);
+                    }
                 },
             );
             row(

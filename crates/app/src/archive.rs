@@ -176,20 +176,10 @@ impl Archive {
     }
 
     /// The recipes of an entry.
+    #[cfg(test)]
     pub fn recipes(&self, entry: &Entry) -> io::Result<EntryRecipes> {
         let text = fs::read_to_string(self.dir.join(&entry.name).join("recipe.json"))?;
         serde_json::from_str(&text).map_err(io::Error::other)
-    }
-
-    /// The frozen scene of an entry's `index`-th monitor.
-    pub fn package(
-        &self,
-        entry: &str,
-        index: usize,
-    ) -> Result<clairlune_render::ScenePackage, clairlune_render::PackageError> {
-        clairlune_render::ScenePackage::load(
-            &self.dir.join(entry).join("scene").join(index.to_string()),
-        )
     }
 
     /// Applies retention: unpinned entries older than `keep_days` (0 keeps

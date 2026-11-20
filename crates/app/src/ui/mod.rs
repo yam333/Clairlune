@@ -3,19 +3,39 @@
 //! when it opens and dropped when it closes, so nothing of the UI is held
 //! while the app sits in the tray.
 
+pub mod library_view;
 pub mod style;
 pub mod view;
 
+use crate::library::Item;
 use crate::settings::Settings;
 use clairlune_scene::{APP_NAME, Theme};
 use egui::ViewportId;
+use std::path::Path;
 use std::sync::Arc;
 use view::{Status, UiAction, ViewState};
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
 
-pub struct SettingsWindow {
+/// Which window this is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    Settings,
+    Library,
+}
+
+/// What the windows show, borrowed from the app for one frame.
+pub struct Model<'a> {
+    pub settings: &'a mut Settings,
+    pub status: &'a Status,
+    pub library: &'a [Item],
+    pub library_dir: &'a Path,
+}
+
+pub struct UiWindow {
+    kind: Kind,
+    library: library_view::LibraryState,
     window: Arc<Window>,
     state: egui_winit::State,
     painter: egui_wgpu::winit::Painter,
@@ -31,15 +51,24 @@ pub enum Outcome {
     Close,
 }
 
-impl SettingsWindow {
+impl UiWindow {
     pub fn open(
         event_loop: &ActiveEventLoop,
+        kind: Kind,
         theme: Theme,
         section: view::Section,
-    ) -> Result<SettingsWindow, String> {
+    ) -> Result<UiWindow, String> {
+        let (title, w, h) = match kind {
+            Kind::Settings => (
+                format!("{APP_NAME} Settings: {}", section.name()),
+                880.0,
+                600.0,
+            ),
+            Kind::Library => (format!("{APP_NAME} Library"), 980.0, 660.0),
+        };
         let attrs = Window::default_attributes()
-            .with_title(format!("{APP_NAME} Settings: {}", section.name()))
-            .with_inner_size(winit::dpi::LogicalSize::new(880.0, 600.0))
+            .with_title(title)
+            .with_inner_size(winit::dpi::LogicalSize::new(w, h))
             .with_min_inner_size(winit::dpi::LogicalSize::new(640.0, 420.0))
             .with_enabled_buttons(winit::window::WindowButtons::CLOSE)
             .with_theme(Some(match theme {
@@ -75,7 +104,9 @@ impl SettingsWindow {
         );
         window.set_visible(true);
         window.focus_window();
-        Ok(SettingsWindow {
+        Ok(UiWindow {
+            kind,
+            library: library_view::LibraryState::default(),
             window,
             state,
             painter,
@@ -91,6 +122,16 @@ impl SettingsWindow {
 
     pub fn id(&self) -> WindowId {
         self.window.id()
+    }
+
+    pub fn kind(&self) -> Kind {
+        self.kind
+    }
+
+    /// Selects a library item in the Library window.
+    pub fn select_item(&mut self, item: &Item) {
+        self.library.select(item);
+        self.window.request_redraw();
     }
 
     /// Restyles for a theme change while open.
@@ -135,8 +176,7 @@ impl SettingsWindow {
     pub fn on_event(
         &mut self,
         event: &WindowEvent,
-        settings: &mut Settings,
-        status: &Status,
+        model: &mut Model,
         actions: &mut Vec<UiAction>,
     ) -> Outcome {
         match event {
@@ -157,7 +197,7 @@ impl SettingsWindow {
                 }
             }
             WindowEvent::RedrawRequested => {
-                self.paint(settings, status, actions);
+                self.paint(model, actions);
                 return Outcome::Nothing;
             }
             _ => {}
@@ -169,7 +209,7 @@ impl SettingsWindow {
         Outcome::Nothing
     }
 
-    fn paint(&mut self, settings: &mut Settings, status: &Status, actions: &mut Vec<UiAction>) {
+    fn paint(&mut self, model: &mut Model, actions: &mut Vec<UiAction>) {
         let input = self.state.take_egui_input(&self.window);
         let ctx = self.state.egui_ctx().clone();
         if self.view.moon.is_none() {
@@ -179,11 +219,25 @@ impl SettingsWindow {
         }
         let shown = self.view.section;
         let theme = self.theme;
+        let kind = self.kind;
         let view = &mut self.view;
-        let mut full = ctx.run_ui(input, |ui| {
-            view::show(ui, theme, view, settings, status, actions);
+        let library = &mut self.library;
+        if library.moon.is_none() {
+            library.moon = view.moon.clone();
+        }
+        let mut full = ctx.run_ui(input, |ui| match kind {
+            Kind::Settings => view::show(ui, theme, view, model.settings, model.status, actions),
+            Kind::Library => library_view::show(
+                ui,
+                theme,
+                library,
+                model.library,
+                model.library_dir,
+                model.status,
+                actions,
+            ),
         });
-        if self.view.section != shown {
+        if kind == Kind::Settings && self.view.section != shown {
             // The title names the page (macOS HIG; harmless elsewhere).
             self.window.set_title(&format!(
                 "{APP_NAME} Settings: {}",
@@ -227,7 +281,7 @@ impl SettingsWindow {
     }
 }
 
-impl Drop for SettingsWindow {
+impl Drop for UiWindow {
     fn drop(&mut self) {
         self.painter.destroy();
     }
