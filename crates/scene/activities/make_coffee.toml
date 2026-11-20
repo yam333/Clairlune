@@ -3,7 +3,7 @@ id = "make_coffee"
 weight = 1.0
 
 [requires]
-terrain = ["ledge", "flat", "shore", "rooftop"]
+terrain = ["ledge", "flat", "shore", "rooftop", "indoor"]
 time_of_day = ["morning", "noon", "golden_hour", "dusk"]
 weather = ["none", "snow", "dust"]
 

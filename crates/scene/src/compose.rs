@@ -67,7 +67,7 @@ pub fn compose_with(
         None if !archetypes.is_empty() => &archetypes,
         None => &fallback,
     };
-    let archetype = pick_archetype(seed, candidates, ctx);
+    let archetype = pick_archetype(seed, candidates, &eligible, ctx);
 
     // Step 2: one time of day per theme, from what the activity allows.
     let mut tod = Rng::stream(seed, "time_of_day");
@@ -232,21 +232,34 @@ fn pick_activity<'a, 'b>(
     Some(&eligible[rng.weighted_index(&weights)])
 }
 
-/// Weighted pick with the most recent archetype down-weighted.
+/// Weighted pick with the most recent archetype down-weighted. Each
+/// landscape is also weighted against how many of the eligible activities
+/// (by their weight) it hosts, so one that hosts few, like the interior, is
+/// not crowded out by those that host nearly everything.
 fn pick_archetype(
     seed: u64,
     candidates: &[&'static ArchetypeInfo],
+    eligible: &[(&Activity, Vec<&'static ArchetypeInfo>)],
     ctx: &ContentContext,
 ) -> &'static ArchetypeInfo {
     let last = ctx.recent.last().map(|h| h.archetype.as_str());
+    let hosted = |id: &str| -> u64 {
+        eligible
+            .iter()
+            .filter(|(_, fits)| fits.iter().any(|f| f.id == id))
+            .map(|(a, _)| u64::from(int_weight(a.weight)))
+            .sum::<u64>()
+            .max(1)
+    };
     let weights: Vec<u32> = candidates
         .iter()
         .map(|a| {
-            if candidates.len() > 1 && Some(a.id) == last {
+            let base: u64 = if candidates.len() > 1 && Some(a.id) == last {
                 1
             } else {
                 4
-            }
+            };
+            (base * 1_000_000 / hosted(a.id)).max(1) as u32
         })
         .collect();
     let mut rng = Rng::stream(seed, "archetype");

@@ -15,11 +15,11 @@ pub const GENERATOR_VERSION: u32 = 4;
 /// the original particle pace).
 pub const OLDEST_GENERATOR_VERSION: u32 = 3;
 
-/// The nine v1 archetype ids (PLAN.md section 4.2).
-pub const ARCHETYPES: [&str; 9] = {
-    let mut ids = [""; 9];
+/// Every archetype id (PLAN.md section 4.2).
+pub const ARCHETYPES: [&str; crate::archetype::ARCHETYPE_INFO.len()] = {
+    let mut ids = [""; crate::archetype::ARCHETYPE_INFO.len()];
     let mut i = 0;
-    while i < 9 {
+    while i < ids.len() {
         ids[i] = crate::archetype::ARCHETYPE_INFO[i].id;
         i += 1;
     }

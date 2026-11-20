@@ -4,7 +4,7 @@ id = "paint_easel"
 weight = 1.0
 
 [requires]
-terrain = ["ledge", "flat", "rooftop", "shore", "dune"]
+terrain = ["ledge", "flat", "rooftop", "shore", "dune", "indoor"]
 time_of_day = ["morning", "noon", "golden_hour", "dusk"]
 weather = ["none", "dust", "leaves"]
 

@@ -156,9 +156,18 @@ fn version_3_recipes_render_as_before() {
             .collect();
     let mut failures = Vec::new();
     let mut pins = Vec::new();
+    // The saved files, not today's golden cases: a landscape added since
+    // version 3 has no version-3 scene to keep.
     let dir = golden_dir().join("recipes-v3");
-    for (prefix, _) in golden_cases() {
-        let path = dir.join(format!("{prefix}.json"));
+    let mut files: Vec<_> = std::fs::read_dir(&dir)
+        .expect("golden/recipes-v3")
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "json"))
+        .collect();
+    files.sort();
+    assert!(!files.is_empty(), "no version-3 recipes");
+    for path in files {
+        let prefix = path.file_stem().unwrap().to_string_lossy().into_owned();
         let text = std::fs::read_to_string(&path).unwrap_or_else(|_| panic!("{}", path.display()));
         let v3 = SceneRecipe::from_json(&text).unwrap();
         assert_eq!(v3.generator_version, 3, "{prefix}");
@@ -172,6 +181,11 @@ fn version_3_recipes_render_as_before() {
             if pinned.get(&name) != Some(&got) {
                 failures.push(format!("{name}: {got} != {:?}", pinned.get(&name)));
             }
+        }
+    }
+    for name in pinned.keys() {
+        if !pins.iter().any(|p| p.split(' ').next() == Some(name)) {
+            failures.push(format!("{name}: pinned but its recipe file is gone"));
         }
     }
     if std::env::var("CLAIRLUNE_PIN_V3").is_ok_and(|v| v == "1") {

@@ -3,7 +3,7 @@ id = "read_lantern"
 weight = 1.0
 
 [requires]
-terrain = ["ledge", "flat", "rooftop", "shore"]
+terrain = ["ledge", "flat", "rooftop", "shore", "indoor"]
 time_of_day = ["golden_hour", "dusk", "deep_dusk", "night"]
 weather = ["none", "stars", "snow", "fireflies"]
 

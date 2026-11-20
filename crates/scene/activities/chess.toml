@@ -4,7 +4,7 @@ id = "chess"
 weight = 1.0
 
 [requires]
-terrain = ["flat", "ledge", "rooftop"]
+terrain = ["flat", "ledge", "rooftop", "indoor"]
 time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
 weather = ["none", "stars", "fireflies", "leaves"]
 
