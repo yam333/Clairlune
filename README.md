@@ -49,10 +49,15 @@ clairlune-cli contact-sheet --archetype shore --count 6 --theme light --out shor
 ## The tray app (Windows)
 
 ```sh
-cargo run --release -p clairlune
+cargo install clairlune      # or, from a checkout: cargo run --release -p clairlune
+clairlune
 ```
 
-A moon appears in the notification area. The app sets a new wallpaper at start and then every hour, one scene per monitor, and keeps the last week in an archive. Its menu has New wallpaper, Previous wallpaper, Theme (Follow system / Light / Dark), Pause schedule, Save current as PNG (to `Pictures\Clairlune`), Open archive folder, and Settings, a window with the current wallpaper and the schedule, theme, Clawd and archive settings (more sections follow). Settings live in `%APPDATA%\clairlune\settings.toml`; edits there apply within seconds too. Logs are in `%LOCALAPPDATA%\clairlune\logs`. Before its first change the app remembers your own wallpaper; `clairlune-cli restore` puts it back.
+A moon appears in the notification area. The app sets a new wallpaper at start and then every hour, one scene per monitor at each monitor's resolution, and keeps the last week in an archive. The menu has New wallpaper, Previous wallpaper, Theme (Follow system / Light / Dark), Pause schedule, Save current as PNG (to `Pictures\Clairlune`), Open archive folder, Settings and Quit. Launching it again opens Settings.
+
+Settings shows the wallpaper on screen and covers the schedule, theme, which landscapes, activities and weather to use, Clawd on or off, the archive, exports, start at login, and **Restore my wallpaper**: before its first change the app remembers your own wallpaper, and this puts it back (so does `clairlune-cli restore`). Settings are stored in `%APPDATA%\clairlune\settings.toml`, logs in `%LOCALAPPDATA%\clairlune\logs`.
+
+On macOS the app runs and archives scenes but can't set the wallpaper yet; on Linux it opens Settings instead of a tray. Both arrive in later versions, as do live (animated) wallpapers.
 
 ## Set it as your wallpaper from the CLI (Windows)
 
@@ -72,9 +77,9 @@ The primary monitor gets the seed you give; the others get seeds derived from it
 | `clairlune-scene` (`crates/scene`) | Pure, deterministic: seed → recipe → scene graph. No I/O. |
 | `clairlune-sprites` (`crates/sprites`) | Aseprite sheet loader, anchors, the `Character` trait. |
 | `clairlune-render` (`crates/render`) | Glyph atlas, palette-index compositor, PNG export. |
-| `clairlune-platform` (`crates/platform`) | Monitors and setting the wallpaper (Windows today). |
 | `clairlune-cli` (`crates/cli`) | Developer tool. |
-| `clairlune` (`crates/app`) | The tray app: schedule, per-monitor scenes, archive, settings file. |
+| `clairlune-platform` (`crates/platform`) | Monitors, setting the wallpaper, login items (Windows today). |
+| `clairlune` (`crates/app`) | The tray app and Settings window (egui). |
 
 ## Generated images
 
