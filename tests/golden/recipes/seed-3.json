@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "efa65fa9db51e0dd",
-  "activity": "chess",
-  "archetype": "interior",
+  "content_ctx_hash": "45aa898c3b81fad4",
+  "activity": "make_coffee",
+  "archetype": "canyon",
   "light_tod": "golden_hour",
   "dark_tod": "dusk",
-  "platform": "floor",
+  "platform": "rock_ledge",
   "props": [
-    "chess_table"
+    "camp_stove"
   ],
   "weather": "none",
   "composition": {

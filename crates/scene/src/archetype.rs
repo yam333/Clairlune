@@ -3,7 +3,7 @@
 //! existing activities and vice versa (PLAN.md section 4.7).
 
 /// Terrain capabilities an archetype can offer.
-pub const TERRAINS: [&str; 10] = [
+pub const TERRAINS: [&str; 11] = [
     "flat",
     "ledge",
     "cliff",
@@ -14,6 +14,7 @@ pub const TERRAINS: [&str; 10] = [
     "cave_floor",
     "water",
     "indoor",
+    "ridge",
 ];
 /// Surface materials.
 pub const SURFACES: [&str; 8] = [
@@ -70,7 +71,8 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 10] = [
     ArchetypeInfo {
         id: "mountains",
         implemented: true,
-        terrain: &["ledge", "cliff", "slope"],
+        // `ridge`: a periodic variant for journeys along the range.
+        terrain: &["ledge", "cliff", "slope", "ridge"],
         surface: &["rock", "snow"],
         weather: &["none", "snow", "stars"],
         platforms: &["rock_ledge"],

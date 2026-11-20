@@ -135,10 +135,14 @@ impl Desktop {
     }
 
     /// The highest frame rate worth asking for: GDI copies every changed
-    /// pixel on the CPU, so without a GPU live plays at most at Balanced.
+    /// pixel on the CPU, so without a GPU live plays at most at Balanced; a
+    /// journey redraws the whole screen, so at most at Very smooth.
     pub fn max_fps(&self) -> u32 {
+        let journey = self.outputs.iter().any(|o| o.player.is_journey());
         if self.d3d.is_none() && self.gpu.is_none() {
             GDI_MAX_FPS
+        } else if journey {
+            crate::JOURNEY_MAX_FPS
         } else {
             60
         }

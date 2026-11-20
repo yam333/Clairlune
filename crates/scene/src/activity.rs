@@ -55,7 +55,7 @@ pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "i
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 19] = [
+const SOURCES: [(&str, &str); 20] = [
     (
         "balloon_ride.toml",
         include_str!("../activities/balloon_ride.toml"),
@@ -67,6 +67,10 @@ const SOURCES: [(&str, &str); 19] = [
     ("chess.toml", include_str!("../activities/chess.toml")),
     ("fishing.toml", include_str!("../activities/fishing.toml")),
     ("fly_kite.toml", include_str!("../activities/fly_kite.toml")),
+    (
+        "hike_ridge.toml",
+        include_str!("../activities/hike_ridge.toml"),
+    ),
     (
         "make_coffee.toml",
         include_str!("../activities/make_coffee.toml"),
@@ -193,6 +197,9 @@ pub enum MotionKind {
     Path,
     Bob,
     Fly,
+    /// The camera travels: the landscape scrolls past in layers while the
+    /// character walks on the nearest (docs/scrolling-scenes.md).
+    Journey,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -206,6 +213,13 @@ pub struct Motion {
     /// One of [`FACINGS`].
     #[serde(default)]
     pub face: Option<String>,
+    /// Journeys: the loop length range in seconds (snapped to whole particle
+    /// loops, so everything comes around together).
+    #[serde(default)]
+    pub loop_s: Option<[f64; 2]>,
+    /// Journeys: where the character walks, as a fraction of the width.
+    #[serde(default)]
+    pub screen_x: Option<f64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -433,7 +447,12 @@ impl Activity {
                 }
             }
         }
-        if self.unattended.props.is_empty() {
+        let journey = self.motion.kind == MotionKind::Journey;
+        if journey && !self.props.is_empty() {
+            err("a journey has no props: the ground moves under them".into());
+        }
+        // A journey without the character is the landscape going by.
+        if self.unattended.props.is_empty() && !journey {
             err("unattended.props is empty: Buddy-off scenes need a focal object".into());
         }
         for p in &self.unattended.props {
@@ -450,6 +469,17 @@ impl Activity {
                         "{} motion needs speed_cells_per_s = [lo, hi] with 0 < lo <= hi",
                         format!("{:?}", self.motion.kind).to_lowercase()
                     )),
+                }
+            }
+            MotionKind::Journey => {
+                match self.motion.loop_s {
+                    Some([lo, hi]) if (12.0..=120.0).contains(&lo) && hi >= lo && hi <= 120.0 => {}
+                    _ => err("journey motion needs loop_s = [lo, hi] within 12..=120 s".into()),
+                }
+                if let Some(x) = self.motion.screen_x
+                    && !(0.15..=0.85).contains(&x)
+                {
+                    err("journey screen_x must be within 0.15..=0.85".into());
                 }
             }
             MotionKind::Path => err(format!(

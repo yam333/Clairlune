@@ -54,3 +54,54 @@ fn bake_4k_within_budget() {
     );
     assert!(total < BUDGET, "4K bake took {total:?}, budget {BUDGET:?}");
 }
+
+/// A journey redraws the whole frame each tick (the land moves). At 4K that
+/// must stay well inside a 30 fps frame on one core, the CPU fallback's cost
+/// before the GPU layer grids (docs/scrolling-scenes.md, M7).
+#[test]
+#[ignore = "release-only timing; run with --release -- --ignored"]
+fn journey_frame_4k_within_budget() {
+    use clairlune_render::{Clock, ScenePackage};
+    use clairlune_scene::{Aspect, ContentContext, compose};
+    let (w, h) = (3840, 2160);
+    let ctx = ContentContext {
+        enabled_activities: vec!["hike_ridge".into()],
+        enabled_archetypes: vec!["mountains".into()],
+        ..ContentContext::default()
+    };
+    let r = compose(3, Aspect::from_size(w, h), &ctx);
+    let t_capture = best_of(2, || ScenePackage::capture(&r, w, h).unwrap());
+    let pkg = ScenePackage::capture(&r, w, h).unwrap();
+    let mut frame = pkg.incremental(Theme::Dark).unwrap();
+    // The first frame bakes the strips.
+    let first = Instant::now();
+    pkg.advance(&mut frame, Theme::Dark, true, 0, Clock::Smooth);
+    let t_first = first.elapsed();
+    let mut t = 0;
+    let t_frame = best_of(20, || {
+        t += 33;
+        pkg.advance(&mut frame, Theme::Dark, true, t, Clock::Smooth)
+    });
+    // What the Direct3D 11 presenter adds: the whole frame as 0RGB, one
+    // palette lookup per pixel (as `Player::rect_pixels`).
+    let colors: Vec<u32> = pkg
+        .palette(Theme::Dark)
+        .unwrap()
+        .colors()
+        .iter()
+        .map(|c| (u32::from(c.r) << 16) | (u32::from(c.g) << 8) | u32::from(c.b))
+        .collect();
+    let mut scratch: Vec<u32> = Vec::new();
+    let t_rgb = best_of(10, || {
+        scratch.clear();
+        scratch.extend(frame.image().pixels.iter().map(|&i| colors[usize::from(i)]));
+        scratch.len()
+    });
+    eprintln!(
+        "4K journey: capture {t_capture:?}, first frame {t_first:?}, frame {t_frame:?}, to 0RGB {t_rgb:?}"
+    );
+    assert!(
+        t_frame + t_rgb < Duration::from_millis(20),
+        "4K journey frame took {t_frame:?} + {t_rgb:?}"
+    );
+}

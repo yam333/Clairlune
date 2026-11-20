@@ -13,11 +13,13 @@
 //! ├── package.json          format, recipe, size, art, per-theme scene data
 //! ├── background-dark.png   indexed, no animated elements
 //! ├── background-light.png
-//! └── sprites.png           the character frames, stacked (RGBA)
+//! ├── sprites.png           the character frames, stacked (RGBA)
+//! └── journey-dark-0.png    a journey's moving layers (format 2), one per
+//!                           theme and layer: glyph as grey, shade as alpha
 //! ```
 //!
 //! What is *code* rather than data (particle motion, lighting bands, the
-//! state machine, palette layout) is the package player for format 1; a
+//! state machine, palette layout) is the package player for formats 1 and 2; a
 //! committed golden package (`tests/golden/packages`) pins its output.
 
 use crate::art::{OwnedPixmap, Pixmap, SceneArt};
@@ -25,6 +27,7 @@ use crate::atlas::GlyphAtlas;
 use crate::bake::bake_static;
 use crate::clock::Clock;
 use crate::frame::{IncrementalFrame, PixelRect, hero_time_with_art, render_frame_with_art};
+use crate::journey::JourneyBake;
 use crate::palette::IndexedPalette;
 use crate::{IndexedImage, encode_png};
 use clairlune_scene::activity::{Activity, Catalog, builtin_catalog};
@@ -36,9 +39,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::Path;
+use std::sync::OnceLock;
 
-/// The package format this build writes. Older formats stay readable.
-pub const PACKAGE_FORMAT: u32 = 1;
+/// The newest package format this build writes and reads. Older formats
+/// stay readable. Format 2 adds a journey's moving layers; a package without
+/// one is still written as format 1, so older versions can play it.
+pub const PACKAGE_FORMAT: u32 = 2;
 
 #[derive(Debug)]
 pub enum PackageError {
@@ -113,6 +119,17 @@ struct ThemeScene {
     atlas: GlyphAtlas,
     background: IndexedImage,
     hero_ms: u64,
+    /// A journey's moving layers, baked on first use (they are large, and
+    /// a live wallpaper only ever plays one theme).
+    journey: OnceLock<Option<JourneyBake>>,
+}
+
+impl ThemeScene {
+    fn journey(&self) -> Option<&JourneyBake> {
+        self.journey
+            .get_or_init(|| JourneyBake::new(&self.graph, &self.atlas))
+            .as_ref()
+    }
 }
 
 /// A frozen scene: plays without the generator.
@@ -192,6 +209,7 @@ impl ScenePackage {
                 atlas,
                 background,
                 hero_ms,
+                journey: OnceLock::new(),
             });
         }
         Ok(ScenePackage {
@@ -228,8 +246,11 @@ impl ScenePackage {
     ) -> Option<(IndexedImage, &IndexedPalette)> {
         let t = self.theme(theme)?;
         let graph = if buddy { &t.graph } else { &t.graph_unattended };
+        let moved = t
+            .journey()
+            .map(|j| j.background_at(graph, &t.background, t_ms));
         let img = render_frame_with_art(
-            &t.background,
+            moved.as_ref().unwrap_or(&t.background),
             graph,
             &t.atlas,
             &t.palette,
@@ -259,6 +280,18 @@ impl ScenePackage {
     ) -> Option<Vec<PixelRect>> {
         let t = self.theme(theme)?;
         let graph = if buddy { &t.graph } else { &t.graph_unattended };
+        if let Some(j) = t.journey() {
+            return Some(frame.advance_journey(
+                j,
+                &t.background,
+                graph,
+                &t.atlas,
+                &t.palette,
+                t_ms,
+                clock,
+                &self.art,
+            ));
+        }
         Some(frame.advance(
             &t.background,
             graph,
@@ -301,8 +334,9 @@ impl ScenePackage {
                 frames: anim.frames.iter().map(|f| sheet.add(f)).collect(),
             })
             .collect();
+        let journeys = self.themes.iter().any(|t| t.graph.journey.is_some());
         let file = PackageFile {
-            format: PACKAGE_FORMAT,
+            format: if journeys { 2 } else { 1 },
             generator_version: self.generator_version,
             recipe: self.recipe.clone(),
             width: self.width,
@@ -337,6 +371,12 @@ impl ScenePackage {
             encode_png(&t.background, &t.palette, &mut png)
                 .map_err(|e| PackageError::Png(e.to_string()))?;
             std::fs::write(dir.join(background_name(t.theme)), png)?;
+            if let Some(j) = &t.graph.journey {
+                for (i, layer) in j.layers.iter().enumerate() {
+                    let png = encode_layer(layer.cols, t.graph.grid.rows, &layer.cells)?;
+                    std::fs::write(dir.join(layer_name(t.theme, i)), png)?;
+                }
+            }
         }
         std::fs::write(dir.join("sprites.png"), sheet.png()?)?;
         let json = serde_json::to_string(&file)?;
@@ -405,16 +445,29 @@ impl ScenePackage {
                     t.theme.as_str()
                 )));
             }
-            let mut graph_unattended = t.graph.clone();
+            let mut graph = t.graph;
+            if let Some(j) = &mut graph.journey {
+                let rows = graph.grid.rows;
+                for (i, layer) in j.layers.iter_mut().enumerate() {
+                    let bytes = std::fs::read(dir.join(layer_name(t.theme, i)))?;
+                    layer.cells = decode_layer(&bytes, layer.cols, rows)?;
+                }
+                let width = j.layers.last().map_or(0, |l| l.cols * graph.grid.cell_w);
+                if j.ground.len() != width as usize || j.loop_ms == 0 {
+                    return Err(PackageError::Invalid("journey ground or loop".into()));
+                }
+            }
+            let mut graph_unattended = graph.clone();
             graph_unattended.buddy = false;
             themes.push(ThemeScene {
                 theme: t.theme,
-                graph: t.graph,
+                graph,
                 graph_unattended,
                 palette,
                 atlas: t.atlas,
                 background,
                 hero_ms: t.hero_ms,
+                journey: OnceLock::new(),
             });
         }
         if themes.is_empty() {
@@ -433,6 +486,62 @@ impl ScenePackage {
 
 fn background_name(theme: Theme) -> String {
     format!("background-{}.png", theme.as_str())
+}
+
+fn layer_name(theme: Theme, i: usize) -> String {
+    format!("journey-{}-{i}.png", theme.as_str())
+}
+
+/// A journey layer's cells as a grey-and-alpha PNG: one pixel per cell,
+/// the glyph as grey and the shade as alpha.
+fn encode_layer(
+    cols: u32,
+    rows: u32,
+    cells: &[clairlune_scene::Cell],
+) -> Result<Vec<u8>, PackageError> {
+    let png_err = |e: &dyn fmt::Display| PackageError::Png(e.to_string());
+    let mut out = Vec::new();
+    let mut enc = png::Encoder::new(&mut out, cols, rows);
+    enc.set_color(png::ColorType::GrayscaleAlpha);
+    enc.set_depth(png::BitDepth::Eight);
+    let mut w = enc.write_header().map_err(|e| png_err(&e))?;
+    let data: Vec<u8> = cells.iter().flat_map(|c| [c.glyph, c.shade]).collect();
+    w.write_image_data(&data).map_err(|e| png_err(&e))?;
+    w.finish().map_err(|e| png_err(&e))?;
+    Ok(out)
+}
+
+fn decode_layer(
+    bytes: &[u8],
+    cols: u32,
+    rows: u32,
+) -> Result<Vec<clairlune_scene::Cell>, PackageError> {
+    let png_err = |e: &dyn fmt::Display| PackageError::Png(e.to_string());
+    let dec = png::Decoder::new(std::io::Cursor::new(bytes));
+    let mut reader = dec.read_info().map_err(|e| png_err(&e))?;
+    let mut buf = vec![0u8; reader.output_buffer_size().unwrap_or(0)];
+    let info = reader.next_frame(&mut buf).map_err(|e| png_err(&e))?;
+    if info.color_type != png::ColorType::GrayscaleAlpha
+        || info.bit_depth != png::BitDepth::Eight
+        || (info.width, info.height) != (cols, rows)
+    {
+        return Err(PackageError::Png(
+            "journey layer: wrong kind or size".into(),
+        ));
+    }
+    let glyphs = clairlune_scene::glyphs::GLYPHS.len() as u8;
+    buf[..info.buffer_size()]
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|&[glyph, shade]| {
+            if glyph < glyphs {
+                Ok(clairlune_scene::Cell { glyph, shade })
+            } else {
+                Err(PackageError::Invalid("journey layer: unknown glyph".into()))
+            }
+        })
+        .collect()
 }
 
 /// Every `(activity, state)` the scene can show: all states of its activity
@@ -478,7 +587,7 @@ fn capture_props(graphs: &[SceneGraph]) -> Vec<(SpriteKind, OwnedPixmap)> {
     out
 }
 
-// ---- On-disk format 1 ---------------------------------------------------
+// ---- On-disk format (1, and 2 with a journey's layer images) -----------
 
 #[derive(Deserialize)]
 struct FormatProbe {

@@ -51,3 +51,7 @@ path = "coverage.rs"
 [[test]]
 name = "package"
 path = "package.rs"
+
+[[test]]
+name = "journey"
+path = "journey.rs"

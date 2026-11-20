@@ -137,6 +137,21 @@ pub fn fbm1_periodic(seed: u64, x: f64, period: i64, octaves: u32) -> f64 {
     sum / norm
 }
 
+/// Periodic ridged noise (1D): repeats every `period` units of `x`, with the
+/// sharp peaks of [`ridged1`].
+pub fn ridged1_periodic(seed: u64, x: f64, period: i64, octaves: u32) -> f64 {
+    let (mut sum, mut amp, mut norm) = (0.0, 1.0, 0.0);
+    for o in 0..octaves {
+        let k = 1i64 << o;
+        let v = value1_periodic(octave_seed(seed, o), x * k as f64, period * k);
+        let r = 1.0 - (2.0 * v - 1.0).abs();
+        sum += amp * r * r;
+        norm += amp;
+        amp *= 0.5;
+    }
+    sum / norm
+}
+
 /// Periodic fBm (2D, wrapping in x): repeats every `period_x` units of `x`.
 pub fn fbm2_periodic_x(seed: u64, x: f64, y: f64, period_x: i64, octaves: u32) -> f64 {
     let (mut sum, mut amp, mut norm) = (0.0, 1.0, 0.0);

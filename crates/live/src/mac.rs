@@ -173,9 +173,14 @@ impl MacDesktop {
         format!("metal ({})", self.gpu.adapter.get_info().name)
     }
 
-    /// The highest frame rate worth asking for.
+    /// The highest frame rate worth asking for (a journey redraws the
+    /// whole screen: at most Very smooth).
     pub fn max_fps(&self) -> u32 {
-        60
+        if self.outputs.iter().any(|o| o.player.is_journey()) {
+            crate::JOURNEY_MAX_FPS
+        } else {
+            60
+        }
     }
 
     /// The screens playing.

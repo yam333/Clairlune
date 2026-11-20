@@ -10,7 +10,7 @@ Every wallpaper is generated locally from a seed: a landscape built from text gl
 
 ## Status
 
-Early development. The generator and a developer CLI work today: ten landscapes (canyon, mountains, forest, desert, snowfield, shore, city rooftops, night sky, cave, and a room with a window), nineteen activities for Clawd (from coffee and chess to fishing, kites, a balloon ride, rowing and skiing), weather, stills and seamless looping GIFs. On Windows the tray app already runs: a new wallpaper on a schedule, one scene per monitor, playing live behind the desktop icons (or as a still frame), with an archive of past ones, a library of the ones you keep and a daily timeline. Other systems come in later milestones; see [PLAN.md](PLAN.md).
+Early development. The generator and a developer CLI work today: ten landscapes (canyon, mountains, forest, desert, snowfield, shore, city rooftops, night sky, cave, and a room with a window), twenty activities for Clawd (from coffee and chess to fishing, kites, a balloon ride, rowing, skiing and a hike along a ridge as the mountains scroll past), weather, stills and seamless looping GIFs. On Windows the tray app already runs: a new wallpaper on a schedule, one scene per monitor, playing live behind the desktop icons (or as a still frame), with an archive of past ones, a library of the ones you keep and a daily timeline. Other systems come in later milestones; see [PLAN.md](PLAN.md).
 
 ## Install
 
@@ -45,7 +45,7 @@ Options:
 | `--theme light\|dark` | Palette and time of day. |
 | `--size <W>x<H>` | Output size in pixels. |
 | `--out <path>` | Output PNG (indexed, at most 255 colours). |
-| `--activity <id>` | Force an activity: `warm_hands`, `stroll`, `stargaze` (night only), `wizard_magic`, `make_coffee`, `read_lantern`, `play_guitar`, `fishing` (shore only), `fly_kite` (daytime), `skip_stones` (shore only), `broom_flight` (evening and night), `paint_easel` (daytime), `snowballs` (snow only), `balloon_ride` (daytime), `picnic` (daytime), `chess`, `tennis` (daytime), `rowing` (shore only), `skiing` (snow only). |
+| `--activity <id>` | Force an activity: `warm_hands`, `stroll`, `stargaze` (night only), `wizard_magic`, `make_coffee`, `read_lantern`, `play_guitar`, `fishing` (shore only), `fly_kite` (daytime), `skip_stones` (shore only), `broom_flight` (evening and night), `paint_easel` (daytime), `snowballs` (snow only), `balloon_ride` (daytime), `picnic` (daytime), `chess`, `tennis` (daytime), `rowing` (shore only), `skiing` (snow only), `hike_ridge` (a journey: the land scrolls past). |
 | `--archetype <id>` | Force a landscape: `canyon`, `mountains`, `forest`, `desert`, `snowfield`, `shore`, `city_rooftops`, `night_sky`, `cave`. |
 | `--no-buddy` | Render the same scene without the character. |
 | `--recipe-out <path>` | Also write the scene recipe as JSON. |

@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "efa65fa9db51e0dd",
-  "activity": "broom_flight",
-  "archetype": "snowfield",
-  "light_tod": null,
-  "dark_tod": "dusk",
-  "platform": "ice_shelf",
+  "content_ctx_hash": "45aa898c3b81fad4",
+  "activity": "warm_hands",
+  "archetype": "cave",
+  "light_tod": "morning",
+  "dark_tod": "deep_dusk",
+  "platform": "rock_ledge",
   "props": [
-    "spellbook"
+    "campfire"
   ],
   "weather": "none",
   "composition": {
@@ -23,9 +23,8 @@
     "platform_margin_pm": 28,
     "cliff_layers": 3,
     "prop_left": true,
-    "motion_speed_cc": 628,
-    "pace_half_pm": 0,
-    "fly_lift_pm": 208
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "sand_day",

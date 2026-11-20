@@ -40,6 +40,24 @@ pub const PAINTED: [&str; 10] = [
     "interior",
 ];
 
+/// What an archetype paints for a journey: the still background's sky limit
+/// (as [`background`] returns), the layers that scroll past, back to front,
+/// and the walking layer's ground (pixel y) at each pixel column of its strip.
+pub(crate) struct Journeyed {
+    pub sky_limit: Vec<f64>,
+    pub layers: Vec<crate::graph::ScrollLayer>,
+    pub surface: Vec<f64>,
+}
+
+/// Paints a journey's still background into `cells` and returns its moving
+/// layers, or `None` when the archetype has no journey.
+pub(crate) fn journey(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Option<Journeyed> {
+    match archetype {
+        "mountains" => Some(mountains::journey(ctx, cells)),
+        _ => None,
+    }
+}
+
 /// Normalised cell-centre coordinates.
 pub(crate) struct Coords {
     pub g: GridSpec,

@@ -182,8 +182,20 @@ fn build_scene(
     };
     let co = &ctx.co;
 
-    // ---- The archetype's background layers, painted back to front. ----
-    let sky_limit = terrain::background(&recipe.archetype, &ctx, &mut cells);
+    // ---- The archetype's background layers, painted back to front. A
+    // journey paints its still part here and the layers that scroll past
+    // into strips of their own. ----
+    let journeying = comp.journey_ms > 0
+        && activity.is_some_and(|a| a.motion.kind == crate::activity::MotionKind::Journey);
+    let journeyed = if journeying {
+        terrain::journey(&recipe.archetype, &ctx, &mut cells)
+    } else {
+        None
+    };
+    let sky_limit = match &journeyed {
+        Some(j) => j.sky_limit.clone(),
+        None => terrain::background(&recipe.archetype, &ctx, &mut cells),
+    };
 
     // ---- Breathing room: a dome over the focal group, cleared then dimmed. ----
     let dome_cx = (group_cx - f64::from(grid.origin_x)) / f64::from(grid.cell_w);
@@ -195,7 +207,9 @@ fn build_scene(
         let (u2, v2) = (u * u, v * v);
         u2 * u2 + v2 * v2
     };
-    for row in 0..platform_row {
+    // (A journey's walker keeps moving through the landscape: no clearing.)
+    let dome_rows = if journeyed.is_some() { 0 } else { platform_row };
+    for row in 0..dome_rows {
         for col in 0..cols {
             let s = dome(col, row);
             let cell = &mut cells[(row * cols + col) as usize];
@@ -207,8 +221,11 @@ fn build_scene(
         }
     }
 
-    // ---- The archetype's platform under the focal group. ----
-    terrain::platform(&recipe.archetype, &ctx, &mut cells);
+    // ---- The archetype's platform under the focal group (a journey walks
+    // on its nearest layer instead). ----
+    if journeyed.is_none() {
+        terrain::platform(&recipe.archetype, &ctx, &mut cells);
+    }
     // A trail: marks in the ground along the character's way.
     if let (Some(a), Some(track)) = (activity, focal.character)
         && a.trail.as_deref() == Some("ski_tracks")
@@ -261,7 +278,7 @@ fn build_scene(
         let idx = (row * cols + col) as usize;
         if cells[idx].glyph != EMPTY
             || co.ny(row) > sky_limit[col as usize] - 0.02
-            || dome(col, row) <= 2.4
+            || (journeyed.is_none() && dome(col, row) <= 2.4)
         {
             continue;
         }
@@ -329,6 +346,29 @@ fn build_scene(
         });
     }
 
+    // ---- A journey: the strips, and the ground under the feet, the highest
+    // point across the middle of the feet so they never sink into a rise. ----
+    let journey = journeyed.zip(focal.character).map(|(j, track)| {
+        let cw = (crate::graph::CHARACTER_BOX.0 * track.scale) as i64;
+        let feet_x = track.x_range().0 + (cw / 2) as i32;
+        let half = (cw * 3 / 10).max(1);
+        let n = j.surface.len() as i64;
+        let ground = (0..n)
+            .map(|x| {
+                (x - half..=x + half)
+                    .map(|k| j.surface[k.rem_euclid(n) as usize])
+                    .fold(f64::INFINITY, f64::min)
+                    .round() as i32
+            })
+            .collect();
+        crate::graph::Journey {
+            loop_ms: u64::from(comp.journey_ms),
+            layers: j.layers,
+            ground,
+            feet_x,
+        }
+    });
+
     SceneGraph {
         width: w,
         height: h,
@@ -351,6 +391,7 @@ fn build_scene(
         pace,
         generator: recipe.generator_version,
         water,
+        journey,
     }
 }
 
@@ -423,6 +464,13 @@ mod tests {
                 if g.character.is_some_and(|t| t.flies()) {
                     // Off the ground (in the air, on the water): on screen.
                     assert!(c.y >= 0 && c.y + c.height() as i32 <= g.height as i32);
+                    continue;
+                }
+                if let Some(j) = &g.journey {
+                    // On a journey the feet are on the ground going by.
+                    let ground = j.ground_at(g.grid.cell_w, g.grid.origin_x, t).unwrap();
+                    assert_eq!(c.y + c.height() as i32, ground, "seed {seed} t {t}");
+                    assert!(c.y >= 0 && ground < g.height as i32);
                     continue;
                 }
                 assert_eq!(c.y + c.height() as i32, g.ground_y);

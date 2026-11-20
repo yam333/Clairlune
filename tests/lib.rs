@@ -49,6 +49,16 @@ pub fn golden_cases() -> Vec<(String, SceneRecipe)> {
             compose(LANDSCAPE_SEED, aspect, &ctx),
         ));
     }
+    // A journey, caught mid-scroll at its hero time: pins the moving layers.
+    let ctx = ContentContext {
+        enabled_archetypes: vec!["mountains".into()],
+        enabled_activities: vec!["hike_ridge".into()],
+        ..ContentContext::default()
+    };
+    cases.push((
+        "journey-hike_ridge".into(),
+        compose(LANDSCAPE_SEED, aspect, &ctx),
+    ));
     cases
 }
 

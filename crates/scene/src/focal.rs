@@ -145,8 +145,15 @@ pub fn layout(
     let half_band = pace_half + cw / 2;
     let group_w = fixed + 2 * pace_half;
 
-    // Centre on the composition's focus, then shift into the safe frame.
-    let mut cx = (pm(comp.focus_x_pm) * wf).round() as i32;
+    // Centre on the composition's focus, then shift into the safe frame. A
+    // journey's walker keeps to its own spot, a third of the way in by
+    // default, looking the way it goes.
+    let journey = activity.motion.kind == MotionKind::Journey;
+    let mut cx = if journey {
+        (activity.motion.screen_x.unwrap_or(0.33) * wf).round() as i32
+    } else {
+        (pm(comp.focus_x_pm) * wf).round() as i32
+    };
     let left_edge = cx - half_band - side_width(true);
     if left_edge < safe_l {
         cx += safe_l - left_edge;
@@ -307,6 +314,7 @@ pub fn layout(
             scale,
             motion,
             face_left: match activity.motion.face.as_deref() {
+                _ if journey => false,
                 // Toward the middle of the screen: the shore's pier comes in
                 // from the nearer edge, so the open water lies that way, and
                 // so does the most open sky.

@@ -158,7 +158,7 @@ pub(super) const LANDSCAPES: [(&str, &str); 10] = [
     ("interior", "Indoors, by a window"),
 ];
 
-pub(super) const ACTIVITIES: [(&str, &str); 19] = [
+pub(super) const ACTIVITIES: [(&str, &str); 20] = [
     ("warm_hands", "Warming hands by a fire"),
     ("stroll", "Strolling"),
     ("stargaze", "Stargazing (night only)"),
@@ -178,6 +178,7 @@ pub(super) const ACTIVITIES: [(&str, &str); 19] = [
     ("tennis", "Tennis against a wall (daytime)"),
     ("rowing", "Rowing a boat (shore only)"),
     ("skiing", "Skiing (snow only)"),
+    ("hike_ridge", "Hiking a ridge (mountains, scrolling)"),
 ];
 
 /// Weather that shows as particles. Clear weather ("none", "stars") is
