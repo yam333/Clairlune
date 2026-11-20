@@ -317,6 +317,7 @@ fn build_scene(
         t_hero_ms,
         loop_ms: LOOP_MS,
         pace,
+        generator: recipe.generator_version,
     }
 }
 

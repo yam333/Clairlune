@@ -155,7 +155,7 @@ pub fn encode_gif<W: Write>(
     let started = Instant::now();
     let graph = build(recipe, opts).map_err(GifError::Build)?;
     let atlas = GlyphAtlas::for_grid(&graph.grid);
-    let palette = IndexedPalette::new(&graph.family);
+    let palette = IndexedPalette::for_graph(&graph);
     let background = bake_static(&graph, &atlas);
     let clock = Clock::Loop(loop_ms);
     let (rendered, written) = encode_frames(

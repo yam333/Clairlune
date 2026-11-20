@@ -93,7 +93,7 @@ fn built_in_art_plays_incrementally_too() {
     };
     let graph = build(&r, &opts).unwrap();
     let atlas = GlyphAtlas::for_grid(&graph.grid);
-    let palette = IndexedPalette::new(&graph.family);
+    let palette = IndexedPalette::for_graph(&graph);
     let bg = bake_static(&graph, &atlas);
     let art = BuiltinArt::for_graph(&graph);
     let mut live = IncrementalFrame::new(&bg);

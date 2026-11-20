@@ -90,7 +90,7 @@ pub fn render_still(
         tracing::warn!(target: "clairlune_render", activity = %a.id, "no drawn art for this activity; drawing the placeholder character");
     }
     let atlas = GlyphAtlas::for_grid(&graph.grid);
-    let palette = IndexedPalette::new(&graph.family);
+    let palette = IndexedPalette::for_graph(&graph);
     let background = bake_static(&graph, &atlas);
     let t = t_ms.unwrap_or_else(|| hero_time(&graph));
     let image = render_frame(&background, &graph, &atlas, &palette, t);
