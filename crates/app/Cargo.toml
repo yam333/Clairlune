@@ -39,9 +39,7 @@ png.workspace = true
 
 [target.'cfg(any(windows, target_os = "macos"))'.dependencies]
 tray-icon.workspace = true
-
-# Live wallpapers play on Windows only so far.
-[target.'cfg(windows)'.dependencies]
+# Live wallpapers play on Windows and macOS so far.
 clairlune-live.workspace = true
 
 # Linux: the StatusNotifierItem tray over D-Bus (no GTK).

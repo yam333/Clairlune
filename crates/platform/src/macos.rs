@@ -89,7 +89,8 @@ fn screens(mtm: MainThreadMarker) -> Vec<(Retained<NSScreen>, Monitor)> {
     out
 }
 
-fn find_screen(mtm: MainThreadMarker, id: &str) -> Option<Retained<NSScreen>> {
+/// The connected screen showing the monitor with this id.
+pub fn find_screen(mtm: MainThreadMarker, id: &str) -> Option<Retained<NSScreen>> {
     screens(mtm)
         .into_iter()
         .find(|(_, m)| m.id == id)

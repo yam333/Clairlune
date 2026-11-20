@@ -187,7 +187,7 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 - [x] 16e Pause rules (Windows): covered monitors pause; everything pauses while the session is locked (input desktop can't be opened) or the displays are off (GUID_CONSOLE_DISPLAY_STATE to the live windows); on battery, Battery saver 6 fps by default or an optional pause. Settings Live has both battery toggles. Lock and display-off weren't triggered here (would lock the user's session)
 - [x] 16f softbuffer (GDI) fallback when neither Direct3D 11 nor wgpu starts: copies the changed rects only, classic desktop only (GDI doesn't show on the raised one, so the still stays there); capped at Balanced, 12 fps (Desktop::max_fps; the Settings status says so). Not triggerable here (this PC has GPUs and the raised desktop)
 - [x] 16g Budgets measured (findings): 2560x1440 + 1920x1080 at 12 fps: 0.64 ms per frame, ~1 % of one core, 139 MB peak RSS. A 4K monitor isn't available here to measure
-- [ ] 16h Linux (X11 desktop window, wlr layer-shell) and macOS (desktop-level NSWindow) hosts: compile-checked, unit-tested where possible, marked untried
+- [ ] 16h Linux (X11 desktop window, wlr layer-shell) and macOS (desktop-level NSWindow) hosts: compile-checked, unit-tested where possible, marked untried. macOS done, untried (live::mac::MacDesktop: borderless NSWindow per screen at CGWindowLevelForKey(Desktop), all Spaces, stationary, ignores the mouse; wgpu Metal through the shared gpu presenter; occlusionState pauses covered/locked/sleeping screens per the cover policy; the app plays it through the same Live driver; Still stays the default off Windows until tried). Linux: not started
 - **Status:** in progress
 
 ### Phase 17: M8 Polish & packaging
