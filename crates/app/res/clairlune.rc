@@ -1,0 +1,2 @@
+// The app icon (the moon) for the exe, the Start menu and the installer.
+1 ICON "packaging/icons/clairlune.ico"

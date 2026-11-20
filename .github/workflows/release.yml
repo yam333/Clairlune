@@ -1,0 +1,74 @@
+name: Release
+
+# Installers for people who don't use a terminal: a per-user Windows setup.exe
+# and macOS DMGs (Apple Silicon and Intel). Runs on version tags (v1.2.3) and
+# by hand; a tag also attaches them to a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  package:
+    name: package (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            format: nsis
+          - name: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            format: dmg
+          - name: macos-intel
+            os: macos-latest
+            target: x86_64-apple-darwin
+            format: dmg
+    runs-on: ${{ matrix.os }}
+    env:
+      # The oldest macOS supported (docs/platform-support.md).
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+      - name: Install cargo-packager
+        run: cargo install cargo-packager --version 0.11.8 --locked
+      - name: Build
+        run: cargo build --release -p clairlune --target ${{ matrix.target }}
+      - name: Package
+        run: cargo packager --release -p clairlune --target ${{ matrix.target }} --formats ${{ matrix.format }}
+      - uses: actions/upload-artifact@v5
+        with:
+          name: clairlune-${{ matrix.name }}
+          path: |
+            target/packages/*.exe
+            target/packages/*.dmg
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          path: packages
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: packages/*
+          draft: true
