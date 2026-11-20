@@ -372,7 +372,11 @@ impl Preview {
                     self.theme = themes[0];
                 }
                 self.showing = format!("{} · {}", pkg.recipe.archetype, self.theme.as_str());
-                self.player = Player::new(Arc::new(pkg), self.theme, self.buddy);
+                self.player = Player::new(Arc::new(pkg), self.theme, self.buddy).map(|mut p| {
+                    // As live on a GPU shows it.
+                    p.set_smooth(true);
+                    p
+                });
                 self.failed = false;
                 eprintln!(
                     "seed {}: {} ({} ms)",

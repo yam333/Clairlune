@@ -363,6 +363,20 @@ impl SceneGraph {
         out
     }
 
+    /// Particles at time `t` that fall inside the grid, at their own pixel
+    /// positions (`particle.x`, `particle.y` are their centres).
+    pub fn particles_in_grid(&self, t_ms: u64) -> Vec<Particle> {
+        let g = &self.grid;
+        let (x0, y0) = (f64::from(g.origin_x), f64::from(g.origin_y));
+        let x1 = x0 + f64::from(g.cols * g.cell_w);
+        let y1 = y0 + f64::from(g.rows * g.cell_h);
+        self.emitters
+            .iter()
+            .flat_map(|e| e.sample(t_ms))
+            .filter(|p| p.x >= x0 && p.y >= y0 && p.x < x1 && p.y < y1)
+            .collect()
+    }
+
     /// Particles at time `t`, snapped to cells, as `(col, row, particle)`.
     pub fn particles_at(&self, t_ms: u64) -> Vec<(u32, u32, Particle)> {
         let g = &self.grid;

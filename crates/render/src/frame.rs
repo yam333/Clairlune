@@ -172,10 +172,16 @@ fn compose(
     clock: Clock,
     art: &dyn SceneArt,
 ) {
-    for (col, row, p) in graph.particles_at(t_ms) {
-        draw_particle(
-            img, drawn, graph, atlas, col, row, p.glyph, p.level, p.ink, false,
-        );
+    if clock == Clock::Smooth {
+        for p in graph.particles_in_grid(t_ms) {
+            draw_particle_at(img, drawn, graph, atlas, p.x, p.y, p.glyph, p.level, p.ink);
+        }
+    } else {
+        for (col, row, p) in graph.particles_at(t_ms) {
+            draw_particle(
+                img, drawn, graph, atlas, col, row, p.glyph, p.level, p.ink, false,
+            );
+        }
     }
     for sprite in graph.sprites_at(t_ms) {
         if sprite.kind == SpriteKind::Character {
@@ -187,7 +193,7 @@ fn compose(
                 // Effects go on top as an overlay (only the glyph's own pixels),
                 // so steam over a mug or sparkles over the hat stay visible.
                 draw_pose(img, drawn, &pose, palette);
-                draw_effects(img, drawn, graph, art, atlas, &pose, t_ms);
+                draw_effects(img, drawn, graph, art, atlas, &pose, t_ms, clock);
             }
             continue;
         }
@@ -238,6 +244,52 @@ fn draw_particle(
                 (false, _) => band,
                 (true, false) => IndexedPalette::ember(band, lvl),
                 (true, true) => IndexedPalette::ink(band, lvl),
+            };
+        }
+    }
+}
+
+/// Draws a particle glyph centred on pixel `(cx, cy)` (`Clock::Smooth`): only
+/// the glyph's own pixels, over whatever is there, clipped to the image.
+#[allow(clippy::too_many_arguments)]
+fn draw_particle_at(
+    img: &mut IndexedImage,
+    drawn: &mut Vec<PixelRect>,
+    graph: &SceneGraph,
+    atlas: &GlyphAtlas,
+    cx: f64,
+    cy: f64,
+    glyph: u8,
+    level: u8,
+    ink: bool,
+) {
+    let g = &graph.grid;
+    let shade =
+        ((u32::from(level.min(LEVELS)) * 255 + u32::from(LEVELS) / 2) / u32::from(LEVELS)) as u8;
+    let mask = atlas.mask(glyph);
+    let x0 = (cx - f64::from(g.cell_w) / 2.0).round() as i32;
+    let y0 = (cy - f64::from(g.cell_h) / 2.0).round() as i32;
+    let x1 = x0 + g.cell_w as i32;
+    let y1 = y0 + g.cell_h as i32;
+    let Some(rect) = PixelRect::clipped(x0, y0, x1, y1, img.width, img.height) else {
+        return;
+    };
+    drawn.push(rect);
+    let w = img.width as usize;
+    for y in rect.y..rect.y + rect.h {
+        let my = (y as i32 - y0) as u32;
+        let rt = graph.lighting.row_terms(y);
+        for x in rect.x..rect.x + rect.w {
+            let mx = (x as i32 - x0) as u32;
+            let lvl = ink_level(mask[(my * g.cell_w + mx) as usize], shade);
+            if lvl == 0 {
+                continue;
+            }
+            let band = graph.lighting.band_in_row(&rt, x);
+            img.pixels[y as usize * w + x as usize] = if ink {
+                IndexedPalette::ink(band, lvl)
+            } else {
+                IndexedPalette::ember(band, lvl)
             };
         }
     }
@@ -321,7 +373,7 @@ fn character_pose<'a>(
                 true,
             )
         }
-        (Some(a), Clock::Live) => {
+        (Some(a), Clock::Live | Clock::Smooth) => {
             let st = state_at(a, graph.seed, t_ms, &|state| {
                 character.one_shot_ms(&a.id, state)
             });
@@ -353,7 +405,9 @@ fn character_pose<'a>(
 }
 
 /// The activity's `[[effects]]` for the current state, at their anchors on the
-/// current frame. Particles snap to cells like the embers.
+/// current frame. Particles snap to cells like the embers, except with
+/// `Clock::Smooth`.
+#[allow(clippy::too_many_arguments)]
 fn draw_effects(
     img: &mut IndexedImage,
     drawn: &mut Vec<PixelRect>,
@@ -362,6 +416,7 @@ fn draw_effects(
     atlas: &GlyphAtlas,
     pose: &Pose,
     t_ms: u64,
+    clock: Clock,
 ) {
     let Some(a) = art.activity() else {
         return;
@@ -382,6 +437,18 @@ fn draw_effects(
         for p in preset_particles(preset, seed, t_ms, graph.pace) {
             let x = f64::from(cx) + p.dx * dir * f64::from(pose.sc);
             let y = f64::from(cy) + p.dy * f64::from(pose.sc);
+            if clock == Clock::Smooth {
+                let (gx0, gy0) = (f64::from(g.origin_x), f64::from(g.origin_y));
+                let inside = x >= gx0
+                    && y >= gy0
+                    && x < gx0 + f64::from(g.cols * g.cell_w)
+                    && y < gy0 + f64::from(g.rows * g.cell_h);
+                if inside {
+                    let steam = preset == Preset::Steam;
+                    draw_particle_at(img, drawn, graph, atlas, x, y, p.glyph, p.level, steam);
+                }
+                continue;
+            }
             let col = ((x - f64::from(g.origin_x)) / f64::from(g.cell_w)).floor();
             let row = ((y - f64::from(g.origin_y)) / f64::from(g.cell_h)).floor();
             if col < 0.0 || row < 0.0 || col >= f64::from(g.cols) || row >= f64::from(g.rows) {

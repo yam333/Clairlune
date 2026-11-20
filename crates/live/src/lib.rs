@@ -4,8 +4,10 @@
 //! [`Player`] keeps the frame between ticks with the incremental compositor
 //! and writes only the rectangles that changed into a 0RGB buffer, which the
 //! presenter copies to the screen as damage. The pixels come from the same
-//! compositor as the still PNG, so the first live frame (at the hero time)
-//! is the static wallpaper exactly, and so is every frame's palette.
+//! compositor as the still PNG, with the same palette, so the first live
+//! frame (at the hero time) is the static wallpaper, except that on a GPU
+//! the particles sit at their own sub-cell positions ([`Player::set_smooth`])
+//! instead of the cell grid.
 
 use clairlune_render::clock::Clock;
 use clairlune_render::{IncrementalFrame, IndexedImage, PixelRect, ScenePackage};
@@ -66,6 +68,8 @@ pub struct Player {
     /// is the still), and when that was.
     t0: u64,
     started: Instant,
+    /// `Clock::Live` (particles on the cell grid) or `Clock::Smooth`.
+    clock: Clock,
 }
 
 impl Player {
@@ -85,7 +89,16 @@ impl Player {
             colors,
             t0,
             started: Instant::now(),
+            clock: Clock::Live,
         })
+    }
+
+    /// Particles at sub-cell positions (`Clock::Smooth`), for presenters on
+    /// a GPU: a higher frame rate then moves them smoothly. Off by default,
+    /// so the first frame is the still exactly; the CPU fallback keeps it
+    /// off (PLAN.md section 4.4).
+    pub fn set_smooth(&mut self, on: bool) {
+        self.clock = if on { Clock::Smooth } else { Clock::Live };
     }
 
     pub fn size(&self) -> (u32, u32) {
@@ -111,7 +124,7 @@ impl Player {
     /// Moves to `t_ms`; returns the rectangles that changed.
     pub fn advance(&mut self, t_ms: u64) -> Vec<PixelRect> {
         self.pkg
-            .advance(&mut self.frame, self.theme, self.buddy, t_ms, Clock::Live)
+            .advance(&mut self.frame, self.theme, self.buddy, t_ms, self.clock)
             .unwrap_or_default()
     }
 
