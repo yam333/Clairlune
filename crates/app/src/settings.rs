@@ -63,11 +63,19 @@ pub struct DisplaySettings {
 pub struct LiveSettings {
     /// Frames per second: 6, 12, 24, 30 or 60 (PLAN.md section 5.3).
     pub smoothness_fps: u32,
+    /// On battery, drop to Battery saver (6 fps).
+    pub battery_saver_on_battery: bool,
+    /// On battery, stop animating (the frame stays).
+    pub pause_on_battery: bool,
 }
 
 impl Default for LiveSettings {
     fn default() -> Self {
-        LiveSettings { smoothness_fps: 12 }
+        LiveSettings {
+            smoothness_fps: 12,
+            battery_saver_on_battery: true,
+            pause_on_battery: false,
+        }
     }
 }
 

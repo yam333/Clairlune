@@ -715,9 +715,32 @@ fn page(
                         }
                     });
             });
+            row(
+                ui,
+                theme,
+                "Battery saver on battery",
+                "On battery, drop to 6 frames a second.",
+                |ui| {
+                    toggle(
+                        ui,
+                        theme,
+                        &mut s.live.battery_saver_on_battery,
+                        "Battery saver on battery",
+                    );
+                },
+            );
+            row(
+                ui,
+                theme,
+                "Pause on battery",
+                "On battery, stop the animation; the frame stays on screen.",
+                |ui| {
+                    toggle(ui, theme, &mut s.live.pause_on_battery, "Pause on battery");
+                },
+            );
             ui.label(
                 RichText::new(
-                    "A monitor covered by a maximized or full-screen app pauses until it shows again. Frames are drawn on the graphics card the monitor is plugged into.",
+                    "Live pauses while the computer is locked or the displays are off, and on any monitor a maximized or full-screen app covers. Frames are drawn on the graphics card the monitor is plugged into.",
                 )
                 .color(c(t.text_secondary)),
             );
