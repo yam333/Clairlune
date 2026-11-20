@@ -2,6 +2,7 @@
 
 mod contact;
 mod gifcmd;
+mod livecmd;
 mod packagecmd;
 mod setcmd;
 
@@ -112,6 +113,8 @@ enum Command {
     Restore,
     /// Freeze a scene into a package that plays without the generator.
     Package(packagecmd::PackageArgs),
+    /// Play a scene per monitor behind the desktop icons for a while (Windows).
+    Live(livecmd::LiveArgs),
 }
 
 #[derive(Args)]
@@ -353,6 +356,7 @@ fn main() -> ExitCode {
         Command::Set(args) => setcmd::set(args),
         Command::Restore => setcmd::restore(),
         Command::Package(args) => packagecmd::package(args),
+        Command::Live(args) => livecmd::live(args),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

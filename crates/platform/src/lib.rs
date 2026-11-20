@@ -15,6 +15,9 @@ mod linux;
 mod store;
 #[cfg(windows)]
 mod windows;
+/// Live wallpaper windows in the desktop layer (Windows).
+#[cfg(windows)]
+pub mod windows_live;
 
 pub use store::{Snapshot, StillStore};
 

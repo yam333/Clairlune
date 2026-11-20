@@ -1,0 +1,24 @@
+[package]
+name = "clairlune-live"
+description = "Clairlune's live wallpaper: plays a scene behind the desktop icons, drawing only what changed"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords = ["wallpaper", "live-wallpaper", "desktop", "animation"]
+categories = ["graphics", "rendering"]
+
+[dependencies]
+clairlune-scene.workspace = true
+clairlune-render.workspace = true
+clairlune-platform.workspace = true
+tracing.workspace = true
+wgpu.workspace = true
+pollster.workspace = true
+raw-window-handle.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+softbuffer.workspace = true
