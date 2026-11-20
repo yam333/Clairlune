@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "c8b80cf9783fd898",
-  "activity": "warm_hands",
+  "content_ctx_hash": "9728113e67509462",
+  "activity": "make_coffee",
   "archetype": "forest",
   "light_tod": "noon",
-  "dark_tod": "deep_dusk",
+  "dark_tod": "dusk",
   "platform": "log",
   "props": [
-    "campfire"
+    "camp_stove"
   ],
   "weather": "none",
   "composition": {

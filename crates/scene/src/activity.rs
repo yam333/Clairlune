@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 /// Prop ids the engine can draw.
-pub const PROPS: [&str; 15] = [
+pub const PROPS: [&str; 16] = [
     "campfire",
     "log_seat",
     "telescope",
@@ -29,6 +29,7 @@ pub const PROPS: [&str; 15] = [
     "stone_pile",
     "easel",
     "snowman",
+    "basket",
 ];
 /// Effect ids the engine can draw.
 pub const EFFECTS: [&str; 1] = ["embers"];
@@ -50,7 +51,11 @@ pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "i
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 13] = [
+const SOURCES: [(&str, &str); 14] = [
+    (
+        "balloon_ride.toml",
+        include_str!("../activities/balloon_ride.toml"),
+    ),
     (
         "broom_flight.toml",
         include_str!("../activities/broom_flight.toml"),

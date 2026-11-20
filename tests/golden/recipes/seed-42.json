@@ -5,15 +5,13 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "c8b80cf9783fd898",
-  "activity": "read_lantern",
-  "archetype": "mountains",
+  "content_ctx_hash": "9728113e67509462",
+  "activity": "fly_kite",
+  "archetype": "city_rooftops",
   "light_tod": "golden_hour",
-  "dark_tod": "dusk",
-  "platform": "rock_ledge",
-  "props": [
-    "lantern"
-  ],
+  "dark_tod": null,
+  "platform": "rooftop_edge",
+  "props": [],
   "weather": "none",
   "composition": {
     "horizon_pm": 697,

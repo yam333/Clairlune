@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "c8b80cf9783fd898",
-  "activity": "broom_flight",
-  "archetype": "forest",
-  "light_tod": null,
+  "content_ctx_hash": "9728113e67509462",
+  "activity": "make_coffee",
+  "archetype": "mountains",
+  "light_tod": "morning",
   "dark_tod": "dusk",
-  "platform": "log",
+  "platform": "rock_ledge",
   "props": [
-    "spellbook"
+    "camp_stove"
   ],
-  "weather": "none",
+  "weather": "snow",
   "composition": {
     "horizon_pm": 641,
     "focus_x_pm": 650,
@@ -23,9 +23,8 @@
     "platform_margin_pm": 12,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 408,
-    "pace_half_pm": 0,
-    "fly_lift_pm": 240
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "sand_day",

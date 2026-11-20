@@ -95,7 +95,7 @@ impl IndexedPalette {
         // older scenes' palette indices).
         let (early, late) = SpriteKind::ALL.split_at(SpriteKind::BEFORE_CHARACTER);
         let early = early.iter().flat_map(|k| k.map().palette());
-        let character = clairlune_sprites::builtin_character().colors();
+        let character = character_colours();
         let late = late.iter().flat_map(|k| k.map().palette());
         for rgb in early.chain(character).chain(late) {
             if !colors[SPRITE_BASE as usize..].contains(&rgb) {
@@ -161,6 +161,40 @@ impl IndexedPalette {
     }
 }
 
+/// The character's colours in the order palettes have listed them since
+/// version 0.10.0. Palette indices follow this order, so it is frozen: a
+/// colour new art brings goes after these (in RGB order), and older scenes
+/// keep their indices however the sheets are named.
+const CHARACTER_ORDER: [Rgb; 16] = [
+    Rgb::hex(0xE8957A),
+    Rgb::hex(0xD9785C),
+    Rgb::hex(0xB85E45),
+    Rgb::hex(0x261A16),
+    Rgb::hex(0x5B4B8A),
+    Rgb::hex(0xFFE9A0),
+    Rgb::hex(0xC9A45C),
+    Rgb::hex(0x413566),
+    Rgb::hex(0x7A5234),
+    Rgb::hex(0x4E3422),
+    Rgb::hex(0x3B4450),
+    Rgb::hex(0xEEEAE0),
+    Rgb::hex(0xC8452E),
+    Rgb::hex(0x2A2624),
+    Rgb::hex(0x933022),
+    Rgb::hex(0xC8C2B0),
+];
+
+/// The built-in character's colours: the frozen order, then any others.
+fn character_colours() -> Vec<Rgb> {
+    let mut extra: Vec<Rgb> = clairlune_sprites::builtin_character()
+        .colors()
+        .into_iter()
+        .filter(|c| !CHARACTER_ORDER.contains(c))
+        .collect();
+    extra.sort_by_key(|c| (c.r, c.g, c.b));
+    CHARACTER_ORDER.iter().copied().chain(extra).collect()
+}
+
 /// Ink level `0..=LEVELS` from glyph alpha and cell shade (both 0-255).
 #[inline]
 pub fn ink_level(alpha: u8, shade: u8) -> u8 {
@@ -180,6 +214,17 @@ mod tests {
             assert!(p.len() <= 255, "{}: {}", f.id, p.len());
             assert!(p.sprite_index(Rgb::hex(0xD9785C)).is_some());
         }
+    }
+
+    #[test]
+    fn every_character_colour_has_a_slot_and_the_old_ones_keep_theirs() {
+        let p = IndexedPalette::new(&FAMILIES[0]);
+        for c in clairlune_sprites::builtin_character().colors() {
+            assert!(p.sprite_index(c).is_some(), "{c:?} has no palette entry");
+        }
+        // The frozen order comes first among the character's colours.
+        let colours = character_colours();
+        assert_eq!(&colours[..CHARACTER_ORDER.len()], &CHARACTER_ORDER);
     }
 
     #[test]
