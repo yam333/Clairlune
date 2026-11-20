@@ -20,6 +20,9 @@ mod windows;
 /// Live wallpaper windows in the desktop layer (Windows).
 #[cfg(windows)]
 pub mod windows_live;
+/// Compositors with wlr layer-shell: our own background surfaces.
+#[cfg(target_os = "linux")]
+pub mod wlr;
 
 pub use store::{Snapshot, StillStore};
 

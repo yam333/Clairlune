@@ -114,7 +114,7 @@ enum Command {
     Restore,
     /// Freeze a scene into a package that plays without the generator.
     Package(packagecmd::PackageArgs),
-    /// Play a scene per monitor behind the desktop icons for a while (Windows).
+    /// Play a scene behind the desktop icons for a while (Windows; Linux on wlr layer-shell compositors and X11 without a desktop of its own).
     Live(livecmd::LiveArgs),
     /// Open a window with an activity in the scenes it fits; reloads the
     /// activity files and sprite sheets when they change (art authoring).

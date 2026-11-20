@@ -28,9 +28,97 @@ pub struct LiveArgs {
     no_buddy: bool,
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 pub fn live(_args: LiveArgs) -> Result<(), String> {
-    Err("live wallpapers run on Windows so far".to_string())
+    Err("`live` runs on Windows and Linux; on macOS, try Live in the app".to_string())
+}
+
+/// Linux: plays the desktop's scene on our own surfaces for a while; the
+/// wallpaper itself is never touched, and shows again when they close.
+#[cfg(target_os = "linux")]
+pub fn live(args: LiveArgs) -> Result<(), String> {
+    use crate::setcmd::monitor_seed;
+    use crate::{random_seed, restrict_activity, restrict_archetype};
+    use clairlune_live::Player;
+    use clairlune_live::linux::LinuxDesktop;
+    use clairlune_render::ScenePackage;
+    use clairlune_scene::{Aspect, ContentContext, Theme, compose};
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+
+    clairlune_live::linux::available()?;
+    let host = clairlune_platform::detect().map_err(|e| e.to_string())?;
+    let m = host
+        .monitors()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .next()
+        .ok_or("no monitors found")?;
+    let mut ctx = ContentContext::default();
+    if let Some(id) = &args.archetype {
+        restrict_archetype(&mut ctx, id)?;
+    }
+    if let Some(id) = &args.activity {
+        restrict_activity(&mut ctx, id)?;
+    }
+    let base = args.seed.unwrap_or_else(random_seed);
+    let seed = monitor_seed(base, &m);
+    let recipe = compose(seed, Aspect::from_size(m.width, m.height), &ctx);
+    let pkg = ScenePackage::capture(&recipe, m.width, m.height)
+        .map_err(|e| format!("seed {seed}: {e}"))?;
+    let wanted: Theme = args.theme.into();
+    let theme = if pkg.themes().contains(&wanted) {
+        wanted
+    } else {
+        pkg.themes()[0]
+    };
+    println!(
+        "{}x{}  seed {seed}  {} in {}  ({})",
+        m.width,
+        m.height,
+        recipe.activity.as_deref().unwrap_or("-"),
+        recipe.archetype,
+        theme.as_str()
+    );
+    let player = Player::new(Arc::new(pkg), theme, !args.no_buddy).ok_or("no such theme")?;
+    let mut desktop = LinuxDesktop::start(vec![(m, player)])?;
+    let fps = args.fps.clamp(1, desktop.max_fps());
+    println!(
+        "live: playing for {} s at {fps} fps, presenting with {}",
+        args.seconds,
+        desktop.presenter()
+    );
+    let frame = Duration::from_secs_f64(1.0 / f64::from(fps));
+    let started = Instant::now();
+    let end = started + Duration::from_secs(args.seconds);
+    let (mut frames, mut pixels, mut busy, mut worst) =
+        (0u64, 0u64, Duration::ZERO, Duration::ZERO);
+    let mut next = Instant::now();
+    while Instant::now() < end {
+        let s = desktop.tick()?;
+        frames += 1;
+        pixels += s.pixels;
+        busy += s.busy;
+        worst = worst.max(s.busy);
+        next += frame;
+        let now = Instant::now();
+        if next < now {
+            next = now; // fell behind: don't try to catch up
+        }
+        std::thread::sleep(next.min(end).saturating_duration_since(Instant::now()));
+    }
+    let wall = started.elapsed();
+    drop(desktop);
+    println!(
+        "{frames} frames in {:.1} s ({:.1} fps); per frame {:.2} ms busy (worst {:.2}), {:.0} px copied",
+        wall.as_secs_f64(),
+        frames as f64 / wall.as_secs_f64(),
+        busy.as_secs_f64() * 1e3 / frames.max(1) as f64,
+        worst.as_secs_f64() * 1e3,
+        pixels as f64 / frames.max(1) as f64
+    );
+    println!("stopped; your wallpaper was never changed.");
+    Ok(())
 }
 
 #[cfg(windows)]
