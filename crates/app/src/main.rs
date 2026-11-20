@@ -103,6 +103,9 @@ struct App {
     /// Hears display changes and Explorer restarts (Windows).
     #[cfg(windows)]
     watcher: Option<clairlune_platform::windows_live::SystemWatcher>,
+    /// Hears Space changes: a picture is set on the current Space only (macOS).
+    #[cfg(target_os = "macos")]
+    spaces: clairlune_platform::macos::SpaceWatcher,
     /// The monitor layout the wallpaper was made for, when a change was
     /// noticed (it settles before anything is redone), and when to look for
     /// changes where nothing tells us (not Windows).
@@ -1043,6 +1046,11 @@ impl App {
                 self.check_timeline();
             }
         }
+        #[cfg(target_os = "macos")]
+        if self.spaces.take_changed() && !self.busy {
+            // The stills were set on the Space that was active then.
+            self.live.reset_stills();
+        }
         if !cfg!(windows) && now >= self.next_monitor_poll {
             self.next_monitor_poll = now + MONITOR_POLL;
             noticed = self.monitor_layout.as_ref() != Some(&monitor_layout(event_loop));
@@ -1961,6 +1969,8 @@ fn main() {
         live,
         #[cfg(windows)]
         watcher,
+        #[cfg(target_os = "macos")]
+        spaces: clairlune_platform::macos::SpaceWatcher::new(),
         monitor_layout: None,
         monitors_changed_at: None,
         next_monitor_poll: Instant::now(),

@@ -13,7 +13,7 @@ Decided 2026-11-19 (resolves PLAN.md section 14, question 1).
 | Platform | Static wallpaper | Notes |
 |---|---|---|
 | Windows | done (`IDesktopWallpaper`) | One image per monitor at its physical size (Per-Monitor DPI Aware v2). Monitor ids are device paths, stable across reboots. The first set saves the previous wallpaper and fit mode for `restore`. |
-| macOS | next | `NSWorkspace.setDesktopImageURL` per screen, re-applied on Space changes. |
+| macOS | written, not yet tried on a Mac | `NSWorkspace.setDesktopImageURL` per screen (no permission needed), re-applied on Space changes; ids from the display's vendor, model and serial numbers. |
 | Linux | implemented, not yet tried on real desktops | One image for all monitors, sized to the primary output (`xrandr`). GNOME (`picture-uri` and `picture-uri-dark`), Cinnamon, MATE (`gsettings`), KDE Plasma (`evaluateScript` over D-Bus), XFCE (`xfconf-query`, every monitor), Sway (`swaymsg`). Other wlroots compositors get our own layer-shell still surface later. Tray: StatusNotifierItem over D-Bus (ksni); stock GNOME has no tray host, so the app opens Settings instead. |
 
 Stills live in the local data directory (`%LOCALAPPDATA%\clairlune\current` on Windows), each under a new file name because some systems don't reload a changed file at the same path. Old stills for a monitor are deleted after the new one is set.

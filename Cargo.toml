@@ -69,6 +69,13 @@ windows = { version = "0.62.2", features = [
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
+# macOS: AppKit's wallpaper and screen calls, run on the main thread.
+objc2 = "0.6.5"
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSURL", "NSDictionary", "NSValue", "NSError", "NSNotification", "NSArray", "NSGeometry", "NSObject", "NSOperation", "NSEnumerator", "block2"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSWorkspace", "NSScreen", "NSGraphics", "block2", "objc2-core-foundation"] }
+objc2-core-graphics = { version = "0.3.2", default-features = false, features = ["std", "CGDirectDisplay", "CGDisplayConfiguration"] }
+dispatch2 = { version = "0.3.1", default-features = false, features = ["std"] }
+block2 = "0.6.2"
 # Live wallpapers: window handles for the presenter, and the CPU presenter.
 raw-window-handle = "0.6.2"
 softbuffer = "0.4.8"

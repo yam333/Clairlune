@@ -67,7 +67,7 @@ A moon appears in the notification area. The app sets a new wallpaper at start a
 
 Settings shows the wallpaper on screen and covers the schedule, theme, which landscapes, activities and weather to use, Clawd on or off, the archive, exports, start at login, and **Restore my wallpaper**: before its first change the app remembers your own wallpaper, and this puts it back (so does `clairlune-cli restore`). Settings are stored in `%APPDATA%\clairlune\settings.toml`, logs in `%LOCALAPPDATA%\clairlune\logs`.
 
-On Linux the app uses a StatusNotifier tray icon and sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway (one image for all monitors; not yet tried on real desktops, reports welcome). On macOS it runs and archives scenes but can't set the wallpaper yet. Live wallpapers run on Windows so far; elsewhere the still frame is used.
+On Linux the app uses a StatusNotifier tray icon and sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway (one image for all monitors; not yet tried on real desktops, reports welcome). On macOS it runs in the menu bar and sets a scene on each screen (it needs no permission for that; new, reports welcome). Live wallpapers run on Windows so far; elsewhere the still frame is used.
 
 ## Live wallpapers from the CLI (Windows)
 
