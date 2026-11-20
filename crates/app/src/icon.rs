@@ -86,13 +86,23 @@ mod tests {
 
     /// The installer icons (`packaging/icons/<size>.png`) are this moon:
     /// `CLAIRLUNE_WRITE_ICONS=1 cargo test -p clairlune icon` writes them, and
-    /// otherwise this checks the committed ones still match.
+    /// otherwise this checks the committed ones still match. The 1024 one is
+    /// `512@2x.png`: the macOS icon (`.icns`) takes it only as a 512 at 2x.
     #[test]
     fn installer_icons_are_the_moon() {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("packaging/icons");
-        for size in [32u32, 64, 128, 256, 512, 1024] {
+        let names = [
+            (16u32, "16.png"),
+            (32, "32.png"),
+            (64, "64.png"),
+            (128, "128.png"),
+            (256, "256.png"),
+            (512, "512.png"),
+            (1024, "512@2x.png"),
+        ];
+        for (size, name) in names {
             let rgba = moon_rgba(size);
-            let path = dir.join(format!("{size}.png"));
+            let path = dir.join(name);
             if std::env::var_os("CLAIRLUNE_WRITE_ICONS").is_some() {
                 std::fs::create_dir_all(&dir).unwrap();
                 let file = std::io::BufWriter::new(std::fs::File::create(&path).unwrap());
