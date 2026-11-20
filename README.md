@@ -23,6 +23,8 @@ Clairlune runs in the notification area (Windows) or the menu bar (macOS), with 
 
 From source, with Rust installed: `cargo install --path crates/app`.
 
+Package managers (Homebrew, winget, Scoop, the AUR) come once the repository is public; everything they need is built with each release already (docs/distribution.md).
+
 ## Try the generator
 
 ```sh

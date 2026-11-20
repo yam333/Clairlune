@@ -1,8 +1,11 @@
 name: Release
 
 # Installers for people who don't use a terminal: a per-user Windows setup.exe
-# and macOS DMGs (Apple Silicon and Intel). Runs on version tags (v1.2.3) and
-# by hand; a tag also attaches them to a GitHub release.
+# (plus a portable zip for Scoop), macOS DMGs (Apple Silicon and Intel), and a
+# Linux .deb and AppImage. Then the package-manager manifests for those files
+# (docs/distribution.md), as an artifact: nothing is published to a package
+# manager from here yet. Runs on version tags (v1.2.3) and by hand; a tag also
+# attaches the installers to a draft GitHub release.
 on:
   push:
     tags: ["v*"]
@@ -24,19 +27,26 @@ jobs:
           - name: windows
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            format: nsis
+            formats: nsis
           - name: macos-arm64
             os: macos-latest
             target: aarch64-apple-darwin
-            format: dmg
+            formats: dmg
           - name: macos-intel
             os: macos-latest
             target: x86_64-apple-darwin
-            format: dmg
+            formats: dmg
+          # The oldest glibc supported (docs/platform-support.md): 2.35.
+          - name: linux
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            formats: deb,appimage
     runs-on: ${{ matrix.os }}
     env:
       # The oldest macOS supported (docs/platform-support.md).
       MACOSX_DEPLOYMENT_TARGET: "13.0"
+      # linuxdeploy is itself an AppImage; runners have no FUSE.
+      APPIMAGE_EXTRACT_AND_RUN: "1"
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -50,25 +60,63 @@ jobs:
       - name: Build
         run: cargo build --release -p clairlune --target ${{ matrix.target }}
       - name: Package
-        run: cargo packager --release -p clairlune --target ${{ matrix.target }} --formats ${{ matrix.format }}
+        run: cargo packager --release -p clairlune --target ${{ matrix.target }} --formats ${{ matrix.formats }}
+      # Scoop installs apps from a zip it unpacks itself.
+      - name: Portable zip
+        if: matrix.name == 'windows'
+        shell: pwsh
+        run: |
+          $v = ((cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).packages | Where-Object name -eq 'clairlune').version
+          $dir = New-Item -ItemType Directory -Force target/portable
+          Copy-Item target/${{ matrix.target }}/release/clairlune.exe, LICENSE-MIT, LICENSE-APACHE, NOTICE $dir
+          Compress-Archive -Path "$dir/*" -DestinationPath "target/packages/clairlune_${v}_x64-portable.zip" -Force
       - uses: actions/upload-artifact@v5
         with:
           name: clairlune-${{ matrix.name }}
           path: |
             target/packages/*.exe
+            target/packages/*.zip
             target/packages/*.dmg
+            target/packages/*.deb
+            target/packages/*.AppImage
           if-no-files-found: error
 
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
+  manifests:
     needs: package
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           path: packages
           merge-multiple: true
+      - name: Write the manifests
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then version=""; fi
+          python3 scripts/package_manifests.py --artifacts packages --out manifests --strict ${version:+--version "$version"}
+      - uses: actions/upload-artifact@v5
+        with:
+          name: clairlune-manifests
+          path: manifests
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [package, manifests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: clairlune-*
+          path: packages
+          merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          files: packages/*
+          files: |
+            packages/*.exe
+            packages/*.zip
+            packages/*.dmg
+            packages/*.deb
+            packages/*.AppImage
           draft: true

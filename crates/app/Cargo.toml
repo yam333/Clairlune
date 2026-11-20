@@ -53,7 +53,8 @@ embed-resource = "3.0.12"
 
 # Installers (cargo-packager). Build first, then package:
 #   cargo build --release -p clairlune && cargo packager --release -p clairlune
-# Windows: a per-user setup.exe (no admin rights); macOS: a .app in a DMG.
+# Windows: a per-user setup.exe (no admin rights); macOS: a .app in a DMG;
+# Linux: a .deb and an AppImage.
 # CI does both on version tags (.github/workflows/release.yml).
 [package.metadata.packager]
 product-name = "Clairlune"
@@ -76,6 +77,12 @@ formats = ["nsis", "dmg"]
 
 [package.metadata.packager.nsis]
 installer-mode = "currentUser"
+
+# Linux: the rest (X11, Wayland, GL or Vulkan) is opened at run time and is
+# on every desktop; the keyboard map library isn't on minimal installs.
+[package.metadata.packager.deb]
+depends = ["libxkbcommon0"]
+section = "graphics"
 
 [package.metadata.packager.macos]
 minimum-system-version = "13.0"
