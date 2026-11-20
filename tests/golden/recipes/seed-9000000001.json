@@ -5,14 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "d1d0c9f9e72742d4",
-  "activity": "balloon_ride",
+  "content_ctx_hash": "01f15c35f9e3b611",
+  "activity": "broom_flight",
   "archetype": "city_rooftops",
-  "light_tod": "golden_hour",
-  "dark_tod": null,
+  "light_tod": null,
+  "dark_tod": "night",
   "platform": "rooftop_edge",
-  "props": [],
-  "weather": "none",
+  "props": [
+    "spellbook"
+  ],
+  "weather": "stars",
   "composition": {
     "horizon_pm": 624,
     "focus_x_pm": 348,
@@ -21,7 +23,7 @@
     "platform_margin_pm": 12,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 127,
+    "motion_speed_cc": 649,
     "pace_half_pm": 0,
     "fly_lift_pm": 175
   },

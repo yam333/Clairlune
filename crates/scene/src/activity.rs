@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 /// Prop ids the engine can draw.
-pub const PROPS: [&str; 18] = [
+pub const PROPS: [&str; 19] = [
     "campfire",
     "log_seat",
     "telescope",
@@ -32,6 +32,7 @@ pub const PROPS: [&str; 18] = [
     "basket",
     "picnic_basket",
     "chess_table",
+    "practice_wall",
 ];
 /// Effect ids the engine can draw.
 pub const EFFECTS: [&str; 1] = ["embers"];
@@ -42,7 +43,7 @@ pub const PARTICLE_PRESETS: [&str; 3] = ["sparkles", "steam", "notes"];
 pub const TETHER_PRESETS: [&str; 2] = ["fishing_line", "kite_string"];
 /// Projectile presets: something thrown on its own arc, timed from the start
 /// of the effect's state.
-pub const PROJECTILE_PRESETS: [&str; 2] = ["skipping_stone", "snowball"];
+pub const PROJECTILE_PRESETS: [&str; 3] = ["skipping_stone", "snowball", "tennis_ball"];
 /// Which way the character faces, when it matters: `water` (the open water,
 /// on the shore) or `open` (the middle of the screen, where the sky is
 /// widest).
@@ -53,7 +54,7 @@ pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "i
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 16] = [
+const SOURCES: [(&str, &str); 18] = [
     (
         "balloon_ride.toml",
         include_str!("../activities/balloon_ride.toml"),
@@ -82,6 +83,7 @@ const SOURCES: [(&str, &str); 16] = [
         "read_lantern.toml",
         include_str!("../activities/read_lantern.toml"),
     ),
+    ("rowing.toml", include_str!("../activities/rowing.toml")),
     (
         "skip_stones.toml",
         include_str!("../activities/skip_stones.toml"),
@@ -92,6 +94,7 @@ const SOURCES: [(&str, &str); 16] = [
     ),
     ("stargaze.toml", include_str!("../activities/stargaze.toml")),
     ("stroll.toml", include_str!("../activities/stroll.toml")),
+    ("tennis.toml", include_str!("../activities/tennis.toml")),
     (
         "warm_hands.toml",
         include_str!("../activities/warm_hands.toml"),
@@ -206,6 +209,10 @@ pub struct PropDef {
     pub attach: String,
     #[serde(default)]
     pub effects: Vec<String>,
+    /// Extra space before the prop, in sprite pixels (a practice wall
+    /// stands back from the player).
+    #[serde(default)]
+    pub gap: u32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -366,6 +373,9 @@ impl Activity {
                 }
             }
         }
+        if self.motion.kind == MotionKind::Bob && self.requires.terrain != ["shore"] {
+            err("bob motion floats on the shore's water: requires.terrain = [\"shore\"]".into());
+        }
         if let Some(face) = &self.motion.face {
             if !FACINGS.contains(&face.as_str()) {
                 err(format!("unknown facing `{face}`"));
@@ -389,6 +399,9 @@ impl Activity {
                 other => err(format!(
                     "effect type `{other}` is not implemented (`particles`, `tether`, `projectile`)"
                 )),
+            }
+            if e.preset == "tennis_ball" && !self.props.contains_key("practice_wall") {
+                err("a tennis ball needs a practice wall (props.practice_wall)".into());
             }
             if e.preset == "snowball" && !self.props.contains_key("snowman") {
                 err("a snowball needs a snowman to throw at (props.snowman)".into());
@@ -420,14 +433,16 @@ impl Activity {
         }
         match self.motion.kind {
             MotionKind::Stationary => {}
-            MotionKind::Pace | MotionKind::Fly => match self.motion.speed_cells_per_s {
-                Some([lo, hi]) if lo > 0.0 && hi >= lo => {}
-                _ => err(format!(
-                    "{} motion needs speed_cells_per_s = [lo, hi] with 0 < lo <= hi",
-                    format!("{:?}", self.motion.kind).to_lowercase()
-                )),
-            },
-            MotionKind::Path | MotionKind::Bob => err(format!(
+            MotionKind::Pace | MotionKind::Fly | MotionKind::Bob => {
+                match self.motion.speed_cells_per_s {
+                    Some([lo, hi]) if lo > 0.0 && hi >= lo => {}
+                    _ => err(format!(
+                        "{} motion needs speed_cells_per_s = [lo, hi] with 0 < lo <= hi",
+                        format!("{:?}", self.motion.kind).to_lowercase()
+                    )),
+                }
+            }
+            MotionKind::Path => err(format!(
                 "motion `{:?}` is not implemented yet (milestone M4)",
                 self.motion.kind
             )),

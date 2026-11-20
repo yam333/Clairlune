@@ -5,12 +5,12 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "d1d0c9f9e72742d4",
-  "activity": "fly_kite",
-  "archetype": "night_sky",
+  "content_ctx_hash": "01f15c35f9e3b611",
+  "activity": "balloon_ride",
+  "archetype": "forest",
   "light_tod": "morning",
   "dark_tod": null,
-  "platform": "floating_island",
+  "platform": "log",
   "props": [],
   "weather": "none",
   "composition": {
@@ -21,8 +21,9 @@
     "platform_margin_pm": 12,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "motion_speed_cc": 107,
+    "pace_half_pm": 0,
+    "fly_lift_pm": 240
   },
   "palette": {
     "light": "sand_day",

@@ -125,6 +125,10 @@ pub fn compose_with(
                     0,
                 )
             }
+            Some((MotionKind::Bob, Some([lo, hi]))) => {
+                let (lo, hi) = ((lo * 100.0).round() as u32, (hi * 100.0).round() as u32);
+                (motion.range_u32(lo, hi.max(lo)), 0, 0)
+            }
             Some((MotionKind::Fly, Some([lo, hi]))) => {
                 let (lo, hi) = ((lo * 100.0).round() as u32, (hi * 100.0).round() as u32);
                 (

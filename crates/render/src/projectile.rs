@@ -39,8 +39,62 @@ pub(crate) fn draw_projectile(
     match preset {
         "skipping_stone" => skipping_stone(img, drawn, graph, atlas, palette, a, elapsed_ms, clock),
         "snowball" => snowball(img, drawn, graph, atlas, palette, a, elapsed_ms, clock),
+        "tennis_ball" => tennis_ball(img, drawn, graph, palette, a, elapsed_ms),
         _ => {}
     }
+}
+
+/// One rally stroke in `RALLY_MS`: the ball leaves the racket, bounces off
+/// the practice wall and comes back as the swing comes round again (the
+/// rally animation lasts as long).
+const RALLY_MS: u64 = 1200;
+const TENNIS_BALL: Rgb = Rgb::hex(0xD8E04A);
+
+fn tennis_ball(
+    img: &mut IndexedImage,
+    drawn: &mut Vec<PixelRect>,
+    graph: &SceneGraph,
+    palette: &IndexedPalette,
+    a: &Anchor,
+    elapsed_ms: u64,
+) {
+    use clairlune_scene::SpriteKind;
+    let Some(wall) = graph
+        .props
+        .iter()
+        .find(|s| s.kind == SpriteKind::PracticeWall)
+    else {
+        return;
+    };
+    let (x0, y0) = (f64::from(a.x), f64::from(a.y));
+    // The wall's face toward the player, a little above its middle.
+    let wx = if f64::from(wall.x) > x0 {
+        f64::from(wall.x)
+    } else {
+        f64::from(wall.x) + f64::from(wall.width())
+    };
+    let wy = f64::from(wall.y) + f64::from(wall.height()) * 0.25;
+    let t = (elapsed_ms % RALLY_MS) as f64 / RALLY_MS as f64;
+    // Out on the first half, back on the second; a low arc each way.
+    let (u, from, to) = if t < 0.5 {
+        (t * 2.0, (x0, y0), (wx, wy))
+    } else {
+        ((t - 0.5) * 2.0, (wx, wy), (x0, y0))
+    };
+    let h = (wx - x0).abs() * 0.2;
+    let x = from.0 + (to.0 - from.0) * u;
+    let y = from.1 + (to.1 - from.1) * u - 4.0 * h * u * (1.0 - u);
+    let sc = a.sc;
+    fill(
+        img,
+        drawn,
+        graph,
+        x.round() as i32 - sc,
+        y.round() as i32 - sc,
+        sc * 2,
+        sc * 2,
+        palette.sprite_index(TENNIS_BALL),
+    );
 }
 
 /// A snowball from the hand to the snowman's middle on a short arc, then a

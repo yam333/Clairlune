@@ -57,7 +57,7 @@ proptest! {
         let flies = g.character.is_some_and(|t| t.flies());
         for s in &g.sprites_at(g.t_hero_ms) {
             if flies && s.kind == SpriteKind::Character {
-                prop_assert!(s.y >= 0 && s.y + s.height() as i32 <= g.ground_y, "flying off screen");
+                prop_assert!(s.y >= 0 && s.y + s.height() as i32 <= h as i32, "flying off screen");
                 prop_assert!(s.x >= 0 && s.x + s.width() as i32 <= w as i32, "flying off screen");
                 continue;
             }

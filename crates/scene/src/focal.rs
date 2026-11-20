@@ -67,6 +67,7 @@ fn prop_kind(id: &str) -> Option<SpriteKind> {
         "basket" => Some(SpriteKind::Basket),
         "picnic_basket" => Some(SpriteKind::PicnicBasket),
         "chess_table" => Some(SpriteKind::ChessTable),
+        "practice_wall" => Some(SpriteKind::PracticeWall),
         _ => None,
     }
 }
@@ -79,6 +80,7 @@ pub fn layout(
     h: u32,
     ground_y: i32,
     cell_w: u32,
+    cell_h: u32,
 ) -> FocalLayout {
     let comp = &recipe.composition;
     let wf = f64::from(w);
@@ -108,7 +110,7 @@ pub fn layout(
     };
 
     // Props in file order; `either_side` alternates starting from the recipe's side.
-    let mut sides: Vec<(SpriteKind, bool, &str)> = Vec::new();
+    let mut sides: Vec<(SpriteKind, bool, &str, i32)> = Vec::new();
     let mut next_left = comp.prop_left;
     for (id, def) in &activity.props {
         let Some(kind) = prop_kind(id) else { continue };
@@ -121,13 +123,13 @@ pub fn layout(
                 l
             }
         };
-        sides.push((kind, left, id.as_str()));
+        sides.push((kind, left, id.as_str(), (def.gap * scale) as i32));
     }
     let side_width = |left: bool| -> i32 {
         sides
             .iter()
-            .filter(|(_, l, _)| *l == left)
-            .map(|(k, _, _)| (k.map().width * scale) as i32 + gap)
+            .filter(|(_, l, _, _)| *l == left)
+            .map(|(k, _, _, extra)| (k.map().width * scale) as i32 + gap + extra)
             .sum()
     };
 
@@ -157,15 +159,16 @@ pub fn layout(
     let (mut left_cursor, mut right_cursor) = (cx - half_band - gap, cx + half_band + gap);
     // Tall poses (a hat, a raised wand) get extra cleared space above the box.
     let mut height = ch + (activity.character.headroom * scale) as i32;
-    for (kind, left, id) in &sides {
+    for (kind, left, id, extra) in &sides {
         let map = kind.map();
         let (pw, ph) = ((map.width * scale) as i32, (map.height * scale) as i32);
         let x = if *left {
-            left_cursor -= pw;
+            left_cursor -= pw + extra;
             let x = left_cursor;
             left_cursor -= gap;
             x
         } else {
+            right_cursor += extra;
             let x = right_cursor;
             right_cursor += pw + gap;
             x
@@ -262,6 +265,30 @@ pub fn layout(
                 lift,
                 bob: (h as i32 / 150).max(2),
                 bob_ms: 3000,
+            }
+        }
+        // A boat on the shore's water past the pier's end (the pier comes
+        // in from the edge nearer the group), rowing back and forth.
+        MotionKind::Bob if comp.motion_speed_cc > 0 => {
+            let unit = f64::from(w.min(h));
+            let margin = (pm(comp.platform_margin_pm) * unit) as i32 + 5 * cell_w as i32;
+            let (x_min, x_max) = if cx < w as i32 / 2 {
+                (cx + cw / 2 + margin, (w as f64 * 0.92) as i32 - cw)
+            } else {
+                ((w as f64 * 0.08) as i32, cx - cw / 2 - margin - cw)
+            };
+            let px_per_s = f64::from(comp.motion_speed_cc) / 100.0 * f64::from(cell_w);
+            let period_ms = ((2.0 * f64::from((x_max - x_min).max(0)) / px_per_s.max(1.0)) * 1000.0)
+                .round() as u64;
+            // The waterline under the pier (see terrain::shore).
+            let water = ground_y + 2 * cell_h as i32 + cell_h as i32 / 2;
+            Motion::Fly {
+                x_min,
+                x_max: x_max.max(x_min),
+                period_ms: period_ms.max(6000),
+                lift: ground_y - water,
+                bob: (h as i32 / 260).max(1),
+                bob_ms: 2000,
             }
         }
         _ => Motion::Stationary { x: cx - cw / 2 },
