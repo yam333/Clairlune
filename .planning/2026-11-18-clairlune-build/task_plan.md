@@ -169,7 +169,10 @@ Order: the app core first (usable in still mode with no UI), then the design wor
 - **Status:** pending
 
 ### Phase 15: M6b Library + Timeline
-- [ ] Library (section 9a), timeline (section 9b) with DST tests and the editor UI
+- [x] 15a Library (PLAN.md 9a): `library.rs` (items copy an archive entry incl. frozen scenes; item.json with name, tags, display/theme/buddy choices), Save to library (tray, Settings), Library window (grid, selection action bar: use as wallpaper, rename, theme/Clawd choices, PNG/GIF export, two-step delete), applying an item replays its scenes with its choices
+- [ ] 15b Timeline model + timeline.toml + resolver by UTC instants (DST: spring forward, fall back, repeated hour), chrono + chrono-tz in tests
+- [ ] 15c Timeline runtime (slots: item, pool, random; overrides; tray "Timeline: ... next at HH:MM"); deleting a library item used by the timeline
+- [ ] 15d Timeline editor window
 - **Status:** pending
 
 ### Phase 16: M7 Live wallpaper hosts

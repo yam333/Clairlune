@@ -12,6 +12,7 @@ mod apply;
 mod archive;
 mod icon;
 mod ipc;
+mod library;
 mod settings;
 mod timefmt;
 mod tokens;
@@ -52,13 +53,19 @@ struct App {
     next_check: Instant,
     /// The theme the current wallpaper was rendered for.
     shown_theme: Option<Theme>,
-    /// The archive entry on screen.
-    current: Option<String>,
+    /// The folder of what's on screen: an archive entry or a library item.
+    current: Option<PathBuf>,
+    /// A library item's own theme and Clawd choices, kept while it shows.
+    current_theme: Option<Theme>,
+    current_buddy: Option<bool>,
     /// What's on screen, for the Settings window.
     status: ui::view::Status,
     tray: Option<tray::Tray>,
     /// The Settings window, while open, and the section it last showed.
-    settings_window: Option<ui::SettingsWindow>,
+    settings_window: Option<ui::UiWindow>,
+    /// The Library window, while open, and the items it lists.
+    library_window: Option<ui::UiWindow>,
+    library_items: Vec<library::Item>,
     last_section: ui::view::Section,
     /// `--ui-test`: scripted open/close cycles with screenshots, then exit.
     ui_test: Option<UiTest>,
@@ -77,8 +84,11 @@ struct UiTest {
 #[derive(Clone, Copy)]
 enum UiStep {
     Open(Theme, ui::view::Section),
+    OpenLibrary,
+    /// Of the Library window when it's open, else of Settings.
     Screenshot(&'static str),
     Close,
+    CloseLibrary,
     Exit,
 }
 
@@ -98,7 +108,10 @@ impl UiTest {
             steps.push((ms(t0 + 700), UiStep::Screenshot(shot)));
             steps.push((ms(t0 + 1200), UiStep::Close));
         }
-        steps.push((ms(4800), UiStep::Exit));
+        steps.push((ms(4800), UiStep::OpenLibrary));
+        steps.push((ms(5600), UiStep::Screenshot("library.png")));
+        steps.push((ms(6100), UiStep::CloseLibrary));
+        steps.push((ms(6600), UiStep::Exit));
         UiTest {
             out,
             steps,
@@ -184,6 +197,8 @@ impl App {
     }
 
     fn new_wallpaper(&mut self) {
+        self.current_theme = None;
+        self.current_buddy = None;
         let seed = random_seed();
         self.submit(Job::New {
             seed,
@@ -195,30 +210,62 @@ impl App {
         archive::Archive::open(self.data_dir.join("archive")).ok()
     }
 
-    /// Re-applies saved recipes: the previous entry, or the current one again
-    /// (for a theme change).
+    /// Re-applies saved scenes: the previous archive entry, or what's on
+    /// screen again (for a theme change).
     fn reapply(&mut self, previous: bool) {
         let Some(archive) = self.archive() else {
             return;
         };
-        let target = match (&self.current, previous) {
-            (Some(cur), true) => archive.before(cur),
-            (None, true) => archive.entries().into_iter().rev().nth(1),
-            (Some(cur), false) => archive.entries().into_iter().find(|e| &e.name == cur),
-            (None, false) => archive.latest(),
+        let (dir, theme, buddy) = if previous {
+            // The archive entry before the current one; from a library item,
+            // the newest archive entry.
+            let current_name = self
+                .current
+                .as_ref()
+                .filter(|p| p.starts_with(archive.dir()))
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().into_owned());
+            let entry = match current_name {
+                Some(n) => archive.before(&n),
+                None => archive.latest(),
+            };
+            let Some(entry) = entry else {
+                return;
+            };
+            self.current_theme = None;
+            self.current_buddy = None;
+            (archive.dir().join(entry.name), None, None)
+        } else {
+            let Some(dir) = self.current.clone() else {
+                return;
+            };
+            (dir, self.current_theme, self.current_buddy)
         };
-        let Some(entry) = target else {
-            return;
-        };
-        match archive.recipes(&entry) {
+        self.apply_folder(dir, theme, buddy, previous);
+    }
+
+    /// Shows the scenes saved in a folder (archive entry or library item).
+    fn apply_folder(
+        &mut self,
+        dir: PathBuf,
+        theme: Option<Theme>,
+        buddy: Option<bool>,
+        archive: bool,
+    ) {
+        let recipes = std::fs::read_to_string(dir.join("recipe.json"))
+            .map_err(|e| e.to_string())
+            .and_then(|t| serde_json::from_str(&t).map_err(|e| e.to_string()));
+        match recipes {
             Ok(recipes) => self.submit(Job::Recipes {
                 recipes: Box::new(recipes),
-                entry: Some(entry.name.clone()),
+                source: Some(dir),
+                theme,
+                buddy,
                 settings: Box::new(self.settings.clone()),
-                archive: previous,
+                archive,
             }),
             Err(e) => {
-                tracing::warn!(target: "clairlune", entry = %entry.name, error = %e, "unreadable archive entry")
+                tracing::warn!(target: "clairlune", dir = %dir.display(), error = %e, "unreadable saved scene")
             }
         }
     }
@@ -282,9 +329,11 @@ impl App {
             }
             Action::SavePng => {
                 let dest = self.export_dir();
-                self.submit(Job::Export { dest });
+                self.submit(Job::Export { dest, source: None });
             }
             Action::SaveGif => self.export_gif(),
+            Action::SaveToLibrary => self.save_to_library(),
+            Action::OpenLibrary => self.open_library(event_loop),
             Action::OpenArchive => open(&self.data_dir.join("archive"), false),
             Action::OpenSettings => self.open_settings(event_loop, None),
             Action::Quit => event_loop.exit(),
@@ -303,7 +352,7 @@ impl App {
             .ok()
             .and_then(|exe| clairlune_platform::start_at_login(&exe));
         self.status.note = None;
-        match ui::SettingsWindow::open(event_loop, theme, self.last_section) {
+        match ui::UiWindow::open(event_loop, ui::Kind::Settings, theme, self.last_section) {
             Ok(w) => {
                 self.settings_window = Some(w);
                 self.refresh_window_thumb();
@@ -318,12 +367,148 @@ impl App {
         }
     }
 
-    /// Loads the current wallpaper's thumbnail into the open Settings window.
-    fn refresh_window_thumb(&mut self) {
-        let (Some(w), Some(name)) = (&mut self.settings_window, &self.current) else {
+    /// The library folder.
+    fn library(&self) -> Option<library::Library> {
+        library::Library::open(self.data_dir.join("library")).ok()
+    }
+
+    fn refresh_library(&mut self) {
+        self.library_items = self.library().map(|l| l.items()).unwrap_or_default();
+        self.redraw_windows();
+    }
+
+    fn redraw_windows(&self) {
+        for w in [&self.settings_window, &self.library_window]
+            .into_iter()
+            .flatten()
+        {
+            w.request_redraw();
+        }
+    }
+
+    fn open_library(&mut self, event_loop: &ActiveEventLoop) {
+        self.refresh_library();
+        if self.library_window.is_some() {
+            return;
+        }
+        let theme = apply::resolve_theme(self.settings.theme.mode);
+        match ui::UiWindow::open(event_loop, ui::Kind::Library, theme, self.last_section) {
+            Ok(w) => self.library_window = Some(w),
+            Err(e) => tracing::warn!(target: "clairlune", error = %e, "no library window"),
+        }
+    }
+
+    /// Copies the archive entry on screen into the library.
+    fn save_to_library(&mut self) {
+        let note = (|| {
+            let dir = self
+                .current
+                .clone()
+                .ok_or("There's no wallpaper to save yet.")?;
+            let lib = self
+                .library()
+                .ok_or("The library folder can't be opened.")?;
+            if dir.starts_with(lib.dir()) {
+                return Err("This wallpaper is already in the library.");
+            }
+            let archive = self.archive().ok_or("The archive can't be opened.")?;
+            let name = dir.file_name().map(|n| n.to_string_lossy().into_owned());
+            let entry = archive
+                .entries()
+                .into_iter()
+                .find(|e| Some(&e.name) == name.as_ref())
+                .ok_or("This wallpaper is no longer in the archive.")?;
+            lib.save_entry(&dir, &entry, timefmt::now_unix())
+                .map(|item| item.name)
+                .map_err(|_| "Saving to the library failed; see the logs.")
+        })();
+        self.status.note = Some(match note {
+            Ok(name) => format!("Saved to the library as {name}."),
+            Err(e) => e.to_string(),
+        });
+        self.refresh_library();
+    }
+
+    fn library_choices(item: &library::Item, settings: &Settings) -> (Option<Theme>, Option<bool>) {
+        let theme = match item.theme {
+            library::ThemeChoice::Follow => None,
+            library::ThemeChoice::Light => Some(Theme::Light),
+            library::ThemeChoice::Dark => Some(Theme::Dark),
+        };
+        let buddy = match item.buddy {
+            library::BuddyChoice::Follow => None,
+            library::BuddyChoice::On => Some(true),
+            library::BuddyChoice::Off => Some(false),
+        };
+        let _ = settings;
+        (theme, buddy)
+    }
+
+    fn on_library_action(&mut self, action: ui::view::UiAction) {
+        use ui::view::UiAction;
+        let Some(lib) = self.library() else {
             return;
         };
-        let path = self.data_dir.join("archive").join(name).join("thumb.png");
+        match action {
+            UiAction::ApplyLibrary(id) => {
+                if let Some(item) = lib.get(&id) {
+                    let (theme, buddy) = Self::library_choices(&item, &self.settings);
+                    self.current_theme = theme;
+                    self.current_buddy = buddy;
+                    self.apply_folder(lib.item_dir(&id), theme, buddy, false);
+                }
+            }
+            UiAction::UpdateLibrary(item) => {
+                if let Err(e) = lib.update(&item) {
+                    self.status.note = Some(format!("Couldn't save the change: {e}"));
+                }
+                // Showing this item: apply its new choices right away.
+                if self.current.as_deref() == Some(lib.item_dir(&item.id).as_path()) {
+                    let (theme, buddy) = Self::library_choices(&item, &self.settings);
+                    self.current_theme = theme;
+                    self.current_buddy = buddy;
+                    self.reapply(false);
+                }
+            }
+            UiAction::DeleteLibrary(id) => {
+                if self.current.as_deref() == Some(lib.item_dir(&id).as_path()) {
+                    self.current = None;
+                }
+                self.status.note = Some(match lib.delete(&id) {
+                    Ok(()) => "Deleted from the library.".to_string(),
+                    Err(e) => format!("Couldn't delete it: {e}"),
+                });
+            }
+            UiAction::ExportLibrary { id, gif } => {
+                let dest = self.export_dir();
+                let source = Some(lib.item_dir(&id));
+                if gif {
+                    let item = lib.get(&id);
+                    let (theme, buddy) = item
+                        .map(|i| Self::library_choices(&i, &self.settings))
+                        .unwrap_or((None, None));
+                    self.submit(Job::ExportGif {
+                        dest,
+                        source,
+                        theme: theme
+                            .unwrap_or_else(|| apply::resolve_theme(self.settings.theme.mode)),
+                        buddy: buddy.unwrap_or(self.settings.buddy.show),
+                    });
+                } else {
+                    self.submit(Job::Export { dest, source });
+                }
+            }
+            _ => {}
+        }
+        self.refresh_library();
+    }
+
+    /// Loads the current wallpaper's thumbnail into the open Settings window.
+    fn refresh_window_thumb(&mut self) {
+        let (Some(w), Some(dir)) = (&mut self.settings_window, &self.current) else {
+            return;
+        };
+        let path = dir.join("thumb.png");
         if let Some((size, rgba)) = std::fs::read(&path)
             .ok()
             .and_then(|b| ui::decode_png_rgba(&b))
@@ -366,8 +551,14 @@ impl App {
             UiAction::OpenLogs => open(&self.data_dir.join("logs"), false),
             UiAction::SavePng => {
                 let dest = self.export_dir();
-                self.submit(Job::Export { dest });
+                self.submit(Job::Export { dest, source: None });
             }
+            UiAction::SaveToLibrary => self.save_to_library(),
+            UiAction::OpenLibrary => self.open_library(event_loop),
+            a @ (UiAction::ApplyLibrary(_)
+            | UiAction::UpdateLibrary(_)
+            | UiAction::DeleteLibrary(_)
+            | UiAction::ExportLibrary { .. }) => self.on_library_action(a),
             UiAction::SaveGif => {
                 self.status.note = Some("Making the GIF...".to_string());
                 self.export_gif();
@@ -417,10 +608,27 @@ impl App {
                 }
                 UiStep::Screenshot(name) => {
                     let out = self.ui_test.as_ref().map(|t| t.out.join(name));
-                    if let (Some(w), Some(out)) = (&mut self.settings_window, out) {
+                    let target = match &mut self.library_window {
+                        Some(w) => Some(w),
+                        None => self.settings_window.as_mut(),
+                    };
+                    if let (Some(w), Some(out)) = (target, out) {
                         w.screenshot_to = Some(out);
                         w.request_redraw();
                     }
+                }
+                UiStep::OpenLibrary => {
+                    self.open_library(event_loop);
+                    if let (Some(w), Some(first)) =
+                        (&mut self.library_window, self.library_items.first())
+                    {
+                        w.select_item(first);
+                    }
+                    tracing::info!(target: "clairlune", items = self.library_items.len(), "ui test: library opened");
+                }
+                UiStep::CloseLibrary => {
+                    self.library_window = None;
+                    tracing::info!(target: "clairlune", "ui test: library closed");
                 }
                 UiStep::Close => {
                     self.settings_window = None;
@@ -446,6 +654,7 @@ impl App {
             .unwrap_or_else(|| apply::resolve_theme(self.settings.theme.mode));
         self.submit(Job::ExportGif {
             dest,
+            source: None,
             theme,
             buddy: self.settings.buddy.show,
         });
@@ -465,7 +674,7 @@ impl App {
     fn on_done(&mut self, done: Done) {
         match done {
             Done::Applied {
-                entry_name,
+                source,
                 seed,
                 theme,
                 archetype,
@@ -474,7 +683,7 @@ impl App {
                 ms,
             } => {
                 self.busy = false;
-                self.current = Some(entry_name);
+                self.current = source;
                 self.shown_theme = Some(theme);
                 let what = match activity {
                     Some(a) => {
@@ -554,7 +763,9 @@ impl ApplicationHandler<AppEvent> for App {
             }
         }
         let latest = self.archive().and_then(|a| a.latest());
-        self.current = latest.as_ref().map(|e| e.name.clone());
+        self.current = latest
+            .as_ref()
+            .and_then(|e| self.archive().map(|a| a.dir().join(&e.name)));
         if let Some(e) = &latest {
             self.status.what = match &e.activity {
                 Some(a) => format!(
@@ -585,17 +796,34 @@ impl ApplicationHandler<AppEvent> for App {
     fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
         let status = self.status();
         let mut actions = Vec::new();
-        let Some(w) = self.settings_window.as_mut().filter(|w| w.id() == id) else {
-            return;
-        };
         let before = self.settings.clone();
-        let outcome = w.on_event(&event, &mut self.settings, &status, &mut actions);
-        self.last_section = w.section();
+        let library_dir = self.data_dir.join("library");
+        let w = match (&mut self.settings_window, &mut self.library_window) {
+            (Some(w), _) if w.id() == id => w,
+            (_, Some(w)) if w.id() == id => w,
+            _ => return,
+        };
+        let mut model = ui::Model {
+            settings: &mut self.settings,
+            status: &status,
+            library: &self.library_items,
+            library_dir: &library_dir,
+        };
+        let outcome = w.on_event(&event, &mut model, &mut actions);
+        let kind = w.kind();
+        if kind == ui::Kind::Settings {
+            self.last_section = w.section();
+        }
         if let ui::Outcome::Close = outcome {
-            self.settings_window = None;
-            tracing::debug!(target: "clairlune", "settings closed");
-            if !self.has_tray() && self.ui_test.is_none() {
-                event_loop.exit();
+            match kind {
+                ui::Kind::Settings => {
+                    self.settings_window = None;
+                    tracing::debug!(target: "clairlune", "settings closed");
+                    if !self.has_tray() && self.ui_test.is_none() && self.library_window.is_none() {
+                        event_loop.exit();
+                    }
+                }
+                ui::Kind::Library => self.library_window = None,
             }
         }
         if self.settings == before {
@@ -703,6 +931,46 @@ fn single_instance(data_dir: &Path) -> Result<std::fs::File, String> {
     }
 }
 
+/// `--ui-test`: three archived scenes in the scratch folder, two of them
+/// saved to the library, so the windows show real content.
+fn seed_ui_test(data_dir: &Path) -> Result<(), String> {
+    use clairlune_scene::{Aspect, ContentContext, compose};
+    let archive = archive::Archive::open(data_dir.join("archive")).map_err(|e| e.to_string())?;
+    let lib = library::Library::open(data_dir.join("library")).map_err(|e| e.to_string())?;
+    for (i, seed) in [3u64, 7, 42].into_iter().enumerate() {
+        let recipe = compose(seed, Aspect::from_size(16, 9), &ContentContext::default());
+        let pkg = clairlune_render::ScenePackage::capture(&recipe, 960, 540)
+            .map_err(|e| e.to_string())?;
+        let theme = pkg.themes()[0];
+        let (img, palette) = pkg.still(theme, true).ok_or("no frame")?;
+        let png = apply::png_of(&img, palette)?;
+        let thumb = apply::png_of(&apply::shrink(&img, 480), palette)?;
+        let entry = archive
+            .add(&archive::NewEntry {
+                created: 1_000 + i as u64,
+                recipes: archive::EntryRecipes {
+                    base_seed: seed,
+                    theme: theme.as_str().into(),
+                    monitors: vec![archive::MonitorScene {
+                        monitor: "ui-test".into(),
+                        width: 960,
+                        height: 540,
+                        recipe,
+                    }],
+                },
+                pngs: vec![png],
+                thumb_png: thumb,
+                packages: vec![pkg],
+            })
+            .map_err(|e| e.to_string())?;
+        if i < 2 {
+            lib.save_entry(&archive.dir().join(&entry.name), &entry, 2_000 + i as u64)
+                .map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 fn spawn_worker(
     rx: mpsc::Receiver<Job>,
     proxy: EventLoopProxy<AppEvent>,
@@ -741,6 +1009,11 @@ fn main() {
     };
     let _ = std::fs::create_dir_all(&data_dir);
     let _log = init_logging(&data_dir);
+    if ui_test_out.is_some()
+        && let Err(e) = seed_ui_test(&data_dir)
+    {
+        tracing::warn!(target: "clairlune", error = %e, "ui test content");
+    }
     let _instance = match single_instance(&data_dir) {
         Ok(f) => f,
         Err(e) => {
@@ -813,8 +1086,12 @@ fn main() {
         next_check: Instant::now() + CHECK_EVERY,
         shown_theme: None,
         current: None,
+        current_theme: None,
+        current_buddy: None,
         tray: None,
         settings_window: None,
+        library_window: None,
+        library_items: Vec::new(),
         last_section: ui::view::Section::Schedule,
         status: ui::view::Status::default(),
         ui_test: ui_test_out.map(UiTest::new),
