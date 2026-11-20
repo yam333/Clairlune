@@ -177,8 +177,8 @@ impl UiTest {
         let mut steps = Vec::new();
         let cycles = [
             (Theme::Dark, Section::Rotation, "settings-dark-rotation.png"),
-            (Theme::Light, Section::General, "settings-light-general.png"),
-            (Theme::Dark, Section::Display, "settings-dark-display.png"),
+            (Theme::Light, Section::Buddy, "settings-light-buddy.png"),
+            (Theme::Dark, Section::Live, "settings-dark-live.png"),
         ];
         for (i, (theme, section, shot)) in cycles.into_iter().enumerate() {
             let t0 = 1500 * i as u64;
@@ -1079,6 +1079,8 @@ impl App {
             self.settings.live.battery_saver_on_battery,
             self.settings.live.pause_on_battery,
         );
+        self.live
+            .set_cover_pause(self.settings.live.pause_when_covered);
         self.live.set_enabled(live);
         if let Some(t) = &self.tray {
             t.show_live(live && live::supported().is_ok());
@@ -1247,6 +1249,10 @@ impl App {
                     self.open_settings(event_loop, Some(theme));
                     if let Some(w) = &mut self.settings_window {
                         w.set_section(section);
+                        if section == ui::view::Section::Buddy {
+                            // The note a click on the toggle shows.
+                            w.toast("Clawd skips the next wallpaper");
+                        }
                     }
                     tracing::info!(target: "clairlune", ms = opened.elapsed().as_millis() as u64, memory_mb = memory_mb(), "ui test: settings opened");
                 }
@@ -1938,6 +1944,7 @@ fn main() {
         settings.live.battery_saver_on_battery,
         settings.live.pause_on_battery,
     );
+    live.set_cover_pause(settings.live.pause_when_covered);
     #[cfg(windows)]
     let watcher = match clairlune_platform::windows_live::SystemWatcher::new() {
         Ok(w) => Some(w),

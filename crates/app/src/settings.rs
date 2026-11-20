@@ -75,6 +75,21 @@ pub struct LiveSettings {
     pub battery_saver_on_battery: bool,
     /// On battery, stop animating (the frame stays).
     pub pause_on_battery: bool,
+    /// When an app is maximized or full screen over a monitor.
+    pub pause_when_covered: CoverPause,
+}
+
+/// What a maximized or full-screen app pauses.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CoverPause {
+    /// The monitor it covers.
+    #[default]
+    ThatMonitor,
+    /// Every monitor.
+    AllMonitors,
+    /// Nothing: keep playing.
+    Off,
 }
 
 impl Default for LiveSettings {
@@ -83,6 +98,7 @@ impl Default for LiveSettings {
             smoothness_fps: 12,
             battery_saver_on_battery: true,
             pause_on_battery: false,
+            pause_when_covered: CoverPause::ThatMonitor,
         }
     }
 }

@@ -18,6 +18,8 @@ pub struct Live {
     scenes: Vec<LiveScene>,
     enabled: bool,
     fps: u32,
+    /// What a maximized or full-screen app pauses.
+    cover_pause: crate::settings::CoverPause,
     /// On battery: drop to 6 fps, or stop animating.
     battery_saver: bool,
     battery_pause: bool,
@@ -45,6 +47,7 @@ impl Live {
             scenes: Vec::new(),
             enabled: enabled && supported().is_ok(),
             fps: fps.clamp(1, 60),
+            cover_pause: crate::settings::CoverPause::default(),
             battery_saver: true,
             battery_pause: false,
             on_battery: false,
@@ -84,6 +87,15 @@ impl Live {
     pub fn set_battery_policy(&mut self, saver: bool, pause: bool) {
         self.battery_saver = saver;
         self.battery_pause = pause;
+    }
+
+    /// What a maximized or full-screen app pauses.
+    pub fn set_cover_pause(&mut self, pause: crate::settings::CoverPause) {
+        self.cover_pause = pause;
+        #[cfg(windows)]
+        if let Some(d) = &mut self.desktop {
+            d.cover_policy = cover_policy(pause);
+        }
     }
 
     /// The frame rate now: Battery saver's 6 fps on battery when asked.
@@ -127,7 +139,8 @@ impl Live {
             return;
         };
         match clairlune_live::desktop::Desktop::start(players) {
-            Ok(desktop) => {
+            Ok(mut desktop) => {
+                desktop.cover_policy = cover_policy(self.cover_pause);
                 let n = self.scenes.len();
                 self.status = Some(format!(
                     "Playing on {n} monitor{} at {} fps.",
@@ -212,6 +225,17 @@ impl Live {
             let _ = now;
             None
         }
+    }
+}
+
+#[cfg(windows)]
+fn cover_policy(p: crate::settings::CoverPause) -> clairlune_live::desktop::CoverPolicy {
+    use crate::settings::CoverPause;
+    use clairlune_live::desktop::CoverPolicy;
+    match p {
+        CoverPause::ThatMonitor => CoverPolicy::ThatMonitor,
+        CoverPause::AllMonitors => CoverPolicy::AllMonitors,
+        CoverPause::Off => CoverPolicy::Off,
     }
 }
 

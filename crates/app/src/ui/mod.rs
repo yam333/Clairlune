@@ -218,6 +218,7 @@ impl UiWindow {
                 section,
                 thumb: None,
                 moon: None,
+                toast: None,
             },
             theme,
             screenshot_to: None,
@@ -272,6 +273,12 @@ impl UiWindow {
 
     pub fn set_section(&mut self, section: view::Section) {
         self.view.section = section;
+        self.window.request_redraw();
+    }
+
+    /// Shows a brief note over the page (UI test).
+    pub fn toast(&mut self, text: &str) {
+        self.view.toast = Some((text.to_string(), std::time::Instant::now()));
         self.window.request_redraw();
     }
 

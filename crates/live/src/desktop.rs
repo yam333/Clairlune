@@ -44,6 +44,18 @@ struct Output {
     window: Option<LiveWindow>,
 }
 
+/// What a maximized or full-screen app pauses.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CoverPolicy {
+    /// The monitor it covers.
+    #[default]
+    ThatMonitor,
+    /// Every monitor.
+    AllMonitors,
+    /// Nothing.
+    Off,
+}
+
 /// What one frame cost, for budgets and logs.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct FrameStats {
@@ -80,6 +92,8 @@ pub struct Desktop {
     prefer: Option<DisplayAdapter>,
     /// The session is locked or the displays are off: nothing is drawn.
     away: bool,
+    /// What covering windows pause.
+    pub cover_policy: CoverPolicy,
 }
 
 /// How often to look for windows covering a monitor.
@@ -128,6 +142,7 @@ impl Desktop {
             checked: None,
             prefer,
             away: false,
+            cover_policy: CoverPolicy::default(),
         };
         for (monitor, player) in scenes {
             desktop.add(monitor, player)?;
@@ -416,7 +431,14 @@ impl Desktop {
                 self.away = away;
             }
             let monitors: Vec<Monitor> = self.outputs.iter().map(|o| o.monitor.clone()).collect();
-            for (o, c) in self.outputs.iter_mut().zip(covered(&monitors)) {
+            let mut found = match self.cover_policy {
+                CoverPolicy::Off => vec![false; monitors.len()],
+                _ => covered(&monitors),
+            };
+            if self.cover_policy == CoverPolicy::AllMonitors && found.iter().any(|&c| c) {
+                found.iter_mut().for_each(|c| *c = true);
+            }
+            for (o, c) in self.outputs.iter_mut().zip(found) {
                 if o.covered != c {
                     tracing::debug!(target: "clairlune", monitor = %o.monitor.id, covered = c, "live: monitor covered");
                 }
