@@ -282,6 +282,6 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 - [x] 24b Repeat avoidance: the worker keeps the last 12 picks in <data>/recent.json and composes each monitor with them, so a wallpaper never starts with the activity just shown and two monitors differ (test)
 - [x] 24c Archive window (docs/design.md wireframe): newest first, grouped Today / Yesterday / date, the entry on screen marked; one action bar: Use as wallpaper, Pin/Unpin, Save to library, Save PNG/GIF, two-step Delete; header shows retention and size against the cap; tray "Archive..." and Settings open it (folder button inside); UI test screenshot
 - [x] 24d Logging extras: crash reports in <data>/crashes (version, system, panic, backtrace, last 200 log lines, recipes on screen; the next launch says so once), Detailed logging for 24 h (reloadable filter), diagnostic bundle zip (about, 3 days of logs, crash reports, current + last 5 recipes, settings and timeline; home folder as ~), logs pruned to 50 MB at start. Tests for each
-- [ ] 24e Timeline: pre-render the next slot before its boundary; re-resolve at once on wake and time-zone change
+- [x] 24e Timeline: the next slot is made 4 s ahead and shown at its start (jobs carry a show-at instant; tried here: prepared at :56.000, shown at :00.05); the watcher window reports resume from sleep and clock or time-zone changes, which re-resolve at once
 - [ ] 24f `preview-activity` developer window with hot reload
 - **Status:** in progress

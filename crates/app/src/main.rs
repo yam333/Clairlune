@@ -63,6 +63,9 @@ fn monitor_layout(event_loop: &ActiveEventLoop) -> Vec<MonitorKey> {
     v
 }
 
+/// How far ahead of a timeline slot's start it is made.
+const TIMELINE_LEAD: jiff::SignedDuration = jiff::SignedDuration::from_secs(4);
+
 /// How long the monitor layout must stay still before the wallpaper follows.
 const MONITOR_SETTLE: Duration = Duration::from_millis(1500);
 /// Where no system message says the monitors changed, how often to look.
@@ -120,6 +123,9 @@ struct App {
     timeline_generate: bool,
     /// "New wallpaper" during a slot shows a random scene until the next one.
     manual_until: Option<jiff::Timestamp>,
+    /// The next job is made now and shown at this instant (a slot prepared
+    /// ahead of its start).
+    apply_at: Option<Instant>,
     pools: PoolState,
     /// The Settings window, while open, and the section it last showed.
     settings_window: Option<ui::UiWindow>,
@@ -293,9 +299,11 @@ impl App {
         self.current_theme = None;
         self.current_buddy = None;
         let seed = random_seed();
+        let at = self.apply_at.take();
         self.submit(Job::New {
             seed,
             settings: Box::new(self.settings.clone()),
+            at,
         });
     }
 
@@ -348,8 +356,10 @@ impl App {
         let recipes = std::fs::read_to_string(dir.join("recipe.json"))
             .map_err(|e| e.to_string())
             .and_then(|t| serde_json::from_str(&t).map_err(|e| e.to_string()));
+        let at = self.apply_at.take();
         match recipes {
             Ok(recipes) => self.submit(Job::Recipes {
+                at,
                 recipes: Box::new(recipes),
                 source: Some(dir),
                 theme,
@@ -386,13 +396,36 @@ impl App {
             return;
         }
         let now = jiff::Timestamp::now();
-        let Some(active) = timeline::resolve(&self.timeline, &jiff::tz::TimeZone::system(), now)
-        else {
+        let tz = jiff::tz::TimeZone::system();
+        let Some(active) = timeline::resolve(&self.timeline, &tz, now) else {
             return;
         };
         self.timeline_next = Some(active.next);
         if self.ui_test.is_some() {
             return; // the UI test leaves the wallpaper alone
+        }
+        // Shortly before the next slot starts, make it now and show it at
+        // its start (PLAN.md section 9b, pre-rendering).
+        if !self.busy && self.timeline_since != Some(active.next) {
+            let ahead = active.next.duration_since(now);
+            if ahead > jiff::SignedDuration::ZERO
+                && ahead <= TIMELINE_LEAD
+                && let Some(up) = timeline::resolve(&self.timeline, &tz, active.next)
+                && up.since == active.next
+                && let Ok(wait) = std::time::Duration::try_from(ahead)
+            {
+                tracing::info!(target: "clairlune", seconds = wait.as_secs_f32(), "timeline: preparing the next slot");
+                self.manual_until = None;
+                self.timeline_since = Some(up.since);
+                self.apply_at = Some(Instant::now() + wait);
+                self.apply_pick(up.pick, up.since);
+                self.apply_at = None;
+                return;
+            }
+        }
+        // The next slot is already on its way.
+        if self.timeline_since.is_some_and(|s| s > now) {
+            return;
         }
         if let Some(until) = self.manual_until {
             if now < until {
@@ -404,7 +437,12 @@ impl App {
             return;
         }
         self.timeline_since = Some(active.since);
-        match active.pick {
+        self.apply_pick(active.pick, active.since);
+    }
+
+    /// Shows what the timeline picked: a slot, or new scenes on an empty day.
+    fn apply_pick(&mut self, pick: timeline::Pick, since: jiff::Timestamp) {
+        match pick {
             timeline::Pick::Generate => {
                 tracing::info!(target: "clairlune", "timeline: empty day, generating");
                 self.timeline_applied = None;
@@ -416,7 +454,7 @@ impl App {
                 self.timeline_applied = self.timeline.day(weekday).get(index).cloned();
                 self.timeline_generate = false;
                 self.next_change = None;
-                self.apply_slot(weekday, index, active.since.as_second() as u64);
+                self.apply_slot(weekday, index, since.as_second() as u64);
             }
         }
     }
@@ -488,9 +526,11 @@ impl App {
                 }
                 self.current_theme = None;
                 self.current_buddy = None;
+                let at = self.apply_at.take();
                 self.submit(Job::New {
                     seed: random_seed(),
                     settings: Box::new(s),
+                    at,
                 });
             }
         }
@@ -965,6 +1005,21 @@ impl App {
         }
     }
 
+    /// When to prepare the next timeline slot, if one is coming and isn't
+    /// prepared yet.
+    fn timeline_prepare_at(&self) -> Option<Instant> {
+        if !self.timeline_mode() || self.ui_test.is_some() {
+            return None;
+        }
+        let next = self.timeline_next?;
+        if self.timeline_since == Some(next) {
+            return None;
+        }
+        let ahead = next.duration_since(jiff::Timestamp::now()) - TIMELINE_LEAD;
+        let wait = std::time::Duration::try_from(ahead).unwrap_or(Duration::ZERO);
+        Some(Instant::now() + wait)
+    }
+
     /// Notices monitor changes (system messages on Windows, a poll elsewhere)
     /// and, once the layout has settled and differs from the one the
     /// wallpaper was made for, makes the current scenes again at the new
@@ -978,6 +1033,10 @@ impl App {
             if w.take_taskbar_created() {
                 tracing::info!(target: "clairlune", "Explorer restarted");
                 self.live.refresh();
+            }
+            if w.take_clock_changed() {
+                tracing::info!(target: "clairlune", "the clock changed or the computer woke; checking the timeline");
+                self.check_timeline();
             }
         }
         if !cfg!(windows) && now >= self.next_monitor_poll {
@@ -1542,6 +1601,16 @@ impl ApplicationHandler<AppEvent> for App {
         if let Some(t) = self.monitors_changed_at {
             wake = wake.min(t + MONITOR_SETTLE);
         }
+        // Wake in time to prepare the next timeline slot.
+        if let Some(t) = self.timeline_prepare_at() {
+            if Instant::now() >= t {
+                if !self.busy {
+                    self.check_timeline();
+                }
+            } else {
+                wake = wake.min(t);
+            }
+        }
         if !cfg!(windows) {
             wake = wake.min(self.next_monitor_poll);
         }
@@ -1882,6 +1951,7 @@ fn main() {
         timeline_next: None,
         timeline_generate: false,
         manual_until: None,
+        apply_at: None,
         pools,
         settings_window: None,
         library_window: None,

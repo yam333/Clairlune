@@ -608,6 +608,9 @@ mod tests {
 static DISPLAYS_CHANGED: AtomicBool = AtomicBool::new(false);
 /// Set by the watcher window: Explorer started again (its taskbar was made).
 static TASKBAR_CREATED: AtomicBool = AtomicBool::new(false);
+/// Set by the watcher window: the clock or time zone changed, or the
+/// computer woke up.
+static CLOCK_CHANGED: AtomicBool = AtomicBool::new(false);
 /// The id of the "TaskbarCreated" message, once registered.
 static TASKBAR_MSG: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
@@ -620,10 +623,23 @@ unsafe extern "system" fn watcher_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPA
         TASKBAR_CREATED.store(true, Ordering::Relaxed);
         return LRESULT(0);
     }
+    // Resume from sleep (automatic, and by the user).
+    const PBT_APMRESUMESUSPEND: u32 = 0x7;
+    const PBT_APMRESUMEAUTOMATIC: u32 = 0x12;
     match msg {
         WM_DISPLAYCHANGE | WM_DPICHANGED => {
             DISPLAYS_CHANGED.store(true, Ordering::Relaxed);
             LRESULT(0)
+        }
+        windows::Win32::UI::WindowsAndMessaging::WM_TIMECHANGE => {
+            CLOCK_CHANGED.store(true, Ordering::Relaxed);
+            LRESULT(0)
+        }
+        WM_POWERBROADCAST
+            if matches!(wp.0 as u32, PBT_APMRESUMESUSPEND | PBT_APMRESUMEAUTOMATIC) =>
+        {
+            CLOCK_CHANGED.store(true, Ordering::Relaxed);
+            LRESULT(1)
         }
         WM_SETTINGCHANGE if wp.0 as u32 == SPI_SETWORKAREA.0 => {
             DISPLAYS_CHANGED.store(true, Ordering::Relaxed);
@@ -696,6 +712,12 @@ impl SystemWatcher {
     /// Whether Explorer restarted since the last call.
     pub fn take_taskbar_created(&self) -> bool {
         TASKBAR_CREATED.swap(false, Ordering::Relaxed)
+    }
+
+    /// Whether the clock or time zone changed, or the computer woke, since
+    /// the last call.
+    pub fn take_clock_changed(&self) -> bool {
+        CLOCK_CHANGED.swap(false, Ordering::Relaxed)
     }
 }
 
