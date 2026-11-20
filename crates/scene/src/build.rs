@@ -4,7 +4,7 @@
 //! the same recipe gives the same landscape at any resolution; only the cell
 //! sampling changes. Buddy is a render flag: it changes sprites, never cells.
 
-use crate::activity::{Activity, builtin_catalog};
+use crate::activity::{Activity, Catalog, builtin_catalog};
 use crate::glyphs::{self, EMPTY};
 use crate::graph::{Cell, Glow, Lighting, SceneGraph, grid_spec};
 use crate::hash::hash_label;
@@ -71,6 +71,16 @@ impl std::error::Error for BuildError {}
 
 /// Builds the scene graph for one size, theme and Buddy state.
 pub fn build(recipe: &SceneRecipe, opts: &BuildOptions) -> Result<SceneGraph, BuildError> {
+    build_with(builtin_catalog(), recipe, opts)
+}
+
+/// [`build`] with another activity catalog (the developer preview loads one
+/// from disk to show edits without a rebuild).
+pub fn build_with(
+    catalog: &Catalog,
+    recipe: &SceneRecipe,
+    opts: &BuildOptions,
+) -> Result<SceneGraph, BuildError> {
     if !(OLDEST_GENERATOR_VERSION..=GENERATOR_VERSION).contains(&recipe.generator_version) {
         return Err(BuildError::UnsupportedVersion(recipe.generator_version));
     }
@@ -91,7 +101,7 @@ pub fn build(recipe: &SceneRecipe, opts: &BuildOptions) -> Result<SceneGraph, Bu
         *palette::family(family_id).ok_or_else(|| BuildError::UnknownPalette(family_id.clone()))?;
     let activity = match &recipe.activity {
         Some(id) => Some(
-            builtin_catalog()
+            catalog
                 .get(id)
                 .ok_or_else(|| BuildError::UnknownActivity(id.clone()))?,
         ),

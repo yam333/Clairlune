@@ -719,11 +719,14 @@ dependencies = [
  "clairlune-platform",
  "clairlune-render",
  "clairlune-scene",
+ "clairlune-sprites",
  "clap",
  "png",
  "serde_json",
+ "softbuffer",
  "tracing",
  "tracing-subscriber",
+ "winit",
 ]
 
 [[package]]

@@ -30,7 +30,7 @@ pub mod rng;
 pub(crate) mod terrain;
 
 pub use activity::{Activity, Catalog};
-pub use build::{BuildError, BuildOptions, build};
+pub use build::{BuildError, BuildOptions, build, build_with};
 pub use compose::compose;
 pub use graph::{
     Cell, CharacterTrack, GridSpec, Lighting, Motion, SceneGraph, SpriteInstance, SpriteKind,

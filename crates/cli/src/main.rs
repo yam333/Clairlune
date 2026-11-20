@@ -4,6 +4,7 @@ mod contact;
 mod gifcmd;
 mod livecmd;
 mod packagecmd;
+mod preview;
 mod setcmd;
 
 use clairlune_render::{render_still, save_png};
@@ -115,6 +116,9 @@ enum Command {
     Package(packagecmd::PackageArgs),
     /// Play a scene per monitor behind the desktop icons for a while (Windows).
     Live(livecmd::LiveArgs),
+    /// Open a window with an activity in the scenes it fits; reloads the
+    /// activity files and sprite sheets when they change (art authoring).
+    PreviewActivity(preview::PreviewArgs),
 }
 
 #[derive(Args)]
@@ -357,6 +361,7 @@ fn main() -> ExitCode {
         Command::Restore => setcmd::restore(),
         Command::Package(args) => packagecmd::package(args),
         Command::Live(args) => livecmd::live(args),
+        Command::PreviewActivity(args) => preview::preview(args),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
