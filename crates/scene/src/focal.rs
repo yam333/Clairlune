@@ -60,6 +60,7 @@ fn prop_kind(id: &str) -> Option<SpriteKind> {
         "book_closed" => Some(SpriteKind::BookClosed),
         "guitar_rest" => Some(SpriteKind::GuitarRest),
         "bucket" => Some(SpriteKind::Bucket),
+        "kite_rest" => Some(SpriteKind::KiteRest),
         _ => None,
     }
 }
@@ -252,9 +253,10 @@ pub fn layout(
             scale,
             motion,
             face_left: match activity.motion.face.as_deref() {
-                // The shore's pier comes in from the nearer edge, so the open
-                // water lies toward the middle of the screen.
-                Some("water") => cx > w as i32 / 2,
+                // Toward the middle of the screen: the shore's pier comes in
+                // from the nearer edge, so the open water lies that way, and
+                // so does the most open sky.
+                Some("water" | "open") => cx > w as i32 / 2,
                 _ => comp.prop_left,
             },
         }),

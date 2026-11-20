@@ -252,6 +252,25 @@ pub const BUCKET: PixelMap = PixelMap {
     colors: &[('K', INK_DARK), ('S', STEEL), ('s', STEEL_DARK)],
 };
 
+const KITE_RED: Rgb = Rgb::hex(0xC8452E);
+const KITE_WHITE: Rgb = Rgb::hex(0xEEEAE0);
+
+/// A kite propped up on its spool: the unattended variant of kite flying
+/// (project art, CC BY 4.0).
+pub const KITE_REST: PixelMap = PixelMap {
+    width: 5,
+    height: 7,
+    rows: &[
+        "..R..", ".RRR.", "RRWRR", ".RRR.", "..R..", "..K..", ".dKd.",
+    ],
+    colors: &[
+        ('R', KITE_RED),
+        ('W', KITE_WHITE),
+        ('K', INK_DARK),
+        ('d', WOOD_DARK),
+    ],
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -271,6 +290,7 @@ mod tests {
             BOOK_CLOSED,
             GUITAR_REST,
             BUCKET,
+            KITE_REST,
         ] {
             assert_eq!(map.rows.len() as u32, map.height);
             for row in map.rows {

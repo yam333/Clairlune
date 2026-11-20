@@ -6,7 +6,7 @@ use crate::palette::{PaletteFamily, Theme};
 use crate::particles::{Emitter, Particle};
 use crate::placeholder::{
     BOOK_CLOSED, BUCKET, CAMP_STOVE, CAMPFIRE, CLAWD_PLACEHOLDER, COFFEE_MUG, FALLEN_HAT,
-    GUITAR_REST, LANTERN, LOG_SEAT, PixelMap, SPELLBOOK, TELESCOPE,
+    GUITAR_REST, KITE_REST, LANTERN, LOG_SEAT, PixelMap, SPELLBOOK, TELESCOPE,
 };
 use crate::recipe::TimeOfDay;
 
@@ -176,11 +176,18 @@ pub enum SpriteKind {
     BookClosed,
     GuitarRest,
     Bucket,
+    KiteRest,
 }
 
 impl SpriteKind {
-    /// Every kind, so palettes can reserve all sprite colours up front.
-    pub const ALL: [SpriteKind; 12] = [
+    /// How many of [`ALL`](Self::ALL) reserve their colours before the
+    /// character's in a palette. Kinds added later go after them, so the
+    /// palette indices of scenes made before stay the same.
+    pub const BEFORE_CHARACTER: usize = 12;
+
+    /// Every kind, so palettes can reserve all sprite colours up front. New
+    /// kinds go at the end.
+    pub const ALL: [SpriteKind; 13] = [
         SpriteKind::Character,
         SpriteKind::Campfire,
         SpriteKind::LogSeat,
@@ -193,6 +200,7 @@ impl SpriteKind {
         SpriteKind::BookClosed,
         SpriteKind::GuitarRest,
         SpriteKind::Bucket,
+        SpriteKind::KiteRest,
     ];
 
     /// Layout box in sprite pixels. The character's box is the drawn art's
@@ -218,6 +226,7 @@ impl SpriteKind {
             SpriteKind::BookClosed => &BOOK_CLOSED,
             SpriteKind::GuitarRest => &GUITAR_REST,
             SpriteKind::Bucket => &BUCKET,
+            SpriteKind::KiteRest => &KITE_REST,
         }
     }
 }

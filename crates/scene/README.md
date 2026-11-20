@@ -9,7 +9,9 @@ use clairlune_scene::{compose, build, Aspect, BuildOptions, ContentContext, Them
 
 fn main() -> Result<(), clairlune_scene::BuildError> {
     let recipe = compose(7, Aspect::from_size(3840, 2160), &ContentContext::default());
-    let opts = BuildOptions { width: 3840, height: 2160, theme: Theme::Dark, buddy: true };
+    // Some activities happen only by day or only at night (a theme-locked recipe).
+    let theme = if recipe.tod_for(Theme::Dark).is_some() { Theme::Dark } else { Theme::Light };
+    let opts = BuildOptions { width: 3840, height: 2160, theme, buddy: true };
     let graph = build(&recipe, &opts)?;
     println!("{}", recipe.to_json()); // small, theme-independent, reproducible
     println!("{} x {} cells", graph.grid.cols, graph.grid.rows);

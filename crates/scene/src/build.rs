@@ -342,6 +342,15 @@ mod tests {
 
     fn graph(seed: u64, w: u32, h: u32, theme: Theme, buddy: bool) -> SceneGraph {
         let r = compose(seed, Aspect::from_size(w, h), &ContentContext::default());
+        // A theme-locked scene (night or day only) builds in the theme it has.
+        let theme = if r.tod_for(theme).is_some() {
+            theme
+        } else {
+            match theme {
+                Theme::Dark => Theme::Light,
+                Theme::Light => Theme::Dark,
+            }
+        };
         build(
             &r,
             &BuildOptions {
