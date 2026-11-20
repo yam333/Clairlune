@@ -6,9 +6,12 @@
 //! host for the running system. [`StillStore`] writes each still under a new
 //! file name, because some systems don't reload an unchanged path.
 //!
-//! Windows is implemented (`IDesktopWallpaper`, per monitor); other systems
-//! return [`PlatformError::Unsupported`] until their hosts land.
+//! Windows (`IDesktopWallpaper`, per monitor) and Linux (GNOME, Cinnamon,
+//! MATE, KDE Plasma, XFCE, Sway; one image for all monitors) are implemented;
+//! macOS returns [`PlatformError::Unsupported`] until its host lands.
 
+#[cfg(target_os = "linux")]
+mod linux;
 mod store;
 #[cfg(windows)]
 mod windows;
@@ -95,7 +98,11 @@ pub fn detect() -> Result<Box<dyn WallpaperHost>, PlatformError> {
     {
         Ok(Box::new(windows::WindowsHost::new()?))
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        Ok(Box::new(linux::LinuxHost::new()?))
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         Err(PlatformError::Unsupported(format!(
             "setting the wallpaper on {} arrives in a later milestone",

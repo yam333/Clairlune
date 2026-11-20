@@ -1,5 +1,7 @@
-//! The tray (menu-bar) icon and its menu (PLAN.md section 10). Windows and
-//! macOS for now; Linux gets the StatusNotifier backend later.
+//! The tray (menu-bar) icon and its menu (PLAN.md section 10): the
+//! notification area on Windows, the menu bar on macOS, a StatusNotifierItem
+//! over D-Bus on Linux (ksni; desktops without a tray host, such as stock
+//! GNOME, fall back to the Settings window).
 
 use crate::settings::ThemeMode;
 use tray_icon::menu::{CheckMenuItem, Menu, MenuId, MenuItem, PredefinedMenuItem, Submenu};
