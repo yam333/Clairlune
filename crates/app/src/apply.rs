@@ -17,7 +17,12 @@ use std::time::Instant;
 /// Work for the worker thread.
 pub enum Job {
     /// A new scene per monitor from a base seed.
-    New { seed: u64, settings: Box<Settings> },
+    New {
+        seed: u64,
+        settings: Box<Settings>,
+        /// Made now, shown then (a timeline slot prepared ahead of its start).
+        at: Option<Instant>,
+    },
     /// Saved recipes again (previous wallpaper, theme change, resolution
     /// change): same scenes, rendered for the current monitors and theme.
     Recipes {
@@ -32,6 +37,8 @@ pub enum Job {
         /// Archive it as a new entry (previous wallpaper) or only re-render
         /// the current one (theme change).
         archive: bool,
+        /// Made now, shown then (a timeline slot prepared ahead of its start).
+        at: Option<Instant>,
     },
     /// Copy the current wallpaper's primary image to the export folder.
     /// From `source` (an archive entry or library item folder), or the newest
@@ -333,9 +340,9 @@ fn run(
             buddy,
         } => export_gif(archive, &dest, source.as_deref(), theme, buddy),
         Job::Restore => restore(host, store),
-        Job::New { seed, settings } => {
-            apply(None, seed, &settings, true, host, store, archive, recent)
-        }
+        Job::New { seed, settings, at } => apply(
+            None, seed, &settings, true, host, store, archive, recent, at,
+        ),
         Job::Recipes {
             recipes,
             source,
@@ -343,6 +350,7 @@ fn run(
             buddy,
             settings,
             archive: add,
+            at,
         } => apply(
             Some(Source {
                 recipes: &recipes,
@@ -357,6 +365,7 @@ fn run(
             store,
             archive,
             recent,
+            at,
         ),
     }
     .unwrap_or_else(Done::Failed)
@@ -382,6 +391,7 @@ fn apply(
     store: &StillStore,
     archive: &Archive,
     recent: &mut Recent,
+    at: Option<Instant>,
 ) -> Result<Done, String> {
     let started = Instant::now();
     let monitors = match host {
@@ -422,6 +432,13 @@ fn apply(
         if i == 0 {
             used_theme = theme;
             primary_still = Some((img, palette.clone()));
+        }
+    }
+    // Prepared ahead (a timeline slot): everything is made; show it on time.
+    if let Some(at) = at {
+        let now = Instant::now();
+        if at > now {
+            std::thread::sleep(at - now);
         }
     }
     // The thumbnail: the primary scene shrunk to 480 px wide.
