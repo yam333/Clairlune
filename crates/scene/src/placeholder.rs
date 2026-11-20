@@ -280,6 +280,65 @@ pub const STONE_PILE: PixelMap = PixelMap {
     colors: &[('S', STEEL), ('s', STEEL_DARK)],
 };
 
+const PAINT_PURPLE: Rgb = Rgb::hex(0x5B4B8A);
+const SNOW_SHADE: Rgb = Rgb::hex(0xC8C2B0);
+
+/// An easel with a painting under way: the set piece for painting (project
+/// art, CC BY 4.0).
+pub const EASEL: PixelMap = PixelMap {
+    width: 9,
+    height: 11,
+    rows: &[
+        "....d....",
+        ".PPPPPPP.",
+        ".PRRPPYP.",
+        ".PPRPYYP.",
+        ".PUUPPPP.",
+        ".PPPPUPP.",
+        ".PPPPPPP.",
+        "ddddddddd",
+        "..d.d.d..",
+        ".d..d..d.",
+        "d...d...d",
+    ],
+    colors: &[
+        ('d', WOOD_DARK),
+        ('P', PAGE),
+        ('R', KITE_RED),
+        ('Y', BRASS),
+        ('U', PAINT_PURPLE),
+    ],
+};
+
+/// A snowman with a coal face and a hat: the target for snowballs (project
+/// art, CC BY 4.0).
+pub const SNOWMAN: PixelMap = PixelMap {
+    width: 9,
+    height: 14,
+    rows: &[
+        "...KKK...",
+        "...KKK...",
+        "..KKKKK..",
+        "...WWW...",
+        "..WKWKW..",
+        "..WWRRW..",
+        "...WWW...",
+        "..WWWWW..",
+        ".WWWKWWW.",
+        ".WWWWWWS.",
+        "WWWWKWWWS",
+        "WWWWWWWWS",
+        ".WWWWWWS.",
+        "..WWWWS..",
+    ],
+    colors: &[
+        ('K', INK_DARK),
+        ('W', PAGE),
+        ('S', SNOW_SHADE),
+        ('R', KITE_RED),
+    ],
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -301,6 +360,8 @@ mod tests {
             BUCKET,
             KITE_REST,
             STONE_PILE,
+            EASEL,
+            SNOWMAN,
         ] {
             assert_eq!(map.rows.len() as u32, map.height);
             for row in map.rows {

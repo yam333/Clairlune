@@ -5,13 +5,15 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "f87c9ab78e5b6914",
-  "activity": "fishing",
-  "archetype": "shore",
+  "content_ctx_hash": "c8b80cf9783fd898",
+  "activity": "snowballs",
+  "archetype": "snowfield",
   "light_tod": "morning",
-  "dark_tod": "deep_dusk",
-  "platform": "pier",
-  "props": [],
+  "dark_tod": "dusk",
+  "platform": "ice_shelf",
+  "props": [
+    "snowman"
+  ],
   "weather": "none",
   "composition": {
     "horizon_pm": 622,

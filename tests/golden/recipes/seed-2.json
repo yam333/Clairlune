@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "f87c9ab78e5b6914",
-  "activity": "play_guitar",
+  "content_ctx_hash": "c8b80cf9783fd898",
+  "activity": "stargaze",
   "archetype": "night_sky",
-  "light_tod": "golden_hour",
-  "dark_tod": "night",
+  "light_tod": null,
+  "dark_tod": "deep_dusk",
   "platform": "floating_island",
   "props": [
-    "campfire"
+    "telescope"
   ],
   "weather": "none",
   "composition": {

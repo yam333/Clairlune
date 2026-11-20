@@ -1,0 +1,47 @@
+# Throwing snowballs at a snowman: pack one, throw it on a short arc, a puff
+# of snow on the hit.
+id = "snowballs"
+weight = 1.0
+
+[requires]
+terrain = ["flat", "ledge", "slope"]
+surface = ["snow"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk"]
+weather = ["none", "snow"]
+
+[motion]
+type = "stationary"
+
+[props.snowman]
+attach = "either_side"
+
+[animation]
+start = "pack"
+
+# Packing a snowball, a quick look at the target.
+[animation.states.pack]
+loop = true
+dwell_s = [2.5, 5]
+next = { throw = 1.0 }
+
+# One-shot: wind up and throw.
+[animation.states.throw]
+next = { watch = 1.0 }
+
+# The snowball flies and puffs (about 1.2 s).
+[animation.states.watch]
+loop = true
+dwell_s = [1.6, 3]
+next = { pack = 1.0 }
+
+[[effects]]
+type = "projectile"
+preset = "snowball"
+at = "hand_r"
+states = ["watch"]
+
+[gif]
+loop_script = ["pack", "throw", "watch"]
+
+[unattended]
+props = ["snowman"]

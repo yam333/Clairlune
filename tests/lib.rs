@@ -26,8 +26,22 @@ pub fn golden_cases() -> Vec<(String, SceneRecipe)> {
         .iter()
         .filter(|a| a.implemented)
     {
+        // Only activities with a day and a night time, so every landscape
+        // has a golden image in both themes (day-only and night-only ones
+        // would lock it to one).
+        let both = |times: &[clairlune_scene::TimeOfDay]| {
+            use clairlune_scene::TimeOfDay;
+            times.iter().any(|t| TimeOfDay::LIGHT.contains(t))
+                && times.iter().any(|t| TimeOfDay::DARK.contains(t))
+        };
         let ctx = ContentContext {
             enabled_archetypes: vec![a.id.to_string()],
+            enabled_activities: clairlune_scene::activity::builtin_catalog()
+                .activities
+                .iter()
+                .filter(|act| both(&act.requires.time_of_day))
+                .map(|act| act.id.clone())
+                .collect(),
             ..ContentContext::default()
         };
         cases.push((

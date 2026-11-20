@@ -74,7 +74,7 @@ M.along = along
 --   eyes     "open" | "closed" | "left" | "right" | "up" | "happy" | "focus"
 --   arm_l, arm_r   "rest" | "out" | "up" | { dx, dy } hand position from the shoulder
 --   reach, wiggle  extra length / 1 px raise for "out" and "up" arms
---   hold     { item, angle, hand = "r" }  item: wand, racket, ski_pole, walking_stick, mug, chess_piece, rod, stone, broom
+--   hold     { item, angle, hand = "r" }  item: wand, racket, ski_pole, walking_stick, mug, chess_piece, rod, stone, broom, brush, snowball
 --   costume  { "wizard_hat", "beanie", "goggles", "backpack", "scarf" }
 --   legs     "stand" | "walk_a" | "walk_b" | "ski"
 function M.pose(o)
@@ -193,6 +193,20 @@ function ITEMS.broom(c, x, y, deg)
     line(c, bx, by, ex, ey, i % 2 == 0 and P.brass or P.wood_dark)
   end
   return { along(bx, by, deg, 5) }
+end
+function ITEMS.brush(c, x, y, deg)
+  -- A paintbrush: a thin handle, a dark ferrule, a dab of red paint.
+  local mx, my = along(x, y, deg, 4)
+  local tx, ty = along(x, y, deg, 6)
+  line(c, x, y, mx, my, P.wood)
+  c.px(tx, ty, P.red)
+  local fx, fy = along(x, y, deg, 5)
+  c.px(fx, fy, P.metal_dark)
+  return { tx, ty }
+end
+function ITEMS.snowball(c, x, y)
+  c.rect(x - 1, y - 2, 2, 2, P.white)
+  return { x, y - 2 }
 end
 function ITEMS.chess_piece(c, x, y)
   c.px(x, y - 3, P.ink)

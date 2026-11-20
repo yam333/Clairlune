@@ -5,13 +5,15 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "f87c9ab78e5b6914",
-  "activity": "skip_stones",
-  "archetype": "shore",
+  "content_ctx_hash": "c8b80cf9783fd898",
+  "activity": "read_lantern",
+  "archetype": "mountains",
   "light_tod": "golden_hour",
   "dark_tod": "dusk",
-  "platform": "pier",
-  "props": [],
+  "platform": "rock_ledge",
+  "props": [
+    "lantern"
+  ],
   "weather": "none",
   "composition": {
     "horizon_pm": 697,

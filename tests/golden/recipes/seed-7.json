@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "f87c9ab78e5b6914",
-  "activity": "wizard_magic",
-  "archetype": "cave",
+  "content_ctx_hash": "c8b80cf9783fd898",
+  "activity": "snowballs",
+  "archetype": "mountains",
   "light_tod": "noon",
-  "dark_tod": "night",
+  "dark_tod": "dusk",
   "platform": "rock_ledge",
   "props": [
-    "spellbook"
+    "snowman"
   ],
-  "weather": "dust",
+  "weather": "snow",
   "composition": {
     "horizon_pm": 638,
     "focus_x_pm": 500,
