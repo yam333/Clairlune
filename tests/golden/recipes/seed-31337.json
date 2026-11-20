@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "f00ae33da7baa107",
-  "activity": "read_lantern",
-  "archetype": "canyon",
-  "light_tod": "golden_hour",
+  "content_ctx_hash": "6a5a6da84d7ea68c",
+  "activity": "warm_hands",
+  "archetype": "forest",
+  "light_tod": "morning",
   "dark_tod": "deep_dusk",
-  "platform": "rock_ledge",
+  "platform": "tree_branch",
   "props": [
-    "lantern"
+    "campfire"
   ],
   "weather": "none",
   "composition": {

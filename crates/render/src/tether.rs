@@ -22,6 +22,7 @@ use std::f64::consts::TAU;
 
 const RED: Rgb = Rgb::hex(0xC8452E);
 const WHITE: Rgb = Rgb::hex(0xEEEAE0);
+const RED_DARK: Rgb = Rgb::hex(0x933022);
 
 /// Where the tether starts and how the character stands.
 pub(crate) struct Anchor<'a> {
@@ -147,8 +148,11 @@ fn kite_string(
     let sc = a.sc;
     let red = palette.sprite_index(RED);
     let white = palette.sprite_index(WHITE);
-    // A diamond five art pixels across, a white cross-spar in the middle.
-    const KITE: [&str; 5] = ["..R..", ".RRR.", "RRWRR", ".RRR.", "..R.."];
+    let red_dark = palette.sprite_index(RED_DARK).or(red);
+    // A diamond seven art pixels across, with a white cross-spar.
+    const KITE: [&str; 7] = [
+        "...R...", "..RWR..", ".RRWRR.", "WWWWWWW", ".RRWRR.", "..RWR..", "...R...",
+    ];
     for (r, row) in KITE.iter().enumerate() {
         for (c, ch) in row.bytes().enumerate() {
             let color = match ch {
@@ -156,17 +160,18 @@ fn kite_string(
                 b'W' => white,
                 _ => continue,
             };
-            let x = kx + (c as i32 - 2) * sc;
-            let y = ky + (r as i32 - 2) * sc;
+            let x = kx + (c as i32 - 3) * sc;
+            let y = ky + (r as i32 - 3) * sc;
             fill(img, drawn, graph, x, y, sc, sc, color);
         }
     }
-    // The tail: bows hanging below, swaying.
+    // The tail: bows hanging below, swaying (both reds, so they show on
+    // either theme).
     for i in 1..=5 {
         let sway = (f64::from(sc) * 1.2 * wave(t_ms, 1000, f64::from(i) * 0.8)).round() as i32;
         let x = kx + sway;
-        let y = ky + (2 + i * 2) * sc;
-        let color = if i % 2 == 0 { white } else { red };
+        let y = ky + (3 + i * 2) * sc;
+        let color = if i % 2 == 0 { red_dark } else { red };
         fill(img, drawn, graph, x, y, sc, sc, color);
     }
     line(
@@ -174,7 +179,7 @@ fn kite_string(
         drawn,
         graph,
         (f64::from(a.x), f64::from(a.y)),
-        (f64::from(kx), f64::from(ky + 2 * sc)),
+        (f64::from(kx), f64::from(ky + 3 * sc)),
         0.1,
         (sc / 2).max(1),
         3,

@@ -5,15 +5,13 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "f00ae33da7baa107",
-  "activity": "play_guitar",
+  "content_ctx_hash": "6a5a6da84d7ea68c",
+  "activity": "fishing",
   "archetype": "shore",
   "light_tod": "golden_hour",
-  "dark_tod": "night",
+  "dark_tod": "dusk",
   "platform": "pier",
-  "props": [
-    "campfire"
-  ],
+  "props": [],
   "weather": "stars",
   "composition": {
     "horizon_pm": 624,

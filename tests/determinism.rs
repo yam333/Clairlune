@@ -5,7 +5,7 @@
 
 use clairlune_render::{GlyphAtlas, IndexedPalette, bake_static, render_frame, render_still};
 use clairlune_scene::{BuildOptions, SceneRecipe, Theme, build};
-use clairlune_tests::{GOLDEN_SEEDS, blessing, golden_dir, recipe, still_opt};
+use clairlune_tests::{GOLDEN_SEEDS, available_theme, blessing, golden_dir, recipe, still_opt};
 
 #[test]
 fn recipes_are_identical_across_runs_and_round_trip() {
@@ -69,7 +69,7 @@ fn periodic_elements_loop_seamlessly() {
         let opts = BuildOptions {
             width: 640,
             height: 360,
-            theme: Theme::Dark,
+            theme: available_theme(&r, Theme::Dark),
             buddy: false,
         };
         let graph = build(&r, &opts).unwrap();
@@ -111,7 +111,7 @@ fn stills_show_the_start_pose() {
         let opts = BuildOptions {
             width: 640,
             height: 360,
-            theme: Theme::Dark,
+            theme: available_theme(&r, Theme::Dark),
             buddy: true,
         };
         let graph = build(&r, &opts).unwrap();

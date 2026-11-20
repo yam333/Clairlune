@@ -5,15 +5,13 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "f00ae33da7baa107",
-  "activity": "make_coffee",
-  "archetype": "cave",
+  "content_ctx_hash": "6a5a6da84d7ea68c",
+  "activity": "fishing",
+  "archetype": "shore",
   "light_tod": "golden_hour",
   "dark_tod": "dusk",
-  "platform": "rock_ledge",
-  "props": [
-    "camp_stove"
-  ],
+  "platform": "pier",
+  "props": [],
   "weather": "none",
   "composition": {
     "horizon_pm": 696,

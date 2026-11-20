@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 /// Prop ids the engine can draw.
-pub const PROPS: [&str; 11] = [
+pub const PROPS: [&str; 12] = [
     "campfire",
     "log_seat",
     "telescope",
@@ -25,6 +25,7 @@ pub const PROPS: [&str; 11] = [
     "book_closed",
     "guitar_rest",
     "bucket",
+    "kite_rest",
 ];
 /// Effect ids the engine can draw.
 pub const EFFECTS: [&str; 1] = ["embers"];
@@ -33,16 +34,19 @@ pub const PARTICLE_PRESETS: [&str; 3] = ["sparkles", "steam", "notes"];
 /// Tether presets: a line from an anchor to a moving end (a float on the
 /// water, a kite in the sky).
 pub const TETHER_PRESETS: [&str; 2] = ["fishing_line", "kite_string"];
-/// Which way the character faces, when it matters.
-pub const FACINGS: [&str; 1] = ["water"];
+/// Which way the character faces, when it matters: `water` (the open water,
+/// on the shore) or `open` (the middle of the screen, where the sky is
+/// widest).
+pub const FACINGS: [&str; 2] = ["water", "open"];
 /// Anchor names the art exports (docs/clawd-style.md).
 pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "item_tip"];
 /// Generic prop attachment points.
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 8] = [
+const SOURCES: [(&str, &str); 9] = [
     ("fishing.toml", include_str!("../activities/fishing.toml")),
+    ("fly_kite.toml", include_str!("../activities/fly_kite.toml")),
     (
         "make_coffee.toml",
         include_str!("../activities/make_coffee.toml"),
@@ -159,7 +163,7 @@ pub struct Motion {
     pub path: Option<String>,
     pub speed_cells_per_s: Option<[f64; 2]>,
     pub at_path_end: Option<String>,
-    /// `water`: face the open water (fishing off the pier).
+    /// One of [`FACINGS`].
     #[serde(default)]
     pub face: Option<String>,
 }

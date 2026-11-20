@@ -1,0 +1,42 @@
+# Flying a kite on a breezy day: the string up to a kite drifting over the
+# open middle of the sky, its tail swaying.
+id = "fly_kite"
+weight = 1.0
+
+[requires]
+terrain = ["flat", "rooftop", "dune", "shore"]
+time_of_day = ["morning", "noon", "golden_hour"]
+weather = ["none", "dust", "leaves"]
+sky = true
+
+[motion]
+type = "stationary"
+face = "open"
+
+[animation]
+start = "fly"
+
+[animation.states.fly]
+loop = true
+dwell_s = [6, 12]
+next = { tug = 0.6, look = 0.4 }
+
+[animation.states.look]
+loop = true
+dwell_s = [2, 4]
+next = { fly = 1.0 }
+
+# One-shot: a couple of tugs on the string.
+[animation.states.tug]
+next = { fly = 1.0 }
+
+[[effects]]
+type = "tether"
+preset = "kite_string"
+at = "hand_r"
+
+[gif]
+loop_script = ["fly", "tug"]
+
+[unattended]
+props = ["kite_rest"]

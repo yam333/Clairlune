@@ -91,14 +91,13 @@ impl IndexedPalette {
             }
         }
         debug_assert_eq!(colors.len(), SPRITE_BASE as usize);
-        for kind in SpriteKind::ALL {
-            for rgb in kind.map().palette() {
-                if !colors[SPRITE_BASE as usize..].contains(&rgb) {
-                    colors.push(rgb);
-                }
-            }
-        }
-        for rgb in clairlune_sprites::builtin_character().colors() {
+        // Props, the character, then props added since (their own order keeps
+        // older scenes' palette indices).
+        let (early, late) = SpriteKind::ALL.split_at(SpriteKind::BEFORE_CHARACTER);
+        let early = early.iter().flat_map(|k| k.map().palette());
+        let character = clairlune_sprites::builtin_character().colors();
+        let late = late.iter().flat_map(|k| k.map().palette());
+        for rgb in early.chain(character).chain(late) {
             if !colors[SPRITE_BASE as usize..].contains(&rgb) {
                 colors.push(rgb);
             }
