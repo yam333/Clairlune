@@ -133,3 +133,40 @@ fn golden_images() {
         failures.join("\n  ")
     );
 }
+
+/// Scenes saved with generator version 3 keep rendering exactly as they did:
+/// every golden case built as a version-3 recipe matches the hashes pinned in
+/// `golden/hashes-v3.txt` (made before version 4 changed the particle pace).
+#[test]
+fn version_3_recipes_render_as_before() {
+    let pinned: BTreeMap<String, String> =
+        std::fs::read_to_string(golden_dir().join("hashes-v3.txt"))
+            .expect("golden/hashes-v3.txt")
+            .lines()
+            .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
+            .filter_map(|l| {
+                l.split_once(' ')
+                    .map(|(k, v)| (k.to_string(), v.trim().to_string()))
+            })
+            .collect();
+    let mut failures = Vec::new();
+    for (prefix, recipe) in golden_cases() {
+        let mut v3 = recipe.clone();
+        v3.generator_version = 3;
+        for theme in [Theme::Dark, Theme::Light] {
+            let name = format!("{prefix}-{}", theme.as_str());
+            let got = match still_of(&v3, GOLDEN_W, GOLDEN_H, theme, true) {
+                Some(s) => format!("{:016x}", image_hash(&s.image, &s.palette.rgb_bytes())),
+                None => "locked".to_string(),
+            };
+            if pinned.get(&name) != Some(&got) {
+                failures.push(format!("{name}: {got} != {:?}", pinned.get(&name)));
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "version-3 renders changed:\n  {}",
+        failures.join("\n  ")
+    );
+}

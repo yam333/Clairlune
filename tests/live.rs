@@ -112,3 +112,34 @@ fn built_in_art_plays_incrementally_too() {
         W * H
     );
 }
+
+/// Smoothness only changes how often a frame is drawn, never the pace: a
+/// scene played at 6 fps and at 60 fps shows the same picture whenever both
+/// draw at the same moment.
+#[test]
+fn every_frame_rate_shows_the_same_moment() {
+    for r in recipes().into_iter().take(6) {
+        let pkg = ScenePackage::capture(&r, W, H).unwrap();
+        let theme = pkg.themes()[0];
+        let hero = pkg.hero_ms(theme).unwrap();
+        let mut slow = pkg.incremental(theme).unwrap();
+        let mut fast = pkg.incremental(theme).unwrap();
+        // Ten seconds: 6 fps draws every 1000/6 ms, 60 fps every 1000/60 ms;
+        // they meet every 500 ms.
+        for k in 0..=600u64 {
+            let t = hero + k * 1000 / 60;
+            pkg.advance(&mut fast, theme, true, t, Clock::Live).unwrap();
+            if k % 10 == 0 {
+                pkg.advance(&mut slow, theme, true, t, Clock::Live).unwrap();
+                if k % 30 == 0 {
+                    assert!(
+                        slow.image() == fast.image(),
+                        "seed {} at {} ms: 6 and 60 fps differ",
+                        r.seed,
+                        t - hero
+                    );
+                }
+            }
+        }
+    }
+}

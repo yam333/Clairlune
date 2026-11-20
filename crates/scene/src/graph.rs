@@ -335,6 +335,10 @@ pub struct SceneGraph {
     pub t_hero_ms: u64,
     /// Seamless loop length for periodic elements.
     pub loop_ms: u64,
+    /// How fast particles and effects move (`particles::CALM_PACE`); 0 in
+    /// scenes saved before the calm pace, which keep their motion.
+    #[serde(default)]
+    pub pace: u8,
 }
 
 impl SceneGraph {

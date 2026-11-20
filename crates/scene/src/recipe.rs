@@ -10,7 +10,10 @@ use serde::{Deserialize, Serialize};
 ///
 /// History: 1 = M1 canyon + placeholder focal group; 2 = activity-first composition (M2);
 /// 3 = drawn character art, sized by the art's box.
-pub const GENERATOR_VERSION: u32 = 3;
+pub const GENERATOR_VERSION: u32 = 4;
+/// The oldest recipes this build still makes exactly as before (version 3:
+/// the original particle pace).
+pub const OLDEST_GENERATOR_VERSION: u32 = 3;
 
 /// The nine v1 archetype ids (PLAN.md section 4.2).
 pub const ARCHETYPES: [&str; 9] = {

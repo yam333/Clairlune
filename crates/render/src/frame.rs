@@ -379,7 +379,7 @@ fn draw_effects(
         };
         let (cx, cy) = pose.screen(ax, ay);
         let seed = graph.seed.wrapping_add(i as u64 + 1);
-        for p in preset_particles(preset, seed, t_ms) {
+        for p in preset_particles(preset, seed, t_ms, graph.pace) {
             let x = f64::from(cx) + p.dx * dir * f64::from(pose.sc);
             let y = f64::from(cy) + p.dy * f64::from(pose.sc);
             let col = ((x - f64::from(g.origin_x)) / f64::from(g.cell_w)).floor();
