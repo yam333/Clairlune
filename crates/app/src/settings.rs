@@ -10,6 +10,7 @@ use std::path::Path;
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    pub rotation: Rotation,
     pub schedule: Schedule,
     pub theme: ThemeSettings,
     pub content: Content,
@@ -37,6 +38,21 @@ impl Default for Schedule {
             paused: false,
         }
     }
+}
+
+/// Generate new scenes on a schedule, or follow the daily timeline.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RotationMode {
+    #[default]
+    Generate,
+    Timeline,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Rotation {
+    pub mode: RotationMode,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
