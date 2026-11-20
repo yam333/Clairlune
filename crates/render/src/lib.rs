@@ -20,6 +20,7 @@ pub mod frame;
 pub mod gif_export;
 pub mod package;
 pub mod palette;
+mod projectile;
 mod tether;
 
 pub use art::{BuiltinArt, OwnedPixmap, Pixmap, SceneArt};

@@ -1,0 +1,46 @@
+# Skipping stones off the end of the pier: a throw, then the stone hops
+# across the water, each skip shorter, with a splash at every touch.
+id = "skip_stones"
+# Shore only, like the other pier activity: together they weigh as one, so
+# the shore doesn't come up more often than the other landscapes.
+weight = 0.5
+
+[requires]
+terrain = ["shore"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk"]
+weather = ["none", "dust"]
+
+[motion]
+type = "stationary"
+face = "water"
+
+[animation]
+start = "pick"
+
+# Looking over the water, a stone in hand.
+[animation.states.pick]
+loop = true
+dwell_s = [3, 6]
+next = { throw = 1.0 }
+
+# One-shot: wind up and throw.
+[animation.states.throw]
+next = { watch = 1.0 }
+
+# Watching the stone skip (the flight takes about 3 s).
+[animation.states.watch]
+loop = true
+dwell_s = [3.5, 5]
+next = { pick = 1.0 }
+
+[[effects]]
+type = "projectile"
+preset = "skipping_stone"
+at = "hand_r"
+states = ["watch"]
+
+[gif]
+loop_script = ["pick", "throw", "watch"]
+
+[unattended]
+props = ["stone_pile"]

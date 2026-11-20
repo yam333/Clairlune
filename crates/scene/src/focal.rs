@@ -61,6 +61,7 @@ fn prop_kind(id: &str) -> Option<SpriteKind> {
         "guitar_rest" => Some(SpriteKind::GuitarRest),
         "bucket" => Some(SpriteKind::Bucket),
         "kite_rest" => Some(SpriteKind::KiteRest),
+        "stone_pile" => Some(SpriteKind::StonePile),
         _ => None,
     }
 }

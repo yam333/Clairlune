@@ -6,7 +6,7 @@ use crate::palette::{PaletteFamily, Theme};
 use crate::particles::{Emitter, Particle};
 use crate::placeholder::{
     BOOK_CLOSED, BUCKET, CAMP_STOVE, CAMPFIRE, CLAWD_PLACEHOLDER, COFFEE_MUG, FALLEN_HAT,
-    GUITAR_REST, KITE_REST, LANTERN, LOG_SEAT, PixelMap, SPELLBOOK, TELESCOPE,
+    GUITAR_REST, KITE_REST, LANTERN, LOG_SEAT, PixelMap, SPELLBOOK, STONE_PILE, TELESCOPE,
 };
 use crate::recipe::TimeOfDay;
 
@@ -177,6 +177,7 @@ pub enum SpriteKind {
     GuitarRest,
     Bucket,
     KiteRest,
+    StonePile,
 }
 
 impl SpriteKind {
@@ -187,7 +188,7 @@ impl SpriteKind {
 
     /// Every kind, so palettes can reserve all sprite colours up front. New
     /// kinds go at the end.
-    pub const ALL: [SpriteKind; 13] = [
+    pub const ALL: [SpriteKind; 14] = [
         SpriteKind::Character,
         SpriteKind::Campfire,
         SpriteKind::LogSeat,
@@ -201,6 +202,7 @@ impl SpriteKind {
         SpriteKind::GuitarRest,
         SpriteKind::Bucket,
         SpriteKind::KiteRest,
+        SpriteKind::StonePile,
     ];
 
     /// Layout box in sprite pixels. The character's box is the drawn art's
@@ -227,6 +229,7 @@ impl SpriteKind {
             SpriteKind::GuitarRest => &GUITAR_REST,
             SpriteKind::Bucket => &BUCKET,
             SpriteKind::KiteRest => &KITE_REST,
+            SpriteKind::StonePile => &STONE_PILE,
         }
     }
 }

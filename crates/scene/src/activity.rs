@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 /// Prop ids the engine can draw.
-pub const PROPS: [&str; 12] = [
+pub const PROPS: [&str; 13] = [
     "campfire",
     "log_seat",
     "telescope",
@@ -26,6 +26,7 @@ pub const PROPS: [&str; 12] = [
     "guitar_rest",
     "bucket",
     "kite_rest",
+    "stone_pile",
 ];
 /// Effect ids the engine can draw.
 pub const EFFECTS: [&str; 1] = ["embers"];
@@ -34,6 +35,9 @@ pub const PARTICLE_PRESETS: [&str; 3] = ["sparkles", "steam", "notes"];
 /// Tether presets: a line from an anchor to a moving end (a float on the
 /// water, a kite in the sky).
 pub const TETHER_PRESETS: [&str; 2] = ["fishing_line", "kite_string"];
+/// Projectile presets: something thrown on its own arc, timed from the start
+/// of the effect's state.
+pub const PROJECTILE_PRESETS: [&str; 1] = ["skipping_stone"];
 /// Which way the character faces, when it matters: `water` (the open water,
 /// on the shore) or `open` (the middle of the screen, where the sky is
 /// widest).
@@ -44,7 +48,7 @@ pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "i
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 9] = [
+const SOURCES: [(&str, &str); 10] = [
     ("fishing.toml", include_str!("../activities/fishing.toml")),
     ("fly_kite.toml", include_str!("../activities/fly_kite.toml")),
     (
@@ -58,6 +62,10 @@ const SOURCES: [(&str, &str); 9] = [
     (
         "read_lantern.toml",
         include_str!("../activities/read_lantern.toml"),
+    ),
+    (
+        "skip_stones.toml",
+        include_str!("../activities/skip_stones.toml"),
     ),
     ("stargaze.toml", include_str!("../activities/stargaze.toml")),
     ("stroll.toml", include_str!("../activities/stroll.toml")),
@@ -107,10 +115,11 @@ pub struct CharacterDef {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct EffectDef {
-    /// `particles` or `tether`.
+    /// `particles`, `tether` or `projectile`.
     #[serde(rename = "type")]
     pub kind: String,
-    /// One of [`PARTICLE_PRESETS`] or [`TETHER_PRESETS`], by type.
+    /// One of [`PARTICLE_PRESETS`], [`TETHER_PRESETS`] or
+    /// [`PROJECTILE_PRESETS`], by type.
     pub preset: String,
     /// Anchor name, e.g. `item_tip`.
     pub at: String,
@@ -350,13 +359,21 @@ impl Activity {
                 "tether" if !TETHER_PRESETS.contains(&e.preset.as_str()) => {
                     err(format!("unknown tether preset `{}`", e.preset));
                 }
-                "particles" | "tether" => {}
+                "projectile" if !PROJECTILE_PRESETS.contains(&e.preset.as_str()) => {
+                    err(format!("unknown projectile preset `{}`", e.preset));
+                }
+                "particles" | "tether" | "projectile" => {}
                 other => err(format!(
-                    "effect type `{other}` is not implemented (`particles`, `tether`)"
+                    "effect type `{other}` is not implemented (`particles`, `tether`, `projectile`)"
                 )),
             }
-            if e.preset == "fishing_line" && self.requires.terrain != ["shore"] {
-                err("a fishing line needs requires.terrain = [\"shore\"]".into());
+            if ["fishing_line", "skipping_stone"].contains(&e.preset.as_str())
+                && self.requires.terrain != ["shore"]
+            {
+                err(format!(
+                    "`{}` needs requires.terrain = [\"shore\"]",
+                    e.preset
+                ));
             }
             if !ANCHORS.contains(&e.at.as_str()) {
                 err(format!("effect anchor `{}` is not a known anchor", e.at));
