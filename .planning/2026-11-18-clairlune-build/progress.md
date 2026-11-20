@@ -70,6 +70,9 @@
   live; the tray app's Live mode (default). Tried live on this desktop several times; the user's wallpaper was
   restored and the test data removed each time. Bug found on the way: Settings opened at every launch (0.7.0, 0.8.0).
 
+- Release 0.9.0 (2026-11-20): live wallpapers on Windows (new crate clairlune-live), the fix for Settings opening
+  at every launch, license files for clairlune-platform and clairlune-live.
+
 ### Test Results
 | Test | Expected | Actual | Status |
 |------|----------|--------|--------|
