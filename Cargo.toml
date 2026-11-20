@@ -51,6 +51,8 @@ jiff = "1.0.1"
 # Platform layer: the Win32 wallpaper, DPI and known-folder APIs.
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
     "Win32_Graphics_Dwm",
     "Win32_Graphics_Dxgi",
     "Win32_Graphics_Dxgi_Common",

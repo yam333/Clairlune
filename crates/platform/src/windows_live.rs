@@ -318,6 +318,11 @@ impl LiveWindow {
         (self.width, self.height)
     }
 
+    /// The window handle, for presenters that take one directly.
+    pub fn hwnd(&self) -> HWND {
+        self.hwnd
+    }
+
     /// Shows the window without activating anything.
     pub fn show(&self) {
         let _ = unsafe { ShowWindow(self.hwnd, SW_SHOWNA) };

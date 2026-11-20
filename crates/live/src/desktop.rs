@@ -1,13 +1,16 @@
 //! The live wallpaper on Windows: one window per monitor in the desktop layer
 //! (behind the icons), each showing a [`Player`].
 //!
-//! Frames go through the GPU (DX12): on the raised desktop of Windows 11 24H2
-//! and later, only DirectX presents of such a window reach the screen; GDI
-//! drawing doesn't (see the M7 findings). Without a GPU device the frames go
-//! through softbuffer (GDI), which shows on the classic desktop. Either way
-//! only the rectangles that changed are copied.
+//! Frames go through Direct3D 11 with a flip-sequential swapchain: only the
+//! rectangles that changed are copied and presented as dirty rects, so the
+//! compositor recomposes just those (see `d3d11`). On the raised desktop of
+//! Windows 11 24H2 and later only DirectX presents of such a window reach the
+//! screen; GDI drawing doesn't (see the M7 findings). If Direct3D 11 can't
+//! start, wgpu (DirectX 12) draws whole frames; without any GPU device,
+//! softbuffer (GDI) copies the changed rectangles on the classic desktop.
 
 use crate::Player;
+use crate::d3d11::{D3d11, FlipSurface};
 use crate::gpu::{Canvas, Gpu, exact_format};
 use clairlune_platform::Monitor;
 use clairlune_platform::windows_live::{
@@ -21,6 +24,7 @@ use std::time::{Duration, Instant};
 // One per monitor: the size difference between the variants doesn't matter.
 #[allow(clippy::large_enum_variant)]
 enum Present {
+    Flip(FlipSurface),
     Gpu {
         surface: wgpu::Surface<'static>,
         config: wgpu::SurfaceConfiguration,
@@ -64,6 +68,9 @@ pub struct FrameStats {
 /// Live wallpapers on every monitor given.
 pub struct Desktop {
     layer: DesktopLayer,
+    /// The light presenter, and whether it failed to start (then wgpu).
+    d3d: Option<D3d11>,
+    d3d_failed: bool,
     gpu: Option<(wgpu::Instance, Gpu)>,
     soft: Option<softbuffer::Context<Win32Display>>,
     outputs: Vec<Output>,
@@ -113,6 +120,8 @@ impl Desktop {
         let prefer = counts.into_iter().max_by_key(|(_, n)| *n).map(|(a, _)| a);
         let mut desktop = Desktop {
             layer,
+            d3d: None,
+            d3d_failed: false,
             gpu: None,
             soft: None,
             outputs: Vec::new(),
@@ -138,12 +147,62 @@ impl Desktop {
         self.layer.layout()
     }
 
-    /// "gpu (adapter)" or "gdi".
+    /// "d3d11 (adapter)", "gpu (adapter)" or "gdi".
     pub fn presenter(&self) -> String {
+        if let Some(d) = &self.d3d {
+            return format!("d3d11 ({})", d.name);
+        }
         match &self.gpu {
             Some((_, g)) => format!("gpu ({})", g.adapter.get_info().name),
             None => "gdi".into(),
         }
+    }
+
+    /// The Direct3D 11 swapchain for a window, showing the player's frame;
+    /// `None` when Direct3D 11 isn't available here (it then isn't tried
+    /// again).
+    fn add_flip(
+        &mut self,
+        monitor: &Monitor,
+        window: &LiveWindow,
+        player: &Player,
+    ) -> Option<Present> {
+        // Diagnostics: CLAIRLUNE_PRESENTER=wgpu skips Direct3D 11.
+        if self.d3d_failed || std::env::var("CLAIRLUNE_PRESENTER").as_deref() == Ok("wgpu") {
+            return None;
+        }
+        if self.d3d.is_none() {
+            let prefer = self.prefer.as_ref().map(|a| (a.vendor, a.device));
+            match D3d11::new(prefer) {
+                Ok(d) => {
+                    tracing::info!(
+                        target: "clairlune",
+                        adapter = %d.name,
+                        memory_mb = clairlune_platform::windows_live::process_memory() >> 20,
+                        "live: Direct3D 11 ready"
+                    );
+                    self.d3d = Some(d);
+                }
+                Err(e) => {
+                    tracing::warn!(target: "clairlune", error = %e, "no Direct3D 11; trying DirectX 12");
+                    self.d3d_failed = true;
+                    return None;
+                }
+            }
+        }
+        let d3d = self.d3d.as_ref()?;
+        let mut surface = match d3d.surface(window.hwnd(), monitor.width, monitor.height) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::warn!(target: "clairlune", error = %e, "no Direct3D 11 swapchain; trying DirectX 12");
+                return None;
+            }
+        };
+        if let Err(e) = d3d.present(&mut surface, player, &[], true) {
+            tracing::warn!(target: "clairlune", error = %e, "Direct3D 11 present failed; trying DirectX 12");
+            return None;
+        }
+        Some(Present::Flip(surface))
     }
 
     fn add(&mut self, monitor: Monitor, mut player: Player) -> Result<(), String> {
@@ -160,6 +219,19 @@ impl Desktop {
         window.show();
         let t = player.now_ms();
         player.advance(t);
+        if self.soft.is_none()
+            && self.gpu.is_none()
+            && let Some(present) = self.add_flip(&monitor, &window, &player)
+        {
+            self.outputs.push(Output {
+                monitor,
+                player,
+                covered: false,
+                present,
+                window: Some(window),
+            });
+            return Ok(());
+        }
         if self.soft.is_none() {
             match self.add_gpu(&monitor, &window, &player) {
                 Ok(present) => {
@@ -320,7 +392,7 @@ impl Desktop {
             && self.outputs.iter().all(|o| match (&o.window, &o.present) {
                 (Some(w), _) => w.is_attached(),
                 (None, Present::Soft(s)) => s.window().is_attached(),
-                (None, Present::Gpu { .. }) => false,
+                (None, Present::Gpu { .. } | Present::Flip(_)) => false,
             })
     }
 
@@ -360,6 +432,15 @@ impl Desktop {
             let rects = o.player.advance(t);
             let area = rects.iter().map(|r| u64::from(r.w * r.h)).sum::<u64>();
             match &mut o.present {
+                Present::Flip(surface) => {
+                    let Some(d3d) = self.d3d.as_ref() else {
+                        continue;
+                    };
+                    let t0 = Instant::now();
+                    pixels += d3d.present(surface, &o.player, &rects, whole)?;
+                    count += rects.len();
+                    present += t0.elapsed();
+                }
                 Present::Gpu { canvas, .. } => {
                     let Some((_, gpu)) = self.gpu.as_mut() else {
                         continue;

@@ -15,6 +15,31 @@ fn main() {
     use std::time::{Duration, Instant};
 
     let backend = std::env::args().nth(1).unwrap_or_else(|| "dx12".into());
+    if backend == "d3d11" {
+        init_dpi_awareness();
+        let host = detect().expect("host");
+        let monitor = host
+            .monitors()
+            .expect("monitors")
+            .into_iter()
+            .last()
+            .expect("a monitor");
+        let layer = DesktopLayer::find().expect("desktop layer");
+        let window = LiveWindow::create(&layer, &monitor).expect("window");
+        window.show();
+        let gpu = clairlune_live::d3d11::D3d11::new(None).expect("device");
+        println!("d3d11: adapter {}", gpu.name);
+        let mut surface = gpu
+            .surface(window.hwnd(), monitor.width, monitor.height)
+            .expect("surface");
+        let end = Instant::now() + Duration::from_secs(3);
+        while Instant::now() < end {
+            gpu.fill(&mut surface, 0x00FF00FF).expect("fill");
+            pump_messages_until(Instant::now() + Duration::from_millis(100));
+        }
+        println!("d3d11: done");
+        return;
+    }
     let backends = match backend.as_str() {
         "vulkan" => wgpu::Backends::VULKAN,
         "gl" => wgpu::Backends::GL,
