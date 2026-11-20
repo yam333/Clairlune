@@ -35,6 +35,7 @@ wgpu.workspace = true
 pollster.workspace = true
 interprocess.workspace = true
 jiff.workspace = true
+zip.workspace = true
 png.workspace = true
 
 [target.'cfg(any(windows, target_os = "macos"))'.dependencies]

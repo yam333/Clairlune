@@ -10,6 +10,7 @@
 
 mod apply;
 mod archive;
+mod diagnostics;
 mod icon;
 mod ipc;
 mod library;
@@ -170,7 +171,7 @@ impl UiTest {
         let mut steps = Vec::new();
         let cycles = [
             (Theme::Dark, Section::Rotation, "settings-dark-rotation.png"),
-            (Theme::Light, Section::Content, "settings-light-content.png"),
+            (Theme::Light, Section::General, "settings-light-general.png"),
             (Theme::Dark, Section::Display, "settings-dark-display.png"),
         ];
         for (i, (theme, section, shot)) in cycles.into_iter().enumerate() {
@@ -594,6 +595,13 @@ impl App {
 
     /// Picks up edits to settings.toml and system theme changes.
     fn check(&mut self) {
+        let until = self.settings.general.detailed_logging_until;
+        if until != 0 && until <= timefmt::now_unix() {
+            self.settings.general.detailed_logging_until = 0;
+            diagnostics::set_detailed(false);
+            tracing::info!(target: "clairlune", "detailed logging ended");
+            self.save_settings();
+        }
         let tl_stamp = file_stamp(&self.timeline_path);
         if tl_stamp != self.timeline_stamp {
             self.timeline_stamp = tl_stamp;
@@ -1020,6 +1028,13 @@ impl App {
 
     fn status(&self) -> ui::view::Status {
         let mut s = self.status.clone();
+        s.crash_reports = diagnostics::crash_reports(&self.data_dir).len();
+        let until = self.settings.general.detailed_logging_until;
+        s.detailed_until = (until > timefmt::now_unix()).then(|| {
+            jiff::Timestamp::from_second(until as i64)
+                .map(timeline::local_hhmm)
+                .unwrap_or_default()
+        });
         s.live = self.live.status.clone();
         s.live_supported = live::supported().err();
         s.timeline_next = self
@@ -1074,6 +1089,51 @@ impl App {
             | UiAction::ExportArchive { .. }
             | UiAction::DeleteArchive(_)) => self.on_archive_action(a),
             UiAction::OpenLogs => open(&self.data_dir.join("logs"), false),
+            UiAction::OpenCrashReports => open(&self.data_dir.join("crashes"), false),
+            UiAction::SetDetailedLogging(on) => {
+                self.settings.general.detailed_logging_until = if on {
+                    timefmt::now_unix() + diagnostics::DETAILED_SECS
+                } else {
+                    0
+                };
+                diagnostics::set_detailed(on);
+                tracing::info!(target: "clairlune", on, "detailed logging");
+                self.save_settings();
+            }
+            UiAction::ExportDiagnostics => {
+                let info = diagnostics::SystemInfo {
+                    monitors: self
+                        .monitor_layout
+                        .iter()
+                        .flatten()
+                        .map(|(name, x, y, w, h)| {
+                            format!("{w}x{h} at ({x}, {y}) {}", name.as_deref().unwrap_or(""))
+                        })
+                        .collect(),
+                    live: self.live.status.clone(),
+                };
+                let config_dir = self
+                    .settings_path
+                    .parent()
+                    .map(Path::to_path_buf)
+                    .unwrap_or_else(|| self.data_dir.clone());
+                let dest = self.export_dir();
+                self.status.note = Some(
+                    match diagnostics::export_bundle(
+                        &self.data_dir,
+                        &config_dir,
+                        self.current.as_deref(),
+                        &info,
+                        &dest,
+                    ) {
+                        Ok(path) => {
+                            open(&dest, false);
+                            format!("Saved {}", path.display())
+                        }
+                        Err(e) => format!("Couldn't export diagnostics: {e}"),
+                    },
+                );
+            }
             UiAction::SavePng => {
                 let dest = self.export_dir();
                 self.submit(Job::Export { dest, source: None });
@@ -1240,6 +1300,7 @@ impl App {
             } => {
                 self.busy = false;
                 self.current = source;
+                diagnostics::set_current(self.current.clone());
                 self.shown_theme = Some(theme);
                 self.live.show(live);
                 self.refresh_archive();
@@ -1324,6 +1385,13 @@ impl ApplicationHandler<AppEvent> for App {
                 tracing::debug!(target: "clairlune", memory_mb = memory_mb(), "tray ready");
             }
             Err(e) => tracing::error!(target: "clairlune", error = %e, "no tray icon"),
+        }
+        if let Some(report) = diagnostics::new_crash_report(&self.data_dir) {
+            tracing::warn!(target: "clairlune", report = %report.display(), "Clairlune stopped unexpectedly last time");
+            self.status.note = Some(
+                "Clairlune stopped unexpectedly last time. The crash report is under General, Crash reports."
+                    .into(),
+            );
         }
         // No tray (no host on this desktop, or it failed): Settings is the
         // app's only face, so it opens at launch and closing it quits
@@ -1503,13 +1571,14 @@ pub(crate) fn memory_mb() -> u64 {
 /// Logs to a daily file in `<data>/logs/` (seven kept), and to stderr in debug
 /// builds. The guard flushes the file writer when dropped.
 fn init_logging(data_dir: &Path) -> Option<tracing_appender::non_blocking::WorkerGuard> {
+    use tracing_subscriber::fmt;
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::util::SubscriberInitExt;
-    use tracing_subscriber::{EnvFilter, fmt};
-    let filter =
-        EnvFilter::try_from_env("CLAIRLUNE_LOG").unwrap_or_else(|_| EnvFilter::new("info"));
-    // The appender scans the folder for old files to prune, so it must exist.
+    let filter = diagnostics::filter_layer(false);
+    // The appender scans the folder for old files to prune, so it must exist;
+    // it keeps seven days, and the folder stays under 50 MB.
     let _ = std::fs::create_dir_all(data_dir.join("logs"));
+    diagnostics::prune_logs(&data_dir.join("logs"), diagnostics::LOG_CAP_BYTES);
     let appender = tracing_appender::rolling::Builder::new()
         .rotation(tracing_appender::rolling::Rotation::DAILY)
         .filename_prefix("clairlune")
@@ -1529,14 +1598,11 @@ fn init_logging(data_dir: &Path) -> Option<tracing_appender::non_blocking::Worke
     let stderr_layer = cfg!(debug_assertions).then(|| fmt::layer().with_writer(std::io::stderr));
     tracing_subscriber::registry()
         .with(filter)
+        .with(diagnostics::Tail)
         .with(file_layer)
         .with(stderr_layer)
         .init();
-    let default_hook = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |info| {
-        tracing::error!(target: "clairlune", panic = %info, backtrace = %std::backtrace::Backtrace::force_capture(), "panic");
-        default_hook(info);
-    }));
+    diagnostics::install_crash_reports(data_dir);
     guard
 }
 
@@ -1718,6 +1784,9 @@ fn main() {
     };
     let settings = Settings::load(&settings_path);
     let timeline_path = settings_path.with_file_name("timeline.toml");
+    if settings.general.detailed_logging_until > timefmt::now_unix() {
+        diagnostics::set_detailed(true);
+    }
     tracing::info!(
         target: "clairlune",
         version = env!("CARGO_PKG_VERSION"),

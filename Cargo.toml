@@ -44,6 +44,8 @@ wgpu = { version = "30.0.2", default-features = false, features = ["std", "parki
 pollster = "0.4.0"
 # Single instance: a second launch asks the running copy to open Settings.
 interprocess = "2.4.9"
+# Diagnostic bundles (the zip a user attaches to a bug report).
+zip = { version = "9.8.1", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 # Timeline: local times, time zones and daylight saving.
 jiff = "1.0.1"
 # Platform layer: the Win32 wallpaper, DPI and known-folder APIs.
