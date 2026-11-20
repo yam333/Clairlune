@@ -4,7 +4,7 @@
 //! always set first and kept current, so a crash never leaves a blank desktop.
 
 use crate::archive::{Archive, Entry, EntryRecipes, MonitorScene, NewEntry};
-use crate::settings::{Settings, ThemeMode};
+use crate::settings::{Settings, ThemeMode, ThemeSettings};
 use clairlune_platform::{Monitor, StillStore, WallpaperHost};
 use clairlune_render::{IndexedImage, IndexedPalette, ScenePackage, encode_png};
 use clairlune_scene::hash::hash_label;
@@ -95,15 +95,42 @@ pub enum Done {
     Failed(String),
 }
 
-/// The theme a setting resolves to right now.
-pub fn resolve_theme(mode: ThemeMode) -> Theme {
-    match mode {
+/// The theme the settings resolve to right now.
+pub fn resolve_theme(t: &ThemeSettings) -> Theme {
+    resolve_theme_at(t, &jiff::ZonedDateTime::now())
+}
+
+/// The theme the settings resolve to at `now` (local time).
+pub fn resolve_theme_at(t: &ThemeSettings, now: &jiff::ZonedDateTime) -> Theme {
+    match t.mode {
         ThemeMode::Light => Theme::Light,
         ThemeMode::Dark => Theme::Dark,
         ThemeMode::FollowSystem => match clairlune_platform::system_prefers_dark() {
             Some(false) => Theme::Light,
             _ => Theme::Dark,
         },
+        ThemeMode::Schedule => {
+            if t.follow_sun
+                && let Some((lat, lon)) = crate::sun::parse_location(&t.location)
+            {
+                return if crate::sun::is_day(now.date(), lat, lon, now.timestamp()) {
+                    Theme::Light
+                } else {
+                    Theme::Dark
+                };
+            }
+            // Times that don't parse fall back to the defaults.
+            let dark = crate::settings::parse_clock(&t.dark_from).unwrap_or(19 * 60);
+            let light = crate::settings::parse_clock(&t.light_from).unwrap_or(7 * 60);
+            let m =
+                u32::from(now.hour().unsigned_abs()) * 60 + u32::from(now.minute().unsigned_abs());
+            let is_dark = if dark > light {
+                m >= dark || m < light
+            } else {
+                dark <= m && m < light
+            };
+            if is_dark { Theme::Dark } else { Theme::Light }
+        }
     }
 }
 
@@ -410,7 +437,7 @@ fn apply(
     }
     let wanted = saved
         .and_then(|s| s.theme)
-        .unwrap_or_else(|| resolve_theme(settings.theme.mode));
+        .unwrap_or_else(|| resolve_theme(&settings.theme));
     let buddy = saved.and_then(|s| s.buddy).unwrap_or(settings.buddy.show);
     let (base_seed, packages, replayed) = packages(saved, seed, &monitors, settings, recent)?;
     let packages: Vec<Arc<ScenePackage>> = packages.into_iter().map(Arc::new).collect();

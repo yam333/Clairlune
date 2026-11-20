@@ -136,12 +136,42 @@ pub enum ThemeMode {
     FollowSystem,
     Light,
     Dark,
+    /// Dark between two times of day, or from sunset to sunrise.
+    Schedule,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ThemeSettings {
     pub mode: ThemeMode,
+    /// Schedule: dark from this local time ("HH:MM")...
+    pub dark_from: String,
+    /// ...until this one.
+    pub light_from: String,
+    /// Schedule: dark from sunset to sunrise at `location` instead.
+    pub follow_sun: bool,
+    /// "latitude, longitude" in decimal degrees (south and west negative).
+    /// Sunrise and sunset are worked out on this computer.
+    pub location: String,
+}
+
+impl Default for ThemeSettings {
+    fn default() -> Self {
+        ThemeSettings {
+            mode: ThemeMode::default(),
+            dark_from: "19:00".into(),
+            light_from: "07:00".into(),
+            follow_sun: false,
+            location: String::new(),
+        }
+    }
+}
+
+/// "HH:MM" as minutes after midnight.
+pub fn parse_clock(text: &str) -> Option<u32> {
+    let (h, m) = text.trim().split_once(':')?;
+    let (h, m): (u32, u32) = (h.parse().ok()?, m.parse().ok()?);
+    (h < 24 && m < 60).then_some(h * 60 + m)
 }
 
 /// Content filters. Empty lists mean "everything".

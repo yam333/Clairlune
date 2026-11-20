@@ -16,6 +16,7 @@ mod ipc;
 mod library;
 mod live;
 mod settings;
+mod sun;
 mod timefmt;
 mod timeline;
 mod tokens;
@@ -205,7 +206,11 @@ impl UiTest {
         steps.push((ms(10100), UiStep::OpenArchive));
         steps.push((ms(10900), UiStep::Screenshot("archive.png")));
         steps.push((ms(11400), UiStep::CloseArchive));
-        steps.push((ms(11900), UiStep::Exit));
+        // The theme schedule, following the sun (seeded in settings.toml).
+        steps.push((ms(11900), UiStep::Open(Theme::Light, Section::Theme)));
+        steps.push((ms(12600), UiStep::Screenshot("settings-light-theme.png")));
+        steps.push((ms(13100), UiStep::Close));
+        steps.push((ms(13600), UiStep::Exit));
         UiTest {
             out,
             steps,
@@ -618,7 +623,7 @@ impl App {
         if self.timeline_window.is_some() {
             return;
         }
-        let theme = apply::resolve_theme(self.settings.theme.mode);
+        let theme = apply::resolve_theme(&self.settings.theme);
         match ui::UiWindow::open(event_loop, ui::Kind::Timeline, theme, self.last_section) {
             Ok(w) => self.timeline_window = Some(w),
             Err(e) => {
@@ -688,7 +693,7 @@ impl App {
                 }
             }
         }
-        let theme = apply::resolve_theme(self.settings.theme.mode);
+        let theme = apply::resolve_theme(&self.settings.theme);
         if self.current_theme.is_none()
             && self.shown_theme.is_some_and(|t| t != theme)
             && !self.busy
@@ -750,7 +755,7 @@ impl App {
             w.request_redraw();
             return;
         }
-        let theme = theme.unwrap_or_else(|| apply::resolve_theme(self.settings.theme.mode));
+        let theme = theme.unwrap_or_else(|| apply::resolve_theme(&self.settings.theme));
         self.status.start_at_login = std::env::current_exe()
             .ok()
             .and_then(|exe| clairlune_platform::start_at_login(&exe));
@@ -805,7 +810,7 @@ impl App {
         if self.library_window.is_some() {
             return;
         }
-        let theme = apply::resolve_theme(self.settings.theme.mode);
+        let theme = apply::resolve_theme(&self.settings.theme);
         match ui::UiWindow::open(event_loop, ui::Kind::Library, theme, self.last_section) {
             Ok(w) => self.library_window = Some(w),
             Err(e) => tracing::warn!(target: "clairlune", error = %e, "no library window"),
@@ -856,7 +861,7 @@ impl App {
         if self.archive_window.is_some() {
             return;
         }
-        let theme = apply::resolve_theme(self.settings.theme.mode);
+        let theme = apply::resolve_theme(&self.settings.theme);
         match ui::UiWindow::open(event_loop, ui::Kind::Archive, theme, self.last_section) {
             Ok(w) => self.archive_window = Some(w),
             Err(e) => {
@@ -894,7 +899,7 @@ impl App {
                     self.submit(Job::ExportGif {
                         dest,
                         source,
-                        theme: apply::resolve_theme(self.settings.theme.mode),
+                        theme: apply::resolve_theme(&self.settings.theme),
                         buddy: self.settings.buddy.show,
                     });
                 } else {
@@ -985,8 +990,7 @@ impl App {
                     self.submit(Job::ExportGif {
                         dest,
                         source,
-                        theme: theme
-                            .unwrap_or_else(|| apply::resolve_theme(self.settings.theme.mode)),
+                        theme: theme.unwrap_or_else(|| apply::resolve_theme(&self.settings.theme)),
                         buddy: buddy.unwrap_or(self.settings.buddy.show),
                     });
                 } else {
@@ -1136,7 +1140,7 @@ impl App {
                 }
                 self.follow_display_settings();
                 self.reschedule();
-                let theme = apply::resolve_theme(self.settings.theme.mode);
+                let theme = apply::resolve_theme(&self.settings.theme);
                 for w in [
                     &mut self.settings_window,
                     &mut self.library_window,
@@ -1364,7 +1368,7 @@ impl App {
         let dest = self.export_dir();
         let theme = self
             .shown_theme
-            .unwrap_or_else(|| apply::resolve_theme(self.settings.theme.mode));
+            .unwrap_or_else(|| apply::resolve_theme(&self.settings.theme));
         self.submit(Job::ExportGif {
             dest,
             source: None,
@@ -1829,7 +1833,7 @@ content = {{ type = "random", archetypes = ["shore", "forest"] }}
     std::fs::write(data_dir.join("timeline.toml"), tl).map_err(|e| e.to_string())?;
     std::fs::write(
         data_dir.join("settings.toml"),
-        "[rotation]\nmode = \"timeline\"\n",
+        "[rotation]\nmode = \"timeline\"\n\n[theme]\nmode = \"schedule\"\nfollow_sun = true\nlocation = \"40.71, -74.01\"\n",
     )
     .map_err(|e| e.to_string())?;
     Ok(())
@@ -2020,9 +2024,51 @@ mod tests {
 
     #[test]
     fn theme_mode_resolves() {
-        assert_eq!(apply::resolve_theme(ThemeMode::Light), Theme::Light);
-        assert_eq!(apply::resolve_theme(ThemeMode::Dark), Theme::Dark);
-        let _ = apply::resolve_theme(ThemeMode::FollowSystem);
+        let with = |mode| settings::ThemeSettings {
+            mode,
+            ..Default::default()
+        };
+        assert_eq!(apply::resolve_theme(&with(ThemeMode::Light)), Theme::Light);
+        assert_eq!(apply::resolve_theme(&with(ThemeMode::Dark)), Theme::Dark);
+        let _ = apply::resolve_theme(&with(ThemeMode::FollowSystem));
+    }
+
+    /// Schedule: dark between the two times (across midnight or not), or
+    /// from sunset to sunrise at a place.
+    #[test]
+    fn a_theme_schedule_follows_the_clock_or_the_sun() {
+        use jiff::civil::date;
+        let ny = jiff::tz::TimeZone::get("America/New_York").unwrap();
+        let at = |h: i8, m: i8| {
+            date(2026, 6, 21)
+                .at(h, m, 0, 0)
+                .to_zoned_datetime(ny.clone())
+                .unwrap()
+        };
+        let mut t = settings::ThemeSettings {
+            mode: ThemeMode::Schedule,
+            ..Default::default()
+        };
+        // 19:00 to 07:00, across midnight.
+        assert_eq!(apply::resolve_theme_at(&t, &at(18, 59)), Theme::Light);
+        assert_eq!(apply::resolve_theme_at(&t, &at(19, 0)), Theme::Dark);
+        assert_eq!(apply::resolve_theme_at(&t, &at(2, 0)), Theme::Dark);
+        assert_eq!(apply::resolve_theme_at(&t, &at(7, 0)), Theme::Light);
+        // A dark stretch inside the day.
+        (t.dark_from, t.light_from) = ("13:00".into(), "14:30".into());
+        assert_eq!(apply::resolve_theme_at(&t, &at(12, 59)), Theme::Light);
+        assert_eq!(apply::resolve_theme_at(&t, &at(14, 0)), Theme::Dark);
+        assert_eq!(apply::resolve_theme_at(&t, &at(14, 30)), Theme::Light);
+        // The sun in New York at midsummer: up 05:25 to 20:31.
+        t.follow_sun = true;
+        t.location = "40.71, -74.01".into();
+        assert_eq!(apply::resolve_theme_at(&t, &at(5, 10)), Theme::Dark);
+        assert_eq!(apply::resolve_theme_at(&t, &at(13, 30)), Theme::Light);
+        assert_eq!(apply::resolve_theme_at(&t, &at(20, 20)), Theme::Light);
+        assert_eq!(apply::resolve_theme_at(&t, &at(20, 45)), Theme::Dark);
+        // No usable location: the times apply.
+        t.location = "somewhere".into();
+        assert_eq!(apply::resolve_theme_at(&t, &at(13, 30)), Theme::Dark);
     }
 
     #[test]

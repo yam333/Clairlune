@@ -191,7 +191,7 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 - **Status:** in progress
 
 ### Phase 17: M8 Polish & packaging
-- [ ] Span mode, sunrise/sunset, notarization (needs an Apple Developer ID). Done: cargo-packager installers (25g), art-source CI check (scripts/check_sprites.py in CI)
+- [ ] Span mode, notarization (needs an Apple Developer ID). Done: cargo-packager installers (25g), art-source CI check (scripts/check_sprites.py in CI), sunrise/sunset (2026-11-20: theme mode Schedule, dark between two times or from sunset to sunrise at a typed "lat, lon"; app/src/sun.rs, NOAA equations, offline, polar day/night; tests against New York, London, Tokyo within 3 min; Settings Theme page and tray; UI test screenshot settings-light-theme.png)
 - **Status:** pending
 
 ### Phase 18: Release 0.2.0 so crates.io matches main

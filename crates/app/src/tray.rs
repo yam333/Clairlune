@@ -32,6 +32,7 @@ pub struct Tray {
     follow: CheckMenuItem,
     light: CheckMenuItem,
     dark: CheckMenuItem,
+    scheduled: CheckMenuItem,
     live: CheckMenuItem,
     pause: CheckMenuItem,
     save: MenuItem,
@@ -52,9 +53,10 @@ impl Tray {
             CheckMenuItem::new("Follow system", true, mode == ThemeMode::FollowSystem, None);
         let light = CheckMenuItem::new("Light", true, mode == ThemeMode::Light, None);
         let dark = CheckMenuItem::new("Dark", true, mode == ThemeMode::Dark, None);
+        let scheduled = CheckMenuItem::new("Schedule", true, mode == ThemeMode::Schedule, None);
         let theme = Submenu::new("Theme", true);
         theme
-            .append_items(&[&follow, &light, &dark])
+            .append_items(&[&follow, &light, &dark, &scheduled])
             .map_err(|e| e.to_string())?;
         let live = CheckMenuItem::new(
             "Live wallpaper",
@@ -106,6 +108,7 @@ impl Tray {
             follow,
             light,
             dark,
+            scheduled,
             live,
             pause,
             save,
@@ -126,6 +129,7 @@ impl Tray {
             (self.follow.id(), Action::Theme(ThemeMode::FollowSystem)),
             (self.light.id(), Action::Theme(ThemeMode::Light)),
             (self.dark.id(), Action::Theme(ThemeMode::Dark)),
+            (self.scheduled.id(), Action::Theme(ThemeMode::Schedule)),
             (self.live.id(), Action::ToggleLive),
             (self.pause.id(), Action::TogglePause),
             (self.save.id(), Action::SavePng),
@@ -146,6 +150,7 @@ impl Tray {
         self.follow.set_checked(mode == ThemeMode::FollowSystem);
         self.light.set_checked(mode == ThemeMode::Light);
         self.dark.set_checked(mode == ThemeMode::Dark);
+        self.scheduled.set_checked(mode == ThemeMode::Schedule);
     }
 
     /// Check items toggle themselves on click; the setting decides.

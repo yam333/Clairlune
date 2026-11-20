@@ -465,6 +465,68 @@ pub(super) fn group(ui: &mut Ui, title: &str) {
 }
 
 /// One setting: name and control on the first line, description under it.
+/// The Theme page's Schedule settings: two times of day, or sunset and
+/// sunrise at a place (worked out on this computer).
+fn theme_schedule(ui: &mut Ui, theme: Theme, s: &mut Settings) {
+    let t = colors(theme);
+    let note = |ui: &mut Ui, text: &str| {
+        ui.label(RichText::new(text).color(c(t.text_secondary)));
+        ui.add_space(space::S4);
+    };
+    row(
+        ui,
+        theme,
+        "Follow the sun",
+        "Dark from sunset to sunrise where you are. Worked out on this computer; nothing goes online.",
+        |ui| {
+            toggle(ui, theme, &mut s.theme.follow_sun, "Follow the sun");
+        },
+    );
+    if s.theme.follow_sun {
+        ui.label(RichText::new("Location").font(style::body_strong()));
+        ui.add(
+            egui::TextEdit::singleline(&mut s.theme.location)
+                .hint_text("40.71, -74.01")
+                .desired_width(220.0),
+        );
+        match crate::sun::parse_location(&s.theme.location) {
+            Some((lat, lon)) => {
+                let today = jiff::ZonedDateTime::now().date();
+                let text = match crate::sun::daylight(today, lat, lon) {
+                    crate::sun::Daylight::Normal { rise, set } => format!(
+                        "Today: sunrise {}, sunset {}.",
+                        crate::timeline::local_hhmm(rise),
+                        crate::timeline::local_hhmm(set)
+                    ),
+                    crate::sun::Daylight::AlwaysUp => "The sun stays up all day today.".into(),
+                    crate::sun::Daylight::AlwaysDown => "The sun stays down all day today.".into(),
+                };
+                note(ui, &text);
+            }
+            None => note(
+                ui,
+                "Latitude and longitude in degrees, south and west negative: 40.71, -74.01 for New York.",
+            ),
+        }
+        return;
+    }
+    row(
+        ui,
+        theme,
+        "Dark between",
+        "Light the rest of the day. 24-hour times.",
+        |ui| {
+            ui.add(egui::TextEdit::singleline(&mut s.theme.dark_from).desired_width(56.0));
+            ui.label("and");
+            ui.add(egui::TextEdit::singleline(&mut s.theme.light_from).desired_width(56.0));
+        },
+    );
+    let ok = |text: &str| crate::settings::parse_clock(text).is_some();
+    if !ok(&s.theme.dark_from) || !ok(&s.theme.light_from) {
+        note(ui, "Use 24-hour times like 19:00 and 07:00.");
+    }
+}
+
 fn row(ui: &mut Ui, theme: Theme, name: &str, description: &str, control: impl FnOnce(&mut Ui)) {
     let t = colors(theme);
     ui.horizontal(|ui| {
@@ -716,10 +778,14 @@ fn page(
                             (ThemeMode::FollowSystem, "Follow system", true),
                             (ThemeMode::Light, "Light", true),
                             (ThemeMode::Dark, "Dark", true),
+                            (ThemeMode::Schedule, "Schedule", true),
                         ],
                     );
                 },
             );
+            if s.theme.mode == ThemeMode::Schedule {
+                theme_schedule(ui, theme, s);
+            }
         }
         Section::Display => {
             use crate::settings::WallpaperMode;
