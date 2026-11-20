@@ -62,7 +62,7 @@ impl Tray {
             live_on,
             None,
         );
-        let pause = CheckMenuItem::new("Pause schedule", true, paused, None);
+        let pause = CheckMenuItem::new("Pause changes", true, paused, None);
         let save = MenuItem::new("Save current as PNG", true, None);
         let save_gif = MenuItem::new("Save current as GIF", true, None);
         let save_lib = MenuItem::new("Save to library", true, None);

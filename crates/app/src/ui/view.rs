@@ -11,7 +11,6 @@ use egui::{Align, Align2, Layout, Rect, RichText, Sense, Stroke, Ui, vec2};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Section {
     Rotation,
-    Schedule,
     Theme,
     Display,
     Live,
@@ -23,9 +22,8 @@ pub enum Section {
 }
 
 impl Section {
-    pub const ALL: [Section; 10] = [
+    pub const ALL: [Section; 9] = [
         Section::Rotation,
-        Section::Schedule,
         Section::Theme,
         Section::Display,
         Section::Live,
@@ -39,7 +37,6 @@ impl Section {
     pub fn name(self) -> &'static str {
         match self {
             Section::Rotation => "Rotation",
-            Section::Schedule => "Schedule",
             Section::Theme => "Theme",
             Section::Display => "Display",
             Section::Live => "Live",
@@ -606,83 +603,91 @@ fn page(
     heading(ui, theme, section.name());
     match section {
         Section::Rotation => {
+            use crate::settings::RotationMode;
             row(
                 ui,
                 theme,
                 "Mode",
-                "Generate makes a new scene on the schedule. Timeline follows a daily plan of saved wallpapers and random scenes.",
+                "Generate makes a new scene on a schedule. Timeline follows a daily plan of saved wallpapers and random scenes.",
                 |ui| {
                     segmented(
                         ui,
                         theme,
                         &mut s.rotation.mode,
                         &[
-                            (crate::settings::RotationMode::Generate, "Generate", true),
-                            (crate::settings::RotationMode::Timeline, "Timeline", true),
+                            (RotationMode::Generate, "Generate", true),
+                            (RotationMode::Timeline, "Timeline", true),
                         ],
                     );
                 },
             );
-            row(
-                ui,
-                theme,
-                "Timeline",
-                "The daily plan: which wallpaper shows when, for every day or each weekday.",
-                |ui| {
-                    if ui.button("Edit timeline").clicked() {
-                        actions.push(UiAction::EditTimeline);
-                    }
-                },
-            );
-            if s.rotation.mode == crate::settings::RotationMode::Timeline {
+            let timeline = s.rotation.mode == RotationMode::Timeline;
+            if timeline {
+                row(
+                    ui,
+                    theme,
+                    "Timeline",
+                    "Which wallpaper shows when, for every day or each weekday.",
+                    |ui| {
+                        if ui.button("Edit timeline").clicked() {
+                            actions.push(UiAction::EditTimeline);
+                        }
+                    },
+                );
                 if let Some(next) = &status.timeline_next {
                     ui.label(
                         RichText::new(next)
                             .font(style::mono())
                             .color(c(t.text_secondary)),
                     );
+                    ui.add_space(space::S2);
                 }
                 for p in &status.timeline_problems {
                     ui.label(RichText::new(p).color(c(t.danger)));
                 }
+                if !status.timeline_problems.is_empty() {
+                    ui.add_space(space::S4);
+                }
             }
-        }
-        Section::Schedule => {
-            row(
-                ui,
-                theme,
-                "Change wallpaper every",
-                "A new scene on this interval.",
-                |ui| {
-                    let current = INTERVALS
-                        .iter()
-                        .find(|(m, _)| *m == s.schedule.change_every_minutes)
-                        .map(|(_, l)| *l)
-                        .unwrap_or("Custom");
-                    egui::ComboBox::from_id_salt("interval")
-                        .selected_text(current)
-                        .width(160.0)
-                        .show_ui(ui, |ui| {
-                            for (m, label) in INTERVALS {
-                                ui.selectable_value(&mut s.schedule.change_every_minutes, m, label);
-                            }
-                        });
-                },
-            );
-            row(
-                ui,
-                theme,
-                "Also change at login",
-                "Start each session with a fresh scene.",
-                |ui| {
-                    toggle(
-                        ui,
-                        theme,
-                        &mut s.schedule.change_at_login,
-                        "Also change at login",
-                    );
-                },
-            );
+            let (name, description) = if timeline {
+                (
+                    "Days without slots change every",
+                    "Days with no slots get new scenes on this interval.",
+                )
+            } else {
+                ("Change wallpaper every", "A new scene on this interval.")
+            };
+            row(ui, theme, name, description, |ui| {
+                let current = INTERVALS
+                    .iter()
+                    .find(|(m, _)| *m == s.schedule.change_every_minutes)
+                    .map(|(_, l)| *l)
+                    .unwrap_or("Custom");
+                egui::ComboBox::from_id_salt("interval")
+                    .selected_text(current)
+                    .width(160.0)
+                    .show_ui(ui, |ui| {
+                        for (m, label) in INTERVALS {
+                            ui.selectable_value(&mut s.schedule.change_every_minutes, m, label);
+                        }
+                    });
+            });
+            if !timeline {
+                row(
+                    ui,
+                    theme,
+                    "Also change at login",
+                    "Start each session with a fresh scene.",
+                    |ui| {
+                        toggle(
+                            ui,
+                            theme,
+                            &mut s.schedule.change_at_login,
+                            "Also change at login",
+                        );
+                    },
+                );
+            }
             row(
                 ui,
                 theme,

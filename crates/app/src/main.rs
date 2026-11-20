@@ -404,6 +404,10 @@ impl App {
         if self.ui_test.is_some() {
             return; // the UI test leaves the wallpaper alone
         }
+        // Paused: the wallpaper stays until you resume.
+        if self.settings.schedule.paused {
+            return;
+        }
         // Shortly before the next slot starts, make it now and show it at
         // its start (PLAN.md section 9b, pre-rendering).
         if !self.busy && self.timeline_since != Some(active.next) {
@@ -1990,7 +1994,7 @@ fn main() {
         archive_items: Vec::new(),
         library_items: Vec::new(),
         library_uses: std::collections::BTreeMap::new(),
-        last_section: ui::view::Section::Schedule,
+        last_section: ui::view::Section::Rotation,
         status: ui::view::Status::default(),
         ui_test: ui_test_out.map(UiTest::new),
     };
