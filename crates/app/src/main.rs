@@ -11,6 +11,7 @@
 mod apply;
 mod archive;
 mod icon;
+mod ipc;
 mod settings;
 mod timefmt;
 mod tokens;
@@ -37,6 +38,8 @@ enum AppEvent {
     #[cfg(any(windows, target_os = "macos"))]
     Menu(tray_icon::menu::MenuEvent),
     Done(Done),
+    /// A second launch asked for Settings.
+    OpenSettings,
 }
 
 struct App {
@@ -586,6 +589,7 @@ impl ApplicationHandler<AppEvent> for App {
                 }
             }
             AppEvent::Done(d) => self.on_done(d),
+            AppEvent::OpenSettings => self.open_settings(event_loop, None),
         }
         let _ = event_loop;
     }
@@ -714,7 +718,8 @@ fn main() {
     let _instance = match single_instance(&data_dir) {
         Ok(f) => f,
         Err(e) => {
-            tracing::info!(target: "clairlune", reason = %e, "another copy is running; exiting");
+            let asked = ipc::ask_running_copy(&data_dir);
+            tracing::info!(target: "clairlune", reason = %e, asked, "another copy is running; asked it to open Settings");
             return;
         }
     };
@@ -751,6 +756,14 @@ fn main() {
         }));
     }
 
+    if ui_test_out.is_none() {
+        let p = proxy.clone();
+        if let Err(e) = ipc::serve(&data_dir, move || {
+            let _ = p.send_event(AppEvent::OpenSettings);
+        }) {
+            tracing::warn!(target: "clairlune", error = %e, "no single-instance channel; a second launch won't open Settings");
+        }
+    }
     let (jobs, rx) = mpsc::channel();
     let archive_dir = data_dir.join("archive");
     // The UI test never touches the wallpaper, so it runs without a worker.
