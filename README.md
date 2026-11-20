@@ -23,7 +23,13 @@ Clairlune runs in the notification area (Windows) or the menu bar (macOS), with 
 
 From source, with Rust installed: `cargo install --path crates/app`.
 
-Package managers (Homebrew, winget, Scoop, the AUR) start with the next release; everything they need is built with each release already (docs/distribution.md).
+Or with a package manager:
+
+- **macOS, Homebrew:** `brew install --cask yam333/clairlune/clairlune`
+- **Windows, Scoop:** `scoop bucket add clairlune https://github.com/yam333/homebrew-clairlune`, then `scoop install clairlune`
+- **Windows, winget:** `winget install Clairlune.Clairlune` (once Microsoft accepts the package)
+- **Linux:** the `.deb` (`sudo apt install ./clairlune_<version>_amd64.deb`) or the AppImage from the Releases page; an AUR package is on the way.
+- **Rust:** `cargo install clairlune`
 
 ## Try the generator
 
