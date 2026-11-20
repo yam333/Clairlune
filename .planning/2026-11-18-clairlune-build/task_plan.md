@@ -207,7 +207,7 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 
 ### Phase 20: Scripted Aseprite art (user installs Aseprite; Claude drives it)
 - [x] Research: Lua API has no per-frame slice keys (Slice.bounds only), so anchors move to an `anchors` marker layer; MCP servers exist but only wrap the CLI, so drive the CLI directly
-- [x] Build Aseprite v1.3.18.6 from source (user's choice; the EULA allows personal builds, no redistribution). Source zip + prebuilt Skia m124 (`m124-08a5439a6b`, Skia-Windows-Release-x64) unpacked in `C:/Users/yamzu/Developer/tools/`. VsDevCmd x64 with the v143 toolset (14.44), Windows SDK 10.0.26100, VS-bundled CMake + Ninja (not the MinGW ones in C:/gcc-14.2.0)
+- [x] Build Aseprite v1.3.18.6 from source (user's choice; the EULA allows personal builds, no redistribution). Source zip + prebuilt Skia m124 (`m124-08a5439a6b`, Skia-Windows-Release-x64) unpacked in a `tools/` folder next to the repository. VsDevCmd x64 with the v143 toolset (14.44), Windows SDK 10.0.26100, VS-bundled CMake + Ninja (not the MinGW ones in C:/gcc-14.2.0)
 - [x] Smoke-test batch mode: `aseprite -b --script` creates a sprite and saves a .aseprite file
 - [x] Write `scripts/aseprite/anchors.lua` (markers to per-frame slice keys in the export JSON)
 - [x] Lua generator `scripts/aseprite/build_sprite.lua` + design module `assets/clawd/design/clawd.lua`; sheets reviewed at 8x; rebuild is byte-reproducible
@@ -292,7 +292,7 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 - [x] 26b scripts/package_manifests.py writes the Homebrew cask, Scoop manifest, winget manifests (3 files, schema 1.10.0) and AUR clairlune-bin PKGBUILD + .SRCINFO from a release's files (hashes, real file names; DMGs are capitalised); the Release workflow's `manifests` job uploads them as an artifact. Tried on the 0.9.0 run's setup.exe and DMGs
 - [x] 26c docs/distribution.md: channels, what each needs, the go-public checklist
 - [ ] 26d When public: tap repository yam333/homebrew-clairlune (Casks/ + bucket/), publish job (cask, Scoop, winget PR via komac), AUR package, README install commands. Later: Chocolatey, Flathub (wallpaper portal via ashpd), Snap, nixpkgs
-- **Status:** prepared; publishing waits for the public repository
+- **Status:** the repository went public on 2026-11-20 (user's request; audit first: no secrets, only noreply emails, no personal files; local paths scrubbed from the plan). CI back to all three OSes on every push (free for public repositories). Publishing starts with the next release
 
 ### Phase 25: The user's feedback from trying the app (2026-11-20)
 - [x] 25a Smoothness and pace: every element was already a pure function of time (now tested: 6 and 60 fps show identical frames at shared moments), but the motion itself was fast (embers up to 550 px/s at 1440p, snow crossing the screen in 3-6 s), which a smooth frame rate shows as frantic. Generator 4 brings a calm pace: embers live 2-6 s and rise at most 0.08 heights/s, weather drifts and fades within a 6 s life (rain 2 s), effects linger twice as long; lives still divide the 6 s loop. Version-3 recipes and saved scenes keep the original motion exactly (pace stored in the graph; hashes-v3.txt pinned and tested)

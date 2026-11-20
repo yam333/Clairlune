@@ -1,9 +1,9 @@
 # Distribution: installers and package managers
 
-Decided 2026-11-20: Clairlune ships through package managers once the
-repository is public. Every package manager downloads the installer from a
-public link, and a private repository's release files need a login. Until
-then, everything up to publishing is in place and runs on each release.
+Decided 2026-11-20: Clairlune ships through package managers. Every package
+manager downloads the installer from a public link, so this waited for the
+repository to go public (2026-11-20). Everything up to publishing runs on
+each release; the first published release starts the channels below.
 
 ## What each release builds (`.github/workflows/release.yml`)
 
@@ -42,7 +42,7 @@ Later, each with its own work first:
 - **Snap**: the same sandbox question, with its own confinement rules.
 - **Nix / nixpkgs**: a derivation building from the crates.io sources.
 
-## The day the repository goes public
+## Starting the channels (the first public release)
 
 1. Create `yam333/homebrew-clairlune` (public), with `Casks/` and `bucket/`.
 2. Add a `publish` job to the Release workflow that copies the generated cask and Scoop manifest into it on each tag, and opens the winget pull request with `komac` (repository secrets: a token with access to the tap and to a winget-pkgs fork).

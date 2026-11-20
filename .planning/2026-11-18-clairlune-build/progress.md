@@ -27,7 +27,7 @@
 - 10f: clairlune-sprites crate (Aseprite json-array loader, slice anchors, alpha/colour/origin validation, Character trait, placeholder + sheet-backed implementations, build.rs embedding). 6 tests.
 
 - Phase 18-19: published 0.2.0 (5 crates), trademark check, platform minimums.
-- Phase 20: user chose to build Aseprite from source. Downloaded v1.3.18.6 source + Skia m124 to C:/Users/yamzu/Developer/tools/, build script tools/build-aseprite.cmd (VS 2026 with the 14.44 toolset, SDK 26100, VS-bundled CMake/Ninja). Configure OK (145 s), 1575 build steps.
+- Phase 20: user chose to build Aseprite from source. Downloaded v1.3.18.6 source + Skia m124 to a tools/ folder next to the repository, build script tools/build-aseprite.cmd (VS 2026 with the 14.44 toolset, SDK 26100, VS-bundled CMake/Ninja). Configure OK (145 s), 1575 build steps.
 - While compiling: scripts/aseprite/anchors.lua (markers to slice keys), scripts/aseprite/build_sprite.lua (design to .aseprite), assets/clawd/design/ (clawd.lua drawing module, _template, _base: idle/walk/celebrate/alert, warm_hands: warm/look_around), export_sprites.py --build. Placeholder origin moved to the lowest foot row to match the art.
 
 - Phase 11 GIF export: clock.rs (Clock::Live/Loop, LoopScript, loop_track), gif_export.rs (global palette, changed-box sub-images, merged identical frames, dithered delays), CLI `gif`. Tests: decoded frames equal rendered frames for all 3 activities, no seam at 6/12 s, sizes ~100 KB at 960x540.
