@@ -102,6 +102,14 @@ pub struct Composition {
     pub motion_speed_cc: u32,
     /// Half the pacing range, per-mille of the short side (0 when not pacing).
     pub pace_half_pm: u32,
+    /// Flying height above the ground, per-mille of the screen height (0 when
+    /// not flying; then it isn't written, so other recipes stay as they were).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub fly_lift_pm: u32,
+}
+
+fn is_zero(v: &u32) -> bool {
+    *v == 0
 }
 
 /// One palette family id per theme.

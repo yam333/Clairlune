@@ -48,6 +48,9 @@ fn every_landscape_hosts_activities_in_both_themes() {
                         Err(e) => panic!("{id}: seed {seed} {w}x{h} {theme:?}: {e}"),
                     };
                     themes.insert(theme.as_str());
+                    if g.character.is_some_and(|t| t.flies()) {
+                        continue; // in the air on purpose
+                    }
                     // The cell under the character's feet is platform, not air.
                     let c = g
                         .sprites_at(g.t_hero_ms)

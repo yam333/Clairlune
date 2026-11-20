@@ -5,14 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "3f2c6f39a17b6d29",
-  "activity": "fly_kite",
-  "archetype": "forest",
-  "light_tod": "golden_hour",
-  "dark_tod": null,
-  "platform": "log",
-  "props": [],
-  "weather": "leaves",
+  "content_ctx_hash": "f87c9ab78e5b6914",
+  "activity": "broom_flight",
+  "archetype": "city_rooftops",
+  "light_tod": null,
+  "dark_tod": "night",
+  "platform": "rooftop_edge",
+  "props": [
+    "spellbook"
+  ],
+  "weather": "stars",
   "composition": {
     "horizon_pm": 624,
     "focus_x_pm": 348,
@@ -21,8 +23,9 @@
     "platform_margin_pm": 12,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "motion_speed_cc": 649,
+    "pace_half_pm": 0,
+    "fly_lift_pm": 175
   },
   "palette": {
     "light": "sand_day",

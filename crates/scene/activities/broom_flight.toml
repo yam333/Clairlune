@@ -1,0 +1,44 @@
+# Flying a broom across the evening sky, sparkles streaming from the
+# bristles; the spellbook waits on the ledge below.
+id = "broom_flight"
+weight = 1.0
+
+[requires]
+terrain = ["ledge", "flat", "rooftop", "dune", "shore"]
+time_of_day = ["dusk", "deep_dusk", "night"]
+weather = ["none", "stars"]
+sky = true
+
+[motion]
+type = "fly"
+speed_cells_per_s = [4, 7]
+
+[props.spellbook]
+attach = "either_side"
+
+[character]
+headroom = 8
+
+[animation]
+start = "fly"
+
+[animation.states.fly]
+loop = true
+dwell_s = [6, 12]
+next = { glance = 1.0 }
+
+[animation.states.glance]
+loop = true
+dwell_s = [1.5, 3]
+next = { fly = 1.0 }
+
+[[effects]]
+type = "particles"
+preset = "sparkles"
+at = "item_tip"
+
+[gif]
+loop_script = ["fly", "glance"]
+
+[unattended]
+props = ["fallen_hat"]

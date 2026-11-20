@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "3f2c6f39a17b6d29",
-  "activity": "make_coffee",
+  "content_ctx_hash": "f87c9ab78e5b6914",
+  "activity": "play_guitar",
   "archetype": "night_sky",
-  "light_tod": "morning",
-  "dark_tod": "dusk",
+  "light_tod": "golden_hour",
+  "dark_tod": "night",
   "platform": "floating_island",
   "props": [
-    "camp_stove"
+    "campfire"
   ],
   "weather": "none",
   "composition": {

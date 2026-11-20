@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "3f2c6f39a17b6d29",
-  "activity": "make_coffee",
+  "content_ctx_hash": "f87c9ab78e5b6914",
+  "activity": "wizard_magic",
   "archetype": "cave",
   "light_tod": "noon",
-  "dark_tod": "dusk",
+  "dark_tod": "night",
   "platform": "rock_ledge",
   "props": [
-    "camp_stove"
+    "spellbook"
   ],
   "weather": "dust",
   "composition": {

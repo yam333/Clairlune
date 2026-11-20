@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "3f2c6f39a17b6d29",
-  "activity": "read_lantern",
-  "archetype": "mountains",
-  "light_tod": "golden_hour",
+  "content_ctx_hash": "f87c9ab78e5b6914",
+  "activity": "warm_hands",
+  "archetype": "forest",
+  "light_tod": "morning",
   "dark_tod": "dusk",
-  "platform": "rock_ledge",
+  "platform": "log",
   "props": [
-    "lantern"
+    "campfire"
   ],
-  "weather": "stars",
+  "weather": "none",
   "composition": {
     "horizon_pm": 641,
     "focus_x_pm": 650,
