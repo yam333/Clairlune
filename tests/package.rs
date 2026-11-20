@@ -210,3 +210,25 @@ fn package_size_at_4k() {
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
+
+/// A saved scene exports the same GIF, byte for byte, as the live scene did.
+#[test]
+fn package_gifs_match_recipe_gifs() {
+    use clairlune_render::{Smoothness, encode_gif, encode_package_gif};
+    let r = &recipes()[4];
+    let pkg = ScenePackage::capture(r, W, H).unwrap();
+    for theme in pkg.themes() {
+        for buddy in [true, false] {
+            let opts = BuildOptions {
+                width: W,
+                height: H,
+                theme,
+                buddy,
+            };
+            let (mut a, mut b) = (Vec::new(), Vec::new());
+            encode_gif(r, &opts, 6000, Smoothness::BatterySaver, &mut a).unwrap();
+            encode_package_gif(&pkg, theme, buddy, 6000, Smoothness::BatterySaver, &mut b).unwrap();
+            assert!(a == b, "{theme:?} buddy {buddy}");
+        }
+    }
+}

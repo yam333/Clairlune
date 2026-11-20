@@ -31,6 +31,12 @@ pub enum Job {
     },
     /// Copy the current wallpaper's primary image to the export folder.
     Export { dest: PathBuf },
+    /// Export the current wallpaper's saved scene as a looping GIF.
+    ExportGif {
+        dest: PathBuf,
+        theme: Theme,
+        buddy: bool,
+    },
     /// Put back the wallpaper the user had before Clairlune.
     Restore,
 }
@@ -233,6 +239,7 @@ pub fn worker(
 fn run(job: Job, host: Option<&dyn WallpaperHost>, store: &StillStore, archive: &Archive) -> Done {
     match job {
         Job::Export { dest } => export(archive, &dest),
+        Job::ExportGif { dest, theme, buddy } => export_gif(archive, &dest, theme, buddy),
         Job::Restore => restore(host, store),
         Job::New { seed, settings } => apply(None, seed, &settings, true, host, store, archive),
         Job::Recipes {
@@ -382,6 +389,39 @@ fn restore(host: Option<&dyn WallpaperHost>, store: &StillStore) -> Result<Done,
     let removed = store.clear_stills();
     tracing::info!(target: "clairlune", removed, "restored the user's wallpaper");
     Ok(Done::Restored)
+}
+
+/// Exports the newest entry's primary scene as a 6 s looping GIF, played from
+/// its frozen package, so it matches what was on screen.
+fn export_gif(
+    archive: &Archive,
+    dest: &std::path::Path,
+    theme: Theme,
+    buddy: bool,
+) -> Result<Done, String> {
+    let entry: Entry = archive.latest().ok_or("nothing to export yet")?;
+    let pkg = archive
+        .package(&entry.name, 0)
+        .map_err(|e| format!("saved scene: {e}"))?;
+    let theme = if pkg.themes().contains(&theme) {
+        theme
+    } else {
+        pkg.themes()[0]
+    };
+    std::fs::create_dir_all(dest).map_err(|e| e.to_string())?;
+    let out = dest.join(format!("{}.gif", entry.name));
+    let file = std::io::BufWriter::new(std::fs::File::create(&out).map_err(|e| e.to_string())?);
+    let stats = clairlune_render::encode_package_gif(
+        &pkg,
+        theme,
+        buddy,
+        6000,
+        clairlune_render::Smoothness::Balanced,
+        file,
+    )
+    .map_err(|e| e.to_string())?;
+    tracing::info!(target: "clairlune", path = %out.display(), frames = stats.frames_written, ms = stats.elapsed_ms, "exported gif");
+    Ok(Done::Exported(out))
 }
 
 /// Copies the newest entry's primary image to `dest`.

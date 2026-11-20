@@ -38,6 +38,14 @@ To share an animated version, export a seamless looping GIF (6 s or 12 s; `--smo
 clairlune-cli gif --seed 7 --activity warm_hands --size 960x540 --out campfire.gif
 ```
 
+Saved wallpapers are kept as frozen scene packages: the generator's output (backgrounds, palettes, the scene's layout and animation data, only the sprite frames it uses), so they play the same after later versions change the generator. About 0.5-1 MB for both themes at 4K.
+
+```sh
+clairlune-cli package --seed 7 --size 1920x1080 --out scene7       # freeze a scene
+clairlune-cli generate --package scene7 --theme light --out still.png
+clairlune-cli gif --package scene7 --out scene7.gif
+```
+
 To check variety, render many seeds into one grid:
 
 ```sh
@@ -53,7 +61,7 @@ cargo install clairlune      # or, from a checkout: cargo run --release -p clair
 clairlune
 ```
 
-A moon appears in the notification area. The app sets a new wallpaper at start and then every hour, one scene per monitor at each monitor's resolution, and keeps the last week in an archive. The menu has New wallpaper, Previous wallpaper, Theme (Follow system / Light / Dark), Pause schedule, Save current as PNG (to `Pictures\Clairlune`), Open archive folder, Settings and Quit. Launching it again opens Settings.
+A moon appears in the notification area. The app sets a new wallpaper at start and then every hour, one scene per monitor at each monitor's resolution, and keeps the last week in an archive. The menu has New wallpaper, Previous wallpaper, Theme (Follow system / Light / Dark), Pause schedule, Save current as PNG or GIF (to `Pictures\Clairlune`), Open archive folder, Settings and Quit. Launching it again opens Settings.
 
 Settings shows the wallpaper on screen and covers the schedule, theme, which landscapes, activities and weather to use, Clawd on or off, the archive, exports, start at login, and **Restore my wallpaper**: before its first change the app remembers your own wallpaper, and this puts it back (so does `clairlune-cli restore`). Settings are stored in `%APPDATA%\clairlune\settings.toml`, logs in `%LOCALAPPDATA%\clairlune\logs`.
 

@@ -171,10 +171,11 @@ impl App {
     }
 
     fn submit(&mut self, job: Job) {
-        if self.busy && !matches!(job, Job::Export { .. }) {
+        let export = matches!(job, Job::Export { .. } | Job::ExportGif { .. });
+        if self.busy && !export {
             return;
         }
-        if !matches!(job, Job::Export { .. }) {
+        if !export {
             self.busy = true;
             #[cfg(any(windows, target_os = "macos"))]
             if let Some(t) = &self.tray {
@@ -289,6 +290,7 @@ impl App {
                 let dest = self.export_dir();
                 self.submit(Job::Export { dest });
             }
+            Action::SaveGif => self.export_gif(),
             Action::OpenArchive => open(&self.data_dir.join("archive"), false),
             Action::OpenSettings => self.open_settings(event_loop, None),
             Action::Quit => event_loop.exit(),
@@ -373,6 +375,10 @@ impl App {
                 let dest = self.export_dir();
                 self.submit(Job::Export { dest });
             }
+            UiAction::SaveGif => {
+                self.status.note = Some("Making the GIF...".to_string());
+                self.export_gif();
+            }
             UiAction::SetStartAtLogin(on) => {
                 let result = std::env::current_exe()
                     .map_err(|e| e.to_string())
@@ -446,6 +452,18 @@ impl App {
         {
             false
         }
+    }
+
+    fn export_gif(&mut self) {
+        let dest = self.export_dir();
+        let theme = self
+            .shown_theme
+            .unwrap_or_else(|| apply::resolve_theme(self.settings.theme.mode));
+        self.submit(Job::ExportGif {
+            dest,
+            theme,
+            buddy: self.settings.buddy.show,
+        });
     }
 
     /// The export folder: the setting, or `Pictures/Clairlune`.

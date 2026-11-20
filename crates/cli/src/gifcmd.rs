@@ -1,7 +1,7 @@
 //! `gif`: export a seamless looping GIF of a scene.
 
 use crate::{ThemeArg, parse_size, random_seed};
-use clairlune_render::{Smoothness, encode_gif};
+use clairlune_render::{ScenePackage, Smoothness, encode_gif, encode_package_gif};
 use clairlune_scene::activity::builtin_catalog;
 use clairlune_scene::{Aspect, BuildOptions, ContentContext, SceneRecipe, compose};
 use clap::{Args, ValueEnum};
@@ -33,6 +33,9 @@ pub struct GifArgs {
     /// Render without the character.
     #[arg(long)]
     no_buddy: bool,
+    /// Export a saved scene package instead, at its own size (see `package`).
+    #[arg(long, conflicts_with_all = ["seed", "recipe", "activity"])]
+    package: Option<PathBuf>,
     /// Output GIF path.
     #[arg(long)]
     out: PathBuf,
@@ -60,6 +63,39 @@ impl From<SmoothnessArg> for Smoothness {
 }
 
 pub fn gif(args: GifArgs) -> Result<(), String> {
+    if let Some(dir) = &args.package {
+        let pkg = ScenePackage::load(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        let wanted = args.theme.into();
+        let theme = if pkg.themes().contains(&wanted) {
+            wanted
+        } else {
+            pkg.themes()[0]
+        };
+        let file = BufWriter::new(
+            File::create(&args.out).map_err(|e| format!("writing {}: {e}", args.out.display()))?,
+        );
+        let stats = encode_package_gif(
+            &pkg,
+            theme,
+            !args.no_buddy,
+            args.loop_s * 1000,
+            args.smoothness.into(),
+            file,
+        )
+        .map_err(|e| e.to_string())?;
+        let bytes = std::fs::metadata(&args.out).map(|m| m.len()).unwrap_or(0);
+        println!(
+            "exported {} as {}x{}, {} s loop, {} frames written, {:.1} MB: {}",
+            dir.display(),
+            stats.width,
+            stats.height,
+            stats.loop_ms / 1000,
+            stats.frames_written,
+            bytes as f64 / 1_048_576.0,
+            args.out.display()
+        );
+        return Ok(());
+    }
     let (width, height) = args.size;
     let recipe = match &args.recipe {
         Some(path) => {
