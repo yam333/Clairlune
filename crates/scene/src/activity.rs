@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 /// Prop ids the engine can draw.
-pub const PROPS: [&str; 10] = [
+pub const PROPS: [&str; 11] = [
     "campfire",
     "log_seat",
     "telescope",
@@ -24,18 +24,25 @@ pub const PROPS: [&str; 10] = [
     "fallen_hat",
     "book_closed",
     "guitar_rest",
+    "bucket",
 ];
 /// Effect ids the engine can draw.
 pub const EFFECTS: [&str; 1] = ["embers"];
 /// Particle presets an `[[effects]]` entry can attach to an anchor.
 pub const PARTICLE_PRESETS: [&str; 3] = ["sparkles", "steam", "notes"];
+/// Tether presets: a line from an anchor to a moving end (a float on the
+/// water, a kite in the sky).
+pub const TETHER_PRESETS: [&str; 2] = ["fishing_line", "kite_string"];
+/// Which way the character faces, when it matters.
+pub const FACINGS: [&str; 1] = ["water"];
 /// Anchor names the art exports (docs/clawd-style.md).
 pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "item_tip"];
 /// Generic prop attachment points.
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 7] = [
+const SOURCES: [(&str, &str); 8] = [
+    ("fishing.toml", include_str!("../activities/fishing.toml")),
     (
         "make_coffee.toml",
         include_str!("../activities/make_coffee.toml"),
@@ -96,10 +103,10 @@ pub struct CharacterDef {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct EffectDef {
-    /// Effect type; `particles` for now.
+    /// `particles` or `tether`.
     #[serde(rename = "type")]
     pub kind: String,
-    /// One of [`PARTICLE_PRESETS`].
+    /// One of [`PARTICLE_PRESETS`] or [`TETHER_PRESETS`], by type.
     pub preset: String,
     /// Anchor name, e.g. `item_tip`.
     pub at: String,
@@ -152,6 +159,9 @@ pub struct Motion {
     pub path: Option<String>,
     pub speed_cells_per_s: Option<[f64; 2]>,
     pub at_path_end: Option<String>,
+    /// `water`: face the open water (fishing off the pier).
+    #[serde(default)]
+    pub face: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -320,15 +330,29 @@ impl Activity {
                 }
             }
         }
-        for e in &self.effects {
-            if e.kind != "particles" {
-                err(format!(
-                    "effect type `{}` is not implemented (only `particles`)",
-                    e.kind
-                ));
+        if let Some(face) = &self.motion.face {
+            if !FACINGS.contains(&face.as_str()) {
+                err(format!("unknown facing `{face}`"));
             }
-            if !PARTICLE_PRESETS.contains(&e.preset.as_str()) {
-                err(format!("unknown particle preset `{}`", e.preset));
+            if face == "water" && self.requires.terrain != ["shore"] {
+                err("facing the water needs requires.terrain = [\"shore\"]".into());
+            }
+        }
+        for e in &self.effects {
+            match e.kind.as_str() {
+                "particles" if !PARTICLE_PRESETS.contains(&e.preset.as_str()) => {
+                    err(format!("unknown particle preset `{}`", e.preset));
+                }
+                "tether" if !TETHER_PRESETS.contains(&e.preset.as_str()) => {
+                    err(format!("unknown tether preset `{}`", e.preset));
+                }
+                "particles" | "tether" => {}
+                other => err(format!(
+                    "effect type `{other}` is not implemented (`particles`, `tether`)"
+                )),
+            }
+            if e.preset == "fishing_line" && self.requires.terrain != ["shore"] {
+                err("a fishing line needs requires.terrain = [\"shore\"]".into());
             }
             if !ANCHORS.contains(&e.at.as_str()) {
                 err(format!("effect anchor `{}` is not a known anchor", e.at));

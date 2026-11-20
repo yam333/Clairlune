@@ -134,7 +134,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
   - [x] 12k Coverage (tests/coverage.rs, all 9 landscapes), one golden per landscape (`land-<id>`), contact-sheet review 
 - [x] contact-sheet CLI command
 - [ ] `path`, `bob`, `fly` motion
-- [ ] Activity Wave B: set pieces + `prop_anim` + `sit` + `ground_mark` (chess, easel painting, picnic, fishing)
+- [ ] Activity Wave B: set pieces + `prop_anim` + `sit` + `ground_mark` (chess, easel painting, picnic, fishing). Fishing done (2026-11-20): new `tether` effect type (render/tether.rs: `fishing_line` to a float on open water that bobs, dips on `nibble`, lifts on `reel`, with ripples; `kite_string` ready for the kite), `motion.face = "water"`, SceneGraph.water (the shore's open water past the pier end), rig item `rod`, bucket prop for Buddy off; golden recipes re-blessed; the v3 check now reads pinned recipe files (golden/recipes-v3/) so new activities don't move it
 - [ ] Activity Wave C: `path` on slopes/trails + `trail` (skiing, sledding, hiking, sandboarding)
 - [ ] Activity Wave D: `projectile` (tennis, skipping stones, snowballs)
 - [ ] Activity Wave E: `fly`/`bob` (broom flight, kite, balloon, rowing)

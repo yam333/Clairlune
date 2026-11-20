@@ -89,6 +89,25 @@ pub(crate) fn background(ctx: &Ctx, cells: &mut [Cell]) -> Vec<f64> {
     sky
 }
 
+/// A point on the water just past the pier's sea end, in pixels: where a
+/// fishing line meets the water.
+pub(crate) fn open_water(ctx: &Ctx) -> (i32, i32) {
+    let co = &ctx.co;
+    let comp = &ctx.recipe.composition;
+    let margin_px = pm(comp.platform_margin_pm) * ctx.unit + 2.0 * f64::from(co.g.cell_w);
+    let from_left = ctx.group_cx < co.w * 0.5;
+    let (end, out) = if from_left {
+        (f64::from(ctx.gx1) + margin_px, 1.0)
+    } else {
+        (f64::from(ctx.gx0) - margin_px, -1.0)
+    };
+    let x = end + out * 3.0 * f64::from(co.g.cell_w);
+    // The waterline under the deck (see `pier`).
+    let water_row = ctx.platform_row + 2;
+    let y = co.g.origin_y + water_row * co.g.cell_h + co.g.cell_h / 2;
+    (x.round() as i32, y as i32)
+}
+
 /// The pier: a plank deck on the platform row from the nearer screen edge to
 /// just past the focal group, posts every few columns down into the water,
 /// shadow under the deck, and a taller mooring post at the sea end.

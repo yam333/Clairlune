@@ -1,0 +1,33 @@
+{
+  "generator_version": 3,
+  "seed": 11,
+  "aspect": {
+    "w": 16,
+    "h": 9
+  },
+  "content_ctx_hash": "78c3cbc501907f95",
+  "activity": "warm_hands",
+  "archetype": "canyon",
+  "light_tod": "noon",
+  "dark_tod": "deep_dusk",
+  "platform": "rock_ledge",
+  "props": [
+    "campfire"
+  ],
+  "weather": "none",
+  "composition": {
+    "horizon_pm": 694,
+    "focus_x_pm": 483,
+    "gap_pm": 320,
+    "shape_pow_pm": 749,
+    "platform_margin_pm": 24,
+    "cliff_layers": 3,
+    "prop_left": false,
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
+  },
+  "palette": {
+    "light": "paper_day",
+    "dark": "slate_night"
+  }
+}

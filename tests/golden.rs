@@ -11,7 +11,7 @@
 //! are written to `target/golden-actual/` for inspection.
 
 use clairlune_render::encode_png;
-use clairlune_scene::Theme;
+use clairlune_scene::{SceneRecipe, Theme};
 use clairlune_tests::{
     GOLDEN_H, GOLDEN_W, blessing, decode_indexed_png, golden_cases, golden_dir, image_hash,
     still_of,
@@ -135,8 +135,10 @@ fn golden_images() {
 }
 
 /// Scenes saved with generator version 3 keep rendering exactly as they did:
-/// every golden case built as a version-3 recipe matches the hashes pinned in
-/// `golden/hashes-v3.txt` (made before version 4 changed the particle pace).
+/// the golden cases saved as version-3 recipes (`golden/recipes-v3/`) match
+/// the hashes pinned in `golden/hashes-v3.txt` (made before version 4 changed
+/// the particle pace). The recipes are files, as a saved scene's are, so new
+/// activities changing what a seed composes to don't move them.
 #[test]
 fn version_3_recipes_render_as_before() {
     let pinned: BTreeMap<String, String> =
@@ -150,9 +152,12 @@ fn version_3_recipes_render_as_before() {
             })
             .collect();
     let mut failures = Vec::new();
-    for (prefix, recipe) in golden_cases() {
-        let mut v3 = recipe.clone();
-        v3.generator_version = 3;
+    let dir = golden_dir().join("recipes-v3");
+    for (prefix, _) in golden_cases() {
+        let path = dir.join(format!("{prefix}.json"));
+        let text = std::fs::read_to_string(&path).unwrap_or_else(|_| panic!("{}", path.display()));
+        let v3 = SceneRecipe::from_json(&text).unwrap();
+        assert_eq!(v3.generator_version, 3, "{prefix}");
         for theme in [Theme::Dark, Theme::Light] {
             let name = format!("{prefix}-{}", theme.as_str());
             let got = match still_of(&v3, GOLDEN_W, GOLDEN_H, theme, true) {

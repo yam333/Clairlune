@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "a29ad47c1c4cf364",
-  "activity": "stargaze",
-  "archetype": "snowfield",
-  "light_tod": null,
-  "dark_tod": "deep_dusk",
-  "platform": "ice_shelf",
+  "content_ctx_hash": "f00ae33da7baa107",
+  "activity": "read_lantern",
+  "archetype": "city_rooftops",
+  "light_tod": "golden_hour",
+  "dark_tod": "dusk",
+  "platform": "rooftop_edge",
   "props": [
-    "telescope"
+    "lantern"
   ],
   "weather": "none",
   "composition": {

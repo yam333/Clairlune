@@ -1,0 +1,44 @@
+# Fishing off the end of the pier: a line down to a float bobbing on the water.
+id = "fishing"
+weight = 1.0
+
+[requires]
+terrain = ["shore"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk"]
+weather = ["none", "stars", "fireflies", "dust"]
+
+[motion]
+type = "stationary"
+face = "water"
+
+[animation]
+start = "wait"
+
+[animation.states.wait]
+loop = true
+dwell_s = [5, 10]
+next = { nibble = 0.6, look = 0.4 }
+
+[animation.states.look]
+loop = true
+dwell_s = [2, 4]
+next = { wait = 1.0 }
+
+# One-shot: something nibbles; the float dips.
+[animation.states.nibble]
+next = { wait = 0.5, reel = 0.5 }
+
+# One-shot: a tug on the line; the float lifts.
+[animation.states.reel]
+next = { wait = 1.0 }
+
+[[effects]]
+type = "tether"
+preset = "fishing_line"
+at = "item_tip"
+
+[gif]
+loop_script = ["wait", "nibble"]
+
+[unattended]
+props = ["bucket"]

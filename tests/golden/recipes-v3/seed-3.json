@@ -1,0 +1,33 @@
+{
+  "generator_version": 3,
+  "seed": 3,
+  "aspect": {
+    "w": 16,
+    "h": 9
+  },
+  "content_ctx_hash": "a29ad47c1c4cf364",
+  "activity": "stargaze",
+  "archetype": "snowfield",
+  "light_tod": null,
+  "dark_tod": "deep_dusk",
+  "platform": "ice_shelf",
+  "props": [
+    "telescope"
+  ],
+  "weather": "none",
+  "composition": {
+    "horizon_pm": 571,
+    "focus_x_pm": 692,
+    "gap_pm": 339,
+    "shape_pow_pm": 633,
+    "platform_margin_pm": 40,
+    "cliff_layers": 3,
+    "prop_left": false,
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
+  },
+  "palette": {
+    "light": "sand_day",
+    "dark": "ember_night"
+  }
+}
