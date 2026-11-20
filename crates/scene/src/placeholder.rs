@@ -241,6 +241,17 @@ pub const GUITAR_REST: PixelMap = PixelMap {
     colors: &[('K', INK_DARK), ('d', WOOD_DARK), ('W', WOOD)],
 };
 
+/// A tin bucket with a wire handle: the unattended variant of fishing
+/// (project art, CC BY 4.0).
+pub const BUCKET: PixelMap = PixelMap {
+    width: 7,
+    height: 7,
+    rows: &[
+        "..KKK..", ".K...K.", "SSSSSSS", ".sssss.", ".SSSSS.", ".sssss.", "..SSS..",
+    ],
+    colors: &[('K', INK_DARK), ('S', STEEL), ('s', STEEL_DARK)],
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -257,6 +268,9 @@ mod tests {
             CAMP_STOVE,
             COFFEE_MUG,
             FALLEN_HAT,
+            BOOK_CLOSED,
+            GUITAR_REST,
+            BUCKET,
         ] {
             assert_eq!(map.rows.len() as u32, map.height);
             for row in map.rows {

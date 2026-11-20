@@ -14,6 +14,7 @@ use crate::art::{BuiltinArt, SceneArt};
 use crate::atlas::GlyphAtlas;
 use crate::clock::{Clock, LoopScript, loop_track};
 use crate::palette::{IndexedPalette, LEVELS, ink_level};
+use crate::tether::{Anchor, draw_tether};
 use clairlune_scene::anim::state_at;
 use clairlune_scene::graph::CHARACTER_BOX;
 use clairlune_scene::particles::{Preset, preset_particles};
@@ -75,7 +76,14 @@ pub struct PixelRect {
 impl PixelRect {
     /// `[x0, x1) x [y0, y1)` clipped to a `width x height` image; `None` when
     /// nothing is left.
-    fn clipped(x0: i32, y0: i32, x1: i32, y1: i32, width: u32, height: u32) -> Option<Self> {
+    pub(crate) fn clipped(
+        x0: i32,
+        y0: i32,
+        x1: i32,
+        y1: i32,
+        width: u32,
+        height: u32,
+    ) -> Option<Self> {
         let (x0, y0) = (x0.max(0), y0.max(0));
         let (x1, y1) = (x1.min(width as i32), y1.min(height as i32));
         (x1 > x0 && y1 > y0).then(|| PixelRect {
@@ -193,7 +201,7 @@ fn compose(
                 // Effects go on top as an overlay (only the glyph's own pixels),
                 // so steam over a mug or sparkles over the hat stay visible.
                 draw_pose(img, drawn, &pose, palette);
-                draw_effects(img, drawn, graph, art, atlas, &pose, t_ms, clock);
+                draw_effects(img, drawn, graph, art, atlas, palette, &pose, t_ms, clock);
             }
             continue;
         }
@@ -205,7 +213,7 @@ fn compose(
 /// wisps such as steam). Normally it replaces its whole cell (background band,
 /// then the glyph); with `overlay` only the glyph's pixels are written.
 #[allow(clippy::too_many_arguments)]
-fn draw_particle(
+pub(crate) fn draw_particle(
     img: &mut IndexedImage,
     drawn: &mut Vec<PixelRect>,
     graph: &SceneGraph,
@@ -252,7 +260,7 @@ fn draw_particle(
 /// Draws a particle glyph centred on pixel `(cx, cy)` (`Clock::Smooth`): only
 /// the glyph's own pixels, over whatever is there, clipped to the image.
 #[allow(clippy::too_many_arguments)]
-fn draw_particle_at(
+pub(crate) fn draw_particle_at(
     img: &mut IndexedImage,
     drawn: &mut Vec<PixelRect>,
     graph: &SceneGraph,
@@ -414,6 +422,7 @@ fn draw_effects(
     graph: &SceneGraph,
     art: &dyn SceneArt,
     atlas: &GlyphAtlas,
+    palette: &IndexedPalette,
     pose: &Pose,
     t_ms: u64,
     clock: Clock,
@@ -425,6 +434,22 @@ fn draw_effects(
     let dir = if pose.mirror { -1.0 } else { 1.0 };
     for (i, e) in a.effects.iter().enumerate() {
         if !e.active_in(&pose.state) {
+            continue;
+        }
+        if e.kind == "tether" {
+            if let Some(&(ax, ay)) = pose.frame.anchors.get(&e.at) {
+                let (x, y) = pose.screen(ax, ay);
+                let anchor = Anchor {
+                    x,
+                    y,
+                    sc: pose.sc,
+                    dir: if pose.mirror { -1 } else { 1 },
+                    state: &pose.state,
+                };
+                draw_tether(
+                    img, drawn, graph, atlas, palette, &e.preset, &anchor, t_ms, clock,
+                );
+            }
             continue;
         }
         let (Some(&(ax, ay)), Some(preset)) =

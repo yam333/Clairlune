@@ -1,0 +1,33 @@
+{
+  "generator_version": 3,
+  "seed": 9000000001,
+  "aspect": {
+    "w": 16,
+    "h": 9
+  },
+  "content_ctx_hash": "a29ad47c1c4cf364",
+  "activity": "make_coffee",
+  "archetype": "shore",
+  "light_tod": "golden_hour",
+  "dark_tod": "dusk",
+  "platform": "pier",
+  "props": [
+    "camp_stove"
+  ],
+  "weather": "none",
+  "composition": {
+    "horizon_pm": 624,
+    "focus_x_pm": 348,
+    "gap_pm": 339,
+    "shape_pow_pm": 683,
+    "platform_margin_pm": 12,
+    "cliff_layers": 3,
+    "prop_left": false,
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
+  },
+  "palette": {
+    "light": "sand_day",
+    "dark": "ember_night"
+  }
+}

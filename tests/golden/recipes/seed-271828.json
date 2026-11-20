@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "a29ad47c1c4cf364",
-  "activity": "play_guitar",
-  "archetype": "mountains",
-  "light_tod": "golden_hour",
-  "dark_tod": "dusk",
-  "platform": "rock_ledge",
+  "content_ctx_hash": "f00ae33da7baa107",
+  "activity": "stargaze",
+  "archetype": "forest",
+  "light_tod": null,
+  "dark_tod": "deep_dusk",
+  "platform": "log",
   "props": [
-    "campfire"
+    "telescope"
   ],
-  "weather": "stars",
+  "weather": "none",
   "composition": {
     "horizon_pm": 641,
     "focus_x_pm": 650,

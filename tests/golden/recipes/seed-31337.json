@@ -5,10 +5,10 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "a29ad47c1c4cf364",
-  "activity": "stroll",
+  "content_ctx_hash": "f00ae33da7baa107",
+  "activity": "read_lantern",
   "archetype": "canyon",
-  "light_tod": "morning",
+  "light_tod": "golden_hour",
   "dark_tod": "deep_dusk",
   "platform": "rock_ledge",
   "props": [
@@ -23,8 +23,8 @@
     "platform_margin_pm": 28,
     "cliff_layers": 3,
     "prop_left": true,
-    "motion_speed_cc": 361,
-    "pace_half_pm": 122
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "sand_day",

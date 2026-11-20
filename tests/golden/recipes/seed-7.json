@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "a29ad47c1c4cf364",
-  "activity": "stroll",
+  "content_ctx_hash": "f00ae33da7baa107",
+  "activity": "read_lantern",
   "archetype": "cave",
-  "light_tod": "noon",
+  "light_tod": "golden_hour",
   "dark_tod": "night",
   "platform": "rock_ledge",
   "props": [
     "lantern"
   ],
-  "weather": "dust",
+  "weather": "none",
   "composition": {
     "horizon_pm": 638,
     "focus_x_pm": 500,
@@ -23,8 +23,8 @@
     "platform_margin_pm": 31,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 222,
-    "pace_half_pm": 113
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "paper_day",

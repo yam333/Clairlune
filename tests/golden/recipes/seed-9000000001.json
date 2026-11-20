@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "a29ad47c1c4cf364",
-  "activity": "make_coffee",
+  "content_ctx_hash": "f00ae33da7baa107",
+  "activity": "play_guitar",
   "archetype": "shore",
   "light_tod": "golden_hour",
-  "dark_tod": "dusk",
+  "dark_tod": "night",
   "platform": "pier",
   "props": [
-    "camp_stove"
+    "campfire"
   ],
-  "weather": "none",
+  "weather": "stars",
   "composition": {
     "horizon_pm": 624,
     "focus_x_pm": 348,

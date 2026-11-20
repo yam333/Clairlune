@@ -5,8 +5,8 @@
 use crate::palette::{PaletteFamily, Theme};
 use crate::particles::{Emitter, Particle};
 use crate::placeholder::{
-    BOOK_CLOSED, CAMP_STOVE, CAMPFIRE, CLAWD_PLACEHOLDER, COFFEE_MUG, FALLEN_HAT, GUITAR_REST,
-    LANTERN, LOG_SEAT, PixelMap, SPELLBOOK, TELESCOPE,
+    BOOK_CLOSED, BUCKET, CAMP_STOVE, CAMPFIRE, CLAWD_PLACEHOLDER, COFFEE_MUG, FALLEN_HAT,
+    GUITAR_REST, LANTERN, LOG_SEAT, PixelMap, SPELLBOOK, TELESCOPE,
 };
 use crate::recipe::TimeOfDay;
 
@@ -175,11 +175,12 @@ pub enum SpriteKind {
     FallenHat,
     BookClosed,
     GuitarRest,
+    Bucket,
 }
 
 impl SpriteKind {
     /// Every kind, so palettes can reserve all sprite colours up front.
-    pub const ALL: [SpriteKind; 11] = [
+    pub const ALL: [SpriteKind; 12] = [
         SpriteKind::Character,
         SpriteKind::Campfire,
         SpriteKind::LogSeat,
@@ -191,6 +192,7 @@ impl SpriteKind {
         SpriteKind::FallenHat,
         SpriteKind::BookClosed,
         SpriteKind::GuitarRest,
+        SpriteKind::Bucket,
     ];
 
     /// Layout box in sprite pixels. The character's box is the drawn art's
@@ -215,6 +217,7 @@ impl SpriteKind {
             SpriteKind::FallenHat => &FALLEN_HAT,
             SpriteKind::BookClosed => &BOOK_CLOSED,
             SpriteKind::GuitarRest => &GUITAR_REST,
+            SpriteKind::Bucket => &BUCKET,
         }
     }
 }
@@ -343,6 +346,10 @@ pub struct SceneGraph {
     /// palette follows it, so older scenes keep their colours.
     #[serde(default)]
     pub generator: u32,
+    /// A point on open water near the focal group, in pixels (the shore:
+    /// just past the pier's end), for effects that reach the water.
+    #[serde(default)]
+    pub water: Option<(i32, i32)>,
 }
 
 impl SceneGraph {

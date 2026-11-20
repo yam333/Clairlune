@@ -209,6 +209,7 @@ fn build_scene(
 
     // ---- The archetype's platform under the focal group. ----
     terrain::platform(&recipe.archetype, &ctx, &mut cells);
+    let water = (recipe.archetype == "shore").then(|| terrain::shore::open_water(&ctx));
 
     // ---- Sky: stars at night, faint dust by day. Normalised positions, so the
     // same stars appear at every resolution. ----
@@ -328,6 +329,7 @@ fn build_scene(
         loop_ms: LOOP_MS,
         pace,
         generator: recipe.generator_version,
+        water,
     }
 }
 

@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "a29ad47c1c4cf364",
-  "activity": "wizard_magic",
+  "content_ctx_hash": "f00ae33da7baa107",
+  "activity": "stargaze",
   "archetype": "night_sky",
-  "light_tod": "morning",
-  "dark_tod": "night",
+  "light_tod": null,
+  "dark_tod": "deep_dusk",
   "platform": "floating_island",
   "props": [
-    "spellbook"
+    "telescope"
   ],
   "weather": "none",
   "composition": {
