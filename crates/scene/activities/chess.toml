@@ -1,0 +1,38 @@
+# Chess at a low table: thinking with a piece in hand, a move, a wait for
+# the other side.
+id = "chess"
+weight = 1.0
+
+[requires]
+terrain = ["flat", "ledge", "rooftop"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
+weather = ["none", "stars", "fireflies", "leaves"]
+
+[motion]
+type = "stationary"
+
+[props.chess_table]
+attach = "either_side"
+
+[animation]
+start = "think"
+
+[animation.states.think]
+loop = true
+dwell_s = [4, 9]
+next = { move = 0.7, wait = 0.3 }
+
+# One-shot: reach over the board and set a piece down.
+[animation.states.move]
+next = { wait = 1.0 }
+
+[animation.states.wait]
+loop = true
+dwell_s = [3, 6]
+next = { think = 1.0 }
+
+[gif]
+loop_script = ["think", "move", "wait"]
+
+[unattended]
+props = ["chess_table"]

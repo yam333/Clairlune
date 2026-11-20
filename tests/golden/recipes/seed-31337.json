@@ -5,13 +5,15 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "9728113e67509462",
-  "activity": "fly_kite",
-  "archetype": "desert",
-  "light_tod": "morning",
-  "dark_tod": null,
-  "platform": "dune_crest",
-  "props": [],
+  "content_ctx_hash": "d1d0c9f9e72742d4",
+  "activity": "broom_flight",
+  "archetype": "forest",
+  "light_tod": null,
+  "dark_tod": "dusk",
+  "platform": "tree_branch",
+  "props": [
+    "spellbook"
+  ],
   "weather": "none",
   "composition": {
     "horizon_pm": 622,
@@ -21,8 +23,9 @@
     "platform_margin_pm": 28,
     "cliff_layers": 3,
     "prop_left": true,
-    "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "motion_speed_cc": 628,
+    "pace_half_pm": 0,
+    "fly_lift_pm": 208
   },
   "palette": {
     "light": "sand_day",

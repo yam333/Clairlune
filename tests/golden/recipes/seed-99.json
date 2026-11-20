@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "9728113e67509462",
-  "activity": "make_coffee",
-  "archetype": "forest",
+  "content_ctx_hash": "d1d0c9f9e72742d4",
+  "activity": "snowballs",
+  "archetype": "snowfield",
   "light_tod": "noon",
   "dark_tod": "dusk",
-  "platform": "log",
+  "platform": "ice_shelf",
   "props": [
-    "camp_stove"
+    "snowman"
   ],
   "weather": "none",
   "composition": {

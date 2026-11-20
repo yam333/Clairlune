@@ -5,16 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "9728113e67509462",
-  "activity": "make_coffee",
-  "archetype": "mountains",
+  "content_ctx_hash": "d1d0c9f9e72742d4",
+  "activity": "fly_kite",
+  "archetype": "night_sky",
   "light_tod": "morning",
-  "dark_tod": "dusk",
-  "platform": "rock_ledge",
-  "props": [
-    "camp_stove"
-  ],
-  "weather": "snow",
+  "dark_tod": null,
+  "platform": "floating_island",
+  "props": [],
+  "weather": "none",
   "composition": {
     "horizon_pm": 641,
     "focus_x_pm": 650,

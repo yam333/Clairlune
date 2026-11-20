@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 /// Prop ids the engine can draw.
-pub const PROPS: [&str; 16] = [
+pub const PROPS: [&str; 18] = [
     "campfire",
     "log_seat",
     "telescope",
@@ -30,6 +30,8 @@ pub const PROPS: [&str; 16] = [
     "easel",
     "snowman",
     "basket",
+    "picnic_basket",
+    "chess_table",
 ];
 /// Effect ids the engine can draw.
 pub const EFFECTS: [&str; 1] = ["embers"];
@@ -51,7 +53,7 @@ pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "i
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 14] = [
+const SOURCES: [(&str, &str); 16] = [
     (
         "balloon_ride.toml",
         include_str!("../activities/balloon_ride.toml"),
@@ -60,6 +62,7 @@ const SOURCES: [(&str, &str); 14] = [
         "broom_flight.toml",
         include_str!("../activities/broom_flight.toml"),
     ),
+    ("chess.toml", include_str!("../activities/chess.toml")),
     ("fishing.toml", include_str!("../activities/fishing.toml")),
     ("fly_kite.toml", include_str!("../activities/fly_kite.toml")),
     (
@@ -70,6 +73,7 @@ const SOURCES: [(&str, &str); 14] = [
         "paint_easel.toml",
         include_str!("../activities/paint_easel.toml"),
     ),
+    ("picnic.toml", include_str!("../activities/picnic.toml")),
     (
         "play_guitar.toml",
         include_str!("../activities/play_guitar.toml"),

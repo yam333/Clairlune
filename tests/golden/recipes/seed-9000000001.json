@@ -5,15 +5,13 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "9728113e67509462",
-  "activity": "warm_hands",
-  "archetype": "desert",
+  "content_ctx_hash": "d1d0c9f9e72742d4",
+  "activity": "balloon_ride",
+  "archetype": "city_rooftops",
   "light_tod": "golden_hour",
-  "dark_tod": "night",
-  "platform": "dune_crest",
-  "props": [
-    "campfire"
-  ],
+  "dark_tod": null,
+  "platform": "rooftop_edge",
+  "props": [],
   "weather": "none",
   "composition": {
     "horizon_pm": 624,
@@ -23,8 +21,9 @@
     "platform_margin_pm": 12,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "motion_speed_cc": 127,
+    "pace_half_pm": 0,
+    "fly_lift_pm": 175
   },
   "palette": {
     "light": "sand_day",

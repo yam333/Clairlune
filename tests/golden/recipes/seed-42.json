@@ -5,13 +5,15 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "9728113e67509462",
-  "activity": "fly_kite",
-  "archetype": "city_rooftops",
+  "content_ctx_hash": "d1d0c9f9e72742d4",
+  "activity": "paint_easel",
+  "archetype": "mountains",
   "light_tod": "golden_hour",
-  "dark_tod": null,
-  "platform": "rooftop_edge",
-  "props": [],
+  "dark_tod": "dusk",
+  "platform": "rock_ledge",
+  "props": [
+    "easel"
+  ],
   "weather": "none",
   "composition": {
     "horizon_pm": 697,

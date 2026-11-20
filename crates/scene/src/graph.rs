@@ -5,9 +5,9 @@
 use crate::palette::{PaletteFamily, Theme};
 use crate::particles::{Emitter, Particle};
 use crate::placeholder::{
-    BASKET, BOOK_CLOSED, BUCKET, CAMP_STOVE, CAMPFIRE, CLAWD_PLACEHOLDER, COFFEE_MUG, EASEL,
-    FALLEN_HAT, GUITAR_REST, KITE_REST, LANTERN, LOG_SEAT, PixelMap, SNOWMAN, SPELLBOOK,
-    STONE_PILE, TELESCOPE,
+    BASKET, BOOK_CLOSED, BUCKET, CAMP_STOVE, CAMPFIRE, CHESS_TABLE, CLAWD_PLACEHOLDER, COFFEE_MUG,
+    EASEL, FALLEN_HAT, GUITAR_REST, KITE_REST, LANTERN, LOG_SEAT, PICNIC_BASKET, PixelMap, SNOWMAN,
+    SPELLBOOK, STONE_PILE, TELESCOPE,
 };
 use crate::recipe::TimeOfDay;
 
@@ -182,6 +182,8 @@ pub enum SpriteKind {
     Easel,
     Snowman,
     Basket,
+    PicnicBasket,
+    ChessTable,
 }
 
 impl SpriteKind {
@@ -192,7 +194,7 @@ impl SpriteKind {
 
     /// Every kind, so palettes can reserve all sprite colours up front. New
     /// kinds go at the end.
-    pub const ALL: [SpriteKind; 17] = [
+    pub const ALL: [SpriteKind; 19] = [
         SpriteKind::Character,
         SpriteKind::Campfire,
         SpriteKind::LogSeat,
@@ -210,6 +212,8 @@ impl SpriteKind {
         SpriteKind::Easel,
         SpriteKind::Snowman,
         SpriteKind::Basket,
+        SpriteKind::PicnicBasket,
+        SpriteKind::ChessTable,
     ];
 
     /// Layout box in sprite pixels. The character's box is the drawn art's
@@ -240,6 +244,8 @@ impl SpriteKind {
             SpriteKind::Easel => &EASEL,
             SpriteKind::Snowman => &SNOWMAN,
             SpriteKind::Basket => &BASKET,
+            SpriteKind::PicnicBasket => &PICNIC_BASKET,
+            SpriteKind::ChessTable => &CHESS_TABLE,
         }
     }
 }

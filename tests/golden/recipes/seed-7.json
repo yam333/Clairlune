@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "9728113e67509462",
-  "activity": "stroll",
+  "content_ctx_hash": "d1d0c9f9e72742d4",
+  "activity": "make_coffee",
   "archetype": "cave",
   "light_tod": "noon",
-  "dark_tod": "night",
+  "dark_tod": "dusk",
   "platform": "rock_ledge",
   "props": [
-    "lantern"
+    "camp_stove"
   ],
   "weather": "dust",
   "composition": {
@@ -23,8 +23,8 @@
     "platform_margin_pm": 31,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 222,
-    "pace_half_pm": 113
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "paper_day",
