@@ -23,6 +23,18 @@ artifact. To make them by hand from downloaded installers:
 python scripts/package_manifests.py --artifacts <folder> --version 1.2.3
 ```
 
+## Status (0.10.0, 2026-11-20)
+
+| Channel | State |
+|---|---|
+| GitHub release | live: https://github.com/yam333/Clairlune/releases/tag/v0.10.0 |
+| crates.io | live: `cargo install clairlune` |
+| Homebrew, Scoop | live in the tap https://github.com/yam333/homebrew-clairlune |
+| winget | submitted: https://github.com/microsoft/winget-pkgs/pull/485182 (waits for Microsoft's checks and the CLA) |
+| AUR | files ready in the tap (`aur/clairlune-bin/`); needs the maintainer's AUR account |
+
+For the next releases, publishing the GitHub release runs `.github/workflows/publish.yml`. It updates the tap when the `TAP_TOKEN` secret exists (a fine-grained token with Contents read and write on yam333/homebrew-clairlune), and opens the winget update when `WINGET_TOKEN` exists (a classic token with `public_repo`). Without them, it leaves the manifests as an artifact to commit by hand.
+
 ## Channels
 
 | Channel | Manifest | Publishing, once public | Needs |

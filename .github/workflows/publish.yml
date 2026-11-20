@@ -41,6 +41,7 @@ jobs:
         with:
           name: manifests-${{ env.TAG }}
           path: manifests
+          include-hidden-files: true
 
       - name: Homebrew cask and Scoop manifest to the tap
         if: env.TAP_TOKEN != ''
