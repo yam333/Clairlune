@@ -5,15 +5,13 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "d1d0c9f9e72742d4",
-  "activity": "broom_flight",
+  "content_ctx_hash": "01f15c35f9e3b611",
+  "activity": "balloon_ride",
   "archetype": "forest",
-  "light_tod": null,
-  "dark_tod": "dusk",
+  "light_tod": "morning",
+  "dark_tod": null,
   "platform": "tree_branch",
-  "props": [
-    "spellbook"
-  ],
+  "props": [],
   "weather": "none",
   "composition": {
     "horizon_pm": 622,
@@ -23,7 +21,7 @@
     "platform_margin_pm": 28,
     "cliff_layers": 3,
     "prop_left": true,
-    "motion_speed_cc": 628,
+    "motion_speed_cc": 105,
     "pace_half_pm": 0,
     "fly_lift_pm": 208
   },

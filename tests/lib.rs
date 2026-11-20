@@ -114,6 +114,26 @@ pub fn available_theme(r: &SceneRecipe, wanted: Theme) -> Theme {
 }
 
 /// Stable FNV-1a hash of an image's size, palette and pixels.
+/// Stable FNV-1a hash of an image's size and the colour of every pixel: the
+/// same picture gives the same hash however the palette is laid out.
+pub fn pixels_hash(img: &IndexedImage, palette: &clairlune_render::IndexedPalette) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut feed = |bytes: &[u8]| {
+        for &b in bytes {
+            h ^= u64::from(b);
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    };
+    feed(&img.width.to_le_bytes());
+    feed(&img.height.to_le_bytes());
+    let colors = palette.colors();
+    for &i in &img.pixels {
+        let c = colors[usize::from(i)];
+        feed(&[c.r, c.g, c.b]);
+    }
+    h
+}
+
 pub fn image_hash(img: &IndexedImage, palette_rgb: &[u8]) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     let mut feed = |bytes: &[u8]| {

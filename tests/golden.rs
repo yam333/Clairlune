@@ -14,7 +14,7 @@ use clairlune_render::encode_png;
 use clairlune_scene::{SceneRecipe, Theme};
 use clairlune_tests::{
     GOLDEN_H, GOLDEN_W, blessing, decode_indexed_png, golden_cases, golden_dir, image_hash,
-    still_of,
+    pixels_hash, still_of,
 };
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -138,7 +138,10 @@ fn golden_images() {
 /// the golden cases saved as version-3 recipes (`golden/recipes-v3/`) match
 /// the hashes pinned in `golden/hashes-v3.txt` (made before version 4 changed
 /// the particle pace). The recipes are files, as a saved scene's are, so new
-/// activities changing what a seed composes to don't move them.
+/// activities changing what a seed composes to don't move them; the hashes
+/// are of the pixels' colours, so new palette entries don't either.
+/// `CLAIRLUNE_PIN_V3=1` writes the file: only for changing how it is hashed,
+/// from a commit known to render the originals, never to accept a change.
 #[test]
 fn version_3_recipes_render_as_before() {
     let pinned: BTreeMap<String, String> =
@@ -152,6 +155,7 @@ fn version_3_recipes_render_as_before() {
             })
             .collect();
     let mut failures = Vec::new();
+    let mut pins = Vec::new();
     let dir = golden_dir().join("recipes-v3");
     for (prefix, _) in golden_cases() {
         let path = dir.join(format!("{prefix}.json"));
@@ -161,13 +165,20 @@ fn version_3_recipes_render_as_before() {
         for theme in [Theme::Dark, Theme::Light] {
             let name = format!("{prefix}-{}", theme.as_str());
             let got = match still_of(&v3, GOLDEN_W, GOLDEN_H, theme, true) {
-                Some(s) => format!("{:016x}", image_hash(&s.image, &s.palette.rgb_bytes())),
+                Some(s) => format!("{:016x}", pixels_hash(&s.image, &s.palette)),
                 None => "locked".to_string(),
             };
+            pins.push(format!("{name} {got}"));
             if pinned.get(&name) != Some(&got) {
                 failures.push(format!("{name}: {got} != {:?}", pinned.get(&name)));
             }
         }
+    }
+    if std::env::var("CLAIRLUNE_PIN_V3").is_ok_and(|v| v == "1") {
+        let header = "# Version-3 recipes (the original particle pace), pinned: generator 4 must still render them exactly so. Hashes of the pixels' colours. Never re-blessed to accept a change.";
+        let text = format!("{header}\n{}\n", pins.join("\n"));
+        std::fs::write(golden_dir().join("hashes-v3.txt"), text).unwrap();
+        return;
     }
     assert!(
         failures.is_empty(),

@@ -1,0 +1,42 @@
+# Tennis against a practice wall: a rally, the ball out and back with each
+# swing, then a breather.
+id = "tennis"
+weight = 1.0
+
+[requires]
+terrain = ["flat", "rooftop", "ledge"]
+time_of_day = ["morning", "noon", "golden_hour"]
+weather = ["none", "dust", "leaves"]
+
+[motion]
+type = "stationary"
+
+[props.practice_wall]
+attach = "either_side"
+# Room for the rally.
+gap = 16
+
+[animation]
+start = "rally"
+
+[animation.states.rally]
+loop = true
+dwell_s = [4, 8]
+next = { rest = 1.0 }
+
+[animation.states.rest]
+loop = true
+dwell_s = [2, 4]
+next = { rally = 1.0 }
+
+[[effects]]
+type = "projectile"
+preset = "tennis_ball"
+at = "item_tip"
+states = ["rally"]
+
+[gif]
+loop_script = ["rally", "rest"]
+
+[unattended]
+props = ["practice_wall"]

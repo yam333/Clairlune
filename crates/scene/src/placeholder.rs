@@ -391,6 +391,26 @@ pub const CHESS_TABLE: PixelMap = PixelMap {
     colors: &[('K', INK_DARK), ('P', PAGE), ('d', WOOD_DARK)],
 };
 
+const TENNIS_BALL: Rgb = Rgb::hex(0xD8E04A);
+
+/// A tennis practice wall on posts, with a painted target: the set piece for
+/// tennis (project art, CC BY 4.0).
+pub const PRACTICE_WALL: PixelMap = PixelMap {
+    width: 7,
+    height: 16,
+    rows: &[
+        "SSSSSSs", "SSSSSSs", "SSSBSSs", "SSBBBSs", "SSSBSSs", "SSSSSSs", "PPPPPPP", "SSSSSSs",
+        "SSSSSSs", "SSSSSSs", "SSSSSSs", "SSSSSSs", ".d...d.", ".d...d.", ".d...d.", ".d...d.",
+    ],
+    colors: &[
+        ('S', STEEL),
+        ('s', STEEL_DARK),
+        ('P', PAGE),
+        ('B', TENNIS_BALL),
+        ('d', WOOD_DARK),
+    ],
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -417,6 +437,7 @@ mod tests {
             BASKET,
             PICNIC_BASKET,
             CHESS_TABLE,
+            PRACTICE_WALL,
         ] {
             assert_eq!(map.rows.len() as u32, map.height);
             for row in map.rows {

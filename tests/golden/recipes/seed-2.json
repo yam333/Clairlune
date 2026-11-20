@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "d1d0c9f9e72742d4",
-  "activity": "wizard_magic",
+  "content_ctx_hash": "01f15c35f9e3b611",
+  "activity": "stroll",
   "archetype": "night_sky",
   "light_tod": "morning",
   "dark_tod": "night",
   "platform": "floating_island",
   "props": [
-    "spellbook"
+    "lantern"
   ],
   "weather": "none",
   "composition": {
@@ -23,8 +23,8 @@
     "platform_margin_pm": 18,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "motion_speed_cc": 396,
+    "pace_half_pm": 64
   },
   "palette": {
     "light": "paper_day",

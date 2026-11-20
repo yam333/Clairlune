@@ -1,0 +1,33 @@
+# Rowing a little boat back and forth on the water past the pier's end.
+id = "rowing"
+# Shore only, like fishing and skipping stones: the three together weigh
+# about as much as one activity, so the shore doesn't come up too often.
+weight = 0.35
+
+[requires]
+terrain = ["shore"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk"]
+weather = ["none", "dust"]
+
+[motion]
+type = "bob"
+speed_cells_per_s = [0.6, 1.2]
+
+[animation]
+start = "row"
+
+[animation.states.row]
+loop = true
+dwell_s = [6, 12]
+next = { drift = 1.0 }
+
+[animation.states.drift]
+loop = true
+dwell_s = [2, 4]
+next = { row = 1.0 }
+
+[gif]
+loop_script = ["row", "drift"]
+
+[unattended]
+props = ["bucket"]

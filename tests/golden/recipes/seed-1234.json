@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "d1d0c9f9e72742d4",
-  "activity": "picnic",
-  "archetype": "cave",
-  "light_tod": "golden_hour",
-  "dark_tod": null,
-  "platform": "rock_ledge",
+  "content_ctx_hash": "01f15c35f9e3b611",
+  "activity": "stargaze",
+  "archetype": "city_rooftops",
+  "light_tod": null,
+  "dark_tod": "deep_dusk",
+  "platform": "rooftop_edge",
   "props": [
-    "picnic_basket"
+    "telescope"
   ],
   "weather": "none",
   "composition": {

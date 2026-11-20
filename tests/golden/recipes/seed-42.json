@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "d1d0c9f9e72742d4",
-  "activity": "paint_easel",
+  "content_ctx_hash": "01f15c35f9e3b611",
+  "activity": "stroll",
   "archetype": "mountains",
   "light_tod": "golden_hour",
   "dark_tod": "dusk",
   "platform": "rock_ledge",
   "props": [
-    "easel"
+    "lantern"
   ],
   "weather": "none",
   "composition": {
@@ -23,8 +23,8 @@
     "platform_margin_pm": 15,
     "cliff_layers": 3,
     "prop_left": true,
-    "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "motion_speed_cc": 317,
+    "pace_half_pm": 66
   },
   "palette": {
     "light": "sand_day",

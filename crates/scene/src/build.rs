@@ -157,7 +157,7 @@ fn build_scene(
     let horizon = pm(comp.horizon_pm);
     let platform_row = ((horizon * f64::from(rows)).round() as u32).clamp(rows / 3, rows - 4);
     let ground_y = (grid.origin_y + platform_row * grid.cell_h) as i32;
-    let focal = focal::layout(recipe, activity, w, h, ground_y, grid.cell_w);
+    let focal = focal::layout(recipe, activity, w, h, ground_y, grid.cell_w, grid.cell_h);
     let (gx0, gx1, group_h) = (focal.x0, focal.x1, focal.height);
     let group_cx = f64::from(gx0 + gx1) * 0.5;
 
@@ -400,8 +400,8 @@ mod tests {
                     .find(|s| s.kind == SpriteKind::Character)
                     .unwrap();
                 if g.character.is_some_and(|t| t.flies()) {
-                    // In the air: above the ground and on screen.
-                    assert!(c.y + c.height() as i32 <= g.ground_y && c.y >= 0);
+                    // Off the ground (in the air, on the water): on screen.
+                    assert!(c.y >= 0 && c.y + c.height() as i32 <= g.height as i32);
                     continue;
                 }
                 assert_eq!(c.y + c.height() as i32, g.ground_y);
@@ -470,10 +470,16 @@ mod tests {
     #[test]
     fn rejects_tiny_sizes_and_unknown_archetypes() {
         let mut r = compose(1, Aspect::from_size(16, 9), &ContentContext::default());
+        // A theme the scene has (day-only and night-only activities exist).
+        let theme = if r.tod_for(Theme::Dark).is_some() {
+            Theme::Dark
+        } else {
+            Theme::Light
+        };
         let opts = BuildOptions {
             width: 100,
             height: 50,
-            theme: Theme::Dark,
+            theme,
             buddy: true,
         };
         assert!(matches!(build(&r, &opts), Err(BuildError::TooSmall { .. })));

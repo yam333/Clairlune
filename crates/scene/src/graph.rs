@@ -6,8 +6,8 @@ use crate::palette::{PaletteFamily, Theme};
 use crate::particles::{Emitter, Particle};
 use crate::placeholder::{
     BASKET, BOOK_CLOSED, BUCKET, CAMP_STOVE, CAMPFIRE, CHESS_TABLE, CLAWD_PLACEHOLDER, COFFEE_MUG,
-    EASEL, FALLEN_HAT, GUITAR_REST, KITE_REST, LANTERN, LOG_SEAT, PICNIC_BASKET, PixelMap, SNOWMAN,
-    SPELLBOOK, STONE_PILE, TELESCOPE,
+    EASEL, FALLEN_HAT, GUITAR_REST, KITE_REST, LANTERN, LOG_SEAT, PICNIC_BASKET, PRACTICE_WALL,
+    PixelMap, SNOWMAN, SPELLBOOK, STONE_PILE, TELESCOPE,
 };
 use crate::recipe::TimeOfDay;
 
@@ -184,6 +184,7 @@ pub enum SpriteKind {
     Basket,
     PicnicBasket,
     ChessTable,
+    PracticeWall,
 }
 
 impl SpriteKind {
@@ -194,7 +195,7 @@ impl SpriteKind {
 
     /// Every kind, so palettes can reserve all sprite colours up front. New
     /// kinds go at the end.
-    pub const ALL: [SpriteKind; 19] = [
+    pub const ALL: [SpriteKind; 20] = [
         SpriteKind::Character,
         SpriteKind::Campfire,
         SpriteKind::LogSeat,
@@ -214,6 +215,7 @@ impl SpriteKind {
         SpriteKind::Basket,
         SpriteKind::PicnicBasket,
         SpriteKind::ChessTable,
+        SpriteKind::PracticeWall,
     ];
 
     /// Layout box in sprite pixels. The character's box is the drawn art's
@@ -246,6 +248,7 @@ impl SpriteKind {
             SpriteKind::Basket => &BASKET,
             SpriteKind::PicnicBasket => &PICNIC_BASKET,
             SpriteKind::ChessTable => &CHESS_TABLE,
+            SpriteKind::PracticeWall => &PRACTICE_WALL,
         }
     }
 }
@@ -340,8 +343,8 @@ impl CharacterTrack {
         }
     }
 
-    /// Whether the character leaves the ground (its feet aren't on the
-    /// platform).
+    /// Whether the character leaves the ground (flying, or on the water):
+    /// its feet aren't on the platform.
     pub fn flies(&self) -> bool {
         matches!(self.motion, Motion::Fly { .. })
     }
