@@ -131,7 +131,7 @@ def scoop(v: str, base: str, h: dict[str, str], n: dict[str, str]) -> str:
     return json.dumps(manifest, indent=4) + "\n"
 
 
-WINGET_SCHEMA = "1.10.0"
+WINGET_SCHEMA = "1.28.0"
 WINGET_ID = "Clairlune.Clairlune"
 
 

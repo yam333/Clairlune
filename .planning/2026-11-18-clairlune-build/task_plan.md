@@ -289,7 +289,7 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 
 ### Phase 26: Package managers (user, 2026-11-20: "install via a package manager like brew, and on Windows and Linux"; publish when the repository goes public)
 - [x] 26a Release builds every file a package manager needs: Linux .deb (depends libxkbcommon0) and AppImage on ubuntu-22.04 (glibc 2.35), a portable Windows zip for Scoop, next to setup.exe and the DMGs
-- [x] 26b scripts/package_manifests.py writes the Homebrew cask, Scoop manifest, winget manifests (3 files, schema 1.10.0) and AUR clairlune-bin PKGBUILD + .SRCINFO from a release's files (hashes, real file names; DMGs are capitalised); the Release workflow's `manifests` job uploads them as an artifact. Tried on the 0.9.0 run's setup.exe and DMGs
+- [x] 26b scripts/package_manifests.py writes the Homebrew cask, Scoop manifest, winget manifests (3 files, schema 1.28.0) and AUR clairlune-bin PKGBUILD + .SRCINFO from a release's files (hashes, real file names; DMGs are capitalised); the Release workflow's `manifests` job uploads them as an artifact. Tried on the 0.9.0 run's setup.exe and DMGs
 - [x] 26c docs/distribution.md: channels, what each needs, the go-public checklist
 - [ ] 26d When public: tap repository yam333/homebrew-clairlune (Casks/ + bucket/), publish job (cask, Scoop, winget PR via komac), AUR package, README install commands. Later: Chocolatey, Flathub (wallpaper portal via ashpd), Snap, nixpkgs
 - **Status:** the repository went public on 2026-11-20 (user's request; audit first: no secrets, only noreply emails, no personal files; local paths scrubbed from the plan). CI back to all three OSes on every push (free for public repositories). Publishing starts with the next release
