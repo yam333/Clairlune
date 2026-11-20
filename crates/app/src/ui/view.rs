@@ -145,7 +145,7 @@ const INTERVALS: [(u32, &str); 8] = [
     (0, "Only on demand"),
 ];
 
-pub(super) const LANDSCAPES: [(&str, &str); 9] = [
+pub(super) const LANDSCAPES: [(&str, &str); 10] = [
     ("canyon", "Canyon"),
     ("mountains", "Mountains"),
     ("forest", "Forest"),
@@ -155,6 +155,7 @@ pub(super) const LANDSCAPES: [(&str, &str); 9] = [
     ("city_rooftops", "City rooftops"),
     ("night_sky", "Night sky"),
     ("cave", "Cave"),
+    ("interior", "Indoors, by a window"),
 ];
 
 pub(super) const ACTIVITIES: [(&str, &str); 19] = [

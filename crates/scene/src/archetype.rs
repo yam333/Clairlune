@@ -3,7 +3,7 @@
 //! existing activities and vice versa (PLAN.md section 4.7).
 
 /// Terrain capabilities an archetype can offer.
-pub const TERRAINS: [&str; 9] = [
+pub const TERRAINS: [&str; 10] = [
     "flat",
     "ledge",
     "cliff",
@@ -13,6 +13,7 @@ pub const TERRAINS: [&str; 9] = [
     "rooftop",
     "cave_floor",
     "water",
+    "indoor",
 ];
 /// Surface materials.
 pub const SURFACES: [&str; 8] = [
@@ -44,9 +45,10 @@ pub struct ArchetypeInfo {
     pub sky: bool,
 }
 
-/// The nine v1 archetypes (PLAN.md section 4.2). Unimplemented ones carry their
+/// The archetypes (PLAN.md section 4.2, and the interior from
+/// docs/activity-system.md). Unimplemented ones carry their
 /// intended capabilities so activity files can be written against them now.
-pub const ARCHETYPE_INFO: [ArchetypeInfo; 9] = [
+pub const ARCHETYPE_INFO: [ArchetypeInfo; 10] = [
     ArchetypeInfo {
         id: "canyon",
         implemented: true,
@@ -126,6 +128,15 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 9] = [
         surface: &["rock"],
         weather: &["none", "dust"],
         platforms: &["rock_ledge"],
+        sky: false,
+    },
+    ArchetypeInfo {
+        id: "interior",
+        implemented: true,
+        terrain: &["indoor"],
+        surface: &["wood"],
+        weather: &["none"],
+        platforms: &["floor"],
         sky: false,
     },
 ];

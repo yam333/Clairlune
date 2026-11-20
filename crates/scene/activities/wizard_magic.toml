@@ -3,7 +3,7 @@ id = "wizard_magic"
 weight = 1.0
 
 [requires]
-terrain = ["ledge", "flat", "cliff", "rooftop"]
+terrain = ["ledge", "flat", "cliff", "rooftop", "indoor"]
 time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
 weather = ["none", "stars", "snow", "dust", "leaves"]
 

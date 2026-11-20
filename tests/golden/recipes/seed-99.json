@@ -5,12 +5,12 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "050f5c01735044a2",
+  "content_ctx_hash": "efa65fa9db51e0dd",
   "activity": "warm_hands",
-  "archetype": "forest",
+  "archetype": "snowfield",
   "light_tod": "noon",
   "dark_tod": "deep_dusk",
-  "platform": "log",
+  "platform": "ice_shelf",
   "props": [
     "campfire"
   ],

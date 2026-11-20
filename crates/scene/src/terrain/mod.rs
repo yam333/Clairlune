@@ -12,6 +12,7 @@ pub(crate) mod city;
 pub(crate) mod desert;
 pub(crate) mod details;
 pub(crate) mod forest;
+pub(crate) mod interior;
 pub(crate) mod layers;
 pub(crate) mod ledge;
 pub(crate) mod mountains;
@@ -26,7 +27,7 @@ use crate::recipe::{SceneRecipe, TimeOfDay};
 
 /// Archetypes this generator version can paint. Must match the `implemented`
 /// flags in `archetype::ARCHETYPE_INFO` (checked by a test).
-pub const PAINTED: [&str; 9] = [
+pub const PAINTED: [&str; 10] = [
     "canyon",
     "mountains",
     "desert",
@@ -36,6 +37,7 @@ pub const PAINTED: [&str; 9] = [
     "city_rooftops",
     "night_sky",
     "cave",
+    "interior",
 ];
 
 /// Normalised cell-centre coordinates.
@@ -120,6 +122,7 @@ pub(crate) fn background(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Vec<
         "city_rooftops" => city::background(ctx, cells),
         "night_sky" => night_sky::background(ctx, cells),
         "cave" => cave::background(ctx, cells),
+        "interior" => interior::background(ctx, cells),
         other => unreachable!("archetype `{other}` is not painted"),
     }
 }
@@ -141,6 +144,7 @@ pub(crate) fn platform(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) {
         "shore" => shore::pier(ctx, cells),
         "city_rooftops" => city::rooftop(ctx, cells),
         "night_sky" => night_sky::island(ctx, cells),
+        "interior" => interior::floor(ctx, cells),
         other => ledge::paint(ctx, cells, ledge_style(other)),
     }
 }
@@ -149,7 +153,7 @@ pub(crate) fn platform(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) {
 #[cfg(test)]
 pub(crate) fn platform_top(archetype: &str) -> u8 {
     match archetype {
-        "shore" | "city_rooftops" => crate::glyphs::id('='),
+        "shore" | "city_rooftops" | "interior" => crate::glyphs::id('='),
         "night_sky" => crate::glyphs::id('"'),
         other => ledge_style(other).top,
     }
