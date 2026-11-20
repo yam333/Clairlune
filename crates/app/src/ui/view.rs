@@ -87,6 +87,8 @@ pub enum UiAction {
     SaveToLibrary,
     OpenLibrary,
     EditTimeline,
+    /// The Timeline window changed the timeline (already in the model).
+    TimelineChanged,
     ApplyLibrary(String),
     UpdateLibrary(Box<crate::library::Item>),
     DeleteLibrary {
@@ -118,7 +120,7 @@ const INTERVALS: [(u32, &str); 8] = [
     (0, "Only on demand"),
 ];
 
-const LANDSCAPES: [(&str, &str); 9] = [
+pub(super) const LANDSCAPES: [(&str, &str); 9] = [
     ("canyon", "Canyon"),
     ("mountains", "Mountains"),
     ("forest", "Forest"),
@@ -130,7 +132,7 @@ const LANDSCAPES: [(&str, &str); 9] = [
     ("cave", "Cave"),
 ];
 
-const ACTIVITIES: [(&str, &str); 7] = [
+pub(super) const ACTIVITIES: [(&str, &str); 7] = [
     ("warm_hands", "Warming hands by a fire"),
     ("stroll", "Strolling"),
     ("stargaze", "Stargazing (night only)"),
@@ -142,14 +144,14 @@ const ACTIVITIES: [(&str, &str); 7] = [
 
 /// Weather that shows as particles. Clear weather ("none", "stars") is
 /// always allowed so every scene has something to fall back to.
-const WEATHER: [(&str, &str); 5] = [
+pub(super) const WEATHER: [(&str, &str); 5] = [
     ("snow", "Snow"),
     ("rain", "Rain"),
     ("fireflies", "Fireflies"),
     ("leaves", "Falling leaves"),
     ("dust", "Dust"),
 ];
-const CLEAR_WEATHER: [&str; 2] = ["none", "stars"];
+pub(super) const CLEAR_WEATHER: [&str; 2] = ["none", "stars"];
 
 pub fn show(
     ui: &mut Ui,
@@ -233,7 +235,7 @@ fn sidebar(ui: &mut Ui, theme: Theme, st: &mut ViewState) {
     });
 }
 
-fn focus_ring(ui: &Ui, theme: Theme, rect: Rect, r: f32) {
+pub(super) fn focus_ring(ui: &Ui, theme: Theme, rect: Rect, r: f32) {
     ui.painter().rect_stroke(
         rect.expand(size::FOCUS_OFFSET),
         r + size::FOCUS_OFFSET,
@@ -313,6 +315,10 @@ fn status_strip(
                 );
             }
             let next = match status.next_in_minutes {
+                // Timeline mode: the slots decide.
+                None if status.timeline_next.is_some() => {
+                    status.timeline_next.clone().unwrap_or_default()
+                }
                 Some(0) => "Next change in under a minute".to_string(),
                 Some(1) => "Next change in 1 minute".to_string(),
                 Some(m) if m < 120 => format!("Next change in {m} minutes"),
@@ -379,7 +385,7 @@ pub(super) fn hairline(ui: &mut Ui, color: crate::tokens::Rgb) {
 }
 
 /// A group label inside a page.
-fn group(ui: &mut Ui, title: &str) {
+pub(super) fn group(ui: &mut Ui, title: &str) {
     ui.add_space(space::S2);
     ui.label(RichText::new(title).font(style::section()));
     ui.add_space(space::S1);
@@ -475,7 +481,12 @@ pub(super) fn segmented<T: PartialEq + Copy>(
 
 /// A list of checkboxes over a filter list where empty means "all". At
 /// least one stays checked.
-fn filter_checks(ui: &mut Ui, list: &mut Vec<String>, items: &[(&str, &str)], always: &[&str]) {
+pub(super) fn filter_checks(
+    ui: &mut Ui,
+    list: &mut Vec<String>,
+    items: &[(&str, &str)],
+    always: &[&str],
+) {
     let all: Vec<String> = items.iter().map(|(id, _)| id.to_string()).collect();
     let mut on: Vec<bool> = items
         .iter()
@@ -543,9 +554,9 @@ fn page(
                 ui,
                 theme,
                 "Timeline",
-                "Edit the daily plan in timeline.toml for now; the timeline editor comes next.",
+                "The daily plan: which wallpaper shows when, for every day or each weekday.",
                 |ui| {
-                    if ui.button("Edit").clicked() {
+                    if ui.button("Edit timeline").clicked() {
                         actions.push(UiAction::EditTimeline);
                     }
                 },

@@ -18,6 +18,7 @@ pub enum Action {
     SaveGif,
     SaveToLibrary,
     OpenLibrary,
+    OpenTimeline,
     OpenArchive,
     OpenSettings,
     Quit,
@@ -35,6 +36,7 @@ pub struct Tray {
     save_gif: MenuItem,
     save_lib: MenuItem,
     library: MenuItem,
+    timeline: MenuItem,
     archive: MenuItem,
     settings: MenuItem,
     quit: MenuItem,
@@ -57,6 +59,7 @@ impl Tray {
         let save_gif = MenuItem::new("Save current as GIF", true, None);
         let save_lib = MenuItem::new("Save to library", true, None);
         let library = MenuItem::new("Library\u{2026}", true, None);
+        let timeline = MenuItem::new("Timeline\u{2026}", true, None);
         let archive = MenuItem::new("Open archive folder", true, None);
         let settings = MenuItem::new("Settings\u{2026}", true, None);
         let quit = MenuItem::new("Quit Clairlune", true, None);
@@ -72,6 +75,7 @@ impl Tray {
             &save_gif,
             &save_lib,
             &library,
+            &timeline,
             &archive,
             &settings,
             &PredefinedMenuItem::separator(),
@@ -98,6 +102,7 @@ impl Tray {
             save_gif,
             save_lib,
             library,
+            timeline,
             archive,
             settings,
             quit,
@@ -116,6 +121,7 @@ impl Tray {
             (self.save_gif.id(), Action::SaveGif),
             (self.save_lib.id(), Action::SaveToLibrary),
             (self.library.id(), Action::OpenLibrary),
+            (self.timeline.id(), Action::OpenTimeline),
             (self.archive.id(), Action::OpenArchive),
             (self.settings.id(), Action::OpenSettings),
             (self.quit.id(), Action::Quit),

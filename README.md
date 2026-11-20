@@ -10,7 +10,7 @@ Every wallpaper is generated locally from a seed: a landscape built from text gl
 
 ## Status
 
-Early development. The generator and a developer CLI work today: nine landscapes (canyon, mountains, forest, desert, snowfield, shore, city rooftops, night sky, cave), seven activities for Clawd, weather, stills and seamless looping GIFs. On Windows the tray app already runs: a new wallpaper on a schedule, one scene per monitor, with an archive of past ones. The settings window, live (animated) wallpapers and the other systems come in later milestones; see [PLAN.md](PLAN.md).
+Early development. The generator and a developer CLI work today: nine landscapes (canyon, mountains, forest, desert, snowfield, shore, city rooftops, night sky, cave), seven activities for Clawd, weather, stills and seamless looping GIFs. On Windows the tray app already runs: a new wallpaper on a schedule, one scene per monitor, an archive of past ones, a library of the ones you keep and a daily timeline. Live (animated) wallpapers and the other systems come in later milestones; see [PLAN.md](PLAN.md).
 
 ## Try the generator
 
@@ -61,7 +61,9 @@ cargo install clairlune      # or, from a checkout: cargo run --release -p clair
 clairlune
 ```
 
-A moon appears in the notification area. The app sets a new wallpaper at start and then every hour, one scene per monitor at each monitor's resolution, and keeps the last week in an archive. The menu has New wallpaper, Previous wallpaper, Theme (Follow system / Light / Dark), Pause schedule, Save current as PNG or GIF (to `Pictures\Clairlune`), Open archive folder, Settings and Quit. Launching it again opens Settings.
+A moon appears in the notification area. The app sets a new wallpaper at start and then every hour, one scene per monitor at each monitor's resolution, and keeps the last week in an archive. The menu has New wallpaper, Previous wallpaper, Theme (Follow system / Light / Dark), Pause schedule, Save current as PNG or GIF (to `Pictures\Clairlune`), Save to library, Library, Timeline, Open archive folder, Settings and Quit. Launching it again opens Settings.
+
+**Library and timeline.** Save to library keeps a wallpaper for good, as a frozen scene that plays the same after updates. The Library window lists them to use, rename, export or delete. With Settings > Rotation set to Timeline, the app follows a daily plan instead of the hourly schedule: the Timeline window shows a 24-hour bar for every day (or one per weekday) where you drag saved wallpapers or random scenes in, drag a slot's edge to move its start, double-click to split, and pick each slot's theme and Clawd. It is stored in `%APPDATA%\clairlune\timeline.toml` and follows daylight saving changes without skipping or repeating a slot.
 
 Settings shows the wallpaper on screen and covers the schedule, theme, which landscapes, activities and weather to use, Clawd on or off, the archive, exports, start at login, and **Restore my wallpaper**: before its first change the app remembers your own wallpaper, and this puts it back (so does `clairlune-cli restore`). Settings are stored in `%APPDATA%\clairlune\settings.toml`, logs in `%LOCALAPPDATA%\clairlune\logs`.
 

@@ -33,7 +33,7 @@ egui-wgpu.workspace = true
 wgpu.workspace = true
 pollster.workspace = true
 interprocess.workspace = true
-chrono.workspace = true
+jiff.workspace = true
 png.workspace = true
 
 [target.'cfg(any(windows, target_os = "macos"))'.dependencies]
@@ -44,4 +44,3 @@ tray-icon.workspace = true
 tray-icon = { workspace = true, features = ["ksni"] }
 
 [dev-dependencies]
-chrono-tz.workspace = true
