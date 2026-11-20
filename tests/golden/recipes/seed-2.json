@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "9728113e67509462",
-  "activity": "paint_easel",
+  "content_ctx_hash": "d1d0c9f9e72742d4",
+  "activity": "wizard_magic",
   "archetype": "night_sky",
   "light_tod": "morning",
-  "dark_tod": "dusk",
+  "dark_tod": "night",
   "platform": "floating_island",
   "props": [
-    "easel"
+    "spellbook"
   ],
   "weather": "none",
   "composition": {

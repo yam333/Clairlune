@@ -74,7 +74,7 @@ M.along = along
 --   eyes     "open" | "closed" | "left" | "right" | "up" | "happy" | "focus"
 --   arm_l, arm_r   "rest" | "out" | "up" | { dx, dy } hand position from the shoulder
 --   reach, wiggle  extra length / 1 px raise for "out" and "up" arms
---   hold     { item, angle, hand = "r" }  item: wand, racket, ski_pole, walking_stick, mug, chess_piece, rod, stone, broom, brush, snowball
+--   hold     { item, angle, hand = "r" }  item: wand, racket, ski_pole, walking_stick, mug, chess_piece, rod, stone, broom, brush, snowball, apple
 --   costume  { "wizard_hat", "beanie", "goggles", "backpack", "scarf" }
 --   legs     "stand" | "walk_a" | "walk_b" | "ski"
 function M.pose(o)
@@ -94,6 +94,7 @@ function M.pose(o)
     costume = o.costume or {},
     legs = o.legs or "stand",
     extra = o.extra,
+    under = o.under,
   }
 end
 
@@ -207,6 +208,11 @@ end
 function ITEMS.snowball(c, x, y)
   c.rect(x - 1, y - 2, 2, 2, P.white)
   return { x, y - 2 }
+end
+function ITEMS.apple(c, x, y)
+  c.rect(x - 1, y - 2, 2, 2, P.red)
+  c.px(x, y - 3, P.wood_dark) -- the stem (the character has 16 colours)
+  return { x, y - 3 }
 end
 function ITEMS.chess_piece(c, x, y)
   c.px(x, y - 3, P.ink)
@@ -401,6 +407,7 @@ end
 -- Draws a pose with the origin at (ox, oy) and returns its anchors.
 function M.draw(c, p, ox, oy)
   local g = geometry(p, ox, oy)
+  if p.under then p.under(c, ox, oy) end
   if has(p.costume, "backpack") then COSTUME.backpack(c, p, g) end
   legs(c, p, g)
   body(c, p, g)

@@ -354,6 +354,43 @@ pub const BASKET: PixelMap = PixelMap {
     colors: &[('W', WOOD), ('d', WOOD_DARK)],
 };
 
+/// A picnic basket with a checked cloth peeking out: the set piece for a
+/// picnic (project art, CC BY 4.0).
+pub const PICNIC_BASKET: PixelMap = PixelMap {
+    width: 9,
+    height: 8,
+    rows: &[
+        "...ddd...",
+        "..d...d..",
+        ".d.....d.",
+        "RPRPRPRPR",
+        "WWWWWWWWW",
+        "WdWdWdWdW",
+        "WWWWWWWWW",
+        ".WdWdWdW.",
+    ],
+    colors: &[('d', WOOD_DARK), ('W', WOOD), ('R', KITE_RED), ('P', PAGE)],
+};
+
+/// A low table with a chessboard and two pieces: the set piece for chess
+/// (project art, CC BY 4.0).
+pub const CHESS_TABLE: PixelMap = PixelMap {
+    width: 11,
+    height: 9,
+    rows: &[
+        "...K...P...",
+        "..KKK.PPP..",
+        "KPKPKPKPKPK",
+        "PKPKPKPKPKP",
+        "ddddddddddd",
+        ".d.......d.",
+        ".d.......d.",
+        ".d.......d.",
+        ".d.......d.",
+    ],
+    colors: &[('K', INK_DARK), ('P', PAGE), ('d', WOOD_DARK)],
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -378,6 +415,8 @@ mod tests {
             EASEL,
             SNOWMAN,
             BASKET,
+            PICNIC_BASKET,
+            CHESS_TABLE,
         ] {
             assert_eq!(map.rows.len() as u32, map.height);
             for row in map.rows {

@@ -65,6 +65,8 @@ fn prop_kind(id: &str) -> Option<SpriteKind> {
         "easel" => Some(SpriteKind::Easel),
         "snowman" => Some(SpriteKind::Snowman),
         "basket" => Some(SpriteKind::Basket),
+        "picnic_basket" => Some(SpriteKind::PicnicBasket),
+        "chess_table" => Some(SpriteKind::ChessTable),
         _ => None,
     }
 }

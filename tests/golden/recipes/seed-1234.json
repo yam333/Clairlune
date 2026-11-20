@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "9728113e67509462",
-  "activity": "broom_flight",
-  "archetype": "city_rooftops",
-  "light_tod": null,
-  "dark_tod": "night",
-  "platform": "rooftop_edge",
+  "content_ctx_hash": "d1d0c9f9e72742d4",
+  "activity": "picnic",
+  "archetype": "cave",
+  "light_tod": "golden_hour",
+  "dark_tod": null,
+  "platform": "rock_ledge",
   "props": [
-    "spellbook"
+    "picnic_basket"
   ],
   "weather": "none",
   "composition": {
@@ -23,9 +23,8 @@
     "platform_margin_pm": 29,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 538,
-    "pace_half_pm": 0,
-    "fly_lift_pm": 251
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "paper_day",

@@ -1,0 +1,45 @@
+# A picnic: sitting on a checked blanket by the basket, an apple, a warm
+# drink, a look around.
+id = "picnic"
+weight = 1.0
+
+[requires]
+terrain = ["flat", "ledge", "dune", "shore"]
+time_of_day = ["morning", "noon", "golden_hour"]
+weather = ["none", "leaves", "dust"]
+
+[motion]
+type = "stationary"
+
+[props.picnic_basket]
+attach = "either_side"
+
+[animation]
+start = "eat"
+
+[animation.states.eat]
+loop = true
+dwell_s = [4, 8]
+next = { sip = 0.5, look = 0.5 }
+
+[animation.states.sip]
+loop = true
+dwell_s = [3, 6]
+next = { eat = 0.6, look = 0.4 }
+
+[animation.states.look]
+loop = true
+dwell_s = [2, 4]
+next = { eat = 1.0 }
+
+[[effects]]
+type = "particles"
+preset = "steam"
+at = "item_tip"
+states = ["sip"]
+
+[gif]
+loop_script = ["eat", "sip"]
+
+[unattended]
+props = ["picnic_basket"]
