@@ -14,6 +14,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 #[cfg(windows)]
+pub mod d3d11;
+#[cfg(windows)]
 pub mod desktop;
 pub mod gpu;
 
@@ -92,6 +94,21 @@ impl Player {
                     *out = self.colors[usize::from(i)];
                 }
             }
+        }
+    }
+
+    /// One rectangle of the current frame as 0RGB pixels, row by row.
+    pub fn rect_pixels(&self, r: &PixelRect, out: &mut Vec<u32>) {
+        let img = self.frame.image();
+        let w = img.width as usize;
+        out.clear();
+        for y in r.y..r.y + r.h {
+            let a = y as usize * w + r.x as usize;
+            out.extend(
+                img.pixels[a..a + r.w as usize]
+                    .iter()
+                    .map(|&i| self.colors[usize::from(i)]),
+            );
         }
     }
 
