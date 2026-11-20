@@ -121,9 +121,9 @@ function ITEMS.walking_stick(c, x, y, deg)
 end
 function ITEMS.ski_pole(c, x, y, deg)
   local tx, ty = along(x, y, deg, 11)
-  line(c, x, y, tx, ty, P.metal)
+  line(c, x, y, tx, ty, P.metal_dark)
   local bx, by = along(x, y, deg, 9)
-  c.px(bx - 1, by, P.metal_dark); c.px(bx + 1, by, P.metal_dark)
+  c.px(bx - 1, by, P.ink); c.px(bx + 1, by, P.ink)
   return { tx, ty }
 end
 function ITEMS.racket(c, x, y, deg)
@@ -349,8 +349,8 @@ local function legs(c, p, g)
   end
   if p.legs == "ski" then
     -- Skis under the feet, tips turned up at the front.
-    line(c, g.ox - 9, g.oy, g.ox + 9, g.oy, P.blue)
-    c.px(g.ox + 10, g.oy - 1, P.blue)
+    line(c, g.ox - 9, g.oy, g.ox + 9, g.oy, P.red)
+    c.px(g.ox + 10, g.oy - 1, P.red)
   end
 end
 

@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "01f15c35f9e3b611",
-  "activity": "broom_flight",
-  "archetype": "city_rooftops",
-  "light_tod": null,
+  "content_ctx_hash": "050f5c01735044a2",
+  "activity": "play_guitar",
+  "archetype": "shore",
+  "light_tod": "golden_hour",
   "dark_tod": "night",
-  "platform": "rooftop_edge",
+  "platform": "pier",
   "props": [
-    "spellbook"
+    "campfire"
   ],
   "weather": "stars",
   "composition": {
@@ -23,9 +23,8 @@
     "platform_margin_pm": 12,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 649,
-    "pace_half_pm": 0,
-    "fly_lift_pm": 175
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "sand_day",

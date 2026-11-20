@@ -5,13 +5,15 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "01f15c35f9e3b611",
-  "activity": "fly_kite",
-  "archetype": "shore",
+  "content_ctx_hash": "050f5c01735044a2",
+  "activity": "warm_hands",
+  "archetype": "forest",
   "light_tod": "noon",
-  "dark_tod": null,
-  "platform": "pier",
-  "props": [],
+  "dark_tod": "deep_dusk",
+  "platform": "log",
+  "props": [
+    "campfire"
+  ],
   "weather": "none",
   "composition": {
     "horizon_pm": 571,

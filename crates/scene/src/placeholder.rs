@@ -411,6 +411,18 @@ pub const PRACTICE_WALL: PixelMap = PixelMap {
     ],
 };
 
+/// A pair of skis and poles standing in the snow: the unattended variant of
+/// skiing (project art, CC BY 4.0).
+pub const SKIS_REST: PixelMap = PixelMap {
+    width: 7,
+    height: 14,
+    rows: &[
+        ".R.R...", ".R.R.s.", ".R.R.s.", ".R.R.s.", ".R.R.s.", ".R.R.s.", ".R.R.s.", ".R.R.s.",
+        ".R.R.s.", ".R.R.s.", ".R.R.s.", ".R.R.s.", ".R.R.K.", "KKKKKKK",
+    ],
+    colors: &[('R', KITE_RED), ('s', STEEL_DARK), ('K', INK_DARK)],
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -438,6 +450,7 @@ mod tests {
             PICNIC_BASKET,
             CHESS_TABLE,
             PRACTICE_WALL,
+            SKIS_REST,
         ] {
             assert_eq!(map.rows.len() as u32, map.height);
             for row in map.rows {

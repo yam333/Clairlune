@@ -5,15 +5,13 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "01f15c35f9e3b611",
-  "activity": "stargaze",
-  "archetype": "city_rooftops",
-  "light_tod": null,
-  "dark_tod": "deep_dusk",
-  "platform": "rooftop_edge",
-  "props": [
-    "telescope"
-  ],
+  "content_ctx_hash": "050f5c01735044a2",
+  "activity": "rowing",
+  "archetype": "shore",
+  "light_tod": "golden_hour",
+  "dark_tod": "dusk",
+  "platform": "pier",
+  "props": [],
   "weather": "none",
   "composition": {
     "horizon_pm": 696,
@@ -23,7 +21,7 @@
     "platform_margin_pm": 29,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 0,
+    "motion_speed_cc": 87,
     "pace_half_pm": 0
   },
   "palette": {

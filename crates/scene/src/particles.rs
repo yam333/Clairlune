@@ -459,6 +459,8 @@ pub enum Preset {
     Steam,
     /// Music notes floating up and sideways (a guitar).
     Notes,
+    /// Snow kicked up behind skis: short arcs backwards, quick.
+    SnowSpray,
 }
 
 impl Preset {
@@ -467,6 +469,7 @@ impl Preset {
             "sparkles" => Some(Preset::Sparkles),
             "steam" => Some(Preset::Steam),
             "notes" => Some(Preset::Notes),
+            "snow_spray" => Some(Preset::SnowSpray),
             _ => None,
         }
     }
@@ -494,6 +497,9 @@ pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64, pace: u8) -> Vec<P
         (Preset::Sparkles, true) => ("fx_sparkles", 9, &[2000, 3000]),
         (Preset::Steam, true) => ("fx_steam", 5, &[3000, 6000]),
         (Preset::Notes, true) => ("fx_notes", 4, &[3000, 6000]),
+        // Spray is quick even at the calm pace: it's thrown, not drifting.
+        (Preset::SnowSpray, false) => ("fx_snow_spray", 8, &[600, 1000]),
+        (Preset::SnowSpray, true) => ("fx_snow_spray", 8, &[1000, 1500]),
     };
     let mut rng = Rng::stream(seed, label);
     let mut out = Vec::new();
@@ -533,6 +539,22 @@ pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64, pace: u8) -> Vec<P
                 out.push(PresetParticle {
                     dx: sway + 0.5 * (a - 0.5),
                     dy: -rise - 1.0,
+                    glyph,
+                    level,
+                });
+            }
+            Preset::SnowSpray => {
+                // Backwards (negative dx: behind the skier) on a low arc.
+                let back = (1.5 + 6.0 * b) * p;
+                let up = (2.0 + 3.0 * a) * p - 5.0 * p * p;
+                let level = (5.0 * (1.0 - p) + 0.5).round() as u8;
+                if level == 0 {
+                    continue;
+                }
+                let glyph = [id('*'), id('\''), id('.'), id(',')][((p * 4.0) as usize).min(3)];
+                out.push(PresetParticle {
+                    dx: -back - 1.0 - c,
+                    dy: -up,
                     glyph,
                     level,
                 });
