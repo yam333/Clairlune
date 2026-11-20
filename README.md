@@ -69,6 +69,14 @@ Settings shows the wallpaper on screen and covers the schedule, theme, which lan
 
 On Linux the app uses a StatusNotifier tray icon and sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway (one image for all monitors; not yet tried on real desktops, reports welcome). On macOS it runs and archives scenes but can't set the wallpaper yet. Live (animated) wallpapers come in a later version.
 
+## Live wallpapers (Windows, in progress)
+
+```sh
+clairlune-cli live --seconds 30 --fps 12
+```
+
+plays a scene on each monitor behind the desktop icons for the given time, then leaves its still frame as the wallpaper and prints what it cost (frame time, CPU, memory). `clairlune-cli restore` puts your own wallpaper back. Frames are drawn on the graphics card the monitors are plugged into, and a monitor covered by a maximized or full-screen app pauses. The tray app's Live mode comes next.
+
 ## Set it as your wallpaper from the CLI (Windows)
 
 ```sh
@@ -89,6 +97,7 @@ The primary monitor gets the seed you give; the others get seeds derived from it
 | `clairlune-render` (`crates/render`) | Glyph atlas, palette-index compositor, PNG export. |
 | `clairlune-cli` (`crates/cli`) | Developer tool. |
 | `clairlune-platform` (`crates/platform`) | Monitors, setting the wallpaper, login items (Windows today). |
+| `clairlune-live` (`crates/live`) | Live wallpapers: plays a scene behind the desktop icons, uploading only what changed. |
 | `clairlune` (`crates/app`) | The tray app and Settings window (egui). |
 
 ## Generated images

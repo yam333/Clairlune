@@ -73,6 +73,17 @@
 - Pose catalogue (_template_poses, 44x34): ski, coffee, hike, chess, tennis, wizard all read clearly at 6x.
 - Fixes found by looking: side-view raised arm hid the eye (shoulder moved to top+6, eye drawn last in profile); front-view arm reaching across the body is invisible (prefer side view for table activities, or outline the arm).
 
+## Live wallpaper on Windows (2026-11-20, tried on build 26300)
+- Two shell layouts. Classic: `0x052C` makes Progman spawn a top-level WorkerW behind the one holding SHELLDLL_DefView; wallpaper windows are its children. Raised desktop (24H2+, Progman has `WS_EX_NOREDIRECTIONBITMAP`): DefView and a WorkerW (which draws the wallpaper) are children of Progman. Microsoft's advice to wallpaper apps (quoted in Lively's source): a `WS_EX_LAYERED` child of Progman at alpha 255, z-ordered under DefView and above the WorkerW. Our windows land exactly there (checked with GetWindow z-order).
+- On this build, nothing drawn with GDI into such a window reaches the screen: softbuffer, FillRect from another process, WM_PAINT painting, UpdateLayeredWindow, and parenting into the WorkerW instead (layered or plain) all stay invisible; with the WorkerW hidden the desktop shows plain grey, so the window isn't composed at all (not hidden behind). wgpu OpenGL (WGL) presents don't show either.
+- wgpu DX12 (DXGI flip model) presents do show (solid magenta probe on monitor 2, Intel UHD 770, LowPower). So the GPU presenter is required on the raised desktop, not an option. Vulkan needs `Win32WindowHandle::hinstance` set.
+- Child layered windows need the exe manifest to declare Windows 8+ (`supportedOS`); the CLI now embeds one (build.rs, MSVC linker). Not sufficient by itself for GDI here.
+- softbuffer damage-only presenting measured 0.84 ms/frame and 1.1 % of one core for 2560x1440 + 1920x1080 at 12 fps, 64 MB peak: the incremental compositor makes the CPU side cheap; the GPU side only needs partial texture uploads.
+- Render on the adapter the monitor is plugged into, not "LowPower": here the monitors hang off the RTX 4070 Ti, and drawing on the Intel iGPU made the system copy every frame across, with ~300 ms acquire stalls about once a second (all present modes and latencies) and 280 MB RSS. On the display's adapter: steady 12 fps, 0.6 ms per frame, no stalls. DXGI `EnumAdapters1`/`EnumOutputs` tells which adapter owns a monitor; wgpu adapters match by PCI vendor and device id. On laptops that adapter is usually the iGPU, so this is low-power there.
+- DWM also throttles presents to a window that is fully covered (a maximized app): ~300 ms stalls. Covered monitors pause (no compositing, no present) and resume at the current time. Chromium/Electron and WinUI windows have `WS_EX_NOREDIRECTIONBITMAP` and are opaque, so they count as covering; layered and click-through windows don't (overlays).
+- Budget measured (2560x1440 + 1920x1080, 12 fps, RTX 4070 Ti, one monitor covered): 0.64 ms per frame (upload 0.27, draw+present 0.26), ~1 % of one core, 139 MB peak RSS (41 MB before live). Uploading each rectangle with its own `write_texture` cost 31 ms per frame (each one stalls); packing all of a frame's rectangles into one staging buffer and one command buffer brought it to 0.3-0.7 ms.
+- `examples/present_probe.rs` (live crate) re-checks which presentation shows: `cargo run -p clairlune-live --example present_probe --release -- dx12|vulkan|gl`.
+
 ## Technical Decisions
 | Decision | Rationale |
 |----------|-----------|
