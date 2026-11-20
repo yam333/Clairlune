@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 /// Prop ids the engine can draw.
-pub const PROPS: [&str; 19] = [
+pub const PROPS: [&str; 20] = [
     "campfire",
     "log_seat",
     "telescope",
@@ -33,11 +33,12 @@ pub const PROPS: [&str; 19] = [
     "picnic_basket",
     "chess_table",
     "practice_wall",
+    "skis_rest",
 ];
 /// Effect ids the engine can draw.
 pub const EFFECTS: [&str; 1] = ["embers"];
 /// Particle presets an `[[effects]]` entry can attach to an anchor.
-pub const PARTICLE_PRESETS: [&str; 3] = ["sparkles", "steam", "notes"];
+pub const PARTICLE_PRESETS: [&str; 4] = ["sparkles", "steam", "notes", "snow_spray"];
 /// Tether presets: a line from an anchor to a moving end (a float on the
 /// water, a kite in the sky).
 pub const TETHER_PRESETS: [&str; 2] = ["fishing_line", "kite_string"];
@@ -54,7 +55,7 @@ pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "i
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 18] = [
+const SOURCES: [(&str, &str); 19] = [
     (
         "balloon_ride.toml",
         include_str!("../activities/balloon_ride.toml"),
@@ -84,6 +85,7 @@ const SOURCES: [(&str, &str); 18] = [
         include_str!("../activities/read_lantern.toml"),
     ),
     ("rowing.toml", include_str!("../activities/rowing.toml")),
+    ("skiing.toml", include_str!("../activities/skiing.toml")),
     (
         "skip_stones.toml",
         include_str!("../activities/skip_stones.toml"),
@@ -113,6 +115,9 @@ pub struct Activity {
     pub weight: f64,
     pub requires: Requires,
     pub motion: Motion,
+    /// Marks left in the ground along the character's way: `ski_tracks`.
+    #[serde(default)]
+    pub trail: Option<String>,
     #[serde(default)]
     pub props: BTreeMap<String, PropDef>,
     pub animation: AnimationDef,
@@ -372,6 +377,11 @@ impl Activity {
                     err(format!("prop `{prop}`: unknown effect `{e}`"));
                 }
             }
+        }
+        if let Some(t) = &self.trail
+            && t != "ski_tracks"
+        {
+            err(format!("unknown trail `{t}`"));
         }
         if self.motion.kind == MotionKind::Bob && self.requires.terrain != ["shore"] {
             err("bob motion floats on the shore's water: requires.terrain = [\"shore\"]".into());

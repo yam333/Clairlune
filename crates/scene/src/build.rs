@@ -209,6 +209,27 @@ fn build_scene(
 
     // ---- The archetype's platform under the focal group. ----
     terrain::platform(&recipe.archetype, &ctx, &mut cells);
+    // A trail: marks in the ground along the character's way.
+    if let (Some(a), Some(track)) = (activity, focal.character)
+        && a.trail.as_deref() == Some("ski_tracks")
+        && platform_row + 1 < rows
+    {
+        let (lo, hi) = track.x_range();
+        let cw = (crate::graph::CHARACTER_BOX.0 * track.scale) as i32;
+        let c0 = co.col_of(f64::from(lo)).max(0) as u32;
+        let c1 = (co.col_of(f64::from(hi + cw)).max(0) as u32).min(cols - 1);
+        for col in c0..=c1 {
+            let glyph = if col % 5 == 0 {
+                glyphs::id('-')
+            } else {
+                glyphs::id('=')
+            };
+            cells[((platform_row + 1) * cols + col) as usize] = Cell {
+                glyph,
+                shade: terrain::shade_u8(0.55),
+            };
+        }
+    }
     let water = (recipe.archetype == "shore").then(|| terrain::shore::open_water(&ctx));
 
     // ---- Sky: stars at night, faint dust by day. Normalised positions, so the

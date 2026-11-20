@@ -1,0 +1,38 @@
+# Skiing across the snowy ledge: a low tuck, a push with the poles, snow
+# spraying from the skis and tracks left in the snow.
+id = "skiing"
+weight = 1.0
+trail = "ski_tracks"
+
+[requires]
+terrain = ["flat", "ledge", "slope"]
+surface = ["snow"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk"]
+weather = ["none", "snow"]
+
+[motion]
+type = "pace"
+speed_cells_per_s = [3, 5]
+
+[animation]
+start = "glide"
+
+[animation.states.glide]
+loop = true
+dwell_s = [4, 8]
+next = { push = 1.0 }
+
+# One-shot: plant the pole, push, tuck again.
+[animation.states.push]
+next = { glide = 1.0 }
+
+[[effects]]
+type = "particles"
+preset = "snow_spray"
+at = "origin"
+
+[gif]
+loop_script = ["glide", "push"]
+
+[unattended]
+props = ["skis_rest"]

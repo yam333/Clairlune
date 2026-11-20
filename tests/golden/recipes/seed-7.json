@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "01f15c35f9e3b611",
-  "activity": "wizard_magic",
+  "content_ctx_hash": "050f5c01735044a2",
+  "activity": "play_guitar",
   "archetype": "cave",
-  "light_tod": "noon",
+  "light_tod": "golden_hour",
   "dark_tod": "night",
   "platform": "rock_ledge",
   "props": [
-    "spellbook"
+    "campfire"
   ],
   "weather": "dust",
   "composition": {
