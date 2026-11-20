@@ -10,7 +10,7 @@ Every wallpaper is generated locally from a seed: a landscape built from text gl
 
 ## Status
 
-Early development. The generator and a developer CLI work today: nine landscapes (canyon, mountains, forest, desert, snowfield, shore, city rooftops, night sky, cave), seven activities for Clawd, weather, stills and seamless looping GIFs. On Windows the tray app already runs: a new wallpaper on a schedule, one scene per monitor, an archive of past ones, a library of the ones you keep and a daily timeline. Live (animated) wallpapers and the other systems come in later milestones; see [PLAN.md](PLAN.md).
+Early development. The generator and a developer CLI work today: nine landscapes (canyon, mountains, forest, desert, snowfield, shore, city rooftops, night sky, cave), seven activities for Clawd, weather, stills and seamless looping GIFs. On Windows the tray app already runs: a new wallpaper on a schedule, one scene per monitor, playing live behind the desktop icons (or as a still frame), with an archive of past ones, a library of the ones you keep and a daily timeline. Other systems come in later milestones; see [PLAN.md](PLAN.md).
 
 ## Try the generator
 
@@ -61,21 +61,21 @@ cargo install clairlune      # or, from a checkout: cargo run --release -p clair
 clairlune
 ```
 
-A moon appears in the notification area. The app sets a new wallpaper at start and then every hour, one scene per monitor at each monitor's resolution, and keeps the last week in an archive. The menu has New wallpaper, Previous wallpaper, Theme (Follow system / Light / Dark), Pause schedule, Save current as PNG or GIF (to `Pictures\Clairlune`), Save to library, Library, Timeline, Open archive folder, Settings and Quit. Launching it again opens Settings.
+A moon appears in the notification area. The app sets a new wallpaper at start and then every hour, one scene per monitor at each monitor's resolution, and keeps the last week in an archive. By default the scene plays live behind your desktop icons: Clawd moves, fires flicker, snow falls. Settings > Display switches to a still frame, and Settings > Live sets the smoothness (6 to 60 frames a second, 12 by default). A monitor covered by a maximized or full-screen app pauses until it shows again. The menu has New wallpaper, Previous wallpaper, Theme (Follow system / Light / Dark), Live wallpaper, Pause schedule, Save current as PNG or GIF (to `Pictures\Clairlune`), Save to library, Library, Timeline, Open archive folder, Settings and Quit. Launching it again opens Settings.
 
 **Library and timeline.** Save to library keeps a wallpaper for good, as a frozen scene that plays the same after updates. The Library window lists them to use, rename, export or delete. With Settings > Rotation set to Timeline, the app follows a daily plan instead of the hourly schedule: the Timeline window shows a 24-hour bar for every day (or one per weekday) where you drag saved wallpapers or random scenes in, drag a slot's edge to move its start, double-click to split, and pick each slot's theme and Clawd. It is stored in `%APPDATA%\clairlune\timeline.toml` and follows daylight saving changes without skipping or repeating a slot.
 
 Settings shows the wallpaper on screen and covers the schedule, theme, which landscapes, activities and weather to use, Clawd on or off, the archive, exports, start at login, and **Restore my wallpaper**: before its first change the app remembers your own wallpaper, and this puts it back (so does `clairlune-cli restore`). Settings are stored in `%APPDATA%\clairlune\settings.toml`, logs in `%LOCALAPPDATA%\clairlune\logs`.
 
-On Linux the app uses a StatusNotifier tray icon and sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway (one image for all monitors; not yet tried on real desktops, reports welcome). On macOS it runs and archives scenes but can't set the wallpaper yet. Live (animated) wallpapers come in a later version.
+On Linux the app uses a StatusNotifier tray icon and sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway (one image for all monitors; not yet tried on real desktops, reports welcome). On macOS it runs and archives scenes but can't set the wallpaper yet. Live wallpapers run on Windows so far; elsewhere the still frame is used.
 
-## Live wallpapers (Windows, in progress)
+## Live wallpapers from the CLI (Windows)
 
 ```sh
 clairlune-cli live --seconds 30 --fps 12
 ```
 
-plays a scene on each monitor behind the desktop icons for the given time, then leaves its still frame as the wallpaper and prints what it cost (frame time, CPU, memory). `clairlune-cli restore` puts your own wallpaper back. Frames are drawn on the graphics card the monitors are plugged into, and a monitor covered by a maximized or full-screen app pauses. The tray app's Live mode comes next.
+plays a scene on each monitor behind the desktop icons for the given time, then leaves its still frame as the wallpaper and prints what it cost (frame time, CPU, memory). `clairlune-cli restore` puts your own wallpaper back. Frames are drawn on the graphics card the monitors are plugged into, and a monitor covered by a maximized or full-screen app pauses.
 
 ## Set it as your wallpaper from the CLI (Windows)
 

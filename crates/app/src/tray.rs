@@ -13,6 +13,7 @@ pub enum Action {
     NewWallpaper,
     Previous,
     Theme(ThemeMode),
+    ToggleLive,
     TogglePause,
     SavePng,
     SaveGif,
@@ -31,6 +32,7 @@ pub struct Tray {
     follow: CheckMenuItem,
     light: CheckMenuItem,
     dark: CheckMenuItem,
+    live: CheckMenuItem,
     pause: CheckMenuItem,
     save: MenuItem,
     save_gif: MenuItem,
@@ -43,7 +45,7 @@ pub struct Tray {
 }
 
 impl Tray {
-    pub fn new(mode: ThemeMode, paused: bool) -> Result<Tray, String> {
+    pub fn new(mode: ThemeMode, paused: bool, live_on: bool) -> Result<Tray, String> {
         let new = MenuItem::new("New wallpaper", true, None);
         let previous = MenuItem::new("Previous wallpaper", true, None);
         let follow =
@@ -54,6 +56,12 @@ impl Tray {
         theme
             .append_items(&[&follow, &light, &dark])
             .map_err(|e| e.to_string())?;
+        let live = CheckMenuItem::new(
+            "Live wallpaper",
+            crate::live::supported().is_ok(),
+            live_on,
+            None,
+        );
         let pause = CheckMenuItem::new("Pause schedule", true, paused, None);
         let save = MenuItem::new("Save current as PNG", true, None);
         let save_gif = MenuItem::new("Save current as GIF", true, None);
@@ -69,6 +77,7 @@ impl Tray {
             &previous,
             &PredefinedMenuItem::separator(),
             &theme,
+            &live,
             &pause,
             &PredefinedMenuItem::separator(),
             &save,
@@ -97,6 +106,7 @@ impl Tray {
             follow,
             light,
             dark,
+            live,
             pause,
             save,
             save_gif,
@@ -116,6 +126,7 @@ impl Tray {
             (self.follow.id(), Action::Theme(ThemeMode::FollowSystem)),
             (self.light.id(), Action::Theme(ThemeMode::Light)),
             (self.dark.id(), Action::Theme(ThemeMode::Dark)),
+            (self.live.id(), Action::ToggleLive),
             (self.pause.id(), Action::TogglePause),
             (self.save.id(), Action::SavePng),
             (self.save_gif.id(), Action::SaveGif),
@@ -135,6 +146,11 @@ impl Tray {
         self.follow.set_checked(mode == ThemeMode::FollowSystem);
         self.light.set_checked(mode == ThemeMode::Light);
         self.dark.set_checked(mode == ThemeMode::Dark);
+    }
+
+    /// Check items toggle themselves on click; the setting decides.
+    pub fn show_live(&self, on: bool) {
+        self.live.set_checked(on);
     }
 
     pub fn show_paused(&self, paused: bool) {

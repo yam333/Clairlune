@@ -687,6 +687,7 @@ dependencies = [
 name = "clairlune"
 version = "0.8.0"
 dependencies = [
+ "clairlune-live",
  "clairlune-platform",
  "clairlune-render",
  "clairlune-scene",

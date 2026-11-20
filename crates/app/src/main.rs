@@ -13,6 +13,7 @@ mod archive;
 mod icon;
 mod ipc;
 mod library;
+mod live;
 mod settings;
 mod timefmt;
 mod timeline;
@@ -72,6 +73,8 @@ struct App {
     /// What's on screen, for the Settings window.
     status: ui::view::Status,
     tray: Option<tray::Tray>,
+    /// The live wallpaper (Live mode), playing what's on screen.
+    live: live::Live,
     /// The daily timeline (Timeline rotation mode), its file and state.
     timeline: timeline::Timeline,
     timeline_path: PathBuf,
@@ -133,7 +136,7 @@ impl UiTest {
         let cycles = [
             (Theme::Dark, Section::Rotation, "settings-dark-rotation.png"),
             (Theme::Light, Section::Content, "settings-light-content.png"),
-            (Theme::Dark, Section::General, "settings-dark-general.png"),
+            (Theme::Dark, Section::Display, "settings-dark-display.png"),
         ];
         for (i, (theme, section, shot)) in cycles.into_iter().enumerate() {
             let t0 = 1500 * i as u64;
@@ -616,6 +619,15 @@ impl App {
                 self.save_settings();
                 self.check();
             }
+            Action::ToggleLive => {
+                self.settings.display.mode = match self.settings.display.mode {
+                    settings::WallpaperMode::Live => settings::WallpaperMode::Still,
+                    settings::WallpaperMode::Still => settings::WallpaperMode::Live,
+                };
+                self.save_settings();
+                self.follow_display_settings();
+                self.redraw_windows();
+            }
             Action::TogglePause => {
                 self.settings.schedule.paused = !self.settings.schedule.paused;
                 if let Some(t) = &self.tray {
@@ -833,8 +845,20 @@ impl App {
         }
     }
 
+    /// Live or Still frame and the live frame rate, from the settings.
+    fn follow_display_settings(&mut self) {
+        let live = self.settings.display.mode == settings::WallpaperMode::Live;
+        self.live.set_fps(self.settings.live.smoothness_fps);
+        self.live.set_enabled(live);
+        if let Some(t) = &self.tray {
+            t.show_live(live && live::supported().is_ok());
+        }
+    }
+
     fn status(&self) -> ui::view::Status {
         let mut s = self.status.clone();
+        s.live = self.live.status.clone();
+        s.live_supported = live::supported().err();
         s.timeline_next = self
             .timeline_next
             .filter(|_| self.timeline_mode())
@@ -859,6 +883,7 @@ impl App {
                     t.show_theme(self.settings.theme.mode);
                     t.show_paused(self.settings.schedule.paused);
                 }
+                self.follow_display_settings();
                 self.reschedule();
                 let theme = apply::resolve_theme(self.settings.theme.mode);
                 for w in [
@@ -1028,10 +1053,12 @@ impl App {
                 activity,
                 monitors,
                 ms,
+                live,
             } => {
                 self.busy = false;
                 self.current = source;
                 self.shown_theme = Some(theme);
+                self.live.show(live);
                 let what = match activity {
                     Some(a) => {
                         format!("{} in {}", a.replace('_', " "), archetype.replace('_', " "))
@@ -1101,18 +1128,25 @@ impl ApplicationHandler<AppEvent> for App {
         if cause != StartCause::Init {
             return;
         }
+        // macOS wants the tray created once the loop runs.
+        match tray::Tray::new(
+            self.settings.theme.mode,
+            self.settings.schedule.paused,
+            self.settings.display.mode == settings::WallpaperMode::Live
+                && live::supported().is_ok(),
+        ) {
+            Ok(t) => {
+                self.tray = Some(t);
+                tracing::debug!(target: "clairlune", memory_mb = memory_mb(), "tray ready");
+            }
+            Err(e) => tracing::error!(target: "clairlune", error = %e, "no tray icon"),
+        }
         // No tray (no host on this desktop, or it failed): Settings is the
         // app's only face, so it opens at launch and closing it quits
-        // (PLAN.md section 10, "No tray available").
+        // (PLAN.md section 10, "No tray available"). Checked after making the
+        // tray: before, it opened Settings at every launch.
         if !self.has_tray() && self.ui_test.is_none() {
             self.open_settings(event_loop, None);
-        }
-        // macOS wants the tray created once the loop runs.
-        {
-            match tray::Tray::new(self.settings.theme.mode, self.settings.schedule.paused) {
-                Ok(t) => self.tray = Some(t),
-                Err(e) => tracing::error!(target: "clairlune", error = %e, "no tray icon"),
-            }
         }
         let latest = self.archive().and_then(|a| a.latest());
         self.current = latest
@@ -1144,6 +1178,9 @@ impl ApplicationHandler<AppEvent> for App {
             self.check_timeline();
         } else if self.settings.schedule.change_at_login || self.current.is_none() {
             self.new_wallpaper();
+        } else if self.settings.display.mode == settings::WallpaperMode::Live {
+            // Play what's there (the saved scenes, no new one).
+            self.reapply(false);
         }
         self.reschedule();
     }
@@ -1228,10 +1265,14 @@ impl ApplicationHandler<AppEvent> for App {
             self.check();
             self.next_check = now + CHECK_EVERY;
         }
+        let live_next = self.live.tick(Instant::now());
         let mut wake = match self.next_change {
             Some(t) => t.min(self.next_check),
             None => self.next_check,
         };
+        if let Some(t) = live_next {
+            wake = wake.min(t);
+        }
         if let Some(t) = self.ui_test.as_ref().and_then(|t| t.wake()) {
             wake = wake.min(t);
         }
@@ -1240,6 +1281,18 @@ impl ApplicationHandler<AppEvent> for App {
 
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
         tracing::info!(target: "clairlune", "quitting");
+    }
+}
+
+/// Resident memory in MB, for the log (Windows; 0 elsewhere).
+pub(crate) fn memory_mb() -> u64 {
+    #[cfg(windows)]
+    {
+        clairlune_platform::windows_live::process_memory() >> 20
+    }
+    #[cfg(not(windows))]
+    {
+        0
     }
 }
 
@@ -1331,7 +1384,7 @@ fn seed_ui_test(data_dir: &Path) -> Result<(), String> {
                 },
                 pngs: vec![png],
                 thumb_png: thumb,
-                packages: vec![pkg],
+                packages: vec![std::sync::Arc::new(pkg)],
             })
             .map_err(|e| e.to_string())?;
         if i < 2 {
@@ -1468,6 +1521,7 @@ fn main() {
         os = std::env::consts::OS,
         settings = %settings_path.display(),
         data = %data_dir.display(),
+        memory_mb = memory_mb(),
         "starting"
     );
 
@@ -1511,7 +1565,12 @@ fn main() {
         .ok()
         .and_then(|t| serde_json::from_str(&t).ok())
         .unwrap_or_default();
+    let live = live::Live::new(
+        settings.display.mode == settings::WallpaperMode::Live,
+        settings.live.smoothness_fps,
+    );
     let mut app = App {
+        live,
         settings_stamp: file_stamp(&settings_path),
         settings,
         settings_path,

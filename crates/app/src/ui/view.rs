@@ -70,6 +70,10 @@ pub struct Status {
     pub timeline_next: Option<String>,
     /// Problems in timeline.toml (missing items, unknown ids).
     pub timeline_problems: Vec<String>,
+    /// What the live wallpaper does, or why it can't run.
+    pub live: Option<String>,
+    /// Why Live can't be chosen in this build (`None` where it can).
+    pub live_supported: Option<String>,
 }
 
 /// Requests from the window to the app.
@@ -641,21 +645,38 @@ fn page(
             );
         }
         Section::Display => {
-            let mut still = true;
+            use crate::settings::WallpaperMode;
+            let can_live = status.live_supported.is_none();
             row(
                 ui,
                 theme,
                 "Wallpaper mode",
-                "Still frame sets one image through the system. Animated wallpapers arrive in a later version.",
+                "Live plays the scene behind your desktop icons: Clawd moves, fires flicker, snow falls. Still frame sets one image and does nothing between changes.",
                 |ui| {
                     segmented(
                         ui,
                         theme,
-                        &mut still,
-                        &[(true, "Still frame", true), (false, "Live", false)],
+                        &mut s.display.mode,
+                        &[
+                            (WallpaperMode::Still, "Still frame", true),
+                            (WallpaperMode::Live, "Live", can_live),
+                        ],
                     );
                 },
             );
+            if let Some(why) = &status.live_supported {
+                ui.label(RichText::new(why).color(c(t.text_secondary)));
+                ui.add_space(space::S4);
+            } else if s.display.mode == WallpaperMode::Live
+                && let Some(live) = &status.live
+            {
+                ui.label(
+                    RichText::new(live)
+                        .font(style::mono())
+                        .color(c(t.text_secondary)),
+                );
+                ui.add_space(space::S4);
+            }
             row(
                 ui,
                 theme,
@@ -665,12 +686,48 @@ fn page(
             );
         }
         Section::Live => {
+            const SMOOTHNESS: [(u32, &str, &str); 5] = [
+                (
+                    6,
+                    "Battery saver",
+                    "6 fps. Lowest power; Clawd still moves, more choppily.",
+                ),
+                (
+                    12,
+                    "Balanced",
+                    "12 fps. The pace the pixel art is drawn at.",
+                ),
+                (24, "Smooth", "24 fps. Smoother snow, sparks and drifting."),
+                (30, "Very smooth", "30 fps."),
+                (60, "Ultra smooth", "60 fps. Highest power."),
+            ];
+            let current = SMOOTHNESS
+                .iter()
+                .find(|(f, _, _)| *f == s.live.smoothness_fps)
+                .copied()
+                .unwrap_or(SMOOTHNESS[1]);
+            row(ui, theme, "Smoothness", current.2, |ui| {
+                egui::ComboBox::from_id_salt("smoothness")
+                    .selected_text(current.1)
+                    .show_ui(ui, |ui| {
+                        for (fps, name, _) in SMOOTHNESS {
+                            ui.selectable_value(&mut s.live.smoothness_fps, fps, name);
+                        }
+                    });
+            });
             ui.label(
                 RichText::new(
-                    "Animated wallpapers (embers, snow, Clawd moving) need the live renderer, which arrives in a later version. Until then the wallpaper is a still frame of the same scene.",
+                    "A monitor covered by a maximized or full-screen app pauses until it shows again. Frames are drawn on the graphics card the monitor is plugged into.",
                 )
                 .color(c(t.text_secondary)),
             );
+            if s.display.mode != crate::settings::WallpaperMode::Live {
+                ui.add_space(space::S2);
+                ui.label(
+                    RichText::new("The wallpaper is a still frame now (Display, Wallpaper mode).")
+                        .color(c(t.text_secondary)),
+                );
+            }
         }
         Section::Buddy => {
             row(

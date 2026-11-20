@@ -65,7 +65,7 @@ pub struct NewEntry {
     pub pngs: Vec<Vec<u8>>,
     pub thumb_png: Vec<u8>,
     /// One frozen scene per monitor, in `recipes.monitors` order.
-    pub packages: Vec<clairlune_render::ScenePackage>,
+    pub packages: Vec<std::sync::Arc<clairlune_render::ScenePackage>>,
 }
 
 #[derive(Default, Serialize, Deserialize)]

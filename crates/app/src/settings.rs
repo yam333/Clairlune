@@ -13,6 +13,8 @@ pub struct Settings {
     pub rotation: Rotation,
     pub schedule: Schedule,
     pub theme: ThemeSettings,
+    pub display: DisplaySettings,
+    pub live: LiveSettings,
     pub content: Content,
     pub buddy: Buddy,
     pub archive: ArchiveSettings,
@@ -37,6 +39,35 @@ impl Default for Schedule {
             change_at_login: true,
             paused: false,
         }
+    }
+}
+
+/// Live: the scene plays behind the desktop icons. Still: one image, set
+/// through the system, and no work between changes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WallpaperMode {
+    #[default]
+    Live,
+    Still,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DisplaySettings {
+    pub mode: WallpaperMode,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LiveSettings {
+    /// Frames per second: 6, 12, 24, 30 or 60 (PLAN.md section 5.3).
+    pub smoothness_fps: u32,
+}
+
+impl Default for LiveSettings {
+    fn default() -> Self {
+        LiveSettings { smoothness_fps: 12 }
     }
 }
 
@@ -191,6 +222,8 @@ mod tests {
         assert_eq!(s.schedule.change_every_minutes, 60);
         assert_eq!(s.theme.mode, ThemeMode::FollowSystem);
         assert!(s.buddy.show);
+        assert_eq!(s.display.mode, WallpaperMode::Live);
+        assert_eq!(s.live.smoothness_fps, 12);
     }
 
     #[test]
@@ -200,8 +233,15 @@ mod tests {
         s.schedule.change_every_minutes = 15;
         s.theme.mode = ThemeMode::Dark;
         s.content.archetypes = vec!["shore".into()];
+        s.display.mode = WallpaperMode::Still;
+        s.live.smoothness_fps = 24;
         s.save(&p).unwrap();
         assert_eq!(Settings::load(&p), s);
+        let text = std::fs::read_to_string(&p).unwrap();
+        assert!(
+            text.contains("[display]") && text.contains("mode = \"still\""),
+            "{text}"
+        );
 
         std::fs::write(
             &p,

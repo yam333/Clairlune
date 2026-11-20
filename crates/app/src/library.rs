@@ -224,7 +224,7 @@ mod tests {
                 },
                 pngs: vec![vec![1, 2, 3]],
                 thumb_png: vec![4, 5],
-                packages: vec![pkg],
+                packages: vec![std::sync::Arc::new(pkg)],
             })
             .unwrap();
         (archive, entry)
