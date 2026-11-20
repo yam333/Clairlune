@@ -5,13 +5,15 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "efa65fa9db51e0dd",
-  "activity": "rowing",
-  "archetype": "shore",
+  "content_ctx_hash": "45aa898c3b81fad4",
+  "activity": "wizard_magic",
+  "archetype": "city_rooftops",
   "light_tod": "golden_hour",
   "dark_tod": "dusk",
-  "platform": "pier",
-  "props": [],
+  "platform": "rooftop_edge",
+  "props": [
+    "spellbook"
+  ],
   "weather": "none",
   "composition": {
     "horizon_pm": 696,
@@ -21,7 +23,7 @@
     "platform_margin_pm": 29,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 87,
+    "motion_speed_cc": 0,
     "pace_half_pm": 0
   },
   "palette": {

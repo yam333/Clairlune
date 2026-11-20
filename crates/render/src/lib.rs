@@ -18,6 +18,7 @@ pub mod clock;
 pub mod encode;
 pub mod frame;
 pub mod gif_export;
+pub mod journey;
 pub mod package;
 pub mod palette;
 mod projectile;
@@ -35,6 +36,7 @@ pub use frame::{
 pub use gif_export::{
     GifError, GifStats, Smoothness, encode_gif, encode_package_gif, frame_delays, valid_loop_ms,
 };
+pub use journey::JourneyBake;
 pub use package::{PACKAGE_FORMAT, PackageError, ScenePackage};
 pub use palette::IndexedPalette;
 
@@ -93,8 +95,11 @@ pub fn render_still(
     }
     let atlas = GlyphAtlas::for_grid(&graph.grid);
     let palette = IndexedPalette::for_graph(&graph);
-    let background = bake_static(&graph, &atlas);
+    let mut background = bake_static(&graph, &atlas);
     let t = t_ms.unwrap_or_else(|| hero_time(&graph));
+    if let Some(j) = JourneyBake::new(&graph, &atlas) {
+        background = j.background_at(&graph, &background, t);
+    }
     let image = render_frame(&background, &graph, &atlas, &palette, t);
     tracing::info!(
         target: "clairlune_render",

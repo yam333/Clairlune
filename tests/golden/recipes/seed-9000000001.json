@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "efa65fa9db51e0dd",
-  "activity": "play_guitar",
-  "archetype": "desert",
-  "light_tod": "golden_hour",
+  "content_ctx_hash": "45aa898c3b81fad4",
+  "activity": "broom_flight",
+  "archetype": "mountains",
+  "light_tod": null,
   "dark_tod": "night",
-  "platform": "dune_crest",
+  "platform": "rock_ledge",
   "props": [
-    "campfire"
+    "spellbook"
   ],
-  "weather": "dust",
+  "weather": "stars",
   "composition": {
     "horizon_pm": 624,
     "focus_x_pm": 348,
@@ -23,8 +23,9 @@
     "platform_margin_pm": 12,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "motion_speed_cc": 649,
+    "pace_half_pm": 0,
+    "fly_lift_pm": 175
   },
   "palette": {
     "light": "sand_day",

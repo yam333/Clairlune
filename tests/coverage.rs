@@ -57,6 +57,30 @@ fn every_landscape_hosts_activities_in_both_themes() {
                         .into_iter()
                         .find(|s| s.kind == SpriteKind::Character)
                         .expect("a character");
+                    if let Some(j) = &g.journey {
+                        // The walking layer's strip, where it is under the
+                        // feet now: its ground line, on the feet's row or
+                        // just above (a line near a cell's top is drawn as
+                        // `_` in the row above).
+                        let walk = j.layers.last().expect("a walking layer");
+                        let off = j.offset_px(j.layers.len() - 1, g.grid.cell_w, g.t_hero_ms);
+                        // Across the middle of the feet, where the ground's
+                        // highest point is taken.
+                        let x = (j.feet_x - g.grid.origin_x as i32) as u32 + off;
+                        let half = c.width() * 3 / 10;
+                        let feet = (c.y + c.height() as i32) as u32;
+                        let row = (feet - g.grid.origin_y) / g.grid.cell_h;
+                        let ground = (x - half..=x + half).any(|px| {
+                            let scol = (px / g.grid.cell_w) % walk.cols;
+                            (row.saturating_sub(1)..=row)
+                                .any(|r| walk.cells[(r * walk.cols + scol) as usize].glyph != EMPTY)
+                        });
+                        assert!(
+                            ground,
+                            "{id}: seed {seed} {w}x{h} {theme:?}: journey feet in the air"
+                        );
+                        continue;
+                    }
                     let col =
                         ((c.x + c.width() as i32 / 2) as u32 - g.grid.origin_x) / g.grid.cell_w;
                     let row = (g.ground_y as u32 - g.grid.origin_y) / g.grid.cell_h;

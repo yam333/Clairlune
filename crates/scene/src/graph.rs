@@ -361,6 +361,67 @@ impl CharacterTrack {
     }
 }
 
+/// A cell of a scrolling layer that is inside the layer's silhouette but
+/// draws nothing: it hides what is behind. (`Cell::default()` in a layer is
+/// outside it: what is behind shows through.)
+pub const HOLE: Cell = Cell {
+    glyph: crate::glyphs::EMPTY,
+    shade: 1,
+};
+
+/// One layer of a journey: a strip of cells as tall as the grid whose right
+/// edge continues into its left edge, moving `turns` whole strip widths per
+/// loop.
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ScrollLayer {
+    /// Strip width in cells (the period).
+    pub cols: u32,
+    /// Whole strip widths it moves per loop.
+    pub turns: u32,
+    /// `cols * grid.rows` cells, row-major: `Cell::default()` is see-through,
+    /// [`HOLE`] hides what is behind. Not stored in a package's JSON.
+    #[serde(skip)]
+    pub cells: Vec<Cell>,
+}
+
+/// A scene whose camera travels (docs/scrolling-scenes.md): layers slide
+/// past at their own speeds over the still background (sky, far peaks) and
+/// all come around again after `loop_ms`. Integer arithmetic only, so every
+/// frame is the same everywhere.
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Journey {
+    pub loop_ms: u64,
+    /// Back to front; the last is the one the character walks on.
+    pub layers: Vec<ScrollLayer>,
+    /// Pixel y the feet stand at, for each pixel column of the last layer's
+    /// strip (the highest ground under the feet there).
+    pub ground: Vec<i32>,
+    /// Screen x of the character's centre.
+    pub feet_x: i32,
+}
+
+impl Journey {
+    /// How far layer `i` has moved at `t_ms`, in pixels within its strip.
+    pub fn offset_px(&self, i: usize, cell_w: u32, t_ms: u64) -> u32 {
+        let l = &self.layers[i];
+        let period = u64::from(l.cols) * u64::from(cell_w);
+        let t = t_ms % self.loop_ms.max(1);
+        ((u64::from(l.turns) * period * t / self.loop_ms.max(1)) % period.max(1)) as u32
+    }
+
+    /// Where the feet stand at `t_ms` (pixel y), given the grid's left edge.
+    pub fn ground_at(&self, cell_w: u32, origin_x: u32, t_ms: u64) -> Option<i32> {
+        let last = self.layers.len().checked_sub(1)?;
+        let period = self.ground.len() as i64;
+        if period == 0 {
+            return None;
+        }
+        let off = i64::from(self.offset_px(last, cell_w, t_ms));
+        let x = (i64::from(self.feet_x) - i64::from(origin_x) + off).rem_euclid(period);
+        Some(self.ground[x as usize])
+    }
+}
+
 /// A sprite placed in the image at an integer nearest-neighbour scale.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SpriteInstance {
@@ -427,6 +488,9 @@ pub struct SceneGraph {
     /// just past the pier's end), for effects that reach the water.
     #[serde(default)]
     pub water: Option<(i32, i32)>,
+    /// A travelling scene: layers that scroll past, ground under the feet.
+    #[serde(default)]
+    pub journey: Option<Journey>,
 }
 
 impl SceneGraph {
@@ -440,11 +504,23 @@ impl SceneGraph {
     pub fn sprites_at(&self, t_ms: u64) -> Vec<SpriteInstance> {
         let mut out = self.props.clone();
         if self.buddy {
-            out.extend(self.character.map(|c| c.at(t_ms)));
+            out.extend(self.character.map(|c| self.on_ground(c.at(t_ms), t_ms)));
         } else {
             out.extend_from_slice(&self.unattended);
         }
         out
+    }
+
+    /// The character placed for `t_ms`: on a journey its feet follow the
+    /// ground going by under them; otherwise unchanged.
+    pub fn on_ground(&self, mut s: SpriteInstance, t_ms: u64) -> SpriteInstance {
+        if let Some(j) = &self.journey
+            && s.kind == SpriteKind::Character
+            && let Some(y) = j.ground_at(self.grid.cell_w, self.grid.origin_x, t_ms)
+        {
+            s.y += y - self.ground_y;
+        }
+        s
     }
 
     /// Particles at time `t` that fall inside the grid, at their own pixel

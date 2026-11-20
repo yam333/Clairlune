@@ -61,7 +61,13 @@ proptest! {
                 prop_assert!(s.x >= 0 && s.x + s.width() as i32 <= w as i32, "flying off screen");
                 continue;
             }
-            prop_assert_eq!(s.y + s.height() as i32, g.ground_y, "{:?} not on the ground", s.kind);
+            // On a journey the feet are on the ground going by under them.
+            let ground = g
+                .journey
+                .as_ref()
+                .and_then(|j| j.ground_at(g.grid.cell_w, g.grid.origin_x, g.t_hero_ms))
+                .unwrap_or(g.ground_y);
+            prop_assert_eq!(s.y + s.height() as i32, ground, "{:?} not on the ground", s.kind);
             prop_assert!(s.x >= 0 && s.x + s.width() as i32 <= w as i32, "{:?} off-screen", s.kind);
             prop_assert!(s.y >= 0);
         }
@@ -77,7 +83,12 @@ proptest! {
         let atlas = GlyphAtlas::for_grid(&on.grid);
         prop_assert_eq!(bake_static(&on, &atlas), bake_static(&off, &atlas));
         prop_assert!(off.sprites_at(0).iter().all(|s| s.kind != SpriteKind::Character));
-        prop_assert!(!off.sprites_at(0).is_empty(), "Buddy off must still have a focal object");
+        prop_assert_eq!(&on.journey, &off.journey);
+        // A journey with Buddy off is the land going by: nothing stays put.
+        prop_assert!(
+            off.journey.is_some() || !off.sprites_at(0).is_empty(),
+            "Buddy off must still have a focal object"
+        );
     }
 
     /// Switching theme re-renders the same scene: same layout, same ground and

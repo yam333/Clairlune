@@ -139,6 +139,17 @@ pub fn compose_with(
             }
             _ => (0, 0, 0),
         };
+    // A journey's loop: whole particle loops, so the layers, the walk and
+    // the weather all come around together.
+    let journey_ms = match picked.map(|(a, _)| (&a.motion.kind, a.motion.loop_s)) {
+        Some((MotionKind::Journey, Some([lo, hi]))) => {
+            let (lo, hi) = ((lo * 1000.0).round() as u32, (hi * 1000.0).round() as u32);
+            let ms = motion.range_u32(lo, hi.max(lo));
+            let step = crate::particles::LOOP_MS as u32;
+            ((ms + step / 2) / step).max(2) * step
+        }
+        _ => 0,
+    };
 
     let mut pal = Rng::stream(seed, "palette");
     let light: Vec<_> = families_for(Theme::Light).collect();
@@ -171,6 +182,7 @@ pub fn compose_with(
             motion_speed_cc,
             pace_half_pm,
             fly_lift_pm,
+            journey_ms,
         },
         palette: PalettePick {
             light: light_family,

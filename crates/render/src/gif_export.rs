@@ -154,9 +154,12 @@ pub fn encode_gif<W: Write>(
     }
     let started = Instant::now();
     let graph = build(recipe, opts).map_err(GifError::Build)?;
+    // A journey loops once its land has come round: its own loop length.
+    let loop_ms = graph.journey.as_ref().map_or(loop_ms, |j| j.loop_ms);
     let atlas = GlyphAtlas::for_grid(&graph.grid);
     let palette = IndexedPalette::for_graph(&graph);
     let background = bake_static(&graph, &atlas);
+    let journey = crate::JourneyBake::new(&graph, &atlas);
     let clock = Clock::Loop(loop_ms);
     let (rendered, written) = encode_frames(
         opts.width,
@@ -165,7 +168,13 @@ pub fn encode_gif<W: Write>(
         loop_ms,
         smoothness,
         out,
-        |t| render_frame_clocked(&background, &graph, &atlas, &palette, t, clock),
+        |t| match &journey {
+            Some(j) => {
+                let bg = j.background_at(&graph, &background, t);
+                render_frame_clocked(&bg, &graph, &atlas, &palette, t, clock)
+            }
+            None => render_frame_clocked(&background, &graph, &atlas, &palette, t, clock),
+        },
     )?;
     let stats = GifStats {
         width: opts.width,
@@ -296,6 +305,10 @@ pub fn encode_package_gif<W: Write>(
         .palette(theme)
         .ok_or(GifError::Build(BuildError::ThemeLocked(theme)))?
         .clone();
+    let loop_ms = pkg
+        .graph(theme)
+        .and_then(|g| g.journey.as_ref())
+        .map_or(loop_ms, |j| j.loop_ms);
     let started = Instant::now();
     let clock = Clock::Loop(loop_ms);
     let (rendered, written) = encode_frames(

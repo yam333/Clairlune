@@ -5,7 +5,8 @@
 
 use clairlune_render::clock::Clock;
 use clairlune_render::{
-    GlyphAtlas, IndexedPalette, PackageError, ScenePackage, bake_static, render_frame_clocked,
+    GlyphAtlas, IndexedPalette, PACKAGE_FORMAT, PackageError, ScenePackage, bake_static,
+    render_frame_clocked,
 };
 use clairlune_scene::{Aspect, BuildOptions, ContentContext, SceneRecipe, Theme, build, compose};
 use clairlune_tests::{blessing, golden_dir, image_hash};
@@ -135,10 +136,15 @@ fn newer_formats_are_refused() {
     pkg.save(&dir).unwrap();
     let path = dir.join("package.json");
     let text = std::fs::read_to_string(&path).unwrap();
-    std::fs::write(&path, text.replacen("\"format\":1", "\"format\":2", 1)).unwrap();
+    let newer = PACKAGE_FORMAT + 1;
+    std::fs::write(
+        &path,
+        text.replacen("\"format\":1", &format!("\"format\":{newer}"), 1),
+    )
+    .unwrap();
     assert!(matches!(
         ScenePackage::load(&dir),
-        Err(PackageError::UnsupportedFormat(2))
+        Err(PackageError::UnsupportedFormat(n)) if n == newer
     ));
     let _ = std::fs::remove_dir_all(&dir);
 }

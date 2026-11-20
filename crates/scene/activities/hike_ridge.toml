@@ -1,0 +1,35 @@
+# Hiking along a mountain ridge: the land goes by in layers while Clawd
+# walks, a stick in hand and a pack on the back. The first journey
+# (docs/scrolling-scenes.md): the far peaks stay put, the middle range and
+# the ridge underfoot slide past and come round again every loop.
+id = "hike_ridge"
+weight = 0.8
+
+[requires]
+terrain = ["ridge"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
+weather = ["none", "snow", "stars"]
+
+[motion]
+type = "journey"
+loop_s = [24, 36]
+screen_x = 0.33
+
+[animation]
+start = "hike"
+
+[animation.states.hike]
+loop = true
+dwell_s = [6, 12]
+next = { hike = 0.6, look = 0.4 }
+
+# One-shot: a look up at the peaks, still walking.
+[animation.states.look]
+next = { hike = 1.0 }
+
+[gif]
+loop_script = ["hike"]
+
+# With Buddy off, the landscape goes by on its own.
+[unattended]
+props = []

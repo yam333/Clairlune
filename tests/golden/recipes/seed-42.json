@@ -5,12 +5,12 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "efa65fa9db51e0dd",
-  "activity": "skip_stones",
-  "archetype": "shore",
+  "content_ctx_hash": "45aa898c3b81fad4",
+  "activity": "fly_kite",
+  "archetype": "forest",
   "light_tod": "golden_hour",
-  "dark_tod": "dusk",
-  "platform": "pier",
+  "dark_tod": null,
+  "platform": "log",
   "props": [],
   "weather": "none",
   "composition": {

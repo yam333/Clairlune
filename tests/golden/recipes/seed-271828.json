@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "efa65fa9db51e0dd",
-  "activity": "play_guitar",
-  "archetype": "canyon",
-  "light_tod": "golden_hour",
+  "content_ctx_hash": "45aa898c3b81fad4",
+  "activity": "snowballs",
+  "archetype": "mountains",
+  "light_tod": "morning",
   "dark_tod": "dusk",
   "platform": "rock_ledge",
   "props": [
-    "campfire"
+    "snowman"
   ],
-  "weather": "none",
+  "weather": "snow",
   "composition": {
     "horizon_pm": 641,
     "focus_x_pm": 650,

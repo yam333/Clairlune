@@ -168,6 +168,44 @@ impl IncrementalFrame {
     }
 }
 
+impl IncrementalFrame {
+    /// Like [`IncrementalFrame::advance`] for a journey, whose background
+    /// itself moves: the whole frame is redrawn (the background at `t_ms`,
+    /// then everything over it) and reported as changed.
+    #[allow(clippy::too_many_arguments)]
+    pub fn advance_journey(
+        &mut self,
+        journey: &crate::JourneyBake,
+        still: &IndexedImage,
+        graph: &SceneGraph,
+        atlas: &GlyphAtlas,
+        palette: &IndexedPalette,
+        t_ms: u64,
+        clock: Clock,
+        art: &dyn SceneArt,
+    ) -> Vec<PixelRect> {
+        journey.draw(graph, still, t_ms, &mut self.image);
+        let mut drawn = Vec::with_capacity(self.drawn.len());
+        compose(
+            &mut self.image,
+            &mut drawn,
+            graph,
+            atlas,
+            palette,
+            t_ms,
+            clock,
+            art,
+        );
+        self.drawn = drawn;
+        vec![PixelRect {
+            x: 0,
+            y: 0,
+            w: self.image.width,
+            h: self.image.height,
+        }]
+    }
+}
+
 /// Draws the animated elements at `t_ms` over `img` (the background, or a
 /// frame restored to it) and records each rectangle written in `drawn`.
 #[allow(clippy::too_many_arguments)]
@@ -195,7 +233,9 @@ fn compose(
     for sprite in graph.sprites_at(t_ms) {
         if sprite.kind == SpriteKind::Character {
             let sprite = match (clock, graph.character) {
-                (Clock::Loop(loop_ms), Some(track)) => loop_track(track, loop_ms).at(t_ms),
+                (Clock::Loop(loop_ms), Some(track)) => {
+                    graph.on_ground(loop_track(track, loop_ms).at(t_ms), t_ms)
+                }
                 _ => sprite,
             };
             if let Some(pose) = character_pose(graph, art, &sprite, t_ms, clock) {

@@ -128,6 +128,13 @@ impl Player {
         self.clock = if on { Clock::Smooth } else { Clock::Live };
     }
 
+    /// Whether the scene is a journey (its whole frame moves every tick).
+    pub fn is_journey(&self) -> bool {
+        self.pkg
+            .graph(self.theme)
+            .is_some_and(|g| g.journey.is_some())
+    }
+
     /// The size of what this player shows.
     pub fn size(&self) -> (u32, u32) {
         (self.view.w, self.view.h)
@@ -225,6 +232,10 @@ impl Player {
         self.write(buf, &[whole]);
     }
 }
+
+/// The highest frame rate for a journey: its land moves, so every frame is
+/// the whole screen, and Very smooth already scrolls evenly.
+pub const JOURNEY_MAX_FPS: u32 = 30;
 
 /// Live frame rates, by their names in Settings (PLAN.md section 5.3).
 pub const SMOOTHNESS_FPS: [(u32, &str); 5] = [

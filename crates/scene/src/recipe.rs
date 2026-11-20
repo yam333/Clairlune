@@ -106,6 +106,10 @@ pub struct Composition {
     /// not flying; then it isn't written, so other recipes stay as they were).
     #[serde(default, skip_serializing_if = "is_zero")]
     pub fly_lift_pm: u32,
+    /// A journey's loop length in milliseconds (a whole number of particle
+    /// loops), or 0 for a scene that stays put; then it isn't written.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub journey_ms: u32,
 }
 
 fn is_zero(v: &u32) -> bool {

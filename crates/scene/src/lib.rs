@@ -33,8 +33,8 @@ pub use activity::{Activity, Catalog};
 pub use build::{BuildError, BuildOptions, build, build_with};
 pub use compose::compose;
 pub use graph::{
-    Cell, CharacterTrack, GridSpec, Lighting, Motion, SceneGraph, SpriteInstance, SpriteKind,
-    grid_spec,
+    Cell, CharacterTrack, GridSpec, Journey, Lighting, Motion, SceneGraph, ScrollLayer,
+    SpriteInstance, SpriteKind, grid_spec,
 };
 pub use ident::{APP_ID, APP_NAME};
 pub use palette::{PaletteFamily, Rgb, Theme};

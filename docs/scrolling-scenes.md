@@ -1,6 +1,6 @@
 # Scrolling scenes ("journeys")
 
-Wallpapers where the camera travels: Clawd hikes across mountains while the landscape slides by, then the whole thing loops back seamlessly. Status: design (2026-11-19). Builds on PLAN.md sections 4 and 5 and `docs/activity-system.md`.
+Wallpapers where the camera travels: Clawd hikes across mountains while the landscape slides by, then the whole thing loops back seamlessly. Status: the first journey ships (2026-11-21: `hike_ridge`, CPU composition); GPU layer grids are M7. Builds on PLAN.md sections 4 and 5 and `docs/activity-system.md`.
 
 ## The idea: a world that wraps around
 
@@ -14,7 +14,17 @@ Each layer (sky, far peaks, mid hills, near ground) has its own period `P_i` (it
 speed_i = n_i * P_i / T        offset_i(t) = (speed_i * (t mod T)) mod P_i
 ```
 
-Because every layer completes whole periods in `T`, all of them line up again at `t = T`, and the whole scene loops perfectly. Parallax comes from choosing larger `P_i * n_i` for nearer layers. For example, with screen width `W`:
+Because every layer completes whole periods in `T`, all of them line up again at `t = T`, and the whole scene loops perfectly. Parallax comes from choosing larger `P_i * n_i` for nearer layers.
+
+A layer's strip is at least a screen wide, so the slowest *moving* layer covers a whole screen per loop; at a walking pace that makes long loops. The way out is physical: what is far enough away doesn't move at all. Sky, stars, sun and moon, and the far peaks are baked into the still background; only the nearer layers scroll. As built for the ridge hike (`T` = 24 to 36 s, whole multiples of the 6 s particle loop):
+
+| Layer | Period | Turns per loop | Speed |
+|---|---|---|---|
+| sky, stars, far peaks | (still) | 0 | 0 |
+| middle range | `1 W` | 1 | 1 |
+| ridge underfoot (Clawd walks on it) | `2 W` | 1 | 2 |
+
+The general scheme, with screen width `W`:
 
 | Layer | Period | Turns per loop | Relative speed |
 |---|---|---|---|
@@ -37,6 +47,14 @@ Props placed along a layer (trees, signposts, a cabin, a frozen lake) use world 
 - **Feet follow the terrain**: his y is the near layer's surface height at `camera_x + screen_x`, so he climbs and descends with the hills. That height is periodic too, so the loop holds. A slight tilt on steep slopes comes from the rig's `lean`.
 - **No foot sliding**: the near layer's speed equals the walk's stride speed. One walk cycle moves the ground by exactly one stride, and the loop length is a whole number of walk cycles.
 - The state machine still plays variations (pausing to look at the view, waving, taking a photo), but the camera keeps moving, so pauses use poses that read as "walking slowly" or "looking around" rather than standing still.
+
+## As built (2026-11-21)
+
+- Scene: `ScrollLayer` strips (cells, `cols` = the period, `turns` per loop) and `Journey { loop_ms, layers, ground, feet_x }` on the scene graph. A strip's `Cell::default()` lets what is behind show; `HOLE` hides it (a gap in a silhouette's fill). `terrain::layers::Strip` paints a layer with wrapped noise (`ridged1_periodic`, `fbm1_periodic`, `fbm2_periodic_x`) and a wrap-around outline.
+- Feet: `ground` is the walking layer's surface for every pixel column of its strip, taken as the highest point across the middle of the feet; `SceneGraph::on_ground` moves the character to it at each time.
+- Render: `JourneyBake` turns each strip into ink levels once (see-through, background band, or a level), and each frame lays them over the still background at their offsets. Ink takes its colour from the band under it, so vignette and glow stay put while the land moves. 4K: 2.5 ms per frame plus 2.3 ms to 0RGB (Direct3D 11); live is capped at 30 fps for journeys.
+- Packages: format 2 adds `journey-<theme>-<i>.png` per layer (glyph as grey, shade as alpha); scenes without a journey are still written as format 1.
+- GIF: a journey exports its own loop.
 
 ## Rendering cost
 
@@ -86,6 +104,6 @@ Vertical journeys (climbing a tower, a balloon rising) use the same maths on the
 
 ## Plan
 
-- **Wave J (with M4)**: periodic noise (done), periodic layer builder for `mountains`, `journey` motion, near-layer height sampling for the feet, integer-pixel layer offsets, CPU composition for stills and GIF; first journey: hiking a ridge.
+- **Wave J (with M4)**, done: periodic noise, periodic layer builder for `mountains`, `journey` motion, near-layer height sampling for the feet, integer-pixel layer offsets, CPU composition for stills, live and GIF; first journey: hiking a ridge.
 - **M7**: GPU layer grids with wrap addressing.
 - **Then**: more periodic archetypes and journeys from the table above.

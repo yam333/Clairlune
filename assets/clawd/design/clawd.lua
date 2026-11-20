@@ -391,8 +391,8 @@ end
 function COSTUME.backpack(c, p, g)
   if p.facing ~= "side" then return end
   local x = g.ox - g.half - 3 + shift(p, g, g.top + 4)
-  c.rect(x, g.top + 2, 3, 6, P.green)
-  c.rect(x, g.top + 2, 3, 1, P.green_dark)
+  c.rect(x, g.top + 2, 3, 6, P.wood)
+  c.rect(x, g.top + 2, 3, 1, P.wood_dark)
   c.px(x + 1, g.top + 5, P.brass)
 end
 function COSTUME.scarf(c, p, g)
