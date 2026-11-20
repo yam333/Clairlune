@@ -1858,11 +1858,35 @@ fn spawn_worker(
         .map(|_| ())
 }
 
+/// What the command line asks for before the app starts, if anything: the
+/// version or the usage (package managers run `clairlune --version` to check
+/// an install), printed by the caller, which then exits.
+fn command_line_answer(args: &[String]) -> Option<String> {
+    let first = args.get(1).map(String::as_str)?;
+    match first {
+        "--version" | "-V" => Some(format!("{APP_NAME} {}", env!("CARGO_PKG_VERSION"))),
+        "--help" | "-h" => Some(format!(
+            "{APP_NAME} {}: procedural, animated ASCII-art wallpapers.\n\n\
+             Run it without arguments: it lives in the notification area (the menu bar on macOS).\n\
+             Options:\n  --version   print the version and exit\n  --help      print this and exit",
+            env!("CARGO_PKG_VERSION")
+        )),
+        _ => None,
+    }
+}
+
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(text) = command_line_answer(&args) {
+        // A GUI build has no console of its own: borrow the caller's, if any.
+        #[cfg(windows)]
+        clairlune_platform::attach_parent_console();
+        println!("{text}");
+        return;
+    }
     clairlune_platform::init_dpi_awareness();
     // `--ui-test <dir>`: the scripted Settings check, in a scratch data folder,
     // leaving the wallpaper alone.
-    let args: Vec<String> = std::env::args().collect();
     let ui_test_out = args
         .iter()
         .position(|a| a == "--ui-test")
@@ -2021,6 +2045,26 @@ fn main() {
 mod tests {
     use super::*;
     use settings::ThemeMode;
+
+    #[test]
+    fn version_and_help_answer_without_starting() {
+        let args = |a: &[&str]| -> Vec<String> {
+            std::iter::once("clairlune")
+                .chain(a.iter().copied())
+                .map(String::from)
+                .collect()
+        };
+        let v = command_line_answer(&args(&["--version"])).unwrap();
+        assert_eq!(v, format!("{APP_NAME} {}", env!("CARGO_PKG_VERSION")));
+        assert_eq!(command_line_answer(&args(&["-V"])), Some(v));
+        assert!(
+            command_line_answer(&args(&["--help"]))
+                .unwrap()
+                .contains("--version")
+        );
+        assert_eq!(command_line_answer(&args(&[])), None);
+        assert_eq!(command_line_answer(&args(&["--ui-test", "x"])), None);
+    }
 
     #[test]
     fn theme_mode_resolves() {

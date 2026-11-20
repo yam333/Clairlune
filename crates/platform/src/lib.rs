@@ -247,6 +247,13 @@ pub fn init_dpi_awareness() {
     windows::init_dpi_awareness();
 }
 
+/// Lets a GUI-built exe print to the terminal it was started from (Windows;
+/// elsewhere the process already shares it).
+#[cfg(windows)]
+pub fn attach_parent_console() {
+    windows::attach_parent_console();
+}
+
 /// Sorts monitors primary first, then left to right, top to bottom, so the
 /// order is the same on every run.
 #[cfg_attr(not(windows), allow(dead_code))] // used by the Windows host for now

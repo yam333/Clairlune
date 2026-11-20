@@ -24,6 +24,14 @@ use windows::Win32::UI::Shell::{
 use windows::core::{GUID, w};
 use windows::core::{HSTRING, PWSTR};
 
+/// Writes to the console of the process that started us, if any (a GUI-built
+/// exe has none of its own), so `--version` shows in a terminal.
+pub(crate) fn attach_parent_console() {
+    use ::windows::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole};
+    // Fails harmlessly when there's no parent console (started from Explorer).
+    let _ = unsafe { AttachConsole(ATTACH_PARENT_PROCESS) };
+}
+
 pub(crate) fn init_dpi_awareness() {
     // Fails harmlessly when already set (by a manifest or an earlier call).
     let _ = unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
