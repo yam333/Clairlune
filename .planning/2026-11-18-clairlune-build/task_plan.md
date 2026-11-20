@@ -5,7 +5,7 @@ Implement PLAN.md milestone by milestone. This session delivers M1 (headless det
 
 ## Next Step
 Roadmap (2026-11-20, user: "Do all" after 0.9.0; the user's feedback from trying it comes first). Order: what can be tested here first, then content, then other OSes (compiled and unit-tested, untried), then packaging.
-0. Phase 25: the user's feedback from trying the app (smoothness pace bug, weight, pause option, Buddy page, light theme, richer scenes)
+0. Phase 25: the user's feedback from trying the app (smoothness pace bug, weight, pause option, Buddy page, light theme, richer scenes, installers, Schedule/Timeline overlap, macOS wallpapers)
 1. Phase 24: app gaps (24a-24e done): preview-activity dev window left
 2. Phase 16 leftovers: smoother motion (sub-cell particles, interpolation), CPU fallback (16f)
 3. Phase 12 content: motions path/bob/fly, Waves B-F, J
@@ -293,5 +293,8 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 - [ ] 25c Pause option for maximized and full-screen apps: today a monitor pauses on its own when a maximized or full-screen app covers it (16e), with no setting. Add Settings > Live "Pause when an app is maximized or full screen": on that monitor (default) / on all monitors / off
 - [ ] 25d Buddy page: remove the "Show Clawd" description. When the toggle changes, a faint note in Settings for 2 s, at most 5 words, saying the change applies to the next wallpaper (e.g. "Clawd skips the next wallpaper" / "Clawd joins the next wallpaper"); check that this matches what the toggle really does
 - [ ] 25e Light theme: the ASCII is often too faint to notice. Raise the ink contrast and glyph density in the light palettes and bands so the art reads as clearly as in the dark theme; review every landscape in light, update goldens
+- [ ] 25g Installers, no terminal needed (user asked, 2026-11-20; moved forward from M8): Windows: an MSI or setup .exe (cargo-packager) with a Start menu entry, optional start at login, uninstall from Settings > Apps; macOS: a .app in a DMG to drag to Applications (signed and notarized needs an Apple developer account: ask the user); built by CI on each release and attached to a GitHub release. README install steps for non-developers
+- [ ] 25h Schedule vs Timeline overlap: both pages are always shown, but in Timeline mode the Schedule's "change every" is ignored except on days without slots, so the two can look contradictory. Fold Schedule into Rotation: Generate shows "Change every" and its options; Timeline shows the timeline, plus one line for what empty days do. Old settings files keep loading
+- [ ] 25i macOS wallpapers don't appear (user's Mac): not a permission. The macOS host was never written (13c); `detect()` answers Unsupported. Write it: NSWorkspace setDesktopImageURL per screen, re-applied on Space changes and screen changes, unique file names. setDesktopImageURL needs no permission; check what else does (live desktop window, start at login via SMAppService, Automation if any AppleScript fallback) and, for any that does, ask at launch with a short guide that opens the right System Settings pane and re-checks. Tested by the user on their Mac (aarch64, Rust 1.100), steps sent to them
 - [ ] 25f Richer scenes: some wallpapers look basic. Add complexity to some of them (more layers, detail, props and life in the plainer landscapes and variants), keeping the calm look; contact-sheet review, goldens, GENERATOR_VERSION bump if output changes
 - **Status:** pending
