@@ -602,3 +602,105 @@ mod tests {
         assert!(!off, "nothing has reported the displays off in a test");
     }
 }
+
+/// Set by the watcher window: the monitor layout changed (plugged, moved,
+/// resolution, DPI or work area).
+static DISPLAYS_CHANGED: AtomicBool = AtomicBool::new(false);
+/// Set by the watcher window: Explorer started again (its taskbar was made).
+static TASKBAR_CREATED: AtomicBool = AtomicBool::new(false);
+/// The id of the "TaskbarCreated" message, once registered.
+static TASKBAR_MSG: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+unsafe extern "system" fn watcher_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SPI_SETWORKAREA, WM_DISPLAYCHANGE, WM_DPICHANGED, WM_SETTINGCHANGE,
+    };
+    let taskbar = TASKBAR_MSG.load(Ordering::Relaxed);
+    if taskbar != 0 && msg == taskbar {
+        TASKBAR_CREATED.store(true, Ordering::Relaxed);
+        return LRESULT(0);
+    }
+    match msg {
+        WM_DISPLAYCHANGE | WM_DPICHANGED => {
+            DISPLAYS_CHANGED.store(true, Ordering::Relaxed);
+            LRESULT(0)
+        }
+        WM_SETTINGCHANGE if wp.0 as u32 == SPI_SETWORKAREA.0 => {
+            DISPLAYS_CHANGED.store(true, Ordering::Relaxed);
+            LRESULT(0)
+        }
+        _ => unsafe { DefWindowProcW(hwnd, msg, wp, lp) },
+    }
+}
+
+/// A hidden top-level window that hears the system's broadcasts: display
+/// changes and Explorer restarts (message-only windows don't get them). Its
+/// messages also wake the thread's event loop, so nothing needs polling.
+#[derive(Debug)]
+pub struct SystemWatcher {
+    hwnd: HWND,
+}
+
+impl SystemWatcher {
+    pub fn new() -> Result<SystemWatcher, PlatformError> {
+        use windows::Win32::UI::WindowsAndMessaging::RegisterWindowMessageW;
+        const WATCHER: windows::core::PCWSTR = w!("ClairluneSystemWatcher");
+        static REGISTERED: OnceLock<bool> = OnceLock::new();
+        let module =
+            unsafe { GetModuleHandleW(None) }.map_err(|e| PlatformError::Os(e.to_string()))?;
+        let ok = *REGISTERED.get_or_init(|| {
+            let class = WNDCLASSEXW {
+                cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+                lpfnWndProc: Some(watcher_proc),
+                hInstance: module.into(),
+                lpszClassName: WATCHER,
+                ..Default::default()
+            };
+            let atom = unsafe { RegisterClassExW(&class) };
+            atom != 0
+        });
+        if !ok {
+            return Err(PlatformError::Os(
+                "could not register the watcher class".into(),
+            ));
+        }
+        TASKBAR_MSG.store(
+            unsafe { RegisterWindowMessageW(w!("TaskbarCreated")) },
+            Ordering::Relaxed,
+        );
+        let hwnd = unsafe {
+            CreateWindowExW(
+                WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+                WATCHER,
+                w!("Clairlune system watcher"),
+                WS_POPUP,
+                0,
+                0,
+                0,
+                0,
+                None,
+                None,
+                Some(module.into()),
+                None,
+            )
+        }
+        .map_err(|e| PlatformError::Os(format!("creating the watcher window: {e}")))?;
+        Ok(SystemWatcher { hwnd })
+    }
+
+    /// Whether the monitor layout changed since the last call.
+    pub fn take_displays_changed(&self) -> bool {
+        DISPLAYS_CHANGED.swap(false, Ordering::Relaxed)
+    }
+
+    /// Whether Explorer restarted since the last call.
+    pub fn take_taskbar_created(&self) -> bool {
+        TASKBAR_CREATED.swap(false, Ordering::Relaxed)
+    }
+}
+
+impl Drop for SystemWatcher {
+    fn drop(&mut self) {
+        let _ = unsafe { DestroyWindow(self.hwnd) };
+    }
+}

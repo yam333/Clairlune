@@ -56,6 +56,11 @@ impl Live {
         }
     }
 
+    /// Starts playing again (Explorer restarted: the old windows are gone).
+    pub fn refresh(&mut self) {
+        self.restart();
+    }
+
     /// A wallpaper was applied: play its scenes.
     pub fn show(&mut self, scenes: Vec<LiveScene>) {
         self.scenes = scenes;

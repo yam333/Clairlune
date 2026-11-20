@@ -4,10 +4,16 @@
 Implement PLAN.md milestone by milestone. This session delivers M1 (headless deterministic generator + `clairlune-cli generate` that writes an indexed PNG), with tests and CI, and prepares the crates for crates.io. The user granted full access (no more approval stops), so publishing is part of this session.
 
 ## Next Step
-Roadmap (2026-11-20, after release 0.8.0): Phase 16 (M7 live wallpapers), Windows first, in the order of its steps below. Phases 12-15 are done; 14f waits on a Mac.
+Roadmap (2026-11-20, user: "Do all" after 0.9.0). Order: what can be tested here first, then content, then other OSes (compiled and unit-tested, untried), then packaging.
+1. Phase 24: app gaps: monitor hotplug/resolution/DPI, repeat avoidance (recent history in state.json), archive browser window, logging extras (crash reports, detailed toggle, diagnostic bundle, 50 MB cap), timeline pre-render + wake/time-zone re-resolve, preview-activity dev window
+2. Phase 16 leftovers: smoother motion (sub-cell particles, interpolation), CPU fallback (16f)
+3. Phase 12 content: motions path/bob/fly, Waves B-F, J
+4. Phase 13/16h/14f: Linux live hosts, macOS static + live hosts, wlroots still surface
+5. Phase 17 (M8): span mode, sunrise/sunset schedule, installers (cargo-packager), notarization setup, sprite-source CI check
+Needs the user: a Mac, a Linux desktop, an Apple developer account (notarization).
 
 ## Current Phase
-Phase 16 (M7)
+Phase 24
 
 ## Scope of this session
 Phases 1-8 (through M1 and publish prep). Phases 9-17 are later milestones, listed so the whole roadmap is tracked in one place.
@@ -99,8 +105,8 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - **Status:** in_progress
 
 ### Phase 11: M3 Animation + GIF export
-- [ ] Live state machine vs GIF loop scripts, particles, fire flicker, Smoothness levels
-- [ ] Activity Wave A (docs/activity-system.md): frames by state (10h), anchor `particles` effects, held items, `light`; activities: wizard magic, making coffee (camp stove), reading by a lantern, guitar
+- [x] Live state machine vs GIF loop scripts, particles, fire flicker, Smoothness levels (motion interpolation: Phase 16 leftovers)
+- [x] Activity Wave A (docs/activity-system.md): frames by state (10h), anchor `particles` effects, held items, `light`; activities: wizard magic, making coffee (camp stove), reading by a lantern, guitar
   - [x] A1 Engine: `[[effects]]` in activity TOML (type particles, preset sparkles|steam, at = anchor, states), validated; seeded periodic particle presets in scene; render draws them at the current frame's anchor (mirrored), ink or ember colour
   - [x] A2 Engine: `[character] headroom` so tall poses (hat, raised wand) get cleared space; light props spellbook and camp_stove
   - [x] A3 Content: props drawn as code (spellbook, camp stove, mug, fallen hat); wizard_magic and make_coffee designs + TOML; export, goldens, visual check
@@ -114,7 +120,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - **Status:** in_progress
 
 ### Phase 12: M4 More archetypes & activities
-- [ ] Remaining 8 archetypes, platforms, props, weather, compatibility tables, constraint checks
+- [x] Remaining 8 archetypes, platforms, props, weather, compatibility tables, constraint checks
   - [x] 12a Refactor `build` into `archetypes/` modules: shared pipeline (grid, focal, dome, sky, sprites, light, emitters) + per-archetype terrain and platform painters; canyon output byte-identical (goldens unchanged)
   - [x] 12b Weather particles (snow, rain, fireflies, leaves, dust): screen-space, seeded, periodic in the loop; archetype + activity + user filters already decide which
   - [x] 12c mountains   - [x] 12d snowfield   - [x] 12e forest   - [x] 12f desert
@@ -125,7 +131,8 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
   - [x] 12i night_sky (moon phases, aurora curtains, milky way, islets, cloud sea, floating island)   - [x] 12j cave (arch, stalactites, crystals, no sky)
   - [x] `requires.sky` / `ArchetypeInfo.sky`: stargazing never lands in a cave
   - [x] 12k Coverage (tests/coverage.rs, all 9 landscapes), one golden per landscape (`land-<id>`), contact-sheet review 
-- [ ] `path`, `bob`, `fly` motion; contact-sheet CLI command
+- [x] contact-sheet CLI command
+- [ ] `path`, `bob`, `fly` motion
 - [ ] Activity Wave B: set pieces + `prop_anim` + `sit` + `ground_mark` (chess, easel painting, picnic, fishing)
 - [ ] Activity Wave C: `path` on slopes/trails + `trail` (skiing, sledding, hiking, sandboarding)
 - [ ] Activity Wave D: `projectile` (tennis, skipping stones, snowballs)
@@ -137,10 +144,9 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 ### Phase 13: M5 Static wallpaper on all OSes
 - [x] 13a `clairlune-platform` crate: `WallpaperHost` trait (monitors, current, set_static, snapshot, restore), `StillStore` (unique names, prune, first-takeover snapshot), `local_data_dir` without `dirs` (MPL dependency)
 - [x] 13b Windows host: `IDesktopWallpaper` per monitor, device-path ids, physical rects under Per-Monitor DPI v2, Fill position; CLI `monitors`, `set`, `restore`; verified on a 2-monitor desktop (set, check, restore)
-- [ ] 13c macOS host   - [ ] 13d GNOME / KDE / XFCE / Cinnamon / MATE hosts   - [ ] 13e wlroots still surface
-- [ ] 13f hotplug / resolution / DPI change handling (needs the app event loop, M6)
-- [ ] `platform` crate static hosts (Windows, macOS, GNOME, KDE, XFCE, Cinnamon, MATE, wlroots)
-- [ ] Unique file names, monitor ids, physical-pixel sizing, hotplug
+- [ ] 13c macOS host   - [x] 13d GNOME / KDE / XFCE / Cinnamon / MATE / Sway hosts (14e; unit-tested, untried)   - [ ] 13e wlroots still surface
+- [x] 13f hotplug / resolution / DPI change handling (24a)
+- [x] Unique file names, monitor ids, physical-pixel sizing
 - **Status:** pending
 
 ### Phase 14: M6 App shell
@@ -205,7 +211,7 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 - [x] Write `scripts/aseprite/anchors.lua` (markers to per-frame slice keys in the export JSON)
 - [x] Lua generator `scripts/aseprite/build_sprite.lua` + design module `assets/clawd/design/clawd.lua`; sheets reviewed at 8x; rebuild is byte-reproducible
 - [x] Next art: stroll (`wave`) and stargaze (`look_up`, `adjust`) sheets; every activity state now has drawn art
-- **Status:** in_progress
+- **Status:** complete
 
 ### Phase 21: Activity system at scale (user: Clawd skiing, making coffee, hiking, chess, tennis, wizard magic and many more, interacting with the scene)
 - [x] 21a Design doc `docs/activity-system.md`: character rig, held items and costumes, set pieces, anchor effects, interaction types, scene fit (capabilities, new archetypes), schema extensions, content waves, per-activity workflow, budgets
@@ -270,3 +276,12 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 ` escapes into raw newlines, and `;` let the commit run after cargo fmt failed | 1 | Repaired via a script file (no shell escaping); fixed in the next commit. Commits now chain checks with `&&` |
 | git push declined (email privacy) | 1 | Repo-local user.email = GitHub noreply; amended the unpushed commit |
 | cargo publish verify: `unresolved import ttf_parser` | 1 | Stale unpacked clairlune-render 0.1.0 in cargo's temporary registry from the earlier dry run. Deleted `~/.cargo/registry/src/-da77451d61904e7d` and `target/package`; nothing had been uploaded |
+
+### Phase 24: App gaps (user: "Do all", 2026-11-20)
+- [x] 24a Monitor changes: a hidden top-level watcher window (Windows) hears WM_DISPLAYCHANGE / WM_DPICHANGED / work-area changes and TaskbarCreated; after 1.5 s of quiet the app compares the monitor layout (winit: name, position, size) with the one the wallpaper was made for and re-applies the current scenes if it differs (same seeds, saved scenes replayed where sizes match); elsewhere it polls every 5 s. Explorer restarts restart live at once. Tested by posting the messages to the watcher only
+- [x] 24b Repeat avoidance: the worker keeps the last 12 picks in <data>/recent.json and composes each monitor with them, so a wallpaper never starts with the activity just shown and two monitors differ (test)
+- [ ] 24c Archive browser window (docs/design.md wireframe): grid by day, apply, pin, save to library, export, delete
+- [ ] 24d Logging extras: crash report files, Detailed logging toggle, diagnostic bundle export, 50 MB cap
+- [ ] 24e Timeline: pre-render the next slot before its boundary; re-resolve at once on wake and time-zone change
+- [ ] 24f `preview-activity` developer window with hot reload
+- **Status:** in progress

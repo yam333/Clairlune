@@ -46,6 +46,27 @@ struct PoolState {
     last: std::collections::BTreeMap<String, String>,
 }
 
+/// A monitor as far as the wallpaper cares: name, position and size in
+/// physical pixels (a DPI change changes the size).
+type MonitorKey = (Option<String>, i32, i32, u32, u32);
+
+fn monitor_layout(event_loop: &ActiveEventLoop) -> Vec<MonitorKey> {
+    let mut v: Vec<MonitorKey> = event_loop
+        .available_monitors()
+        .map(|m| {
+            let (p, s) = (m.position(), m.size());
+            (m.name(), p.x, p.y, s.width, s.height)
+        })
+        .collect();
+    v.sort();
+    v
+}
+
+/// How long the monitor layout must stay still before the wallpaper follows.
+const MONITOR_SETTLE: Duration = Duration::from_millis(1500);
+/// Where no system message says the monitors changed, how often to look.
+const MONITOR_POLL: Duration = Duration::from_secs(5);
+
 enum AppEvent {
     Menu(tray_icon::menu::MenuEvent),
     Done(Done),
@@ -75,6 +96,15 @@ struct App {
     tray: Option<tray::Tray>,
     /// The live wallpaper (Live mode), playing what's on screen.
     live: live::Live,
+    /// Hears display changes and Explorer restarts (Windows).
+    #[cfg(windows)]
+    watcher: Option<clairlune_platform::windows_live::SystemWatcher>,
+    /// The monitor layout the wallpaper was made for, when a change was
+    /// noticed (it settles before anything is redone), and when to look for
+    /// changes where nothing tells us (not Windows).
+    monitor_layout: Option<Vec<MonitorKey>>,
+    monitors_changed_at: Option<Instant>,
+    next_monitor_poll: Instant,
     /// The daily timeline (Timeline rotation mode), its file and state.
     timeline: timeline::Timeline,
     timeline_path: PathBuf,
@@ -845,6 +875,53 @@ impl App {
         }
     }
 
+    /// Notices monitor changes (system messages on Windows, a poll elsewhere)
+    /// and, once the layout has settled and differs from the one the
+    /// wallpaper was made for, makes the current scenes again at the new
+    /// sizes: same seeds, saved scenes replayed where a monitor kept its size
+    /// (PLAN.md section 2.1). Explorer restarts start live playback again.
+    fn watch_monitors(&mut self, event_loop: &ActiveEventLoop, now: Instant) {
+        let mut noticed = false;
+        #[cfg(windows)]
+        if let Some(w) = &self.watcher {
+            noticed = w.take_displays_changed();
+            if w.take_taskbar_created() {
+                tracing::info!(target: "clairlune", "Explorer restarted");
+                self.live.refresh();
+            }
+        }
+        if !cfg!(windows) && now >= self.next_monitor_poll {
+            self.next_monitor_poll = now + MONITOR_POLL;
+            noticed = self.monitor_layout.as_ref() != Some(&monitor_layout(event_loop));
+        }
+        if self.monitor_layout.is_none() {
+            self.monitor_layout = Some(monitor_layout(event_loop));
+        }
+        if noticed {
+            self.monitors_changed_at = Some(now);
+        }
+        let Some(at) = self.monitors_changed_at else {
+            return;
+        };
+        if now < at + MONITOR_SETTLE || self.busy || self.ui_test.is_some() {
+            return;
+        }
+        self.monitors_changed_at = None;
+        let layout = monitor_layout(event_loop);
+        if self.monitor_layout.as_ref() == Some(&layout) {
+            // A change that changed nothing (a work-area nudge).
+            tracing::debug!(target: "clairlune", "display change settled; same monitors");
+            return;
+        }
+        tracing::info!(target: "clairlune", monitors = layout.len(), "monitors changed; making the wallpaper again");
+        self.monitor_layout = Some(layout);
+        if self.current.is_some() {
+            self.reapply(false);
+        } else {
+            self.new_wallpaper();
+        }
+    }
+
     /// Live or Still frame and the live frame rate, from the settings.
     fn follow_display_settings(&mut self) {
         let live = self.settings.display.mode == settings::WallpaperMode::Live;
@@ -1261,6 +1338,7 @@ impl ApplicationHandler<AppEvent> for App {
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         self.run_ui_test(event_loop);
         let now = Instant::now();
+        self.watch_monitors(event_loop, now);
         if self.next_change.is_some_and(|t| now >= t) && !self.busy {
             self.new_wallpaper();
             self.reschedule();
@@ -1276,6 +1354,12 @@ impl ApplicationHandler<AppEvent> for App {
         };
         if let Some(t) = live_next {
             wake = wake.min(t);
+        }
+        if let Some(t) = self.monitors_changed_at {
+            wake = wake.min(t + MONITOR_SETTLE);
+        }
+        if !cfg!(windows) {
+            wake = wake.min(self.next_monitor_poll);
         }
         if let Some(t) = self.ui_test.as_ref().and_then(|t| t.wake()) {
             wake = wake.min(t);
@@ -1577,8 +1661,21 @@ fn main() {
         settings.live.battery_saver_on_battery,
         settings.live.pause_on_battery,
     );
+    #[cfg(windows)]
+    let watcher = match clairlune_platform::windows_live::SystemWatcher::new() {
+        Ok(w) => Some(w),
+        Err(e) => {
+            tracing::warn!(target: "clairlune", error = %e, "no display-change watcher");
+            None
+        }
+    };
     let mut app = App {
         live,
+        #[cfg(windows)]
+        watcher,
+        monitor_layout: None,
+        monitors_changed_at: None,
+        next_monitor_poll: Instant::now(),
         settings_stamp: file_stamp(&settings_path),
         settings,
         settings_path,

@@ -8,6 +8,7 @@ use crate::settings::{Settings, ThemeMode};
 use clairlune_platform::{Monitor, StillStore, WallpaperHost};
 use clairlune_render::{IndexedImage, IndexedPalette, ScenePackage, encode_png};
 use clairlune_scene::hash::hash_label;
+use clairlune_scene::recipe::HistoryEntry;
 use clairlune_scene::{Aspect, SceneRecipe, Theme, compose};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, mpsc};
@@ -144,8 +145,9 @@ fn packages(
     seed: u64,
     monitors: &[Monitor],
     settings: &Settings,
+    recent: &mut Recent,
 ) -> Result<(u64, Vec<ScenePackage>, usize), String> {
-    let (base_seed, recipes) = scenes(saved.map(|s| s.recipes), seed, monitors, settings);
+    let (base_seed, recipes) = scenes(saved.map(|s| s.recipes), seed, monitors, settings, recent);
     let mut out = Vec::new();
     let mut replayed = 0;
     for (m, recipe) in monitors.iter().zip(&recipes) {
@@ -181,20 +183,23 @@ fn scenes(
     seed: u64,
     monitors: &[Monitor],
     settings: &Settings,
+    recent: &mut Recent,
 ) -> (u64, Vec<SceneRecipe>) {
-    let ctx = settings.content_context();
+    let mut ctx = settings.content_context();
+    // Composes a new scene with the recent picks, then remembers it, so the
+    // next monitor (and the next wallpaper) avoids it.
+    let mut new_scene = |seed: u64, m: &Monitor| {
+        ctx.recent = recent.entries().to_vec();
+        let r = compose(seed, Aspect::from_size(m.width, m.height), &ctx);
+        recent.push(&r);
+        r
+    };
     match job_recipes {
         None => (
             seed,
             monitors
                 .iter()
-                .map(|m| {
-                    compose(
-                        monitor_seed(seed, m),
-                        Aspect::from_size(m.width, m.height),
-                        &ctx,
-                    )
-                })
+                .map(|m| new_scene(monitor_seed(seed, m), m))
                 .collect(),
         ),
         Some(r) => (
@@ -203,14 +208,59 @@ fn scenes(
                 .iter()
                 .map(|m| match r.monitors.iter().find(|s| s.monitor == m.id) {
                     Some(s) => s.recipe.clone(),
-                    None => compose(
-                        monitor_seed(r.base_seed, m),
-                        Aspect::from_size(m.width, m.height),
-                        &ctx,
-                    ),
+                    None => new_scene(monitor_seed(r.base_seed, m), m),
                 })
                 .collect(),
         ),
+    }
+}
+
+/// The most recent picks, newest last (PLAN.md section 4.7): new scenes skip
+/// the last activity and weigh down recent ones and the last landscape, so
+/// wallpapers in a row, and the monitors of one wallpaper, differ. Kept in
+/// `<data>/recent.json` across restarts.
+#[derive(Debug, Default)]
+pub struct Recent {
+    entries: Vec<HistoryEntry>,
+    path: Option<PathBuf>,
+}
+
+impl Recent {
+    /// How many picks are remembered.
+    pub const KEEP: usize = 12;
+
+    /// Loads the list; a missing or unreadable file is an empty one.
+    pub fn load(path: PathBuf) -> Recent {
+        let entries = std::fs::read_to_string(&path)
+            .ok()
+            .and_then(|t| serde_json::from_str(&t).ok())
+            .unwrap_or_default();
+        Recent {
+            entries,
+            path: Some(path),
+        }
+    }
+
+    pub fn entries(&self) -> &[HistoryEntry] {
+        &self.entries
+    }
+
+    /// Remembers a composed scene (and saves the list).
+    fn push(&mut self, r: &SceneRecipe) {
+        self.entries.push(HistoryEntry {
+            activity: r.activity.clone(),
+            archetype: r.archetype.clone(),
+            platform: r.platform.clone(),
+            prop: r.props.first().cloned(),
+        });
+        let extra = self.entries.len().saturating_sub(Self::KEEP);
+        self.entries.drain(..extra);
+        if let Some(path) = &self.path
+            && let Ok(json) = serde_json::to_string_pretty(&self.entries)
+            && let Err(e) = std::fs::write(path, json)
+        {
+            tracing::warn!(target: "clairlune", error = %e, "could not save recent picks");
+        }
     }
 }
 
@@ -232,6 +282,12 @@ pub fn worker(
         }
     };
     let store = StillStore::default_location();
+    let mut recent = Recent::load(
+        archive_dir
+            .parent()
+            .unwrap_or(&archive_dir)
+            .join("recent.json"),
+    );
     let archive = Archive::open(&archive_dir);
     // Before the first change, remember the user's own wallpaper so it can be
     // put back (`clairlune-cli restore`, later a button in Settings).
@@ -251,7 +307,7 @@ pub fn worker(
     }
     for job in jobs {
         let result = match (&archive, &store) {
-            (Ok(archive), Ok(store)) => run(job, host.as_deref(), store, archive),
+            (Ok(archive), Ok(store)) => run(job, host.as_deref(), store, archive, &mut recent),
             (Err(e), _) | (_, Err(e)) => Done::Failed(format!("data folder: {e}")),
         };
         if let Done::Failed(e) = &result {
@@ -261,7 +317,13 @@ pub fn worker(
     }
 }
 
-fn run(job: Job, host: Option<&dyn WallpaperHost>, store: &StillStore, archive: &Archive) -> Done {
+fn run(
+    job: Job,
+    host: Option<&dyn WallpaperHost>,
+    store: &StillStore,
+    archive: &Archive,
+    recent: &mut Recent,
+) -> Done {
     match job {
         Job::Export { dest, source } => export(archive, &dest, source.as_deref()),
         Job::ExportGif {
@@ -271,7 +333,9 @@ fn run(job: Job, host: Option<&dyn WallpaperHost>, store: &StillStore, archive: 
             buddy,
         } => export_gif(archive, &dest, source.as_deref(), theme, buddy),
         Job::Restore => restore(host, store),
-        Job::New { seed, settings } => apply(None, seed, &settings, true, host, store, archive),
+        Job::New { seed, settings } => {
+            apply(None, seed, &settings, true, host, store, archive, recent)
+        }
         Job::Recipes {
             recipes,
             source,
@@ -292,6 +356,7 @@ fn run(job: Job, host: Option<&dyn WallpaperHost>, store: &StillStore, archive: 
             host,
             store,
             archive,
+            recent,
         ),
     }
     .unwrap_or_else(Done::Failed)
@@ -307,6 +372,7 @@ struct Source<'a> {
     buddy: Option<bool>,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn apply(
     saved: Option<Source>,
     seed: u64,
@@ -315,6 +381,7 @@ fn apply(
     host: Option<&dyn WallpaperHost>,
     store: &StillStore,
     archive: &Archive,
+    recent: &mut Recent,
 ) -> Result<Done, String> {
     let started = Instant::now();
     let monitors = match host {
@@ -335,7 +402,7 @@ fn apply(
         .and_then(|s| s.theme)
         .unwrap_or_else(|| resolve_theme(settings.theme.mode));
     let buddy = saved.and_then(|s| s.buddy).unwrap_or(settings.buddy.show);
-    let (base_seed, packages, replayed) = packages(saved, seed, &monitors, settings)?;
+    let (base_seed, packages, replayed) = packages(saved, seed, &monitors, settings, recent)?;
     let packages: Vec<Arc<ScenePackage>> = packages.into_iter().map(Arc::new).collect();
     let recipes: Vec<SceneRecipe> = packages.iter().map(|p| p.recipe.clone()).collect();
     let mut pngs = Vec::new();
@@ -536,8 +603,14 @@ mod tests {
         let settings = Settings::default();
         let m = monitor(640, 360);
         // A new wallpaper: composed and captured.
-        let (seed, pkgs, replayed) =
-            packages(None, 77, std::slice::from_ref(&m), &settings).unwrap();
+        let (seed, pkgs, replayed) = packages(
+            None,
+            77,
+            std::slice::from_ref(&m),
+            &settings,
+            &mut Recent::default(),
+        )
+        .unwrap();
         assert_eq!((seed, replayed), (77, 0));
         let recipes = EntryRecipes {
             base_seed: seed,
@@ -566,16 +639,60 @@ mod tests {
             buddy: None,
         };
         // Same monitor: replayed from the package.
-        let (_, again, replayed) =
-            packages(Some(src), 0, std::slice::from_ref(&m), &settings).unwrap();
+        let (_, again, replayed) = packages(
+            Some(src),
+            0,
+            std::slice::from_ref(&m),
+            &settings,
+            &mut Recent::default(),
+        )
+        .unwrap();
         assert_eq!(replayed, 1);
         assert_eq!(again[0].recipe, recipes.monitors[0].recipe);
         // A different size: rendered again from the recipe.
-        let (_, resized, replayed) =
-            packages(Some(src), 0, &[monitor(800, 450)], &settings).unwrap();
+        let (_, resized, replayed) = packages(
+            Some(src),
+            0,
+            &[monitor(800, 450)],
+            &settings,
+            &mut Recent::default(),
+        )
+        .unwrap();
         assert_eq!(replayed, 0);
         assert_eq!((resized[0].width, resized[0].height), (800, 450));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn recent_picks_keep_wallpapers_and_monitors_apart() {
+        let settings = Settings::default();
+        let path =
+            std::env::temp_dir().join(format!("clairlune-recent-{}.json", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let mut recent = Recent::load(path.clone());
+        let two = [
+            monitor(640, 360),
+            Monitor {
+                id: "second".into(),
+                x: 640,
+                primary: false,
+                ..monitor(640, 360)
+            },
+        ];
+        let mut last: Option<String> = None;
+        for seed in 0..20u64 {
+            let (_, recipes) = scenes(None, seed, &two, &settings, &mut recent);
+            let acts: Vec<_> = recipes.iter().map(|r| r.activity.clone()).collect();
+            // The two monitors of one wallpaper differ...
+            assert_ne!(acts[0], acts[1], "seed {seed}");
+            // ...and a wallpaper doesn't start with the activity just shown.
+            assert_ne!(acts[0], last, "seed {seed}");
+            last = acts[1].clone();
+        }
+        assert_eq!(recent.entries().len(), Recent::KEEP);
+        // The list survives a restart.
+        assert_eq!(Recent::load(path.clone()).entries(), recent.entries());
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
