@@ -27,9 +27,9 @@ use crate::clock::Clock;
 use crate::frame::{IncrementalFrame, PixelRect, hero_time_with_art, render_frame_with_art};
 use crate::palette::IndexedPalette;
 use crate::{IndexedImage, encode_png};
-use clairlune_scene::activity::{Activity, builtin_catalog};
+use clairlune_scene::activity::{Activity, Catalog, builtin_catalog};
 use clairlune_scene::{
-    BuildError, BuildOptions, Rgb, SceneGraph, SceneRecipe, SpriteKind, Theme, build,
+    BuildError, BuildOptions, Rgb, SceneGraph, SceneRecipe, SpriteKind, Theme, build_with,
 };
 use clairlune_sprites::{Animation, Character, Frame, PackagedCharacter, builtin_character};
 use serde::{Deserialize, Serialize};
@@ -130,6 +130,24 @@ pub struct ScenePackage {
 impl ScenePackage {
     /// Builds the scene in every theme it supports and freezes the result.
     pub fn capture(recipe: &SceneRecipe, width: u32, height: u32) -> Result<Self, BuildError> {
+        Self::capture_with(
+            recipe,
+            width,
+            height,
+            builtin_catalog(),
+            builtin_character(),
+        )
+    }
+
+    /// [`capture`](Self::capture) with another activity catalog and character
+    /// (the developer preview loads both from disk).
+    pub fn capture_with(
+        recipe: &SceneRecipe,
+        width: u32,
+        height: u32,
+        catalog: &Catalog,
+        character: &dyn Character,
+    ) -> Result<Self, BuildError> {
         let mut themes = Vec::new();
         let mut graphs = Vec::new();
         for theme in [Theme::Dark, Theme::Light] {
@@ -139,7 +157,7 @@ impl ScenePackage {
                 theme,
                 buddy: true,
             };
-            match build(recipe, &opts) {
+            match build_with(catalog, recipe, &opts) {
                 Ok(g) => graphs.push(g),
                 Err(BuildError::ThemeLocked(_)) => {}
                 Err(e) => return Err(e),
@@ -149,16 +167,17 @@ impl ScenePackage {
         let activity = first
             .activity
             .as_deref()
-            .and_then(|id| builtin_catalog().get(id))
+            .and_then(|id| catalog.get(id))
             .cloned();
         let art = PackageArt {
-            character: capture_character(activity.as_ref()),
+            character: capture_character(character, activity.as_ref()),
             props: capture_props(&graphs),
             activity,
         };
         for mut graph in graphs {
             let atlas = GlyphAtlas::for_grid(&graph.grid);
-            let palette = IndexedPalette::for_graph(&graph);
+            let palette = IndexedPalette::for_graph(&graph)
+                .with_sprite_colors(character_colors(&art.character));
             let background = bake_static(&graph, &atlas);
             // The background replaces the cells; a loaded package has none.
             graph.cells = Vec::new();
@@ -418,8 +437,7 @@ fn background_name(theme: Theme) -> String {
 
 /// Every `(activity, state)` the scene can show: all states of its activity
 /// (the state machine may reach any), or the idle fallback.
-fn capture_character(activity: Option<&Activity>) -> PackagedCharacter {
-    let from = builtin_character();
+fn capture_character(from: &dyn Character, activity: Option<&Activity>) -> PackagedCharacter {
     match activity {
         Some(a) => PackagedCharacter::capture(
             from,
@@ -430,6 +448,21 @@ fn capture_character(activity: Option<&Activity>) -> PackagedCharacter {
         ),
         None => PackagedCharacter::capture(from, [("", "idle")]),
     }
+}
+
+/// Every colour the captured frames use, in a stable order.
+fn character_colors(c: &PackagedCharacter) -> Vec<Rgb> {
+    let mut out: Vec<Rgb> = Vec::new();
+    for (_, anim) in c.iter() {
+        for f in &anim.frames {
+            for rgb in f.pixels.iter().flatten() {
+                if !out.contains(rgb) {
+                    out.push(*rgb);
+                }
+            }
+        }
+    }
+    out
 }
 
 /// The pixel art of every prop the scene places, in either Buddy state.

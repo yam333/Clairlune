@@ -139,6 +139,20 @@ impl IndexedPalette {
         EMBER_BASE + band * LEVELS + level - 1
     }
 
+    /// Adds sprite colours it lacks (a character drawn with colours the
+    /// built-in art doesn't use), as far as the budget allows.
+    pub fn with_sprite_colors(mut self, extra: impl IntoIterator<Item = Rgb>) -> Self {
+        for rgb in extra {
+            if self.colors.len() >= TRANSPARENT_INDEX as usize {
+                break;
+            }
+            if self.sprite_index(rgb).is_none() {
+                self.colors.push(rgb);
+            }
+        }
+        self
+    }
+
     /// Palette index of a sprite colour.
     pub fn sprite_index(&self, rgb: Rgb) -> Option<u8> {
         self.colors[SPRITE_BASE as usize..]

@@ -102,7 +102,7 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - [x] 10f `clairlune-sprites` crate: Aseprite json-array loader, `Character` trait, anchors from slices, palette/alpha validation; placeholder character behind the same trait
 - [x] 10g CLI `--activity <id>`; variety test (no activity above 2x its share)
 - [x] 10h Render through `Character`: draw frames by state at time t (state machine + sheet frames), anchor-attached effects, sheet colours in the palette, engine-drawn light-theme outline. Lands with M3 animation, since today every state shows the single placeholder frame
-- [ ] Deferred: `preview-activity` window with hot reload (needs the winit loop from M6/M7)
+- [x] Deferred: `preview-activity` window with hot reload (24f)
 - **Status:** in_progress
 
 ### Phase 11: M3 Animation + GIF export
@@ -284,7 +284,7 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 - [x] 24c Archive window (docs/design.md wireframe): newest first, grouped Today / Yesterday / date, the entry on screen marked; one action bar: Use as wallpaper, Pin/Unpin, Save to library, Save PNG/GIF, two-step Delete; header shows retention and size against the cap; tray "Archive..." and Settings open it (folder button inside); UI test screenshot
 - [x] 24d Logging extras: crash reports in <data>/crashes (version, system, panic, backtrace, last 200 log lines, recipes on screen; the next launch says so once), Detailed logging for 24 h (reloadable filter), diagnostic bundle zip (about, 3 days of logs, crash reports, current + last 5 recipes, settings and timeline; home folder as ~), logs pruned to 50 MB at start. Tests for each
 - [x] 24e Timeline: the next slot is made 4 s ahead and shown at its start (jobs carry a show-at instant; tried here: prepared at :56.000, shown at :00.05); the watcher window reports resume from sleep and clock or time-zone changes, which re-resolve at once
-- [ ] 24f `preview-activity` developer window with hot reload
+- [x] 24f `clairlune-cli preview-activity <id>`: a winit + softbuffer window playing the activity through the live Player; reads activity TOML and sheets from the repository (scene::build_with, ScenePackage::capture_with, palette takes the loaded art's colours), checks files every 400 ms and reloads (errors to the terminal, last good scene stays); N/P seeds, T theme, B Buddy, R reload; `--export` runs export_sprites.py for changed designs (--build) or hand-edited sources (export only). Tests: disk files equal the built-in ones, scenes show the activity, edits noticed, export runs. Tried here: opened, reloaded on a touched file, screenshot via PrintWindow
 - **Status:** in progress
 
 ### Phase 25: The user's feedback from trying the app (2026-11-20)

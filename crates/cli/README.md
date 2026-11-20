@@ -34,6 +34,12 @@ clairlune-cli contact-sheet --activity stroll --count 8 --out strolls.png
 
 The same seed, size and theme always produce the same file, on any OS.
 
+When drawing an activity, keep a preview open. Inside the repository, it plays the activity in the scenes it fits and reloads the activity files and sprite sheets each time you save them (N/P: next or previous scene, T: theme, B: Buddy, R: reload, Esc: close). With `--export`, saving a design script or an Aseprite source also runs `scripts/export_sprites.py` (Aseprite needed):
+
+```sh
+clairlune-cli preview-activity warm_hands --seed 3 --smoothness smooth
+```
+
 > Unofficial fan project. Not affiliated with or endorsed by Anthropic. Clawd is Anthropic's character. With the buddy on, images contain fan art of Clawd; `--no-buddy` images contain only this project's own content.
 
 License: MIT OR Apache-2.0.
