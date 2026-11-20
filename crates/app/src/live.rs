@@ -18,6 +18,10 @@ pub struct Live {
     scenes: Vec<LiveScene>,
     enabled: bool,
     fps: u32,
+    /// On battery: drop to 6 fps, or stop animating.
+    battery_saver: bool,
+    battery_pause: bool,
+    on_battery: bool,
     #[cfg(windows)]
     desktop: Option<clairlune_live::desktop::Desktop>,
     next: Option<Instant>,
@@ -41,6 +45,9 @@ impl Live {
             scenes: Vec::new(),
             enabled: enabled && supported().is_ok(),
             fps: fps.clamp(1, 60),
+            battery_saver: true,
+            battery_pause: false,
+            on_battery: false,
             #[cfg(windows)]
             desktop: None,
             next: None,
@@ -68,8 +75,23 @@ impl Live {
         self.fps = fps.clamp(1, 60);
     }
 
+    /// What to do on battery (PLAN.md section 5.3).
+    pub fn set_battery_policy(&mut self, saver: bool, pause: bool) {
+        self.battery_saver = saver;
+        self.battery_pause = pause;
+    }
+
+    /// The frame rate now: Battery saver's 6 fps on battery when asked.
+    fn effective_fps(&self) -> u32 {
+        if self.on_battery && self.battery_saver {
+            self.fps.min(6)
+        } else {
+            self.fps
+        }
+    }
+
     fn frame(&self) -> Duration {
-        Duration::from_secs_f64(1.0 / f64::from(self.fps))
+        Duration::from_secs_f64(1.0 / f64::from(self.effective_fps()))
     }
 
     fn restart(&mut self) {
@@ -149,6 +171,11 @@ impl Live {
             let desktop = self.desktop.as_mut()?;
             if self.checked.is_none_or(|t| now >= t + HEALTH_CHECK) {
                 self.checked = Some(now);
+                let battery = clairlune_platform::windows_live::on_battery();
+                if battery != self.on_battery {
+                    tracing::info!(target: "clairlune", on_battery = battery, "live: power source");
+                    self.on_battery = battery;
+                }
                 if !desktop.healthy() {
                     tracing::info!(target: "clairlune", "the desktop layer changed (Explorer restarted?); starting live again");
                     self.restart();
@@ -156,6 +183,11 @@ impl Live {
                 }
             }
             let next = self.next?;
+            if self.on_battery && self.battery_pause {
+                // Paused on battery: the frame on screen stays; look again
+                // at the next health check.
+                return self.checked.map(|t| t + HEALTH_CHECK);
+            }
             if now >= next {
                 if let Err(e) = desktop.tick() {
                     tracing::warn!(target: "clairlune", error = %e, "live frame failed; stopping");

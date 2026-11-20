@@ -11,7 +11,8 @@ use crate::Player;
 use crate::gpu::{Canvas, Gpu, exact_format};
 use clairlune_platform::Monitor;
 use clairlune_platform::windows_live::{
-    DesktopLayer, DisplayAdapter, LiveWindow, Win32Display, covered, display_adapters, take_repaint,
+    DesktopLayer, DisplayAdapter, LiveWindow, Win32Display, covered, display_adapters,
+    displays_off, session_locked, take_repaint,
 };
 use raw_window_handle::{HasWindowHandle, RawDisplayHandle, WindowsDisplayHandle};
 use std::num::NonZeroU32;
@@ -48,6 +49,8 @@ pub struct FrameStats {
     pub rects: usize,
     /// Monitors paused because a window covers them.
     pub covered: usize,
+    /// Paused everywhere: the session is locked or the displays are off.
+    pub away: bool,
     /// Presents that waited over 50 ms for the swapchain (the compositor
     /// holding frames back).
     pub stalls: usize,
@@ -68,6 +71,8 @@ pub struct Desktop {
     checked: Option<Instant>,
     /// The adapter driving most of the monitors: frames are drawn there.
     prefer: Option<DisplayAdapter>,
+    /// The session is locked or the displays are off: nothing is drawn.
+    away: bool,
 }
 
 /// How often to look for windows covering a monitor.
@@ -113,6 +118,7 @@ impl Desktop {
             outputs: Vec::new(),
             checked: None,
             prefer,
+            away: false,
         };
         for (monitor, player) in scenes {
             desktop.add(monitor, player)?;
@@ -332,6 +338,11 @@ impl Desktop {
         let mut stalls = 0usize;
         if self.checked.is_none_or(|t| t.elapsed() >= COVER_CHECK) {
             self.checked = Some(Instant::now());
+            let away = session_locked() || displays_off();
+            if away != self.away {
+                tracing::info!(target: "clairlune", away, "live: locked or displays off");
+                self.away = away;
+            }
             let monitors: Vec<Monitor> = self.outputs.iter().map(|o| o.monitor.clone()).collect();
             for (o, c) in self.outputs.iter_mut().zip(covered(&monitors)) {
                 if o.covered != c {
@@ -342,7 +353,7 @@ impl Desktop {
         }
         let paused = self.outputs.iter().filter(|o| o.covered).count();
         for o in &mut self.outputs {
-            if o.covered {
+            if o.covered || self.away {
                 continue; // nobody sees it; resumes at the time it is then
             }
             let t = o.player.now_ms();
@@ -402,6 +413,7 @@ impl Desktop {
             pixels,
             rects: count,
             covered: paused,
+            away: self.away,
             stalls,
             busy: started.elapsed(),
             upload,

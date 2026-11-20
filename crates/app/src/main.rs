@@ -849,6 +849,10 @@ impl App {
     fn follow_display_settings(&mut self) {
         let live = self.settings.display.mode == settings::WallpaperMode::Live;
         self.live.set_fps(self.settings.live.smoothness_fps);
+        self.live.set_battery_policy(
+            self.settings.live.battery_saver_on_battery,
+            self.settings.live.pause_on_battery,
+        );
         self.live.set_enabled(live);
         if let Some(t) = &self.tray {
             t.show_live(live && live::supported().is_ok());
@@ -1565,9 +1569,13 @@ fn main() {
         .ok()
         .and_then(|t| serde_json::from_str(&t).ok())
         .unwrap_or_default();
-    let live = live::Live::new(
+    let mut live = live::Live::new(
         settings.display.mode == settings::WallpaperMode::Live,
         settings.live.smoothness_fps,
+    );
+    live.set_battery_policy(
+        settings.live.battery_saver_on_battery,
+        settings.live.pause_on_battery,
     );
     let mut app = App {
         live,

@@ -24,24 +24,33 @@ use std::num::NonZeroIsize;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
-use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows::Win32::Foundation::{COLORREF, HANDLE, HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::Graphics::Gdi::{MapWindowPoints, ValidateRect};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows::Win32::System::Power::{
+    HPOWERNOTIFY, POWERBROADCAST_SETTING, RegisterPowerSettingNotification,
+    UnregisterPowerSettingNotification,
+};
+use windows::Win32::System::SystemServices::GUID_CONSOLE_DISPLAY_STATE;
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, EnumWindows, FindWindowExW,
-    FindWindowW, GW_HWNDLAST, GWL_EXSTYLE, GWL_STYLE, GetParent, GetWindow, GetWindowLongPtrW,
-    HWND_BOTTOM, IsWindow, LWA_ALPHA, MA_NOACTIVATE, MSG, MWMO_INPUTAVAILABLE,
-    MsgWaitForMultipleObjectsEx, PM_REMOVE, PeekMessageW, QS_ALLINPUT, RegisterClassExW,
-    SMTO_NORMAL, SW_SHOWNA, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
-    SendMessageTimeoutW, SetLayeredWindowAttributes, SetParent, SetWindowLongPtrW, SetWindowPos,
-    ShowWindow, TranslateMessage, WM_ERASEBKGND, WM_MOUSEACTIVATE, WM_PAINT, WNDCLASSEXW, WS_CHILD,
-    WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_NOREDIRECTIONBITMAP, WS_EX_TOOLWINDOW, WS_POPUP,
+    CreateWindowExW, DEVICE_NOTIFY_WINDOW_HANDLE, DefWindowProcW, DestroyWindow, DispatchMessageW,
+    EnumWindows, FindWindowExW, FindWindowW, GW_HWNDLAST, GWL_EXSTYLE, GWL_STYLE, GetParent,
+    GetWindow, GetWindowLongPtrW, HWND_BOTTOM, IsWindow, LWA_ALPHA, MA_NOACTIVATE, MSG,
+    MWMO_INPUTAVAILABLE, MsgWaitForMultipleObjectsEx, PBT_POWERSETTINGCHANGE, PM_REMOVE,
+    PeekMessageW, QS_ALLINPUT, RegisterClassExW, SMTO_NORMAL, SW_SHOWNA, SWP_NOACTIVATE,
+    SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SendMessageTimeoutW, SetLayeredWindowAttributes,
+    SetParent, SetWindowLongPtrW, SetWindowPos, ShowWindow, TranslateMessage, WM_ERASEBKGND,
+    WM_MOUSEACTIVATE, WM_PAINT, WM_POWERBROADCAST, WNDCLASSEXW, WS_CHILD, WS_EX_LAYERED,
+    WS_EX_NOACTIVATE, WS_EX_NOREDIRECTIONBITMAP, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 use windows::core::{BOOL, w};
 
 /// Set when the system asks any live window to repaint (it was uncovered or
 /// moved), so the next frame is drawn whole.
 static REPAINT: AtomicBool = AtomicBool::new(false);
+
+/// The displays are off (power notification to the live windows).
+static DISPLAYS_OFF: AtomicBool = AtomicBool::new(false);
 
 /// Where live windows go: behind the icons, in one of the two layouts.
 #[derive(Clone, Copy, Debug)]
@@ -161,6 +170,8 @@ pub struct LiveWindow {
     parent: HWND,
     width: u32,
     height: u32,
+    /// Display on/off notifications come to this window.
+    power: Option<HPOWERNOTIFY>,
 }
 
 const CLASS: windows::core::PCWSTR = w!("ClairluneLiveWallpaper");
@@ -175,6 +186,17 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             LRESULT(0)
         }
         WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
+        WM_POWERBROADCAST if wp.0 as u32 == PBT_POWERSETTINGCHANGE && lp.0 != 0 => {
+            let setting = unsafe { &*(lp.0 as *const POWERBROADCAST_SETTING) };
+            if setting.PowerSetting == GUID_CONSOLE_DISPLAY_STATE {
+                // 0 off, 1 on, 2 dimmed.
+                let off = setting.Data[0] == 0;
+                if DISPLAYS_OFF.swap(off, Ordering::Relaxed) != off {
+                    tracing::info!(target: "clairlune", displays_off = off, "display state");
+                }
+            }
+            LRESULT(1)
+        }
         _ => unsafe { DefWindowProcW(hwnd, msg, wp, lp) },
     }
 }
@@ -233,11 +255,20 @@ impl LiveWindow {
             )
         }
         .map_err(|e| PlatformError::Os(format!("creating the live window: {e}")))?;
+        let power = unsafe {
+            RegisterPowerSettingNotification(
+                HANDLE(hwnd.0),
+                &GUID_CONSOLE_DISPLAY_STATE,
+                DEVICE_NOTIFY_WINDOW_HANDLE,
+            )
+        }
+        .ok();
         let window = LiveWindow {
             hwnd,
             parent: layer.parent(),
             width: monitor.width,
             height: monitor.height,
+            power,
         };
         if layer.raised {
             // Opaque layered window; set before SetParent (some renderers
@@ -301,6 +332,9 @@ impl LiveWindow {
 
 impl Drop for LiveWindow {
     fn drop(&mut self) {
+        if let Some(p) = self.power.take() {
+            let _ = unsafe { UnregisterPowerSettingNotification(p) };
+        }
         if unsafe { IsWindow(Some(self.hwnd)) }.as_bool() {
             let _ = unsafe { DestroyWindow(self.hwnd) };
         }
@@ -330,6 +364,33 @@ impl HasDisplayHandle for Win32Display {
 /// Whether a live window was asked to repaint since the last call.
 pub fn take_repaint() -> bool {
     REPAINT.swap(false, Ordering::Relaxed)
+}
+
+/// The displays are off (known once a live window exists).
+pub fn displays_off() -> bool {
+    DISPLAYS_OFF.load(Ordering::Relaxed)
+}
+
+/// The session is locked, or another secure desktop (a UAC prompt) is up:
+/// the wallpaper isn't visible. The input desktop can't be opened then.
+pub fn session_locked() -> bool {
+    use windows::Win32::System::StationsAndDesktops::{
+        CloseDesktop, DESKTOP_CONTROL_FLAGS, DESKTOP_SWITCHDESKTOP, OpenInputDesktop,
+    };
+    match unsafe { OpenInputDesktop(DESKTOP_CONTROL_FLAGS(0), false, DESKTOP_SWITCHDESKTOP) } {
+        Ok(desk) => {
+            let _ = unsafe { CloseDesktop(desk) };
+            false
+        }
+        Err(_) => true,
+    }
+}
+
+/// Running on battery power.
+pub fn on_battery() -> bool {
+    use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
+    let mut s = SYSTEM_POWER_STATUS::default();
+    unsafe { GetSystemPowerStatus(&mut s) }.is_ok() && s.ACLineStatus == 0
 }
 
 /// Handles this thread's window messages until `deadline`, sleeping between
@@ -526,4 +587,18 @@ pub fn display_adapters(monitors: &[Monitor]) -> Vec<Option<DisplayAdapter>> {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The pause-rule probes answer without failing (their values depend on
+    /// the session: a CI service session can count as locked).
+    #[test]
+    fn pause_probes_answer() {
+        let (locked, battery, off) = (session_locked(), on_battery(), displays_off());
+        eprintln!("locked {locked}, on battery {battery}, displays off {off}");
+        assert!(!off, "nothing has reported the displays off in a test");
+    }
 }
