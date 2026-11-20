@@ -6,7 +6,7 @@
 use crate::archive::{Archive, Entry, EntryRecipes, MonitorScene, NewEntry};
 use crate::settings::{Settings, ThemeMode, ThemeSettings};
 use clairlune_platform::{Monitor, StillStore, WallpaperHost};
-use clairlune_render::{IndexedImage, IndexedPalette, ScenePackage, encode_png};
+use clairlune_render::{IndexedImage, IndexedPalette, PixelRect, ScenePackage, encode_png};
 use clairlune_scene::hash::hash_label;
 use clairlune_scene::recipe::HistoryEntry;
 use clairlune_scene::{Aspect, SceneRecipe, Theme, compose};
@@ -69,6 +69,60 @@ pub struct LiveScene {
     /// The still set as this monitor's wallpaper (the live frame at the hero
     /// time), set again when live playback stops.
     pub still: Option<PathBuf>,
+    /// Span mode: the part of the scene this monitor shows. `None`: all of it.
+    pub view: Option<PixelRect>,
+}
+
+/// Span mode: the monitors' bounding box as one virtual monitor, and each
+/// real monitor's rectangle inside it.
+pub fn span_of(monitors: &[Monitor]) -> (Monitor, Vec<(Monitor, PixelRect)>) {
+    let x0 = monitors.iter().map(|m| m.x).min().unwrap_or(0);
+    let y0 = monitors.iter().map(|m| m.y).min().unwrap_or(0);
+    let x1 = monitors
+        .iter()
+        .map(|m| m.x + m.width as i32)
+        .max()
+        .unwrap_or(0);
+    let y1 = monitors
+        .iter()
+        .map(|m| m.y + m.height as i32)
+        .max()
+        .unwrap_or(0);
+    let whole = Monitor {
+        id: "span".into(),
+        x: x0,
+        y: y0,
+        width: (x1 - x0) as u32,
+        height: (y1 - y0) as u32,
+        primary: true,
+    };
+    let views = monitors
+        .iter()
+        .map(|m| {
+            let r = PixelRect {
+                x: (m.x - x0) as u32,
+                y: (m.y - y0) as u32,
+                w: m.width,
+                h: m.height,
+            };
+            (m.clone(), r)
+        })
+        .collect();
+    (whole, views)
+}
+
+/// The part of an image inside `r`.
+fn crop(img: &IndexedImage, r: PixelRect) -> IndexedImage {
+    let mut pixels = Vec::with_capacity((r.w * r.h) as usize);
+    for y in r.y..r.y + r.h {
+        let a = (y * img.width + r.x) as usize;
+        pixels.extend_from_slice(&img.pixels[a..a + r.w as usize]);
+    }
+    IndexedImage {
+        width: r.w,
+        height: r.h,
+        pixels,
+    }
 }
 
 /// What happened, for the tray tooltip and logs.
@@ -180,8 +234,16 @@ fn packages(
     monitors: &[Monitor],
     settings: &Settings,
     recent: &mut Recent,
+    focus_pm: Option<u32>,
 ) -> Result<(u64, Vec<ScenePackage>, usize), String> {
-    let (base_seed, recipes) = scenes(saved.map(|s| s.recipes), seed, monitors, settings, recent);
+    let (base_seed, recipes) = scenes(
+        saved.map(|s| s.recipes),
+        seed,
+        monitors,
+        settings,
+        recent,
+        focus_pm,
+    );
     let mut out = Vec::new();
     let mut replayed = 0;
     for (m, recipe) in monitors.iter().zip(&recipes) {
@@ -218,13 +280,18 @@ fn scenes(
     monitors: &[Monitor],
     settings: &Settings,
     recent: &mut Recent,
+    focus_pm: Option<u32>,
 ) -> (u64, Vec<SceneRecipe>) {
     let mut ctx = settings.content_context();
     // Composes a new scene with the recent picks, then remembers it, so the
-    // next monitor (and the next wallpaper) avoids it.
+    // next monitor (and the next wallpaper) avoids it. A span scene puts its
+    // focal group on the primary monitor (`focus_pm`), never across a seam.
     let mut new_scene = |seed: u64, m: &Monitor| {
         ctx.recent = recent.entries().to_vec();
-        let r = compose(seed, Aspect::from_size(m.width, m.height), &ctx);
+        let mut r = compose(seed, Aspect::from_size(m.width, m.height), &ctx);
+        if let Some(f) = focus_pm {
+            r.composition.focus_x_pm = f;
+        }
         recent.push(&r);
         r
     };
@@ -435,11 +502,25 @@ fn apply(
     if monitors.is_empty() {
         return Err("no monitors found".into());
     }
+    // Span mode: compose, package and archive one scene the size of all the
+    // monitors together; each monitor then shows its part.
+    let screens = monitors.clone();
+    let span = (settings.display.span && screens.len() > 1).then(|| span_of(&screens));
+    let (monitors, focus_pm) = match &span {
+        Some((whole, views)) => {
+            let primary = views.iter().find(|(m, _)| m.primary).unwrap_or(&views[0]).1;
+            let centre =
+                u64::from(primary.x + primary.w / 2) * 1000 / u64::from(whole.width.max(1));
+            (vec![whole.clone()], Some(centre as u32))
+        }
+        None => (monitors, None),
+    };
     let wanted = saved
         .and_then(|s| s.theme)
         .unwrap_or_else(|| resolve_theme(&settings.theme));
     let buddy = saved.and_then(|s| s.buddy).unwrap_or(settings.buddy.show);
-    let (base_seed, packages, replayed) = packages(saved, seed, &monitors, settings, recent)?;
+    let (base_seed, packages, replayed) =
+        packages(saved, seed, &monitors, settings, recent, focus_pm)?;
     let packages: Vec<Arc<ScenePackage>> = packages.into_iter().map(Arc::new).collect();
     let recipes: Vec<SceneRecipe> = packages.iter().map(|p| p.recipe.clone()).collect();
     let mut pngs = Vec::new();
@@ -471,6 +552,7 @@ fn apply(
     // The thumbnail: the primary scene shrunk to 480 px wide.
     let (img, palette) = primary_still.ok_or("no monitors")?;
     let thumb = shrink(&img, 480);
+    let span_still = span.as_ref().map(|_| (img.clone(), palette.clone()));
     let entry_recipes = EntryRecipes {
         base_seed,
         theme: used_theme.as_str().to_string(),
@@ -508,7 +590,25 @@ fn apply(
         saved.and_then(|s| s.dir.map(Path::to_path_buf))
     };
     let mut live = Vec::new();
-    if let Some(host) = host {
+    if let (Some(host), Some((_, views)), Some((img, palette))) = (host, &span, &span_still) {
+        // Each monitor gets its part of the one scene.
+        for (m, view) in views {
+            let png = png_of(&crop(img, *view), palette)?;
+            let path = store
+                .write(&m.id, &png)
+                .map_err(|e| format!("still: {e}"))?;
+            host.set_static(m, &path).map_err(|e| e.to_string())?;
+            store.prune(&m.id, &path);
+            live.push(LiveScene {
+                monitor: m.clone(),
+                package: packages[0].clone(),
+                theme: themes[0],
+                buddy,
+                still: Some(path),
+                view: Some(*view),
+            });
+        }
+    } else if let Some(host) = host {
         for (i, (m, png)) in monitors.iter().zip(&pngs).enumerate() {
             let path = store.write(&m.id, png).map_err(|e| format!("still: {e}"))?;
             host.set_static(m, &path).map_err(|e| e.to_string())?;
@@ -519,6 +619,7 @@ fn apply(
                 theme: themes[i],
                 buddy,
                 still: Some(path),
+                view: None,
             });
         }
     }
@@ -528,7 +629,8 @@ fn apply(
         target: "clairlune",
         seed = base_seed,
         theme = used_theme.as_str(),
-        monitors = monitors.len(),
+        monitors = screens.len(),
+        span = span.is_some(),
         archetype = %primary.archetype,
         activity = primary.activity.as_deref().unwrap_or("-"),
         recipe_hash = %primary.hash_hex(),
@@ -543,7 +645,7 @@ fn apply(
         theme: used_theme,
         archetype: primary.archetype.clone(),
         activity: primary.activity.clone(),
-        monitors: monitors.len(),
+        monitors: screens.len(),
         ms,
         live,
     })
@@ -653,6 +755,7 @@ mod tests {
             std::slice::from_ref(&m),
             &settings,
             &mut Recent::default(),
+            None,
         )
         .unwrap();
         assert_eq!((seed, replayed), (77, 0));
@@ -689,6 +792,7 @@ mod tests {
             std::slice::from_ref(&m),
             &settings,
             &mut Recent::default(),
+            None,
         )
         .unwrap();
         assert_eq!(replayed, 1);
@@ -700,6 +804,7 @@ mod tests {
             &[monitor(800, 450)],
             &settings,
             &mut Recent::default(),
+            None,
         )
         .unwrap();
         assert_eq!(replayed, 0);
@@ -725,7 +830,7 @@ mod tests {
         ];
         let mut last: Option<String> = None;
         for seed in 0..20u64 {
-            let (_, recipes) = scenes(None, seed, &two, &settings, &mut recent);
+            let (_, recipes) = scenes(None, seed, &two, &settings, &mut recent, None);
             let acts: Vec<_> = recipes.iter().map(|r| r.activity.clone()).collect();
             // The two monitors of one wallpaper differ...
             assert_ne!(acts[0], acts[1], "seed {seed}");
@@ -749,5 +854,200 @@ mod tests {
         let t = shrink(&img, 480);
         assert_eq!((t.width, t.height), (480, 270));
         assert!(t.pixels.iter().all(|&p| p == 3));
+    }
+
+    #[test]
+    fn span_covers_every_monitor_with_its_own_part() {
+        let m = |id: &str, x: i32, y: i32, w: u32, h: u32, primary: bool| Monitor {
+            id: id.into(),
+            x,
+            y,
+            width: w,
+            height: h,
+            primary,
+        };
+        // A taller primary and a smaller monitor to its right, lower down.
+        let (whole, views) = span_of(&[
+            m("a", 0, 0, 2560, 1440, true),
+            m("b", 2560, 180, 1920, 1080, false),
+        ]);
+        assert_eq!(
+            (whole.x, whole.y, whole.width, whole.height),
+            (0, 0, 4480, 1440)
+        );
+        assert_eq!(
+            views[0].1,
+            PixelRect {
+                x: 0,
+                y: 0,
+                w: 2560,
+                h: 1440
+            }
+        );
+        assert_eq!(
+            views[1].1,
+            PixelRect {
+                x: 2560,
+                y: 180,
+                w: 1920,
+                h: 1080
+            }
+        );
+        // A monitor to the left of the primary (negative coordinates).
+        let (whole, views) = span_of(&[
+            m("a", 0, 0, 1920, 1080, true),
+            m("b", -1920, 0, 1920, 1080, false),
+        ]);
+        assert_eq!((whole.x, whole.width), (-1920, 3840));
+        assert_eq!(views[0].1.x, 1920);
+        assert_eq!(views[1].1.x, 0);
+    }
+
+    /// Records what each monitor was set to.
+    struct FakeHost {
+        monitors: Vec<Monitor>,
+        set: std::sync::Mutex<Vec<(String, PathBuf)>>,
+    }
+
+    impl WallpaperHost for FakeHost {
+        fn name(&self) -> &'static str {
+            "fake"
+        }
+        fn capabilities(&self) -> clairlune_platform::Capabilities {
+            clairlune_platform::Capabilities {
+                per_monitor: true,
+                live: false,
+            }
+        }
+        fn monitors(&self) -> Result<Vec<Monitor>, clairlune_platform::PlatformError> {
+            Ok(self.monitors.clone())
+        }
+        fn current(
+            &self,
+            _: &Monitor,
+        ) -> Result<Option<PathBuf>, clairlune_platform::PlatformError> {
+            Ok(None)
+        }
+        fn set_static(
+            &self,
+            m: &Monitor,
+            path: &Path,
+        ) -> Result<(), clairlune_platform::PlatformError> {
+            self.set
+                .lock()
+                .unwrap()
+                .push((m.id.clone(), path.to_path_buf()));
+            Ok(())
+        }
+        fn snapshot(
+            &self,
+        ) -> Result<clairlune_platform::Snapshot, clairlune_platform::PlatformError> {
+            Ok(clairlune_platform::Snapshot {
+                monitors: Vec::new(),
+                position: None,
+            })
+        }
+        fn restore(
+            &self,
+            _: &clairlune_platform::Snapshot,
+        ) -> Result<(), clairlune_platform::PlatformError> {
+            Ok(())
+        }
+    }
+
+    /// Span mode end to end: one scene the size of both monitors, archived
+    /// once; each monitor gets a still of its own size cut from it, and a live
+    /// scene showing its part, with the focal group on the primary monitor.
+    #[test]
+    fn span_mode_spreads_one_scene_across_the_monitors() {
+        let dir = std::env::temp_dir().join(format!("clairlune-span-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let host = FakeHost {
+            monitors: vec![
+                Monitor {
+                    id: "left".into(),
+                    x: 0,
+                    y: 0,
+                    width: 640,
+                    height: 360,
+                    primary: true,
+                },
+                Monitor {
+                    id: "right".into(),
+                    x: 640,
+                    y: 40,
+                    width: 480,
+                    height: 270,
+                    primary: false,
+                },
+            ],
+            set: std::sync::Mutex::new(Vec::new()),
+        };
+        let store = StillStore::new(dir.join("current")).unwrap();
+        let archive = Archive::open(dir.join("archive")).unwrap();
+        let mut settings = Settings::default();
+        settings.display.span = true;
+        let done = apply(
+            None,
+            11,
+            &settings,
+            true,
+            Some(&host),
+            &store,
+            &archive,
+            &mut Recent::default(),
+            None,
+        )
+        .unwrap();
+        let Done::Applied { live, monitors, .. } = done else {
+            panic!("applied")
+        };
+        assert_eq!(monitors, 2);
+        assert_eq!(live.len(), 2);
+        // One scene, the size of the bounding box, shared by both.
+        assert!(Arc::ptr_eq(&live[0].package, &live[1].package));
+        assert_eq!((live[0].package.width, live[0].package.height), (1120, 360));
+        assert_eq!(
+            live[0].view,
+            Some(PixelRect {
+                x: 0,
+                y: 0,
+                w: 640,
+                h: 360
+            })
+        );
+        assert_eq!(
+            live[1].view,
+            Some(PixelRect {
+                x: 640,
+                y: 40,
+                w: 480,
+                h: 270
+            })
+        );
+        // Each monitor's still is its own size.
+        let set = host.set.lock().unwrap();
+        assert_eq!(set.len(), 2);
+        for ((id, path), m) in set.iter().zip(&host.monitors) {
+            assert_eq!(id, &m.id);
+            let dec =
+                png::Decoder::new(std::io::BufReader::new(std::fs::File::open(path).unwrap()));
+            let info = dec.read_info().unwrap().info().clone();
+            assert_eq!((info.width, info.height), (m.width, m.height));
+        }
+        // The focal group sits on the primary (left) monitor.
+        let graph = live[0].package.graph(live[0].theme).unwrap();
+        let track = graph.character.unwrap();
+        if !track.flies() {
+            let (lo, hi) = track.x_range();
+            assert!(
+                hi < 640 && lo >= 0,
+                "the group at {lo}..{hi} isn't on the primary monitor"
+            );
+        }
+        // Archived once, as one scene.
+        assert_eq!(archive.entries().len(), 1);
+        drop(set);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -162,7 +162,11 @@ impl Live {
             .scenes
             .iter()
             .map(|s| {
-                Player::new(s.package.clone(), s.theme, s.buddy).map(|p| (s.monitor.clone(), p))
+                match s.view {
+                    Some(v) => Player::new_view(s.package.clone(), s.theme, s.buddy, v),
+                    None => Player::new(s.package.clone(), s.theme, s.buddy),
+                }
+                .map(|p| (s.monitor.clone(), p))
             })
             .collect();
         let Some(players) = players else {
