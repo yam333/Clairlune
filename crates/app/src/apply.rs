@@ -45,6 +45,9 @@ pub enum Done {
         ms: u64,
     },
     Exported(PathBuf),
+    /// This system has no wallpaper host yet: scenes are made and archived,
+    /// but not set. The reason is for the user.
+    NoHost(String),
     /// The user's own wallpaper is back.
     Restored,
     Failed(String),
@@ -159,6 +162,9 @@ pub fn worker(
         Ok(h) => Some(h),
         Err(e) => {
             tracing::warn!(target: "clairlune", error = %e, "no wallpaper host; scenes are archived but not set");
+            done(Done::NoHost(format!(
+                "Clairlune can't set the wallpaper on this system yet; scenes are saved in the archive. ({e})"
+            )));
             None
         }
     };

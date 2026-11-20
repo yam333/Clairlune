@@ -435,6 +435,18 @@ impl App {
         }
     }
 
+    /// Whether a tray icon is up (the app's usual face).
+    fn has_tray(&self) -> bool {
+        #[cfg(any(windows, target_os = "macos"))]
+        {
+            self.tray.is_some()
+        }
+        #[cfg(not(any(windows, target_os = "macos")))]
+        {
+            false
+        }
+    }
+
     /// The export folder: the setting, or `Pictures/Clairlune`.
     fn export_dir(&self) -> PathBuf {
         if self.settings.export.folder.trim().is_empty() {
@@ -485,6 +497,12 @@ impl App {
                     open(dir, false);
                 }
             }
+            Done::NoHost(why) => {
+                self.status.note = Some(why);
+                if let Some(w) = &self.settings_window {
+                    w.request_redraw();
+                }
+            }
             Done::Restored => {
                 self.busy = false;
                 self.current = None;
@@ -517,9 +535,14 @@ impl App {
 }
 
 impl ApplicationHandler<AppEvent> for App {
-    fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         if cause != StartCause::Init {
             return;
+        }
+        // No tray here (yet): Settings is the app's only face, so it opens at
+        // launch and closing it quits (PLAN.md section 10, "No tray available").
+        if !self.has_tray() && self.ui_test.is_none() {
+            self.open_settings(event_loop, None);
         }
         // macOS wants the tray created once the loop runs.
         #[cfg(any(windows, target_os = "macos"))]
@@ -570,6 +593,9 @@ impl ApplicationHandler<AppEvent> for App {
         if let ui::Outcome::Close = outcome {
             self.settings_window = None;
             tracing::debug!(target: "clairlune", "settings closed");
+            if !self.has_tray() && self.ui_test.is_none() {
+                event_loop.exit();
+            }
         }
         if self.settings == before {
             actions.retain(|a| *a != ui::view::UiAction::SettingsChanged);
