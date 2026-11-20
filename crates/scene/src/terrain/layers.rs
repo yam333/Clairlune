@@ -94,7 +94,7 @@ fn row_f(ctx: &Ctx, y: f64) -> f64 {
 }
 
 /// The first row whose centre is at or below normalised y.
-fn row_at(ctx: &Ctx, y: f64) -> i64 {
+pub(crate) fn row_at(ctx: &Ctx, y: f64) -> i64 {
     (row_f(ctx, y) - 0.5).ceil() as i64
 }
 

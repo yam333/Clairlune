@@ -4,7 +4,7 @@
 //! the focal group stands on a floating island trailing roots.
 
 use super::layers::{self, Layer, put};
-use super::{Ctx, family_glyph};
+use super::{Ctx, details, family_glyph};
 use crate::glyphs::{self, EMPTY, id};
 use crate::graph::Cell;
 use crate::hash::{hash_label, hash3, unit_from_hash};
@@ -42,6 +42,9 @@ pub(crate) fn background(ctx: &Ctx, cells: &mut [Cell]) -> Vec<f64> {
     milky_way(ctx, cells, seed);
     if dark {
         aurora(ctx, cells, seed);
+    }
+    if details::enabled(ctx) {
+        details::sky_patterns(ctx, cells);
     }
     moon(ctx, cells, seed);
     for i in 0..3 {

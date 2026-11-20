@@ -1,8 +1,8 @@
 //! Desert: flat-topped mesas on the horizon, then rolling dunes whose sunlit
 //! and shaded faces hatch differently; the focal group stands on a dune crest.
 
-use super::Ctx;
 use super::layers::{self, Layer};
+use super::{Ctx, details};
 use crate::glyphs::{self, id};
 use crate::graph::Cell;
 
@@ -59,5 +59,15 @@ const LAYERS: [Layer; 3] = [
 ];
 
 pub(crate) fn background(ctx: &Ctx, cells: &mut [Cell]) -> Vec<f64> {
-    layers::paint(ctx, cells, &LAYERS)
+    let on = details::enabled(ctx);
+    let sun = if on {
+        details::desert_sky(ctx, cells)
+    } else {
+        None
+    };
+    let mut sky = layers::paint(ctx, cells, &LAYERS);
+    if on {
+        details::desert_plants(ctx, cells, &mut sky, &LAYERS[1], &LAYERS[2], sun);
+    }
+    sky
 }

@@ -3,7 +3,7 @@
 //! running in from the nearer screen edge for the focal group to stand on.
 
 use super::layers::{self, Layer};
-use super::{Ctx, family_glyph, shade_u8};
+use super::{Ctx, details, family_glyph, shade_u8};
 use crate::glyphs::{self, EMPTY, id};
 use crate::graph::Cell;
 use crate::hash::{hash_label, hash3};
@@ -82,6 +82,9 @@ pub(crate) fn background(ctx: &Ctx, cells: &mut [Cell]) -> Vec<f64> {
     }
     for s in &mut sky {
         *s = s.min(sea_top);
+    }
+    if details::enabled(ctx) {
+        details::shore_life(ctx, cells, &mut sky, sea_top);
     }
     sky
 }

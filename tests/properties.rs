@@ -96,6 +96,49 @@ proptest! {
     }
 }
 
+/// The theme check above on every landscape: random seeds reach some of them
+/// only rarely, and their details follow the time of day.
+#[test]
+fn theme_toggle_keeps_the_layout_on_every_landscape() {
+    use clairlune_scene::archetype::ARCHETYPE_INFO;
+    use clairlune_scene::{Aspect, ContentContext, compose};
+    for info in ARCHETYPE_INFO.iter().filter(|a| a.implemented) {
+        let ctx = ContentContext {
+            enabled_archetypes: vec![info.id.to_string()],
+            ..ContentContext::default()
+        };
+        for seed in 0..24u64 {
+            for (w, h) in [(640, 360), (1280, 360), (270, 480)] {
+                let r = compose(seed, Aspect::from_size(w, h), &ctx);
+                if r.is_theme_locked() {
+                    continue;
+                }
+                let g = |theme| {
+                    let opts = BuildOptions {
+                        width: w,
+                        height: h,
+                        theme,
+                        buddy: true,
+                    };
+                    build(&r, &opts).unwrap()
+                };
+                let (dark, light) = (g(Theme::Dark), g(Theme::Light));
+                let ground_row = ((dark.ground_y as u32) - dark.grid.origin_y) / dark.grid.cell_h;
+                let from = (ground_row * dark.grid.cols) as usize;
+                let shape = |g: &SceneGraph| -> Vec<bool> {
+                    g.cells[from..].iter().map(|c| c.glyph != 0).collect()
+                };
+                assert_eq!(
+                    shape(&dark),
+                    shape(&light),
+                    "{} seed {seed} at {w}x{h}",
+                    info.id
+                );
+            }
+        }
+    }
+}
+
 /// Variety (PLAN.md section 12): over 1,000 seeds with default weights, no
 /// activity exceeds twice its expected share and every activity appears.
 #[test]
