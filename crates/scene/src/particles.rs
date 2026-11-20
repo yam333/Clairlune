@@ -17,7 +17,7 @@ const HERO_CANDIDATES: u64 = 20;
 const HERO_BUCKET: f64 = 0.03;
 
 /// One ember, in units of image height, relative to the emitter origin.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Ember {
     life_ms: u32,
     phase_ms: u32,
@@ -32,7 +32,7 @@ pub struct Ember {
 }
 
 /// A particle sample in pixels with an ink level `1..=6`.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Particle {
     pub x: f64,
     pub y: f64,
@@ -42,7 +42,7 @@ pub struct Particle {
     pub ink: bool,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EmitterKind {
     /// Upward-drifting plume that widens with height.
     Embers,
@@ -51,7 +51,7 @@ pub enum EmitterKind {
 }
 
 /// A particle emitter placed in the image.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct Emitter {
     pub kind: EmitterKind,
     /// Origin in pixels.
@@ -185,7 +185,7 @@ pub fn hero_time(embers: &[Ember]) -> u64 {
 
 /// Screen-wide weather (PLAN.md section 4.2, step 6). Every motion completes a
 /// whole number of cycles per [`LOOP_MS`], so weather loops seamlessly.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WeatherKind {
     Snow,
     Rain,
@@ -217,7 +217,7 @@ impl WeatherKind {
 }
 
 /// One weather particle, in normalised screen coordinates.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Drop {
     x0: f64,
     y0: f64,

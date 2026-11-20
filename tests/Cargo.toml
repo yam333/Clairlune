@@ -33,6 +33,7 @@ clairlune-render.workspace = true
 clairlune-sprites.workspace = true
 png.workspace = true
 gif.workspace = true
+serde_json.workspace = true
 proptest.workspace = true
 
 [[test]]
@@ -42,3 +43,7 @@ path = "gif.rs"
 [[test]]
 name = "coverage"
 path = "coverage.rs"
+
+[[test]]
+name = "package"
+path = "package.rs"

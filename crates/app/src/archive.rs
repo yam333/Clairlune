@@ -7,7 +7,8 @@
 //! └── 2026-11-18T17-56-03Z_seed-1234567890/
 //!     ├── recipe.json      one recipe per monitor
 //!     ├── thumb.png        480 px wide, the primary monitor's scene
-//!     └── wallpaper-0.png  one per monitor, primary first
+//!     ├── wallpaper-0.png  one per monitor, primary first
+//!     └── scene/0/         the frozen scene package per monitor (PLAN.md 9c)
 //! ```
 //!
 //! Retention deletes for good (never to the Trash, which would fill up every
@@ -63,6 +64,8 @@ pub struct NewEntry {
     /// One PNG per monitor, in `recipes.monitors` order.
     pub pngs: Vec<Vec<u8>>,
     pub thumb_png: Vec<u8>,
+    /// One frozen scene per monitor, in `recipes.monitors` order.
+    pub packages: Vec<clairlune_render::ScenePackage>,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -149,6 +152,10 @@ impl Archive {
         for (i, png) in new.pngs.iter().enumerate() {
             fs::write(dir.join(format!("wallpaper-{i}.png")), png)?;
         }
+        for (i, pkg) in new.packages.iter().enumerate() {
+            pkg.save(&dir.join("scene").join(i.to_string()))
+                .map_err(io::Error::other)?;
+        }
         let primary = new.recipes.monitors.first();
         let entry = Entry {
             name,
@@ -172,6 +179,17 @@ impl Archive {
     pub fn recipes(&self, entry: &Entry) -> io::Result<EntryRecipes> {
         let text = fs::read_to_string(self.dir.join(&entry.name).join("recipe.json"))?;
         serde_json::from_str(&text).map_err(io::Error::other)
+    }
+
+    /// The frozen scene of an entry's `index`-th monitor.
+    pub fn package(
+        &self,
+        entry: &str,
+        index: usize,
+    ) -> Result<clairlune_render::ScenePackage, clairlune_render::PackageError> {
+        clairlune_render::ScenePackage::load(
+            &self.dir.join(entry).join("scene").join(index.to_string()),
+        )
     }
 
     /// Applies retention: unpinned entries older than `keep_days` (0 keeps
@@ -229,13 +247,19 @@ impl Archive {
     }
 }
 
+/// Bytes under `dir`, subfolders included.
 fn dir_size(dir: &Path) -> u64 {
     fs::read_dir(dir)
         .map(|it| {
             it.flatten()
-                .filter_map(|e| e.metadata().ok())
-                .filter(|m| m.is_file())
-                .map(|m| m.len())
+                .filter_map(|e| {
+                    let m = e.metadata().ok()?;
+                    Some(if m.is_dir() {
+                        dir_size(&e.path())
+                    } else {
+                        m.len()
+                    })
+                })
                 .sum()
         })
         .unwrap_or(0)
@@ -269,6 +293,7 @@ mod tests {
             },
             pngs: vec![vec![7; bytes]],
             thumb_png: vec![1; 10],
+            packages: Vec::new(),
         }
     }
 

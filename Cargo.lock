@@ -732,6 +732,7 @@ dependencies = [
  "gif",
  "png",
  "proptest",
+ "serde",
  "serde_json",
  "skrifa 0.50.0",
  "tracing",
@@ -770,6 +771,7 @@ dependencies = [
  "gif",
  "png",
  "proptest",
+ "serde_json",
 ]
 
 [[package]]

@@ -25,7 +25,7 @@ const CUBIC_STEPS: u32 = 12;
 const DESCENT_ROOM_EM: f64 = 0.22;
 
 /// Alpha masks for every glyph at one cell size.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct GlyphAtlas {
     pub cell_w: u32,
     pub cell_h: u32,

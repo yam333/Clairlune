@@ -8,7 +8,7 @@
 use crate::archetype::{ArchetypeInfo, SURFACES, TERRAINS, WEATHERS};
 use crate::hash::StableHasher;
 use crate::recipe::TimeOfDay;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
@@ -60,7 +60,7 @@ const SOURCES: [(&str, &str); 7] = [
     ),
 ];
 
-#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Activity {
     pub id: String,
@@ -83,7 +83,7 @@ pub struct Activity {
 }
 
 /// Per-activity character settings.
-#[derive(Deserialize, Clone, Debug, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(deny_unknown_fields)]
 pub struct CharacterDef {
     /// Extra cleared space above the character's box, in sprite pixels
@@ -93,7 +93,7 @@ pub struct CharacterDef {
 }
 
 /// An effect attached to an anchor of the character's current frame.
-#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct EffectDef {
     /// Effect type; `particles` for now.
@@ -119,7 +119,7 @@ fn one() -> f64 {
 }
 
 /// Capability requirements. An empty list means "no constraint".
-#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Requires {
     #[serde(default)]
@@ -134,7 +134,7 @@ pub struct Requires {
     pub sky: bool,
 }
 
-#[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum MotionKind {
     Stationary,
@@ -144,7 +144,7 @@ pub enum MotionKind {
     Fly,
 }
 
-#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Motion {
     #[serde(rename = "type")]
@@ -154,7 +154,7 @@ pub struct Motion {
     pub at_path_end: Option<String>,
 }
 
-#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct PropDef {
     pub attach: String,
@@ -162,14 +162,14 @@ pub struct PropDef {
     pub effects: Vec<String>,
 }
 
-#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct AnimationDef {
     pub start: String,
     pub states: BTreeMap<String, StateDef>,
 }
 
-#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct StateDef {
     #[serde(default, rename = "loop")]
@@ -179,13 +179,13 @@ pub struct StateDef {
     pub next: BTreeMap<String, f64>,
 }
 
-#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct GifDef {
     pub loop_script: Vec<String>,
 }
 
-#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Unattended {
     pub props: Vec<String>,
