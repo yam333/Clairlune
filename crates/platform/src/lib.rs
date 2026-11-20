@@ -8,10 +8,12 @@
 //!
 //! Windows (`IDesktopWallpaper`, per monitor) and Linux (GNOME, Cinnamon,
 //! MATE, KDE Plasma, XFCE, Sway; one image for all monitors) are implemented;
-//! macOS returns [`PlatformError::Unsupported`] until its host lands.
 
 #[cfg(target_os = "linux")]
 mod linux;
+/// macOS: the wallpaper per screen, and Space changes.
+#[cfg(target_os = "macos")]
+pub mod macos;
 mod store;
 #[cfg(windows)]
 mod windows;
@@ -105,7 +107,11 @@ pub fn detect() -> Result<Box<dyn WallpaperHost>, PlatformError> {
     {
         Ok(Box::new(linux::LinuxHost::new()?))
     }
-    #[cfg(not(any(windows, target_os = "linux")))]
+    #[cfg(target_os = "macos")]
+    {
+        Ok(Box::new(macos::MacHost::new()?))
+    }
+    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
     {
         Err(PlatformError::Unsupported(format!(
             "setting the wallpaper on {} arrives in a later milestone",

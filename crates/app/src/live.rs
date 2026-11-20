@@ -59,6 +59,22 @@ impl Live {
         }
     }
 
+    /// Sets each monitor's still again (macOS: after a Space change, the
+    /// new Space shows its own picture until then).
+    #[cfg(target_os = "macos")]
+    pub fn reset_stills(&self) {
+        let Ok(host) = clairlune_platform::detect() else {
+            return;
+        };
+        for s in &self.scenes {
+            if let Some(still) = &s.still
+                && let Err(e) = host.set_static(&s.monitor, still)
+            {
+                tracing::warn!(target: "clairlune", error = %e, "could not set the still again");
+            }
+        }
+    }
+
     /// Starts playing again (Explorer restarted: the old windows are gone).
     pub fn refresh(&mut self) {
         self.restart();
