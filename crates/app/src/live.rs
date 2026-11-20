@@ -3,14 +3,22 @@
 //! still set with each wallpaper is the live frame at the hero time, so going
 //! live starts from exactly what's there, and stopping leaves it.
 
-// Playback is Windows-only so far; elsewhere this only reports why.
-#![cfg_attr(not(windows), allow(dead_code))]
+// Playback runs on Windows and macOS; elsewhere this only reports why.
+#![cfg_attr(not(any(windows, target_os = "macos")), allow(dead_code))]
 
 use crate::apply::LiveScene;
 use std::time::{Duration, Instant};
 
+/// The live host: windows in the desktop layer (Windows), or desktop-level
+/// windows on every screen (macOS, untried).
+#[cfg(windows)]
+type Host = clairlune_live::desktop::Desktop;
+#[cfg(target_os = "macos")]
+type Host = clairlune_live::mac::MacDesktop;
+
 /// How often to check that the desktop layer is still there (Explorer
 /// restarts take it, and the windows in it, away).
+#[cfg_attr(not(windows), allow(dead_code))]
 const HEALTH_CHECK: Duration = Duration::from_secs(1);
 
 pub struct Live {
@@ -24,8 +32,8 @@ pub struct Live {
     battery_saver: bool,
     battery_pause: bool,
     on_battery: bool,
-    #[cfg(windows)]
-    desktop: Option<clairlune_live::desktop::Desktop>,
+    #[cfg(any(windows, target_os = "macos"))]
+    desktop: Option<Host>,
     next: Option<Instant>,
     checked: Option<Instant>,
     /// For Settings: what plays, or why live isn't available.
@@ -34,10 +42,10 @@ pub struct Live {
 
 /// Whether this build can play live wallpapers here, with the reason if not.
 pub fn supported() -> Result<(), String> {
-    if cfg!(windows) {
+    if cfg!(any(windows, target_os = "macos")) {
         Ok(())
     } else {
-        Err("Live wallpapers run on Windows so far; here the still frame is used.".into())
+        Err("Live wallpapers run on Windows and macOS so far; here the still frame is used.".into())
     }
 }
 
@@ -51,7 +59,7 @@ impl Live {
             battery_saver: true,
             battery_pause: false,
             on_battery: false,
-            #[cfg(windows)]
+            #[cfg(any(windows, target_os = "macos"))]
             desktop: None,
             next: None,
             checked: None,
@@ -76,6 +84,7 @@ impl Live {
     }
 
     /// Starts playing again (Explorer restarted: the old windows are gone).
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub fn refresh(&mut self) {
         self.restart();
     }
@@ -108,7 +117,7 @@ impl Live {
     /// What a maximized or full-screen app pauses.
     pub fn set_cover_pause(&mut self, pause: crate::settings::CoverPause) {
         self.cover_pause = pause;
-        #[cfg(windows)]
+        #[cfg(any(windows, target_os = "macos"))]
         if let Some(d) = &mut self.desktop {
             d.cover_policy = cover_policy(pause);
         }
@@ -117,9 +126,9 @@ impl Live {
     /// The frame rate now: Battery saver's 6 fps on battery when asked, and
     /// no more than the presenter is worth (GDI: Balanced).
     fn effective_fps(&self) -> u32 {
-        #[cfg(windows)]
+        #[cfg(any(windows, target_os = "macos"))]
         let cap = self.desktop.as_ref().map_or(60, |d| d.max_fps());
-        #[cfg(not(windows))]
+        #[cfg(not(any(windows, target_os = "macos")))]
         let cap = 60;
         let fps = self.fps.min(cap);
         if self.on_battery && self.battery_saver {
@@ -141,12 +150,12 @@ impl Live {
         self.start();
     }
 
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     fn start(&mut self) {
         self.status = supported().err();
     }
 
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     fn start(&mut self) {
         use clairlune_live::Player;
         let players: Option<Vec<_>> = self
@@ -160,7 +169,7 @@ impl Live {
             self.status = Some("Live isn't available: a scene lacks its theme.".into());
             return;
         };
-        match clairlune_live::desktop::Desktop::start(players) {
+        match Host::start(players) {
             Ok(mut desktop) => {
                 desktop.cover_policy = cover_policy(self.cover_pause);
                 let n = self.scenes.len();
@@ -191,6 +200,10 @@ impl Live {
     /// live frame, so the stills are set again.
     fn stop(&mut self) {
         self.next = None;
+        #[cfg(target_os = "macos")]
+        if self.desktop.take().is_some() {
+            tracing::info!(target: "clairlune", "live wallpaper stopped");
+        }
         #[cfg(windows)]
         if let Some(desktop) = self.desktop.take() {
             let classic = desktop.layout() == "classic";
@@ -247,7 +260,26 @@ impl Live {
             }
             self.next
         }
-        #[cfg(not(windows))]
+        // macOS: a covered, locked or sleeping screen reports its window
+        // occluded, which the host checks every frame.
+        #[cfg(target_os = "macos")]
+        {
+            let desktop = self.desktop.as_mut()?;
+            let next = self.next?;
+            if now >= next {
+                if let Err(e) = desktop.tick() {
+                    tracing::warn!(target: "clairlune", error = %e, "live frame failed; stopping");
+                    self.stop();
+                    self.status = Some(format!(
+                        "Live stopped ({e}); the still frame is the wallpaper."
+                    ));
+                    return None;
+                }
+                self.next = Some((next + self.frame()).max(now));
+            }
+            self.next
+        }
+        #[cfg(not(any(windows, target_os = "macos")))]
         {
             let _ = now;
             None
@@ -255,10 +287,10 @@ impl Live {
     }
 }
 
-#[cfg(windows)]
-fn cover_policy(p: crate::settings::CoverPause) -> clairlune_live::desktop::CoverPolicy {
+#[cfg(any(windows, target_os = "macos"))]
+fn cover_policy(p: crate::settings::CoverPause) -> clairlune_live::CoverPolicy {
     use crate::settings::CoverPause;
-    use clairlune_live::desktop::CoverPolicy;
+    use clairlune_live::CoverPolicy;
     match p {
         CoverPause::ThatMonitor => CoverPolicy::ThatMonitor,
         CoverPause::AllMonitors => CoverPolicy::AllMonitors,

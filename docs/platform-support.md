@@ -16,6 +16,14 @@ Decided 2026-11-19 (resolves PLAN.md section 14, question 1).
 | macOS | written, not yet tried on a Mac | `NSWorkspace.setDesktopImageURL` per screen (no permission needed), re-applied on Space changes; ids from the display's vendor, model and serial numbers. |
 | Linux | implemented, not yet tried on real desktops | One image for all monitors, sized to the primary output (`xrandr`). GNOME (`picture-uri` and `picture-uri-dark`), Cinnamon, MATE (`gsettings`), KDE Plasma (`evaluateScript` over D-Bus), XFCE (`xfconf-query`, every monitor), Sway (`swaymsg`). Other wlroots compositors get our own layer-shell still surface later. Tray: StatusNotifierItem over D-Bus (ksni); stock GNOME has no tray host, so the app opens Settings instead. |
 
+## Status (milestone M7, live wallpapers)
+
+| Platform | Live wallpaper | Notes |
+|---|---|---|
+| Windows | done, the default | A window per monitor in the desktop layer (both layouts), Direct3D 11 dirty-rect presents; wgpu DirectX 12, then GDI (classic desktop only, at most 12 fps) as fallbacks. Pauses behind maximized and full-screen apps, while locked, with the displays off, and optionally on battery. |
+| macOS | written, not yet tried on a Mac; Still is the default there until then | A borderless window per screen at the desktop picture's level (below the icons), on every Space, ignoring the mouse, drawn with wgpu on Metal (changed rects uploaded). A screen whose window is covered (zoomed app, lock screen, sleeping display) reports itself occluded and isn't drawn. No battery rule yet. |
+| Linux | not started | X11: a `_NET_WM_WINDOW_TYPE_DESKTOP` window; wlroots: a background layer-shell surface. |
+
 Stills live in the local data directory (`%LOCALAPPDATA%\clairlune\current` on Windows), each under a new file name because some systems don't reload a changed file at the same path. Old stills for a monitor are deleted after the new one is set.
 
 ## Why these minimums

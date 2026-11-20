@@ -47,38 +47,7 @@ struct Output {
     window: Option<LiveWindow>,
 }
 
-/// What a maximized or full-screen app pauses.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum CoverPolicy {
-    /// The monitor it covers.
-    #[default]
-    ThatMonitor,
-    /// Every monitor.
-    AllMonitors,
-    /// Nothing.
-    Off,
-}
-
-/// What one frame cost, for budgets and logs.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct FrameStats {
-    /// Pixels uploaded or copied, over all monitors.
-    pub pixels: u64,
-    /// Rectangles uploaded or copied.
-    pub rects: usize,
-    /// Monitors paused because a window covers them.
-    pub covered: usize,
-    /// Paused everywhere: the session is locked or the displays are off.
-    pub away: bool,
-    /// Presents that waited over 50 ms for the swapchain (the compositor
-    /// holding frames back).
-    pub stalls: usize,
-    /// Time spent compositing, uploading and presenting.
-    pub busy: Duration,
-    /// Of which uploading, and drawing plus presenting.
-    pub upload: Duration,
-    pub present: Duration,
-}
+pub use crate::{CoverPolicy, FrameStats};
 
 /// Live wallpapers on every monitor given.
 pub struct Desktop {
