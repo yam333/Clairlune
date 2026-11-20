@@ -41,6 +41,8 @@ egui-winit = { version = "0.37.0", default-features = false, features = ["access
 egui-wgpu = { version = "0.37.0", default-features = false, features = ["winit", "macos-window-resize-jitter-fix"] }
 wgpu = { version = "30.0.2", default-features = false, features = ["std", "parking_lot", "dx12", "metal", "vulkan", "gles", "wgsl"] }
 pollster = "0.4.0"
+# Single instance: a second launch asks the running copy to open Settings.
+interprocess = "2.4.9"
 # Platform layer: the Win32 wallpaper, DPI and known-folder APIs.
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",
