@@ -74,6 +74,7 @@ pub enum UiAction {
     OpenArchive,
     OpenLogs,
     SavePng,
+    SaveGif,
     SetStartAtLogin(bool),
     RestoreWallpaper,
 }
@@ -687,6 +688,17 @@ fn page(
                 |ui| {
                     if ui.button("Save").clicked() {
                         actions.push(UiAction::SavePng);
+                    }
+                },
+            );
+            row(
+                ui,
+                theme,
+                "Save current as GIF",
+                "A 6-second loop of the scene as it plays, for sharing. Saved wallpapers keep the full scene.",
+                |ui| {
+                    if ui.button("Save").clicked() {
+                        actions.push(UiAction::SaveGif);
                     }
                 },
             );

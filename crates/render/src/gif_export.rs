@@ -17,7 +17,7 @@ use crate::frame::render_frame_clocked;
 use crate::palette::TRANSPARENT_INDEX;
 use crate::{GlyphAtlas, IndexedImage, IndexedPalette, bake_static};
 use clairlune_scene::particles::LOOP_MS;
-use clairlune_scene::{BuildError, BuildOptions, SceneRecipe, build};
+use clairlune_scene::{BuildError, BuildOptions, SceneRecipe, Theme, build};
 use std::fmt;
 use std::io::Write;
 use std::time::Instant;
@@ -157,21 +157,62 @@ pub fn encode_gif<W: Write>(
     let atlas = GlyphAtlas::for_grid(&graph.grid);
     let palette = IndexedPalette::new(&graph.family);
     let background = bake_static(&graph, &atlas);
+    let clock = Clock::Loop(loop_ms);
+    let (rendered, written) = encode_frames(
+        opts.width,
+        opts.height,
+        &palette,
+        loop_ms,
+        smoothness,
+        out,
+        |t| render_frame_clocked(&background, &graph, &atlas, &palette, t, clock),
+    )?;
+    let stats = GifStats {
+        width: opts.width,
+        height: opts.height,
+        loop_ms,
+        frames_rendered: rendered,
+        frames_written: written,
+        elapsed_ms: started.elapsed().as_millis() as u64,
+    };
+    tracing::info!(
+        target: "clairlune_render",
+        seed = recipe.seed,
+        recipe_hash = %recipe.hash_hex(),
+        width = opts.width,
+        height = opts.height,
+        loop_ms,
+        frames_rendered = stats.frames_rendered,
+        frames_written = stats.frames_written,
+        elapsed_ms = stats.elapsed_ms,
+        "gif encoded"
+    );
+    Ok(stats)
+}
 
+/// Writes a looping GIF from a frame source: one global palette, changed
+/// boxes only, identical frames merged. Returns frames rendered and written.
+fn encode_frames<W: Write>(
+    width: u32,
+    height: u32,
+    palette: &IndexedPalette,
+    loop_ms: u64,
+    smoothness: Smoothness,
+    out: W,
+    mut frame_at: impl FnMut(u64) -> IndexedImage,
+) -> Result<(usize, usize), GifError> {
     let mut global = palette.rgb_bytes();
     global.resize(256 * 3, 0); // index 255 stays free as the transparent colour
-    let (w16, h16) = (opts.width as u16, opts.height as u16);
+    let (w16, h16) = (width as u16, height as u16);
     let mut enc = gif::Encoder::new(out, w16, h16, &global)?;
     enc.set_repeat(gif::Repeat::Infinite)?;
-
     let delays = frame_delays(loop_ms, smoothness.gif_delay_cs());
-    let clock = Clock::Loop(loop_ms);
     let mut prev: Option<IndexedImage> = None;
     let mut pending: Option<gif::Frame<'static>> = None;
     let mut written = 0usize;
     let mut t_cs = 0u64;
     for &d in &delays {
-        let img = render_frame_clocked(&background, &graph, &atlas, &palette, t_cs * 10, clock);
+        let img = frame_at(t_cs * 10);
         t_cs += u64::from(d);
         let frame = match &prev {
             None => gif::Frame {
@@ -230,27 +271,54 @@ pub fn encode_gif<W: Write>(
         written += 1;
     }
     drop(enc);
-    let stats = GifStats {
-        width: opts.width,
-        height: opts.height,
+    Ok((delays.len(), written))
+}
+
+/// Exports a saved scene as a looping GIF, exactly as saved (no generator).
+pub fn encode_package_gif<W: Write>(
+    pkg: &crate::ScenePackage,
+    theme: Theme,
+    buddy: bool,
+    loop_ms: u64,
+    smoothness: Smoothness,
+    out: W,
+) -> Result<GifStats, GifError> {
+    if !valid_loop_ms(loop_ms) {
+        return Err(GifError::LoopLength(loop_ms));
+    }
+    if pkg.width > u32::from(u16::MAX) || pkg.height > u32::from(u16::MAX) {
+        return Err(GifError::TooLarge {
+            width: pkg.width,
+            height: pkg.height,
+        });
+    }
+    let palette = pkg
+        .palette(theme)
+        .ok_or(GifError::Build(BuildError::ThemeLocked(theme)))?
+        .clone();
+    let started = Instant::now();
+    let clock = Clock::Loop(loop_ms);
+    let (rendered, written) = encode_frames(
+        pkg.width,
+        pkg.height,
+        &palette,
         loop_ms,
-        frames_rendered: delays.len(),
+        smoothness,
+        out,
+        |t| {
+            pkg.frame(theme, buddy, t, clock)
+                .map(|(img, _)| img)
+                .expect("theme checked above")
+        },
+    )?;
+    Ok(GifStats {
+        width: pkg.width,
+        height: pkg.height,
+        loop_ms,
+        frames_rendered: rendered,
         frames_written: written,
         elapsed_ms: started.elapsed().as_millis() as u64,
-    };
-    tracing::info!(
-        target: "clairlune_render",
-        seed = recipe.seed,
-        recipe_hash = %recipe.hash_hex(),
-        width = opts.width,
-        height = opts.height,
-        loop_ms,
-        frames_rendered = stats.frames_rendered,
-        frames_written = stats.frames_written,
-        elapsed_ms = stats.elapsed_ms,
-        "gif encoded"
-    );
-    Ok(stats)
+    })
 }
 
 #[cfg(test)]

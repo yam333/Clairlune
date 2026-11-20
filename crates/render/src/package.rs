@@ -227,6 +227,11 @@ impl ScenePackage {
         self.frame(theme, buddy, t, Clock::Live)
     }
 
+    /// The palette in a theme.
+    pub fn palette(&self, theme: Theme) -> Option<&IndexedPalette> {
+        self.theme(theme).map(|t| &t.palette)
+    }
+
     /// The scene graph in a theme (layout, emitters, loop length).
     pub fn graph(&self, theme: Theme) -> Option<&SceneGraph> {
         self.theme(theme).map(|t| &t.graph)

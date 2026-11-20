@@ -2,6 +2,7 @@
 
 mod contact;
 mod gifcmd;
+mod packagecmd;
 mod setcmd;
 
 use clairlune_render::{render_still, save_png};
@@ -109,6 +110,8 @@ enum Command {
     Set(setcmd::SetArgs),
     /// Put back the wallpaper you had before Clairlune first set one.
     Restore,
+    /// Freeze a scene into a package that plays without the generator.
+    Package(packagecmd::PackageArgs),
 }
 
 #[derive(Args)]
@@ -142,6 +145,9 @@ struct GenerateArgs {
     /// Animation time in milliseconds. Defaults to the scene's hero time.
     #[arg(long)]
     time_ms: Option<u64>,
+    /// Play a saved scene package instead (see `package`); no generator involved.
+    #[arg(long, conflicts_with_all = ["seed", "recipe", "activity", "archetype", "recipe_out"])]
+    package: Option<PathBuf>,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -215,6 +221,15 @@ pub(crate) fn random_seed() -> u64 {
 }
 
 fn generate(args: GenerateArgs) -> Result<(), String> {
+    if let Some(dir) = &args.package {
+        return packagecmd::still_from_package(
+            dir,
+            args.theme,
+            !args.no_buddy,
+            args.time_ms,
+            &args.out,
+        );
+    }
     let (width, height) = args.size;
     let started = Instant::now();
     let recipe = match &args.recipe {
@@ -337,6 +352,7 @@ fn main() -> ExitCode {
         Command::Monitors => setcmd::monitors(),
         Command::Set(args) => setcmd::set(args),
         Command::Restore => setcmd::restore(),
+        Command::Package(args) => packagecmd::package(args),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
