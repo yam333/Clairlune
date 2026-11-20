@@ -84,6 +84,10 @@
 - Budget measured (2560x1440 + 1920x1080, 12 fps, RTX 4070 Ti, one monitor covered): 0.64 ms per frame (upload 0.27, draw+present 0.26), ~1 % of one core, 139 MB peak RSS (41 MB before live). Uploading each rectangle with its own `write_texture` cost 31 ms per frame (each one stalls); packing all of a frame's rectangles into one staging buffer and one command buffer brought it to 0.3-0.7 ms.
 - `examples/present_probe.rs` (live crate) re-checks which presentation shows: `cargo run -p clairlune-live --example present_probe --release -- dx12|vulkan|gl`.
 
+## Weight (2026-11-20, user saw 400 MB+ and GPU 2.5-5.5 %)
+- egui-wgpu's default instance probes PRIMARY | GL: on Windows that is Vulkan, DX12 and OpenGL on every GPU, loading each driver (UI test: 20 MB idle to ~400 MB with a window open, ~436 MB after closing). Native backend only + the display's adapter + MemoryHints::MemoryUsage: 100-130 MB open; K32EmptyWorkingSet after the last window closes brings the working set near 0.
+- Direct3D 11 with DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL (2 buffers) keeps buffer contents, so a frame copies only the changed rects (this frame's and last frame's, since the back buffer holds the frame before last) with UpdateSubresource from a packed per-rect buffer, and Present1 passes the changed rects as dirty rects so DWM recomposes only those. It shows on the raised desktop (probe). Process GPU (GPU Engine counter, pid_*, Utilization Percentage): 0.07 % vs 0.6 % for wgpu DX12 full-screen draws.
+
 ## Technical Decisions
 | Decision | Rationale |
 |----------|-----------|
