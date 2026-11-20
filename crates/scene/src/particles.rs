@@ -10,6 +10,15 @@ use crate::rng::Rng;
 pub const LOOP_MS: u64 = 6000;
 /// Particle lifetimes. Each divides [`LOOP_MS`].
 const LIVES_MS: [u32; 4] = [1000, 1500, 2000, 3000];
+
+/// How fast particles move. Pace 0 is the original motion, kept so scenes
+/// saved with it play exactly as they were saved. Pace 1 (generator 4 on)
+/// is calm: embers drift up slowly, snow and dust float, effects linger, so
+/// a smooth frame rate shows slow motion rather than a frantic one. Every
+/// life still divides [`LOOP_MS`], so GIFs loop seamlessly.
+pub const CALM_PACE: u8 = 1;
+/// Calm ember lives.
+const CALM_LIVES_MS: [u32; 3] = [2000, 3000, 6000];
 /// Hero-time search: candidates every 500 ms in the first 10 s.
 const HERO_STEP_MS: u64 = 500;
 const HERO_CANDIDATES: u64 = 20;
@@ -66,10 +75,17 @@ pub struct Emitter {
     pub drops: Vec<Drop>,
     /// Image size in pixels, for screen-space weather.
     pub size: (f64, f64),
+    /// How fast the weather moves (see [`CALM_PACE`]); 0 in older scenes.
+    #[serde(default)]
+    pub pace: u8,
 }
 
-/// The ember set for a seed. Independent of size and theme, so the hero time is too.
-pub fn ember_set(seed: u64) -> Vec<Ember> {
+/// The ember set for a seed at a pace. Independent of size and theme, so the
+/// hero time is too.
+pub fn ember_set(seed: u64, pace: u8) -> Vec<Ember> {
+    if pace >= CALM_PACE {
+        return calm_ember_set(seed);
+    }
     let mut rng = Rng::stream(seed, "particles");
     let count = rng.range_u32(44, 72);
     (0..count)
@@ -83,6 +99,30 @@ pub fn ember_set(seed: u64) -> Vec<Ember> {
                 rise: rng.range_f64(0.16, 0.38),
                 wobble: rng.range_f64(0.002, 0.012),
                 wobble_cycles: f64::from(rng.range_u32(1, 3)),
+                wobble_phase: rng.unit(),
+                max_level: f64::from(rng.range_u32(4, 6)),
+                glyph_bias: rng.below(2),
+            }
+        })
+        .collect()
+}
+
+/// Calm embers: longer lives, a short rise and little drift, so they float up
+/// from the fire instead of shooting off.
+fn calm_ember_set(seed: u64) -> Vec<Ember> {
+    let mut rng = Rng::stream(seed, "particles_calm");
+    let count = rng.range_u32(36, 56);
+    (0..count)
+        .map(|_| {
+            let life_ms = CALM_LIVES_MS[rng.weighted_index(&[1, 3, 2])];
+            Ember {
+                life_ms,
+                phase_ms: rng.below(life_ms),
+                x0: rng.range_f64(-0.010, 0.010),
+                drift: rng.range_f64(-0.035, 0.035),
+                rise: rng.range_f64(0.07, 0.16),
+                wobble: rng.range_f64(0.002, 0.008),
+                wobble_cycles: f64::from(rng.range_u32(1, 2)),
                 wobble_phase: rng.unit(),
                 max_level: f64::from(rng.range_u32(4, 6)),
                 glyph_bias: rng.below(2),
@@ -132,15 +172,19 @@ impl Emitter {
             EmitterKind::Weather(kind) => self
                 .drops
                 .iter()
-                .map(|d| {
-                    let (x, y, glyph, level) = drop_state(kind, d, t_ms);
-                    Particle {
+                .filter_map(|d| {
+                    let (x, y, glyph, level) = if self.pace >= CALM_PACE {
+                        calm_drop_state(kind, d, t_ms)?
+                    } else {
+                        drop_state(kind, d, t_ms)
+                    };
+                    Some(Particle {
                         x: x * self.size.0,
                         y: y * self.size.1,
                         glyph,
                         level,
                         ink: kind.ink(),
-                    }
+                    })
                 })
                 .collect(),
         }
@@ -228,10 +272,41 @@ pub struct Drop {
     phase: f64,
     glyph: u8,
     level: u8,
+    /// Calm pace: how far it falls (or drifts) over one life, in screen
+    /// heights (widths for dust). 0 in older scenes.
+    #[serde(default)]
+    fall: f64,
+}
+
+/// Calm pace: each weather particle's life, by kind (each divides LOOP_MS).
+fn calm_life_ms(kind: WeatherKind) -> u64 {
+    match kind {
+        WeatherKind::Rain => 2000,
+        _ => 6000,
+    }
 }
 
 /// The weather particles for a seed; the count scales with the aspect ratio.
-pub fn weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
+pub fn weather_set(kind: WeatherKind, seed: u64, aspect: f64, pace: u8) -> Vec<Drop> {
+    let mut drops = old_weather_set(kind, seed, aspect);
+    if pace >= CALM_PACE {
+        // Separate draws, so the older pace's particles stay exactly as they
+        // were.
+        let mut rng = Rng::stream(seed, "weather_fall");
+        for d in &mut drops {
+            d.fall = match kind {
+                WeatherKind::Snow => rng.range_f64(0.10, 0.22),
+                WeatherKind::Rain => rng.range_f64(0.18, 0.30),
+                WeatherKind::Leaves => rng.range_f64(0.12, 0.24),
+                WeatherKind::Dust => rng.range_f64(0.06, 0.12),
+                WeatherKind::Fireflies => 0.0,
+            };
+        }
+    }
+    drops
+}
+
+fn old_weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
     use crate::glyphs::id;
     let mut rng = Rng::stream(seed, "weather_particles");
     let per = match kind {
@@ -262,6 +337,7 @@ pub fn weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
                         *rng.choose(&[id('.'), id('\''), id('`')])
                     },
                     level: if big { 5 } else { rng.range_u32(2, 4) as u8 },
+                    fall: 0.0,
                 },
                 WeatherKind::Rain => Drop {
                     x0,
@@ -272,6 +348,7 @@ pub fn weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
                     phase,
                     glyph: *rng.choose(&[id('/'), id('|'), id('\'')]),
                     level: rng.range_u32(2, 3) as u8,
+                    fall: 0.0,
                 },
                 WeatherKind::Fireflies => Drop {
                     x0,
@@ -283,6 +360,7 @@ pub fn weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
                     phase,
                     glyph: id('.'),
                     level: 0,
+                    fall: 0.0,
                 },
                 WeatherKind::Leaves => Drop {
                     x0,
@@ -293,6 +371,7 @@ pub fn weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
                     phase,
                     glyph: *rng.choose(&[id(','), id('`'), id('\'')]),
                     level: rng.range_u32(2, 4) as u8,
+                    fall: 0.0,
                 },
                 WeatherKind::Dust => Drop {
                     x0,
@@ -303,6 +382,7 @@ pub fn weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
                     phase,
                     glyph: *rng.choose(&[id('.'), id('`')]),
                     level: rng.range_u32(1, 2) as u8,
+                    fall: 0.0,
                 },
             }
         })
@@ -346,6 +426,30 @@ fn drop_state(kind: WeatherKind, d: &Drop, t_ms: u64) -> (f64, f64, u8, u8) {
     }
 }
 
+/// A weather particle at the calm pace: it appears, drifts `fall` over its
+/// life while swaying, and fades out, then starts again. `None` while fully
+/// faded. Fireflies keep their wandering (already slow).
+fn calm_drop_state(kind: WeatherKind, d: &Drop, t_ms: u64) -> Option<(f64, f64, u8, u8)> {
+    if kind == WeatherKind::Fireflies {
+        return Some(drop_state(kind, d, t_ms));
+    }
+    let life = calm_life_ms(kind);
+    let p = frac((t_ms % life) as f64 / life as f64 + d.phase);
+    // Fade in over the first fifth, out over the last fifth.
+    let fade = (p / 0.2).min((1.0 - p) / 0.2).min(1.0);
+    let level = (f64::from(d.level) * fade).round() as u8;
+    if level == 0 {
+        return None;
+    }
+    // One slow sway per life.
+    let sway = d.sway * sin(TAU * (p + d.phase));
+    Some(match kind {
+        WeatherKind::Dust => (frac(d.x0 + d.fall * p), d.y0 + sway, d.glyph, level),
+        WeatherKind::Rain => (d.x0, frac(d.y0 + d.fall * p), d.glyph, level),
+        _ => (frac(d.x0 + sway), frac(d.y0 + d.fall * p), d.glyph, level),
+    })
+}
+
 /// Particle presets attached to an anchor of the character (activity effects).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Preset {
@@ -379,12 +483,17 @@ pub struct PresetParticle {
 
 /// Particles of a preset at time `t`. Seeded and periodic in [`LOOP_MS`], like the
 /// embers, so GIF loops stay seamless.
-pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64) -> Vec<PresetParticle> {
+pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64, pace: u8) -> Vec<PresetParticle> {
     use crate::glyphs::id;
-    let (label, count, lives): (&str, u32, &[u32]) = match preset {
-        Preset::Sparkles => ("fx_sparkles", 9, &[1000, 1500, 2000]),
-        Preset::Steam => ("fx_steam", 5, &[2000, 3000]),
-        Preset::Notes => ("fx_notes", 4, &[1500, 2000, 3000]),
+    let calm = pace >= CALM_PACE;
+    let (label, count, lives): (&str, u32, &[u32]) = match (preset, calm) {
+        (Preset::Sparkles, false) => ("fx_sparkles", 9, &[1000, 1500, 2000]),
+        (Preset::Steam, false) => ("fx_steam", 5, &[2000, 3000]),
+        (Preset::Notes, false) => ("fx_notes", 4, &[1500, 2000, 3000]),
+        // Calm: the same shapes, lingering about twice as long.
+        (Preset::Sparkles, true) => ("fx_sparkles", 9, &[2000, 3000]),
+        (Preset::Steam, true) => ("fx_steam", 5, &[3000, 6000]),
+        (Preset::Notes, true) => ("fx_notes", 4, &[3000, 6000]),
     };
     let mut rng = Rng::stream(seed, label);
     let mut out = Vec::new();
@@ -452,29 +561,95 @@ pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64) -> Vec<PresetParti
 mod weather_tests {
     use super::*;
 
+    const KINDS: [WeatherKind; 5] = [
+        WeatherKind::Snow,
+        WeatherKind::Rain,
+        WeatherKind::Fireflies,
+        WeatherKind::Leaves,
+        WeatherKind::Dust,
+    ];
+
+    fn emitter(kind: WeatherKind, pace: u8) -> Emitter {
+        Emitter {
+            kind: EmitterKind::Weather(kind),
+            origin_x: 0.0,
+            origin_y: 0.0,
+            unit: 1.0,
+            intensity: 1.0,
+            embers: Vec::new(),
+            drops: weather_set(kind, 9, 16.0 / 9.0, pace),
+            size: (1920.0, 1080.0),
+            pace,
+        }
+    }
+
     #[test]
     fn weather_loops_and_moves() {
-        for kind in [
-            WeatherKind::Snow,
-            WeatherKind::Rain,
-            WeatherKind::Fireflies,
-            WeatherKind::Leaves,
-            WeatherKind::Dust,
-        ] {
-            let e = Emitter {
-                kind: EmitterKind::Weather(kind),
-                origin_x: 0.0,
-                origin_y: 0.0,
-                unit: 1.0,
-                intensity: 1.0,
-                embers: Vec::new(),
-                drops: weather_set(kind, 9, 16.0 / 9.0),
-                size: (1920.0, 1080.0),
-            };
-            assert!(!e.drops.is_empty());
-            assert_eq!(e.sample(1234), e.sample(1234 + LOOP_MS), "{kind:?}");
-            assert_ne!(e.sample(0), e.sample(700), "{kind:?} should move");
+        for pace in [0, CALM_PACE] {
+            for kind in KINDS {
+                let e = emitter(kind, pace);
+                assert!(!e.drops.is_empty());
+                assert_eq!(
+                    e.sample(1234),
+                    e.sample(1234 + LOOP_MS),
+                    "{kind:?} pace {pace}"
+                );
+                assert_ne!(
+                    e.sample(0),
+                    e.sample(700),
+                    "{kind:?} pace {pace} should move"
+                );
+            }
         }
+    }
+
+    /// Mean speed of the particles that move smoothly between `t` and
+    /// `t + 100 ms` (respawns excluded), in screen heights per second.
+    fn mean_speed(kind: WeatherKind, pace: u8) -> f64 {
+        let e = emitter(kind, pace);
+        let (mut sum, mut n) = (0.0, 0usize);
+        for k in 0..60u64 {
+            let t = k * 100;
+            for d in &e.drops {
+                let at = |t| match pace {
+                    0 => Some(drop_state(kind, d, t)),
+                    _ => calm_drop_state(kind, d, t),
+                };
+                if let (Some(a), Some(b)) = (at(t), at(t + 100)) {
+                    let (dx, dy) = ((b.0 - a.0) * 16.0 / 9.0, b.1 - a.1);
+                    let dist = (dx * dx + dy * dy).sqrt();
+                    if dist < 0.3 {
+                        sum += dist * 10.0;
+                        n += 1;
+                    }
+                }
+            }
+        }
+        sum / n.max(1) as f64
+    }
+
+    #[test]
+    fn the_calm_pace_is_calm() {
+        for kind in KINDS {
+            let (old, calm) = (mean_speed(kind, 0), mean_speed(kind, CALM_PACE));
+            let cap = if kind == WeatherKind::Rain { 0.2 } else { 0.06 };
+            assert!(calm <= cap, "{kind:?}: {calm:.3} screen heights a second");
+            if kind != WeatherKind::Fireflies {
+                assert!(calm < old * 0.6, "{kind:?}: calm {calm:.3} vs {old:.3}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_original_pace_is_unchanged() {
+        // Older scenes keep their motion: no `fall`, the original formula.
+        let e = emitter(WeatherKind::Snow, 0);
+        assert!(e.drops.iter().all(|d| d.fall == 0.0));
+        let calm = emitter(WeatherKind::Snow, CALM_PACE);
+        assert_eq!(
+            e.drops.iter().map(|d| (d.x0, d.y0)).collect::<Vec<_>>(),
+            calm.drops.iter().map(|d| (d.x0, d.y0)).collect::<Vec<_>>()
+        );
     }
 }
 
@@ -484,19 +659,21 @@ mod preset_tests {
 
     #[test]
     fn presets_loop_and_vary() {
-        for preset in [Preset::Sparkles, Preset::Steam, Preset::Notes] {
-            assert_eq!(
-                preset_particles(preset, 3, 700),
-                preset_particles(preset, 3, 700 + LOOP_MS)
-            );
-            assert_ne!(
-                preset_particles(preset, 3, 700),
-                preset_particles(preset, 3, 1900)
-            );
-            assert!(
-                !preset_particles(preset, 3, 0).is_empty()
-                    || !preset_particles(preset, 3, 500).is_empty()
-            );
+        for pace in [0, CALM_PACE] {
+            for preset in [Preset::Sparkles, Preset::Steam, Preset::Notes] {
+                assert_eq!(
+                    preset_particles(preset, 3, 700, pace),
+                    preset_particles(preset, 3, 700 + LOOP_MS, pace)
+                );
+                assert_ne!(
+                    preset_particles(preset, 3, 700, pace),
+                    preset_particles(preset, 3, 1900, pace)
+                );
+                assert!(
+                    !preset_particles(preset, 3, 0, pace).is_empty()
+                        || !preset_particles(preset, 3, 500, pace).is_empty()
+                );
+            }
         }
     }
 }
@@ -505,27 +682,52 @@ mod preset_tests {
 mod tests {
     use super::*;
 
-    #[test]
-    fn particles_loop_seamlessly() {
-        let e = Emitter {
+    fn embers(pace: u8) -> Emitter {
+        Emitter {
             kind: EmitterKind::Embers,
             origin_x: 100.0,
             origin_y: 200.0,
             unit: 1000.0,
             intensity: 1.0,
-            embers: ember_set(5),
+            embers: ember_set(5, pace),
             drops: Vec::new(),
             size: (0.0, 0.0),
+            pace,
+        }
+    }
+
+    #[test]
+    fn particles_loop_seamlessly() {
+        for pace in [0, CALM_PACE] {
+            let e = embers(pace);
+            assert_eq!(e.sample(1234), e.sample(1234 + LOOP_MS));
+            assert_eq!(e.sample(0), e.sample(LOOP_MS * 3));
+        }
+    }
+
+    #[test]
+    fn calm_embers_float_up_slowly() {
+        // The fastest ember's rise, in image heights a second.
+        let fastest = |set: &[Ember]| {
+            set.iter()
+                .map(|e| e.rise / (f64::from(e.life_ms) / 1000.0))
+                .fold(0.0, f64::max)
         };
-        assert_eq!(e.sample(1234), e.sample(1234 + LOOP_MS));
-        assert_eq!(e.sample(0), e.sample(LOOP_MS * 3));
+        let (old, calm) = (fastest(&ember_set(5, 0)), fastest(&ember_set(5, CALM_PACE)));
+        assert!(calm <= 0.08, "calm embers rise {calm:.3} heights a second");
+        assert!(
+            old > 0.2,
+            "the original pace is kept for older scenes ({old:.3})"
+        );
     }
 
     #[test]
     fn hero_time_is_stable_and_in_range() {
-        let set = ember_set(5);
-        let t = hero_time(&set);
-        assert_eq!(t, hero_time(&ember_set(5)));
-        assert!(t < HERO_STEP_MS * HERO_CANDIDATES);
+        for pace in [0, CALM_PACE] {
+            let set = ember_set(5, pace);
+            let t = hero_time(&set);
+            assert_eq!(t, hero_time(&ember_set(5, pace)));
+            assert!(t < HERO_STEP_MS * HERO_CANDIDATES);
+        }
     }
 }

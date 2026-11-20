@@ -11,9 +11,9 @@ use crate::hash::hash_label;
 use crate::math::pm;
 use crate::palette::{self, PaletteFamily, Theme};
 use crate::particles::{
-    Emitter, EmitterKind, LOOP_MS, WeatherKind, ember_set, hero_time, weather_set,
+    CALM_PACE, Emitter, EmitterKind, LOOP_MS, WeatherKind, ember_set, hero_time, weather_set,
 };
-use crate::recipe::{GENERATOR_VERSION, SceneRecipe, TimeOfDay};
+use crate::recipe::{GENERATOR_VERSION, OLDEST_GENERATOR_VERSION, SceneRecipe, TimeOfDay};
 use crate::rng::Rng;
 use crate::{focal, terrain};
 use std::fmt;
@@ -71,7 +71,7 @@ impl std::error::Error for BuildError {}
 
 /// Builds the scene graph for one size, theme and Buddy state.
 pub fn build(recipe: &SceneRecipe, opts: &BuildOptions) -> Result<SceneGraph, BuildError> {
-    if recipe.generator_version != GENERATOR_VERSION {
+    if !(OLDEST_GENERATOR_VERSION..=GENERATOR_VERSION).contains(&recipe.generator_version) {
         return Err(BuildError::UnsupportedVersion(recipe.generator_version));
     }
     if opts.width < MIN_WIDTH || opts.height < MIN_HEIGHT {
@@ -125,6 +125,13 @@ fn build_scene(
     tod: TimeOfDay,
     family: PaletteFamily,
 ) -> SceneGraph {
+    // Version 4 brought the calm particle pace; version 3 recipes keep the
+    // original one, so they come out exactly as they did.
+    let pace = if recipe.generator_version >= 4 {
+        CALM_PACE
+    } else {
+        0
+    };
     let (w, h) = (opts.width, opts.height);
     let (wf, hf) = (f64::from(w), f64::from(h));
     let aspect = wf / hf;
@@ -248,7 +255,7 @@ fn build_scene(
 
     // ---- Embers rising from a flame tip. The hero time comes from the seed's
     // ember set either way, so it doesn't depend on the activity's props. ----
-    let embers = ember_set(seed);
+    let embers = ember_set(seed, pace);
     let t_hero_ms = hero_time(&embers);
     let emitters = focal
         .embers_at
@@ -264,6 +271,7 @@ fn build_scene(
             embers,
             drops: Vec::new(),
             size: (wf, hf),
+            pace,
         })
         .into_iter()
         .collect();
@@ -283,8 +291,9 @@ fn build_scene(
             unit,
             intensity: 1.0,
             embers: Vec::new(),
-            drops: weather_set(kind, seed, aspect),
+            drops: weather_set(kind, seed, aspect, pace),
             size: (wf, hf),
+            pace,
         });
     }
 
@@ -307,6 +316,7 @@ fn build_scene(
         ground_y,
         t_hero_ms,
         loop_ms: LOOP_MS,
+        pace,
     }
 }
 
