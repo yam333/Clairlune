@@ -63,6 +63,8 @@
   feeding egui synthetic pointer and key events (orca computer can't drag on Windows without taking the
   user's mouse); screenshots reviewed in light and dark.
 
+- Release 0.8.0 (2026-11-20): library, timeline and Timeline editor; jiff replaces chrono.
+
 ### Test Results
 | Test | Expected | Actual | Status |
 |------|----------|--------|--------|
