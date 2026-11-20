@@ -33,6 +33,12 @@ pub struct ContactArgs {
     /// Only this landscape.
     #[arg(long)]
     archetype: Option<String>,
+    /// Only this look: `line` or `dither`.
+    #[arg(long)]
+    look: Option<String>,
+    /// Ink contrast: `soft`, `normal`, `high` or `vary`.
+    #[arg(long)]
+    contrast: Option<String>,
     /// Render without the character.
     #[arg(long)]
     no_buddy: bool,
@@ -58,6 +64,7 @@ pub fn contact_sheet(args: ContactArgs) -> Result<(), String> {
     if let Some(id) = &args.archetype {
         crate::restrict_archetype(&mut ctx, id)?;
     }
+    crate::restrict_look(&mut ctx, args.look.as_deref(), args.contrast.as_deref())?;
     if let Some(id) = &args.activity {
         if builtin_catalog().get(id).is_none() {
             return Err(format!("unknown activity `{id}`"));

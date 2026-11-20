@@ -4,10 +4,12 @@
 //! entry of this table into its atlas, so adding a glyph here is all it takes to
 //! use it. Families are ordered light to heavy.
 
-/// Every glyph the generator may place. Index 0 is the empty cell.
-pub const GLYPHS: [char; 32] = [
+/// Every glyph the generator may place. Index 0 is the empty cell. New
+/// glyphs go at the end, so saved scenes keep their ids.
+pub const GLYPHS: [char; 38] = [
     ' ', '\'', '-', '/', '|', '\\', '.', '=', '<', '>', ':', 'o', 'x', 'O', '#', 'X', '%', '@',
-    '+', '^', '~', '`', ',', '*', ';', '"', 'd', 'J', '_', 'v', '!', '&',
+    '+', '^', '~', '`', ',', '*', ';', '"', 'd', 'J', '_', 'v', '!', '&', // the line art
+    '·', '•', '▪', '━', '●', '■', // the dither ramp
 ];
 
 /// The empty cell.
@@ -87,6 +89,11 @@ pub const EARTH: [u8; 5] = [id('.'), id(','), id(':'), id('o'), id('%')];
 
 /// Music notes (the font has no \u{266A}; `d` and `J` read as notes).
 pub const NOTES: [u8; 2] = [id('d'), id('J')];
+/// The dithered look's ramp, by how much of the cell each glyph inks (in
+/// the bundled font: 0, 2.7, 5.8, 11, 16, 39 and 46 %). The bar and the
+/// square span the whole cell width, so bright rows join into lines.
+pub const DITHER: [u8; 7] = [EMPTY, id('·'), id('•'), id('▪'), id('━'), id('●'), id('■')];
+
 /// Ember glyphs by age: hot sparks first, fading dots last.
 pub const EMBERS: [u8; 5] = [id('*'), id('+'), id('\''), id('.'), id('`')];
 

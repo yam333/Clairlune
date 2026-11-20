@@ -1,11 +1,11 @@
 # name hash (FNV-1a of size + palette + pixels). Regenerate with CLAIRLUNE_BLESS=1.
-seed-1-dark b6cf4f94e85ecef9
-seed-1-light ce5654ecbd31eff1
-seed-2-dark 19759e029387f88f
-seed-2-light 957d9ce3036a2e14
-seed-3-dark 3f61854462392758
-seed-3-light 596fc5cb0796f93e
-seed-7-dark 1df51de4496be884
+seed-1-dark 7ebb802cdc1b90e5
+seed-1-light bd7897c644db4fed
+seed-2-dark 5e69ff53f6d45990
+seed-2-light 30808234644466c0
+seed-3-dark 76071b53ba1d2b5c
+seed-3-light 8191339868a0436b
+seed-7-dark 868cadcc19827495
 seed-7-light locked
 seed-42-dark locked
 seed-42-light c19ed073edef887a
@@ -15,8 +15,8 @@ seed-1234-dark d554cb6181387d79
 seed-1234-light 92bd006bcf4a2d06
 seed-31337-dark 16bcdc26fc9ad121
 seed-31337-light 050973ef8599e1b5
-seed-271828-dark bd56d025f916e005
-seed-271828-light 49af934b0e74b772
+seed-271828-dark a5ba1717556d182d
+seed-271828-light db3699d64609c160
 seed-9000000001-dark e735bb001adfea5d
 seed-9000000001-light locked
 land-canyon-dark db1574767f7575a0

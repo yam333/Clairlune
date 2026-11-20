@@ -20,6 +20,7 @@ pub mod glyphs;
 pub mod graph;
 pub mod hash;
 pub mod ident;
+pub(crate) mod look;
 pub mod math;
 pub mod noise;
 pub mod palette;

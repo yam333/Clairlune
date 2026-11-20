@@ -183,6 +183,32 @@ pub struct Content {
     pub archetypes: Vec<String>,
     pub activities: Vec<String>,
     pub weather: Vec<String>,
+    /// How scenes may be drawn: `line`, `dither` (empty: both).
+    pub looks: Vec<String>,
+    pub contrast: Contrast,
+}
+
+/// Ink contrast for new scenes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Contrast {
+    Soft,
+    #[default]
+    Normal,
+    High,
+    /// A different one for each scene.
+    Vary,
+}
+
+impl Contrast {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Contrast::Soft => "soft",
+            Contrast::Normal => "normal",
+            Contrast::High => "high",
+            Contrast::Vary => "vary",
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -274,6 +300,10 @@ impl Settings {
         if !self.content.weather.is_empty() {
             ctx.enabled_weather = self.content.weather.clone();
         }
+        if !self.content.looks.is_empty() {
+            ctx.enabled_looks = self.content.looks.clone();
+        }
+        ctx.contrast = self.content.contrast.as_str().to_string();
         ctx
     }
 }

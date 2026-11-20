@@ -47,8 +47,10 @@ fn row_top(ctx: &Ctx, row: i64) -> f64 {
 /// Keeps the sky pass's stars off columns `c0..=c1` from `top_row` down.
 fn shelter(ctx: &Ctx, sky: &mut [f64], c0: i64, c1: i64, top_row: i64) {
     let y = row_top(ctx, top_row - 1);
+    let mut before = ctx.unsheltered.borrow_mut();
     for c in c0.max(0)..=c1.min(i64::from(ctx.cols) - 1) {
         let s = &mut sky[c as usize];
+        before[c as usize].get_or_insert(*s);
         *s = s.min(y);
     }
 }

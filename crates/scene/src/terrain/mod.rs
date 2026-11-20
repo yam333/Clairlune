@@ -98,12 +98,27 @@ pub(crate) struct Ctx<'a> {
     pub group_cx: f64,
     /// For archetypes that change with the time of day (lit windows, aurora).
     pub tod: TimeOfDay,
+    /// Per column, the sky limit from before things in the sky (a moon, a
+    /// lighthouse, boats) kept the stars off: where the land really starts.
+    /// `None` where nothing did.
+    pub unsheltered: std::cell::RefCell<Vec<Option<f64>>>,
 }
 
 impl Ctx<'_> {
     #[inline]
     pub fn idx(&self, col: u32, row: u32) -> usize {
         (row * self.cols + col) as usize
+    }
+
+    /// Where the land starts in each column: the sky limit, without the
+    /// shelter given to things standing in the sky.
+    pub fn land_line(&self, sky_limit: &[f64]) -> Vec<f64> {
+        let u = self.unsheltered.borrow();
+        sky_limit
+            .iter()
+            .enumerate()
+            .map(|(c, &s)| u.get(c).copied().flatten().map_or(s, |v| v.max(s)))
+            .collect()
     }
 }
 

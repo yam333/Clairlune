@@ -10,7 +10,8 @@ use crate::activity::{Activity, Catalog, MotionKind, builtin_catalog, int_weight
 use crate::archetype::{ARCHETYPE_INFO, ArchetypeInfo};
 use crate::palette::{Theme, families_for};
 use crate::recipe::{
-    Aspect, Composition, ContentContext, GENERATOR_VERSION, PalettePick, SceneRecipe, TimeOfDay,
+    Aspect, CONTRASTS, Composition, ContentContext, GENERATOR_VERSION, LOOKS, PalettePick,
+    SceneRecipe, TimeOfDay,
 };
 use crate::rng::Rng;
 
@@ -151,6 +152,24 @@ pub fn compose_with(
         _ => 0,
     };
 
+    // How it is drawn, from the looks allowed; the contrast, fixed or varied.
+    let mut look_rng = Rng::stream(seed, "look");
+    let looks: Vec<&str> = LOOKS
+        .iter()
+        .copied()
+        .filter(|l| ctx.enabled_looks.iter().any(|e| e == l))
+        .collect();
+    let look = if looks.is_empty() {
+        "line"
+    } else {
+        *look_rng.choose(&looks)
+    };
+    let contrast = match ctx.contrast.as_str() {
+        "vary" => *look_rng.choose(&CONTRASTS),
+        c if CONTRASTS.contains(&c) => c,
+        _ => "normal",
+    };
+
     let mut pal = Rng::stream(seed, "palette");
     let light: Vec<_> = families_for(Theme::Light).collect();
     let dark: Vec<_> = families_for(Theme::Dark).collect();
@@ -188,6 +207,8 @@ pub fn compose_with(
             light: light_family,
             dark: dark_family,
         },
+        look: look.to_string(),
+        contrast: contrast.to_string(),
     };
     log_composed(&recipe, eligible.len());
     recipe

@@ -10,7 +10,7 @@ Every wallpaper is generated locally from a seed: a landscape built from text gl
 
 ## Status
 
-Early development. The generator and a developer CLI work today: ten landscapes (canyon, mountains, forest, desert, snowfield, shore, city rooftops, night sky, cave, and a room with a window), twenty activities for Clawd (from coffee and chess to fishing, kites, a balloon ride, rowing, skiing and a hike along a ridge as the mountains scroll past), weather, stills and seamless looping GIFs. On Windows the tray app already runs: a new wallpaper on a schedule, one scene per monitor, playing live behind the desktop icons (or as a still frame), with an archive of past ones, a library of the ones you keep and a daily timeline. Other systems come in later milestones; see [PLAN.md](PLAN.md).
+Early development. The generator and a developer CLI work today: ten landscapes (canyon, mountains, forest, desert, snowfield, shore, city rooftops, night sky, cave, and a room with a window) drawn as line art or dithered into light and dark masses, twenty activities for Clawd (from coffee and chess to fishing, kites, a balloon ride, rowing, skiing and a hike along a ridge as the mountains scroll past), weather, stills and seamless looping GIFs. On Windows the tray app already runs: a new wallpaper on a schedule, one scene per monitor, playing live behind the desktop icons (or as a still frame), with an archive of past ones, a library of the ones you keep and a daily timeline. Other systems come in later milestones; see [PLAN.md](PLAN.md).
 
 ## Install
 
@@ -46,7 +46,9 @@ Options:
 | `--size <W>x<H>` | Output size in pixels. |
 | `--out <path>` | Output PNG (indexed, at most 255 colours). |
 | `--activity <id>` | Force an activity: `warm_hands`, `stroll`, `stargaze` (night only), `wizard_magic`, `make_coffee`, `read_lantern`, `play_guitar`, `fishing` (shore only), `fly_kite` (daytime), `skip_stones` (shore only), `broom_flight` (evening and night), `paint_easel` (daytime), `snowballs` (snow only), `balloon_ride` (daytime), `picnic` (daytime), `chess`, `tennis` (daytime), `rowing` (shore only), `skiing` (snow only), `hike_ridge` (a journey: the land scrolls past). |
-| `--archetype <id>` | Force a landscape: `canyon`, `mountains`, `forest`, `desert`, `snowfield`, `shore`, `city_rooftops`, `night_sky`, `cave`. |
+| `--archetype <id>` | Force a landscape: `canyon`, `mountains`, `forest`, `desert`, `snowfield`, `shore`, `city_rooftops`, `night_sky`, `cave`, `interior`. |
+| `--look <look>` | Force a look: `line` (line art in strokes of text) or `dither` (light and dark masses, every character a dot or a bar sized by how bright it is there). |
+| `--contrast <c>` | Ink contrast: `soft`, `normal`, `high`, or `vary` (one per seed). |
 | `--no-buddy` | Render the same scene without the character. |
 | `--recipe-out <path>` | Also write the scene recipe as JSON. |
 | `--time-ms <t>` | Render a specific animation time instead of the hero frame. |
@@ -84,7 +86,7 @@ A moon appears in the notification area. The app sets a new wallpaper at start a
 
 **Library and timeline.** Save to library keeps a wallpaper for good, as a frozen scene that plays the same after updates. The Library window lists them to use, rename, export or delete. With Settings > Rotation set to Timeline, the app follows a daily plan instead of the hourly schedule: the Timeline window shows a 24-hour bar for every day (or one per weekday) where you drag saved wallpapers or random scenes in, drag a slot's edge to move its start, double-click to split, and pick each slot's theme and Clawd. It is stored in `%APPDATA%\clairlune\timeline.toml` and follows daylight saving changes without skipping or repeating a slot.
 
-Settings shows the wallpaper on screen and covers the schedule, theme, which landscapes, activities and weather to use, Clawd on or off, the archive, exports, start at login, and **Restore my wallpaper**: before its first change the app remembers your own wallpaper, and this puts it back (so does `clairlune-cli restore`). Settings are stored in `%APPDATA%\clairlune\settings.toml`, logs in `%LOCALAPPDATA%\clairlune\logs`.
+Settings shows the wallpaper on screen and covers the schedule, theme, the look (line art, dithered, or both) and contrast, which landscapes, activities and weather to use, Clawd on or off, the archive, exports, start at login, and **Restore my wallpaper**: before its first change the app remembers your own wallpaper, and this puts it back (so does `clairlune-cli restore`). Settings are stored in `%APPDATA%\clairlune\settings.toml`, logs in `%LOCALAPPDATA%\clairlune\logs`.
 
 On Linux the app uses a StatusNotifier tray icon and sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway; on other Wayland compositors with the wlr layer shell (Hyprland, river, Wayfire, labwc and others) it shows the still in a background surface of its own while it runs. One image for all monitors; not yet tried on real desktops, reports welcome. On macOS it runs in the menu bar and sets a scene on each screen (it needs no permission for that; new, reports welcome).
 

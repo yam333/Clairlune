@@ -34,9 +34,14 @@ const ISLANDS: Layer = Layer {
     label: "shore_islands",
 };
 
+/// Where the open sea starts (normalised y).
+pub(crate) fn sea_top(ctx: &Ctx) -> f64 {
+    ctx.horizon + SEA_LINE
+}
+
 pub(crate) fn background(ctx: &Ctx, cells: &mut [Cell]) -> Vec<f64> {
     let mut sky = layers::paint(ctx, cells, &[ISLANDS]);
-    let sea_top = ctx.horizon + SEA_LINE;
+    let sea_top = sea_top(ctx);
     let seed = hash_label(ctx.terrain, "shore_sea");
     let first = (0..ctx.rows)
         .find(|&r| ctx.co.ny(r) >= sea_top)
