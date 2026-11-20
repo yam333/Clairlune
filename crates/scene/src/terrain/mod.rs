@@ -10,6 +10,7 @@ pub(crate) mod canyon;
 pub(crate) mod cave;
 pub(crate) mod city;
 pub(crate) mod desert;
+pub(crate) mod details;
 pub(crate) mod forest;
 pub(crate) mod layers;
 pub(crate) mod ledge;
