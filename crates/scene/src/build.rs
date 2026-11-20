@@ -399,6 +399,11 @@ mod tests {
                     .into_iter()
                     .find(|s| s.kind == SpriteKind::Character)
                     .unwrap();
+                if g.character.is_some_and(|t| t.flies()) {
+                    // In the air: above the ground and on screen.
+                    assert!(c.y + c.height() as i32 <= g.ground_y && c.y >= 0);
+                    continue;
+                }
                 assert_eq!(c.y + c.height() as i32, g.ground_y);
                 assert!(c.x >= 0 && c.x + c.width() as i32 <= g.width as i32);
                 // The platform's top row is under the character's feet.
@@ -446,6 +451,9 @@ mod tests {
         for seed in 0..30 {
             let g = graph(seed, 1920, 1080, Theme::Dark, true);
             let track = g.character.unwrap();
+            if track.flies() {
+                continue; // above the props, not beside them
+            }
             let (lo, hi) = track.x_range();
             let cw = track.at(0).width() as i32;
             for p in &g.props {

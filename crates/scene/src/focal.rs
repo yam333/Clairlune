@@ -239,6 +239,24 @@ pub fn layout(
                 period_ms: period_ms.max(1000),
             }
         }
+        // Across the middle of the screen, high over the group's ledge.
+        MotionKind::Fly if comp.fly_lift_pm > 0 => {
+            let (x_min, x_max) = ((w as f64 * 0.12) as i32, (w as f64 * 0.88) as i32 - cw);
+            let px_per_s = f64::from(comp.motion_speed_cc) / 100.0 * f64::from(cell_w);
+            let period_ms =
+                ((2.0 * f64::from(x_max - x_min) / px_per_s.max(1.0)) * 1000.0).round() as u64;
+            // Never above 6 % of the screen height.
+            let lift = (f64::from(comp.fly_lift_pm) / 1000.0 * f64::from(h)) as i32;
+            let lift = lift.min(ground_y - ch - (h as f64 * 0.06) as i32).max(0);
+            Motion::Fly {
+                x_min,
+                x_max: x_max.max(x_min),
+                period_ms: period_ms.max(4000),
+                lift,
+                bob: (h as i32 / 150).max(2),
+                bob_ms: 3000,
+            }
+        }
         _ => Motion::Stationary { x: cx - cw / 2 },
     };
 

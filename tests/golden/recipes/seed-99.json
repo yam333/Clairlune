@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "3f2c6f39a17b6d29",
-  "activity": "warm_hands",
+  "content_ctx_hash": "f87c9ab78e5b6914",
+  "activity": "broom_flight",
   "archetype": "forest",
-  "light_tod": "noon",
+  "light_tod": null,
   "dark_tod": "deep_dusk",
   "platform": "log",
   "props": [
-    "campfire"
+    "spellbook"
   ],
   "weather": "none",
   "composition": {
@@ -23,8 +23,9 @@
     "platform_margin_pm": 19,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "motion_speed_cc": 437,
+    "pace_half_pm": 0,
+    "fly_lift_pm": 181
   },
   "palette": {
     "light": "paper_day",

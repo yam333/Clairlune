@@ -74,7 +74,7 @@ M.along = along
 --   eyes     "open" | "closed" | "left" | "right" | "up" | "happy" | "focus"
 --   arm_l, arm_r   "rest" | "out" | "up" | { dx, dy } hand position from the shoulder
 --   reach, wiggle  extra length / 1 px raise for "out" and "up" arms
---   hold     { item, angle, hand = "r" }  item: wand, racket, ski_pole, walking_stick, mug, chess_piece, rod, stone
+--   hold     { item, angle, hand = "r" }  item: wand, racket, ski_pole, walking_stick, mug, chess_piece, rod, stone, broom
 --   costume  { "wizard_hat", "beanie", "goggles", "backpack", "scarf" }
 --   legs     "stand" | "walk_a" | "walk_b" | "ski"
 function M.pose(o)
@@ -180,6 +180,19 @@ function ITEMS.stone(c, x, y)
   -- A flat skimming stone between the fingers.
   c.rect(x, y - 1, 2, 1, P.metal_dark)
   return { x, y - 1 }
+end
+function ITEMS.broom(c, x, y, deg)
+  -- A broom ridden like a wizard's: the handle from just ahead of the hand
+  -- back under the body, the bristles fanning out at the tail; the tail
+  -- end is the tip (sparkles stream from it).
+  local fx, fy = along(x, y, deg + 180, 3)
+  local bx, by = along(x, y, deg, 15)
+  line(c, fx, fy, bx, by, P.wood)
+  for i = 0, 4 do
+    local ex, ey = along(bx, by, deg - 18 + i * 9, 5)
+    line(c, bx, by, ex, ey, i % 2 == 0 and P.brass or P.wood_dark)
+  end
+  return { along(bx, by, deg, 5) }
 end
 function ITEMS.chess_piece(c, x, y)
   c.px(x, y - 3, P.ink)

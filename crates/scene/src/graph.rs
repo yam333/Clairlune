@@ -245,6 +245,38 @@ pub enum Motion {
         x_max: i32,
         period_ms: u64,
     },
+    /// Flies back and forth like `Pace`, `lift` pixels above the ground,
+    /// bobbing `bob` pixels up and down once every `bob_ms`.
+    Fly {
+        x_min: i32,
+        x_max: i32,
+        period_ms: u64,
+        lift: i32,
+        bob: i32,
+        bob_ms: u64,
+    },
+}
+
+/// A smooth up-and-down of `amp` pixels with period `period_ms`, from two
+/// parabolas (integer arithmetic, so the same on every platform).
+pub fn bob_offset(t_ms: u64, period_ms: u64, amp: i32) -> i32 {
+    let half = (period_ms / 2).max(1) as i64;
+    let p = (t_ms % (2 * half as u64)) as i64;
+    let q = p % half;
+    let v = 4 * q * (half - q) * i64::from(amp) / (half * half);
+    (if p < half { -v } else { v }) as i32
+}
+
+/// Left edge and facing at `t_ms` while going back and forth.
+fn back_and_forth(x_min: i32, x_max: i32, period_ms: u64, t_ms: u64) -> (i32, bool) {
+    let span = i64::from(x_max - x_min);
+    let half = (period_ms / 2).max(1) as i64;
+    let ph = (t_ms % period_ms.max(1)) as i64;
+    if ph < half {
+        ((i64::from(x_min) + span * ph / half) as i32, false)
+    } else {
+        ((i64::from(x_max) - span * (ph - half) / half) as i32, true)
+    }
 }
 
 /// The character's placement as a pure function of time.
@@ -261,37 +293,48 @@ pub struct CharacterTrack {
 impl CharacterTrack {
     /// Sprite placement at `t_ms`. Integer arithmetic only.
     pub fn at(&self, t_ms: u64) -> SpriteInstance {
-        let (x, mirror) = match self.motion {
-            Motion::Stationary { x } => (x, self.face_left),
+        let (x, y, mirror) = match self.motion {
+            Motion::Stationary { x } => (x, self.y, self.face_left),
             Motion::Pace {
                 x_min,
                 x_max,
                 period_ms,
             } => {
-                let span = i64::from(x_max - x_min);
-                let half = (period_ms / 2).max(1) as i64;
-                let ph = (t_ms % period_ms.max(1)) as i64;
-                if ph < half {
-                    ((i64::from(x_min) + span * ph / half) as i32, false)
-                } else {
-                    ((i64::from(x_max) - span * (ph - half) / half) as i32, true)
-                }
+                let (x, mirror) = back_and_forth(x_min, x_max, period_ms, t_ms);
+                (x, self.y, mirror)
+            }
+            Motion::Fly {
+                x_min,
+                x_max,
+                period_ms,
+                lift,
+                bob,
+                bob_ms,
+            } => {
+                let (x, mirror) = back_and_forth(x_min, x_max, period_ms, t_ms);
+                (x, self.y - lift + bob_offset(t_ms, bob_ms, bob), mirror)
             }
         };
         SpriteInstance {
             kind: SpriteKind::Character,
             x,
-            y: self.y,
+            y,
             scale: self.scale,
             mirror,
         }
+    }
+
+    /// Whether the character leaves the ground (its feet aren't on the
+    /// platform).
+    pub fn flies(&self) -> bool {
+        matches!(self.motion, Motion::Fly { .. })
     }
 
     /// Leftmost and rightmost left-edge positions over all time.
     pub fn x_range(&self) -> (i32, i32) {
         match self.motion {
             Motion::Stationary { x } => (x, x),
-            Motion::Pace { x_min, x_max, .. } => (x_min, x_max),
+            Motion::Pace { x_min, x_max, .. } | Motion::Fly { x_min, x_max, .. } => (x_min, x_max),
         }
     }
 }

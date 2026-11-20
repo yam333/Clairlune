@@ -131,6 +131,47 @@ pub fn loop_track(track: CharacterTrack, loop_ms: u64) -> CharacterTrack {
                 ..track
             }
         }
+        Motion::Fly {
+            x_min,
+            x_max,
+            period_ms,
+            lift,
+            bob,
+            bob_ms,
+        } => {
+            let Motion::Pace { period_ms, .. } = loop_track(
+                CharacterTrack {
+                    motion: Motion::Pace {
+                        x_min,
+                        x_max,
+                        period_ms,
+                    },
+                    ..track
+                },
+                loop_ms,
+            )
+            .motion
+            else {
+                unreachable!("pacing stays pacing")
+            };
+            // The bob too: whole periods per loop.
+            let n = (loop_ms / bob_ms.max(1)).max(1);
+            let bob_ms = (1..=n)
+                .rev()
+                .find(|k| loop_ms.is_multiple_of(*k))
+                .map_or(loop_ms, |k| loop_ms / k);
+            CharacterTrack {
+                motion: Motion::Fly {
+                    x_min,
+                    x_max,
+                    period_ms,
+                    lift,
+                    bob,
+                    bob_ms,
+                },
+                ..track
+            }
+        }
         Motion::Stationary { .. } => track,
     }
 }
@@ -174,5 +215,27 @@ mod tests {
         };
         assert!(6000u64.is_multiple_of(period_ms));
         assert_eq!(t.at(0), t.at(6000));
+    }
+
+    #[test]
+    fn flying_divides_the_loop() {
+        let track = CharacterTrack {
+            y: 500,
+            scale: 2,
+            face_left: false,
+            motion: Motion::Fly {
+                x_min: 0,
+                x_max: 900,
+                period_ms: 13_300,
+                lift: 200,
+                bob: 6,
+                bob_ms: 3000,
+            },
+        };
+        for loop_ms in [6000, 12000] {
+            let t = loop_track(track, loop_ms);
+            assert_eq!(t.at(0), t.at(loop_ms));
+            assert_eq!(t.at(1234), t.at(1234 + loop_ms));
+        }
     }
 }

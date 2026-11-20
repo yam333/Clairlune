@@ -5,15 +5,13 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "3f2c6f39a17b6d29",
-  "activity": "play_guitar",
-  "archetype": "mountains",
+  "content_ctx_hash": "f87c9ab78e5b6914",
+  "activity": "skip_stones",
+  "archetype": "shore",
   "light_tod": "golden_hour",
   "dark_tod": "dusk",
-  "platform": "rock_ledge",
-  "props": [
-    "campfire"
-  ],
+  "platform": "pier",
+  "props": [],
   "weather": "none",
   "composition": {
     "horizon_pm": 697,

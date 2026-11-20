@@ -48,7 +48,11 @@ pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "i
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 10] = [
+const SOURCES: [(&str, &str); 11] = [
+    (
+        "broom_flight.toml",
+        include_str!("../activities/broom_flight.toml"),
+    ),
     ("fishing.toml", include_str!("../activities/fishing.toml")),
     ("fly_kite.toml", include_str!("../activities/fly_kite.toml")),
     (
@@ -394,11 +398,14 @@ impl Activity {
         }
         match self.motion.kind {
             MotionKind::Stationary => {}
-            MotionKind::Pace => match self.motion.speed_cells_per_s {
+            MotionKind::Pace | MotionKind::Fly => match self.motion.speed_cells_per_s {
                 Some([lo, hi]) if lo > 0.0 && hi >= lo => {}
-                _ => err("pace motion needs speed_cells_per_s = [lo, hi] with 0 < lo <= hi".into()),
+                _ => err(format!(
+                    "{} motion needs speed_cells_per_s = [lo, hi] with 0 < lo <= hi",
+                    format!("{:?}", self.motion.kind).to_lowercase()
+                )),
             },
-            MotionKind::Path | MotionKind::Bob | MotionKind::Fly => err(format!(
+            MotionKind::Path | MotionKind::Bob => err(format!(
                 "motion `{:?}` is not implemented yet (milestone M4)",
                 self.motion.kind
             )),

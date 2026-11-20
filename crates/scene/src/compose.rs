@@ -115,13 +115,25 @@ pub fn compose_with(
     let mut props_rng = Rng::stream(seed, "props");
     let prop_left = props_rng.chance(1, 2);
     let mut motion = Rng::stream(seed, "motion");
-    let (motion_speed_cc, pace_half_pm) =
+    let (motion_speed_cc, pace_half_pm, fly_lift_pm) =
         match picked.map(|(a, _)| (&a.motion.kind, a.motion.speed_cells_per_s)) {
             Some((MotionKind::Pace, Some([lo, hi]))) => {
                 let (lo, hi) = ((lo * 100.0).round() as u32, (hi * 100.0).round() as u32);
-                (motion.range_u32(lo, hi.max(lo)), motion.range_u32(60, 140))
+                (
+                    motion.range_u32(lo, hi.max(lo)),
+                    motion.range_u32(60, 140),
+                    0,
+                )
             }
-            _ => (0, 0),
+            Some((MotionKind::Fly, Some([lo, hi]))) => {
+                let (lo, hi) = ((lo * 100.0).round() as u32, (hi * 100.0).round() as u32);
+                (
+                    motion.range_u32(lo, hi.max(lo)),
+                    0,
+                    motion.range_u32(170, 270),
+                )
+            }
+            _ => (0, 0, 0),
         };
 
     let mut pal = Rng::stream(seed, "palette");
@@ -154,6 +166,7 @@ pub fn compose_with(
             prop_left,
             motion_speed_cc,
             pace_half_pm,
+            fly_lift_pm,
         },
         palette: PalettePick {
             light: light_family,
