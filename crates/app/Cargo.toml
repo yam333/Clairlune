@@ -39,12 +39,13 @@ png.workspace = true
 
 [target.'cfg(any(windows, target_os = "macos"))'.dependencies]
 tray-icon.workspace = true
-# Live wallpapers play on Windows and macOS so far.
 clairlune-live.workspace = true
 
-# Linux: the StatusNotifierItem tray over D-Bus (no GTK).
+# Linux: the StatusNotifierItem tray over D-Bus (no GTK), and live
+# wallpapers where a surface of our own can sit under everything.
 [target.'cfg(target_os = "linux")'.dependencies]
 tray-icon = { workspace = true, features = ["ksni"] }
+clairlune-live.workspace = true
 
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "3.0.12"

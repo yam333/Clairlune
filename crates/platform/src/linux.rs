@@ -1,8 +1,11 @@
 //! Linux: each desktop sets its wallpaper differently (PLAN.md section 2), so
 //! the host drives the desktop's own tools: `gsettings` (GNOME, Cinnamon,
 //! MATE), Plasma's D-Bus scripting (KDE), `xfconf-query` (XFCE), `swaymsg`
-//! (Sway). One image for all monitors (per-monitor images come later), sized
-//! to the largest output `xrandr` reports.
+//! (Sway). Other Wayland compositors with the wlr layer-shell protocol
+//! (Hyprland, river, Wayfire, labwc...) have no common tool, so Clairlune
+//! shows the still in a background surface of its own (`wlr`), held while
+//! the app runs. One image for all monitors (per-monitor images come later),
+//! sized to the largest output `xrandr` reports.
 //!
 //! The decisions (which desktop, which commands, the screen size) are plain
 //! functions with tests; only running the commands touches the system.
@@ -22,6 +25,8 @@ pub(crate) enum Desktop {
     Kde,
     Xfce,
     Sway,
+    /// Another Wayland compositor: our own background surface (`wlr`).
+    Wlroots,
 }
 
 impl Desktop {
@@ -33,13 +38,16 @@ impl Desktop {
             Desktop::Kde => "linux-kde",
             Desktop::Xfce => "linux-xfce",
             Desktop::Sway => "linux-sway",
+            Desktop::Wlroots => "linux-wlroots",
         }
     }
 }
 
 /// The desktop from `XDG_CURRENT_DESKTOP` (a `:`-separated list such as
-/// `ubuntu:GNOME`) and whether a Sway socket is set.
-pub(crate) fn detect_desktop(current: &str, sway: bool) -> Option<Desktop> {
+/// `ubuntu:GNOME`), whether a Sway socket is set, and whether this is a
+/// Wayland session (any other compositor: our own surface, if it has the
+/// layer shell).
+pub(crate) fn detect_desktop(current: &str, sway: bool, wayland: bool) -> Option<Desktop> {
     let parts: Vec<String> = current.split(':').map(|p| p.to_ascii_lowercase()).collect();
     let has = |name: &str| parts.iter().any(|p| p == name);
     if has("kde") {
@@ -54,6 +62,8 @@ pub(crate) fn detect_desktop(current: &str, sway: bool) -> Option<Desktop> {
         Some(Desktop::Gnome)
     } else if has("sway") || sway {
         Some(Desktop::Sway)
+    } else if wayland {
+        Some(Desktop::Wlroots)
     } else {
         None
     }
@@ -192,6 +202,8 @@ pub(crate) fn set_commands(
             .map(|p| argv(&["xfconf-query", "-c", "xfce4-desktop", "-p", p, "-s", &file]))
             .collect(),
         Desktop::Sway => vec![argv(&["swaymsg", "output", "*", "bg", &file, "fill"])],
+        // Shown by our own surface (`wlr::show_still`), not a command.
+        Desktop::Wlroots => Vec::new(),
     }
 }
 
@@ -263,13 +275,18 @@ impl LinuxHost {
     pub(crate) fn new() -> Result<Self, PlatformError> {
         let current = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
         let sway = std::env::var_os("SWAYSOCK").is_some();
-        detect_desktop(&current, sway)
-            .map(|desktop| LinuxHost { desktop })
-            .ok_or_else(|| {
-                PlatformError::Unsupported(format!(
-                    "desktop `{current}` isn't supported yet (GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway are)"
-                ))
-            })
+        let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some();
+        let desktop = detect_desktop(&current, sway, wayland).ok_or_else(|| {
+            PlatformError::Unsupported(format!(
+                "desktop `{current}` isn't supported yet (GNOME, Cinnamon, MATE, KDE Plasma, XFCE, Sway and Wayland compositors with the wlr layer shell are)"
+            ))
+        })?;
+        if desktop == Desktop::Wlroots {
+            crate::wlr::available().map_err(|e| {
+                PlatformError::Unsupported(format!("this compositor (`{current}`): {e}"))
+            })?;
+        }
+        Ok(LinuxHost { desktop })
     }
 
     fn xfce_props(&self) -> Vec<String> {
@@ -320,8 +337,8 @@ impl WallpaperHost for LinuxHost {
                 None => Ok(None),
             },
             // Plasma and Sway don't report it simply; restore can't bring
-            // back what it never saw.
-            Desktop::Kde | Desktop::Sway => Ok(None),
+            // back what it never saw. Our own surface hides what is under it.
+            Desktop::Kde | Desktop::Sway | Desktop::Wlroots => Ok(None),
         }
     }
 
@@ -331,6 +348,10 @@ impl WallpaperHost for LinuxHost {
                 "wallpaper path must be absolute: {}",
                 path.display()
             )));
+        }
+        if self.desktop == Desktop::Wlroots {
+            // Held by a thread of this process: it lasts while the app runs.
+            return crate::wlr::show_still(path).map_err(PlatformError::Os);
         }
         let props = if self.desktop == Desktop::Xfce {
             self.xfce_props()
@@ -355,7 +376,13 @@ impl WallpaperHost for LinuxHost {
         let m = &self.monitors()?[0];
         match snapshot.monitors.first().and_then(|(_, p)| p.as_deref()) {
             Some(path) => self.set_static(m, path),
-            None => Ok(()),
+            None => {
+                // Take our surface away: the compositor's own background shows.
+                if self.desktop == Desktop::Wlroots {
+                    crate::wlr::hide_still();
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -366,14 +393,32 @@ mod tests {
 
     #[test]
     fn desktops_from_the_environment() {
-        assert_eq!(detect_desktop("ubuntu:GNOME", false), Some(Desktop::Gnome));
-        assert_eq!(detect_desktop("KDE", false), Some(Desktop::Kde));
-        assert_eq!(detect_desktop("X-Cinnamon", false), Some(Desktop::Cinnamon));
-        assert_eq!(detect_desktop("MATE", false), Some(Desktop::Mate));
-        assert_eq!(detect_desktop("XFCE", false), Some(Desktop::Xfce));
-        assert_eq!(detect_desktop("Budgie:GNOME", false), Some(Desktop::Gnome));
-        assert_eq!(detect_desktop("", true), Some(Desktop::Sway));
-        assert_eq!(detect_desktop("Hyprland", false), None);
+        assert_eq!(
+            detect_desktop("ubuntu:GNOME", false, false),
+            Some(Desktop::Gnome)
+        );
+        assert_eq!(detect_desktop("KDE", false, false), Some(Desktop::Kde));
+        assert_eq!(
+            detect_desktop("X-Cinnamon", false, false),
+            Some(Desktop::Cinnamon)
+        );
+        assert_eq!(detect_desktop("MATE", false, false), Some(Desktop::Mate));
+        assert_eq!(detect_desktop("XFCE", false, false), Some(Desktop::Xfce));
+        assert_eq!(
+            detect_desktop("Budgie:GNOME", false, false),
+            Some(Desktop::Gnome)
+        );
+        assert_eq!(detect_desktop("", true, false), Some(Desktop::Sway));
+        assert_eq!(detect_desktop("Hyprland", false, false), None);
+        // Any other Wayland compositor: our own background surface.
+        assert_eq!(
+            detect_desktop("Hyprland", false, true),
+            Some(Desktop::Wlroots)
+        );
+        assert_eq!(detect_desktop("river", false, true), Some(Desktop::Wlroots));
+        // Known desktops keep their own tools on Wayland too.
+        assert_eq!(detect_desktop("GNOME", false, true), Some(Desktop::Gnome));
+        assert_eq!(detect_desktop("sway", false, true), Some(Desktop::Sway));
     }
 
     #[test]

@@ -86,15 +86,17 @@ A moon appears in the notification area. The app sets a new wallpaper at start a
 
 Settings shows the wallpaper on screen and covers the schedule, theme, which landscapes, activities and weather to use, Clawd on or off, the archive, exports, start at login, and **Restore my wallpaper**: before its first change the app remembers your own wallpaper, and this puts it back (so does `clairlune-cli restore`). Settings are stored in `%APPDATA%\clairlune\settings.toml`, logs in `%LOCALAPPDATA%\clairlune\logs`.
 
-On Linux the app uses a StatusNotifier tray icon and sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway (one image for all monitors; not yet tried on real desktops, reports welcome). On macOS it runs in the menu bar and sets a scene on each screen (it needs no permission for that; new, reports welcome). Live wallpapers run on Windows so far; elsewhere the still frame is used.
+On Linux the app uses a StatusNotifier tray icon and sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway; on other Wayland compositors with the wlr layer shell (Hyprland, river, Wayfire, labwc and others) it shows the still in a background surface of its own while it runs. One image for all monitors; not yet tried on real desktops, reports welcome. On macOS it runs in the menu bar and sets a scene on each screen (it needs no permission for that; new, reports welcome).
 
-## Live wallpapers from the CLI (Windows)
+Live wallpapers play on Windows, on macOS (new, untried), and on Linux where a surface of Clairlune's own can sit under everything without hiding the desktop's icons: Wayland compositors with the wlr layer shell, and X11 window managers without a desktop of their own (i3, Openbox, bspwm...). GNOME, KDE Plasma, XFCE, Cinnamon, MATE and LXQt draw their own desktop and icons, so there the still frame is the wallpaper. Off Windows, Live is one switch away in Settings.
+
+## Live wallpapers from the CLI (Windows, Linux)
 
 ```sh
 clairlune-cli live --seconds 30 --fps 12
 ```
 
-plays a scene on each monitor behind the desktop icons for the given time, then leaves its still frame as the wallpaper and prints what it cost (frame time, CPU, memory). `clairlune-cli restore` puts your own wallpaper back. Frames are drawn on the graphics card the monitors are plugged into, and a monitor covered by a maximized or full-screen app pauses.
+plays a scene on each monitor behind the desktop icons for the given time and prints what it cost. On Windows it then leaves its still frame as the wallpaper (`clairlune-cli restore` puts your own back), frames are drawn on the graphics card the monitors are plugged into, and a monitor covered by a maximized or full-screen app pauses. On Linux (wlr layer-shell compositors, or X11 without a desktop of its own) it plays on surfaces of its own and never touches the wallpaper.
 
 ## Set it as your wallpaper from the CLI (Windows)
 

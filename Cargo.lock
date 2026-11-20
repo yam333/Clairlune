@@ -745,6 +745,7 @@ dependencies = [
  "tracing",
  "wgpu",
  "windows",
+ "x11rb",
 ]
 
 [[package]]
@@ -754,13 +755,16 @@ dependencies = [
  "block2 0.6.2",
  "clairlune-scene",
  "dispatch2",
+ "libc",
  "objc2 0.6.5",
  "objc2-app-kit 0.3.2",
  "objc2-core-graphics",
  "objc2-foundation 0.3.2",
+ "png",
  "raw-window-handle",
  "serde",
  "serde_json",
+ "smithay-client-toolkit 0.20.0",
  "tracing",
  "windows",
 ]

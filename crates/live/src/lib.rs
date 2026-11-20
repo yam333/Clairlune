@@ -20,6 +20,8 @@ pub mod d3d11;
 #[cfg(windows)]
 pub mod desktop;
 pub mod gpu;
+#[cfg(target_os = "linux")]
+pub mod linux;
 #[cfg(target_os = "macos")]
 pub mod mac;
 
@@ -126,6 +128,17 @@ impl Player {
     /// off (PLAN.md section 4.4).
     pub fn set_smooth(&mut self, on: bool) {
         self.clock = if on { Clock::Smooth } else { Clock::Live };
+    }
+
+    /// Another player of the same scene at the same moment, showing `view`
+    /// of it (one scene on several screens, each showing its part). `None`
+    /// if the view isn't inside the frame.
+    pub fn with_view(&self, view: PixelRect) -> Option<Player> {
+        let mut p = Player::new_view(self.pkg.clone(), self.theme, self.buddy, view)?;
+        p.t0 = self.t0;
+        p.started = self.started;
+        p.clock = self.clock;
+        Some(p)
     }
 
     /// Whether the scene is a journey (its whole frame moves every tick).

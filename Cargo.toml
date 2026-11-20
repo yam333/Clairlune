@@ -80,6 +80,11 @@ block2 = "0.6.2"
 # Live wallpapers: window handles for the presenter, and the CPU presenter.
 raw-window-handle = "0.6.2"
 softbuffer = "0.4.8"
+# Linux: background layer surfaces on wlr layer-shell compositors, desktop
+# windows on X11, and poll(2) for reading Wayland events without waiting.
+smithay-client-toolkit = { version = "0.20.0", default-features = false }
+x11rb = { version = "0.13.2", default-features = false, features = ["randr", "shape"] }
+libc = "0.2.191"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["std", "fmt", "ansi", "env-filter", "json", "registry"] }
 proptest = "1.12.0"
