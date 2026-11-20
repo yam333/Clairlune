@@ -170,8 +170,8 @@ Order: the app core first (usable in still mode with no UI), then the design wor
 
 ### Phase 15: M6b Library + Timeline
 - [x] 15a Library (PLAN.md 9a): `library.rs` (items copy an archive entry incl. frozen scenes; item.json with name, tags, display/theme/buddy choices), Save to library (tray, Settings), Library window (grid, selection action bar: use as wallpaper, rename, theme/Clawd choices, PNG/GIF export, two-step delete), applying an item replays its scenes with its choices
-- [ ] 15b Timeline model + timeline.toml + resolver by UTC instants (DST: spring forward, fall back, repeated hour), chrono + chrono-tz in tests
-- [ ] 15c Timeline runtime (slots: item, pool, random; overrides; tray "Timeline: ... next at HH:MM"); deleting a library item used by the timeline
+- [x] 15b Timeline model + timeline.toml (the plan's format) + resolver by UTC instants, generic over chrono::TimeZone; tests in America/New_York: spring-forward gap, repeated hour fires once, same-instant ties, midnight wrap, empty days, weekly layout
+- [x] 15c Timeline runtime: Rotation mode (Generate/Timeline), 20 s re-evaluation, item/pool (shuffle with no repeat, sequential with positions in state.json)/random slots, slot > item > global choices, manual New wallpaper holds until the next slot, tooltip shows the next slot; deleting a library item the timeline uses asks to remove those slots or use random there
 - [ ] 15d Timeline editor window
 - **Status:** pending
 

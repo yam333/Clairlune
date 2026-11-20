@@ -10,6 +10,7 @@ use egui::{Align, Align2, Layout, Rect, RichText, Sense, Stroke, Ui, vec2};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Section {
+    Rotation,
     Schedule,
     Theme,
     Display,
@@ -22,7 +23,8 @@ pub enum Section {
 }
 
 impl Section {
-    pub const ALL: [Section; 9] = [
+    pub const ALL: [Section; 10] = [
+        Section::Rotation,
         Section::Schedule,
         Section::Theme,
         Section::Display,
@@ -36,6 +38,7 @@ impl Section {
 
     pub fn name(self) -> &'static str {
         match self {
+            Section::Rotation => "Rotation",
             Section::Schedule => "Schedule",
             Section::Theme => "Theme",
             Section::Display => "Display",
@@ -63,6 +66,10 @@ pub struct Status {
     pub start_at_login: Option<bool>,
     /// A one-line result to show under the status (export done, an error).
     pub note: Option<String>,
+    /// Timeline mode: the slot boundary to come ("Next slot at 19:30").
+    pub timeline_next: Option<String>,
+    /// Problems in timeline.toml (missing items, unknown ids).
+    pub timeline_problems: Vec<String>,
 }
 
 /// Requests from the window to the app.
@@ -79,10 +86,18 @@ pub enum UiAction {
     RestoreWallpaper,
     SaveToLibrary,
     OpenLibrary,
+    EditTimeline,
     ApplyLibrary(String),
     UpdateLibrary(Box<crate::library::Item>),
-    DeleteLibrary(String),
-    ExportLibrary { id: String, gif: bool },
+    DeleteLibrary {
+        id: String,
+        /// What the timeline does with slots that show it.
+        forget: crate::timeline::Forget,
+    },
+    ExportLibrary {
+        id: String,
+        gif: bool,
+    },
 }
 
 pub struct ViewState {
@@ -506,6 +521,48 @@ fn page(
     let before = s.clone();
     heading(ui, theme, section.name());
     match section {
+        Section::Rotation => {
+            row(
+                ui,
+                theme,
+                "Mode",
+                "Generate makes a new scene on the schedule. Timeline follows a daily plan of saved wallpapers and random scenes.",
+                |ui| {
+                    segmented(
+                        ui,
+                        theme,
+                        &mut s.rotation.mode,
+                        &[
+                            (crate::settings::RotationMode::Generate, "Generate", true),
+                            (crate::settings::RotationMode::Timeline, "Timeline", true),
+                        ],
+                    );
+                },
+            );
+            row(
+                ui,
+                theme,
+                "Timeline",
+                "Edit the daily plan in timeline.toml for now; the timeline editor comes next.",
+                |ui| {
+                    if ui.button("Edit").clicked() {
+                        actions.push(UiAction::EditTimeline);
+                    }
+                },
+            );
+            if s.rotation.mode == crate::settings::RotationMode::Timeline {
+                if let Some(next) = &status.timeline_next {
+                    ui.label(
+                        RichText::new(next)
+                            .font(style::mono())
+                            .color(c(t.text_secondary)),
+                    );
+                }
+                for p in &status.timeline_problems {
+                    ui.label(RichText::new(p).color(c(t.danger)));
+                }
+            }
+        }
         Section::Schedule => {
             row(
                 ui,

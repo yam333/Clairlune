@@ -15,6 +15,7 @@ mod ipc;
 mod library;
 mod settings;
 mod timefmt;
+mod timeline;
 mod tokens;
 mod tray;
 mod ui;
@@ -33,6 +34,16 @@ use winit::window::WindowId;
 
 /// How often to look for settings edits and system theme changes.
 const CHECK_EVERY: Duration = Duration::from_secs(20);
+
+/// Sequential pool positions and the last pick per slot, kept in
+/// `<data>/state.json` so they survive restarts.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+struct PoolState {
+    #[serde(default)]
+    positions: std::collections::BTreeMap<String, usize>,
+    #[serde(default)]
+    last: std::collections::BTreeMap<String, String>,
+}
 
 enum AppEvent {
     Menu(tray_icon::menu::MenuEvent),
@@ -61,11 +72,25 @@ struct App {
     /// What's on screen, for the Settings window.
     status: ui::view::Status,
     tray: Option<tray::Tray>,
+    /// The daily timeline (Timeline rotation mode), its file and state.
+    timeline: timeline::Timeline,
+    timeline_path: PathBuf,
+    timeline_stamp: Option<SystemTime>,
+    /// The slot start applied last, and when the next one starts.
+    timeline_since: Option<chrono::DateTime<chrono::Utc>>,
+    timeline_next: Option<chrono::DateTime<chrono::Utc>>,
+    /// The timeline's day is empty: the Generate schedule runs.
+    timeline_generate: bool,
+    /// "New wallpaper" during a slot shows a random scene until the next one.
+    manual_until: Option<chrono::DateTime<chrono::Utc>>,
+    pools: PoolState,
     /// The Settings window, while open, and the section it last showed.
     settings_window: Option<ui::UiWindow>,
     /// The Library window, while open, and the items it lists.
     library_window: Option<ui::UiWindow>,
     library_items: Vec<library::Item>,
+    /// Where the timeline uses each library item.
+    library_uses: std::collections::BTreeMap<String, Vec<String>>,
     last_section: ui::view::Section,
     /// `--ui-test`: scripted open/close cycles with screenshots, then exit.
     ui_test: Option<UiTest>,
@@ -98,7 +123,7 @@ impl UiTest {
         let ms = Duration::from_millis;
         let mut steps = Vec::new();
         let cycles = [
-            (Theme::Dark, Section::Schedule, "settings-dark-schedule.png"),
+            (Theme::Dark, Section::Rotation, "settings-dark-rotation.png"),
             (Theme::Light, Section::Content, "settings-light-content.png"),
             (Theme::Dark, Section::General, "settings-dark-general.png"),
         ];
@@ -171,7 +196,15 @@ fn open(path: &Path, text: bool) {
 }
 
 impl App {
+    fn timeline_mode(&self) -> bool {
+        self.settings.rotation.mode == settings::RotationMode::Timeline && !self.timeline.is_empty()
+    }
+
     fn interval(&self) -> Option<Duration> {
+        // In Timeline mode the slots decide, except on an empty day.
+        if self.timeline_mode() && !self.timeline_generate {
+            return None;
+        }
         let m = self.settings.schedule.change_every_minutes;
         (m > 0 && !self.settings.schedule.paused).then(|| Duration::from_secs(u64::from(m) * 60))
     }
@@ -277,8 +310,179 @@ impl App {
         self.settings_stamp = file_stamp(&self.settings_path);
     }
 
+    fn save_pools(&self) {
+        if let Ok(json) = serde_json::to_string_pretty(&self.pools) {
+            let _ = std::fs::write(self.data_dir.join("state.json"), json);
+        }
+    }
+
+    /// Applies the timeline's active slot when it changed (PLAN.md 9b).
+    fn check_timeline(&mut self) {
+        if !self.timeline_mode() {
+            if self.timeline_since.take().is_some() {
+                self.timeline_generate = false;
+                self.reschedule();
+            }
+            return;
+        }
+        let now = chrono::Utc::now();
+        let Some(active) = timeline::resolve(&self.timeline, &chrono::Local, now) else {
+            return;
+        };
+        self.timeline_next = Some(active.next);
+        if let Some(until) = self.manual_until {
+            if now < until {
+                return;
+            }
+            self.manual_until = None;
+        }
+        if self.timeline_since == Some(active.since) || self.busy {
+            return;
+        }
+        self.timeline_since = Some(active.since);
+        match active.pick {
+            timeline::Pick::Generate => {
+                tracing::info!(target: "clairlune", "timeline: empty day, generating");
+                self.timeline_generate = true;
+                self.new_wallpaper();
+                self.reschedule();
+            }
+            timeline::Pick::Slot { weekday, index } => {
+                self.timeline_generate = false;
+                self.next_change = None;
+                self.apply_slot(weekday, index, active.since.timestamp() as u64);
+            }
+        }
+    }
+
+    /// Shows one timeline slot.
+    fn apply_slot(&mut self, weekday: chrono::Weekday, index: usize, seed: u64) {
+        let Some(slot) = self.timeline.day(weekday).get(index).cloned() else {
+            return;
+        };
+        let key = format!("{weekday}-{index}");
+        tracing::info!(target: "clairlune", slot = %key, start = %timeline::format_time(slot.start), "timeline slot");
+        match slot.content {
+            timeline::Content::Item { id } => self.show_library_item(&id, slot.theme, slot.buddy),
+            timeline::Content::Pool { ids, tag, order } => {
+                let items = self.library().map(|l| l.items()).unwrap_or_default();
+                let mut candidates: Vec<String> = ids
+                    .into_iter()
+                    .filter(|id| items.iter().any(|i| &i.id == id))
+                    .collect();
+                if let Some(tag) = tag {
+                    for i in items.iter().filter(|i| i.tags.contains(&tag)) {
+                        if !candidates.contains(&i.id) {
+                            candidates.push(i.id.clone());
+                        }
+                    }
+                }
+                let last = self.pools.last.get(&key).cloned();
+                let position = self.pools.positions.entry(key.clone()).or_default();
+                match timeline::pick_from_pool(&candidates, order, seed, last.as_deref(), position)
+                {
+                    Some(id) => {
+                        self.pools.last.insert(key, id.clone());
+                        self.save_pools();
+                        self.show_library_item(&id, slot.theme, slot.buddy);
+                    }
+                    None => {
+                        tracing::warn!(target: "clairlune", "timeline pool is empty; generating");
+                        self.new_wallpaper();
+                    }
+                }
+            }
+            timeline::Content::Random {
+                archetypes,
+                activities,
+                weather,
+            } => {
+                let mut s = self.settings.clone();
+                if !archetypes.is_empty() {
+                    s.content.archetypes = archetypes;
+                }
+                if !activities.is_empty() {
+                    s.content.activities = activities;
+                }
+                if !weather.is_empty() {
+                    s.content.weather = weather;
+                }
+                match slot.theme {
+                    library::ThemeChoice::Light => s.theme.mode = settings::ThemeMode::Light,
+                    library::ThemeChoice::Dark => s.theme.mode = settings::ThemeMode::Dark,
+                    library::ThemeChoice::Follow => {}
+                }
+                match slot.buddy {
+                    library::BuddyChoice::On => s.buddy.show = true,
+                    library::BuddyChoice::Off => s.buddy.show = false,
+                    library::BuddyChoice::Follow => {}
+                }
+                self.current_theme = None;
+                self.current_buddy = None;
+                self.submit(Job::New {
+                    seed: random_seed(),
+                    settings: Box::new(s),
+                });
+            }
+        }
+    }
+
+    /// Shows a library item; a slot's choices win over the item's, which win
+    /// over the global settings.
+    fn show_library_item(
+        &mut self,
+        id: &str,
+        slot_theme: library::ThemeChoice,
+        slot_buddy: library::BuddyChoice,
+    ) {
+        let Some(lib) = self.library() else {
+            return;
+        };
+        let Some(mut item) = lib.get(id) else {
+            tracing::warn!(target: "clairlune", id, "timeline item is gone; generating");
+            self.new_wallpaper();
+            return;
+        };
+        if slot_theme != library::ThemeChoice::Follow {
+            item.theme = slot_theme;
+        }
+        if slot_buddy != library::BuddyChoice::Follow {
+            item.buddy = slot_buddy;
+        }
+        let (theme, buddy) = Self::library_choices(&item, &self.settings);
+        self.current_theme = theme;
+        self.current_buddy = buddy;
+        self.apply_folder(lib.item_dir(id), theme, buddy, false);
+    }
+
+    /// "New wallpaper" by hand: in Timeline mode it shows until the next slot.
+    fn new_wallpaper_by_hand(&mut self) {
+        if self.timeline_mode() && !self.timeline_generate {
+            self.manual_until = self.timeline_next;
+        }
+        self.new_wallpaper();
+        self.reschedule();
+    }
+
     /// Picks up edits to settings.toml and system theme changes.
     fn check(&mut self) {
+        let tl_stamp = file_stamp(&self.timeline_path);
+        if tl_stamp != self.timeline_stamp {
+            self.timeline_stamp = tl_stamp;
+            match timeline::Timeline::load(&self.timeline_path) {
+                Ok(t) => {
+                    if t != self.timeline {
+                        tracing::info!(target: "clairlune", "timeline changed");
+                        self.timeline = t;
+                        self.timeline_since = None; // apply the active slot afresh
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(target: "clairlune", error = %e, "timeline.toml did not load");
+                    self.status.note = Some(format!("The timeline file has an error: {e}"));
+                }
+            }
+        }
         let stamp = file_stamp(&self.settings_path);
         if stamp != self.settings_stamp {
             self.settings_stamp = stamp;
@@ -297,19 +501,20 @@ impl App {
             }
         }
         let theme = apply::resolve_theme(self.settings.theme.mode);
-        if self.shown_theme.is_some_and(|t| t != theme) && !self.busy {
+        if self.current_theme.is_none()
+            && self.shown_theme.is_some_and(|t| t != theme)
+            && !self.busy
+        {
             tracing::info!(target: "clairlune", theme = theme.as_str(), "theme changed; re-rendering");
             self.reapply(false);
         }
+        self.check_timeline();
     }
 
     fn on_action(&mut self, action: tray::Action, event_loop: &ActiveEventLoop) {
         use tray::Action;
         match action {
-            Action::NewWallpaper => {
-                self.new_wallpaper();
-                self.reschedule();
-            }
+            Action::NewWallpaper => self.new_wallpaper_by_hand(),
             Action::Previous => self.reapply(true),
             Action::Theme(mode) => {
                 self.settings.theme.mode = mode;
@@ -374,6 +579,12 @@ impl App {
 
     fn refresh_library(&mut self) {
         self.library_items = self.library().map(|l| l.items()).unwrap_or_default();
+        self.library_uses = self
+            .library_items
+            .iter()
+            .map(|i| (i.id.clone(), self.timeline.uses(&i.id)))
+            .filter(|(_, u)| !u.is_empty())
+            .collect();
         self.redraw_windows();
     }
 
@@ -470,9 +681,17 @@ impl App {
                     self.reapply(false);
                 }
             }
-            UiAction::DeleteLibrary(id) => {
+            UiAction::DeleteLibrary { id, forget } => {
                 if self.current.as_deref() == Some(lib.item_dir(&id).as_path()) {
                     self.current = None;
+                }
+                if !self.timeline.uses(&id).is_empty() {
+                    self.timeline.forget_item(&id, forget);
+                    if let Err(e) = self.timeline.save(&self.timeline_path) {
+                        tracing::warn!(target: "clairlune", error = %e, "could not save the timeline");
+                    }
+                    self.timeline_stamp = file_stamp(&self.timeline_path);
+                    self.timeline_since = None;
                 }
                 self.status.note = Some(match lib.delete(&id) {
                     Ok(()) => "Deleted from the library.".to_string(),
@@ -519,6 +738,16 @@ impl App {
 
     fn status(&self) -> ui::view::Status {
         let mut s = self.status.clone();
+        s.timeline_next = self.timeline_next.map(|t| {
+            format!(
+                "Next slot at {}",
+                t.with_timezone(&chrono::Local).format("%H:%M")
+            )
+        });
+        s.timeline_problems = match self.library() {
+            Some(lib) => self.timeline.problems(&|id| lib.get(id).is_some()),
+            None => Vec::new(),
+        };
         s.busy = self.busy;
         s.next_in_minutes = self
             .next_change
@@ -542,9 +771,12 @@ impl App {
                 }
                 self.check();
             }
-            UiAction::NewWallpaper => {
-                self.new_wallpaper();
-                self.reschedule();
+            UiAction::NewWallpaper => self.new_wallpaper_by_hand(),
+            UiAction::EditTimeline => {
+                if !self.timeline_path.exists() {
+                    let _ = self.timeline.save(&self.timeline_path);
+                }
+                open(&self.timeline_path, true);
             }
             UiAction::Previous => self.reapply(true),
             UiAction::OpenArchive => open(&self.data_dir.join("archive"), false),
@@ -557,7 +789,7 @@ impl App {
             UiAction::OpenLibrary => self.open_library(event_loop),
             a @ (UiAction::ApplyLibrary(_)
             | UiAction::UpdateLibrary(_)
-            | UiAction::DeleteLibrary(_)
+            | UiAction::DeleteLibrary { .. }
             | UiAction::ExportLibrary { .. }) => self.on_library_action(a),
             UiAction::SaveGif => {
                 self.status.note = Some("Making the GIF...".to_string());
@@ -691,7 +923,13 @@ impl App {
                     }
                     None => archetype.replace('_', " "),
                 };
-                let text = format!("{APP_NAME}: {what} (seed {seed})");
+                let mut text = format!("{APP_NAME}: {what} (seed {seed})");
+                if self.timeline_mode()
+                    && let Some(next) = self.timeline_next
+                {
+                    let local = next.with_timezone(&chrono::Local);
+                    text.push_str(&format!(", next at {}", local.format("%H:%M")));
+                }
                 tracing::debug!(target: "clairlune", monitors, ms, "{text}");
                 self.status.what = what;
                 self.status.seed = Some(seed);
@@ -808,6 +1046,7 @@ impl ApplicationHandler<AppEvent> for App {
             status: &status,
             library: &self.library_items,
             library_dir: &library_dir,
+            uses: &self.library_uses,
         };
         let outcome = w.on_event(&event, &mut model, &mut actions);
         let kind = w.kind();
@@ -1029,6 +1268,7 @@ fn main() {
             .join("settings.toml"),
     };
     let settings = Settings::load(&settings_path);
+    let timeline_path = settings_path.with_file_name("timeline.toml");
     tracing::info!(
         target: "clairlune",
         version = env!("CARGO_PKG_VERSION"),
@@ -1075,6 +1315,10 @@ fn main() {
         tracing::error!(target: "clairlune", error = %e, "no worker thread");
         return;
     }
+    let pools: PoolState = std::fs::read_to_string(data_dir.join("state.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_default();
     let mut app = App {
         settings_stamp: file_stamp(&settings_path),
         settings,
@@ -1089,9 +1333,18 @@ fn main() {
         current_theme: None,
         current_buddy: None,
         tray: None,
+        timeline: timeline::Timeline::load(&timeline_path).unwrap_or_default(),
+        timeline_stamp: file_stamp(&timeline_path),
+        timeline_path,
+        timeline_since: None,
+        timeline_next: None,
+        timeline_generate: false,
+        manual_until: None,
+        pools,
         settings_window: None,
         library_window: None,
         library_items: Vec::new(),
+        library_uses: std::collections::BTreeMap::new(),
         last_section: ui::view::Section::Schedule,
         status: ui::view::Status::default(),
         ui_test: ui_test_out.map(UiTest::new),

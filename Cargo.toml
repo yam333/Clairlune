@@ -43,6 +43,9 @@ wgpu = { version = "30.0.2", default-features = false, features = ["std", "parki
 pollster = "0.4.0"
 # Single instance: a second launch asks the running copy to open Settings.
 interprocess = "2.4.9"
+# Timeline: local times and daylight saving (chrono-tz only in tests).
+chrono = { version = "0.4.45", default-features = false, features = ["std", "clock"] }
+chrono-tz = "0.10.4"
 # Platform layer: the Win32 wallpaper, DPI and known-folder APIs.
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",

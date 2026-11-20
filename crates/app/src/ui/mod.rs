@@ -31,6 +31,8 @@ pub struct Model<'a> {
     pub status: &'a Status,
     pub library: &'a [Item],
     pub library_dir: &'a Path,
+    /// Where the timeline uses each library item ("Monday 07:00").
+    pub uses: &'a std::collections::BTreeMap<String, Vec<String>>,
 }
 
 pub struct UiWindow {
@@ -227,15 +229,7 @@ impl UiWindow {
         }
         let mut full = ctx.run_ui(input, |ui| match kind {
             Kind::Settings => view::show(ui, theme, view, model.settings, model.status, actions),
-            Kind::Library => library_view::show(
-                ui,
-                theme,
-                library,
-                model.library,
-                model.library_dir,
-                model.status,
-                actions,
-            ),
+            Kind::Library => library_view::show(ui, theme, library, model, actions),
         });
         if kind == Kind::Settings && self.view.section != shown {
             // The title names the page (macOS HIG; harmless elsewhere).

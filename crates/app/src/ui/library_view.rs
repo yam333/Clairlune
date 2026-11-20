@@ -54,11 +54,11 @@ pub fn show(
     ui: &mut Ui,
     theme: Theme,
     st: &mut LibraryState,
-    items: &[Item],
-    library_dir: &Path,
-    status: &Status,
+    model: &super::Model,
     actions: &mut Vec<UiAction>,
 ) {
+    let (items, library_dir, uses, status) =
+        (model.library, model.library_dir, model.uses, model.status);
     let t = colors(theme);
     // Forget a selection whose item is gone.
     if let Some(sel) = &st.selected
@@ -78,7 +78,10 @@ pub fn show(
                     .fill(c(t.bg_sidebar))
                     .inner_margin(egui::Margin::symmetric(space::S6 as i8, space::S4 as i8)),
             )
-            .show(ui, |ui| action_bar(ui, theme, st, item, status, actions));
+            .show(ui, |ui| {
+                let used = uses.get(&item.id).map(Vec::as_slice).unwrap_or(&[]);
+                action_bar(ui, theme, st, item, used, status, actions)
+            });
     }
     egui::CentralPanel::default()
         .frame(
@@ -213,6 +216,7 @@ fn action_bar(
     theme: Theme,
     st: &mut LibraryState,
     item: &Item,
+    used: &[String],
     status: &Status,
     actions: &mut Vec<UiAction>,
 ) {
@@ -291,13 +295,32 @@ fn action_bar(
         }
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             if st.confirm_delete {
-                let delete =
-                    egui::Button::new(RichText::new("Delete for good").color(c(t.on_accent)))
+                let danger = |label: &str| {
+                    egui::Button::new(RichText::new(label).color(c(t.on_accent)))
                         .fill(c(t.danger))
-                        .stroke(Stroke::NONE);
-                if ui.add(delete).clicked() {
-                    actions.push(UiAction::DeleteLibrary(item.id.clone()));
-                    st.confirm_delete = false;
+                        .stroke(Stroke::NONE)
+                };
+                let mut delete = |forget| {
+                    actions.push(UiAction::DeleteLibrary {
+                        id: item.id.clone(),
+                        forget,
+                    });
+                };
+                if used.is_empty() {
+                    if ui.add(danger("Delete for good")).clicked() {
+                        delete(crate::timeline::Forget::RemoveSlots);
+                        st.confirm_delete = false;
+                    }
+                } else {
+                    // Never leave the timeline pointing at nothing.
+                    if ui.add(danger("Delete, remove those slots")).clicked() {
+                        delete(crate::timeline::Forget::RemoveSlots);
+                        st.confirm_delete = false;
+                    }
+                    if ui.add(danger("Delete, use random there")).clicked() {
+                        delete(crate::timeline::Forget::UseRandom);
+                        st.confirm_delete = false;
+                    }
                 }
                 if ui.button("Keep").clicked() {
                     st.confirm_delete = false;
@@ -307,6 +330,12 @@ fn action_bar(
             }
         });
     });
+    if st.confirm_delete && !used.is_empty() {
+        ui.add_space(space::S2);
+        ui.label(
+            RichText::new(format!("The timeline uses it: {}.", used.join(", "))).color(c(t.danger)),
+        );
+    }
     if let Some(note) = &status.note {
         ui.add_space(space::S2);
         ui.label(RichText::new(note).color(c(t.text_secondary)));
