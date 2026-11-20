@@ -432,6 +432,14 @@ pub fn process_cpu_time() -> std::time::Duration {
     std::time::Duration::from_nanos((ticks(k) + ticks(u)) * 100)
 }
 
+/// Hands memory the process isn't using back to the system (after a window
+/// closes: what it touched stays resident otherwise).
+pub fn trim_memory() {
+    use windows::Win32::System::ProcessStatus::K32EmptyWorkingSet;
+    use windows::Win32::System::Threading::GetCurrentProcess;
+    let _ = unsafe { K32EmptyWorkingSet(GetCurrentProcess()) };
+}
+
 /// This process's working set (resident memory) in bytes.
 pub fn process_memory() -> u64 {
     use windows::Win32::System::ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};

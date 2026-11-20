@@ -83,6 +83,36 @@ pub struct UiWindow {
     pub screenshot_to: Option<std::path::PathBuf>,
 }
 
+/// The graphics API the system is built around.
+fn native_backends() -> wgpu::Backends {
+    if cfg!(windows) {
+        wgpu::Backends::DX12
+    } else if cfg!(target_os = "macos") {
+        wgpu::Backends::METAL
+    } else {
+        wgpu::Backends::VULKAN | wgpu::Backends::GL
+    }
+}
+
+/// The PCI ids of the GPU driving the primary monitor (Windows).
+fn display_gpu() -> Option<(u32, u32)> {
+    #[cfg(windows)]
+    {
+        let host = clairlune_platform::detect().ok()?;
+        let monitors = host.monitors().ok()?;
+        let primary: Vec<_> = monitors.into_iter().filter(|m| m.primary).collect();
+        clairlune_platform::windows_live::display_adapters(&primary)
+            .into_iter()
+            .flatten()
+            .next()
+            .map(|a| (a.vendor, a.device))
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
 /// What a window event means for the app.
 pub enum Outcome {
     Nothing,
@@ -128,9 +158,35 @@ impl UiWindow {
         style::apply(&ctx, theme);
         let mut config = egui_wgpu::WgpuConfiguration::default();
         if let egui_wgpu::WgpuSetup::CreateNew(setup) = &mut config.wgpu_setup {
-            // The settings window is small and mostly idle: prefer the
-            // integrated GPU and leave the discrete one asleep.
+            // Only the system's own graphics API: probing every API on every
+            // GPU loads each driver into the process (~370 MB that closing
+            // the window never gave back).
+            setup.instance_descriptor.backends = native_backends();
+            // The GPU the monitors are plugged into, which live playback
+            // already uses, so no second driver loads; else a low-power one.
             setup.power_preference = wgpu::PowerPreference::LowPower;
+            if let Some((vendor, device)) = display_gpu() {
+                setup.native_adapter_selector = Some(Arc::new(move |adapters, surface| {
+                    adapters
+                        .iter()
+                        .find(|a| {
+                            let i = a.get_info();
+                            i.vendor == vendor
+                                && i.device == device
+                                && surface.is_none_or(|s| a.is_surface_supported(s))
+                        })
+                        .or_else(|| adapters.first())
+                        .cloned()
+                        .ok_or_else(|| "no graphics adapter".to_string())
+                }));
+            }
+            setup.device_descriptor = Arc::new(|adapter| wgpu::DeviceDescriptor {
+                label: Some("clairlune-ui"),
+                required_limits: wgpu::Limits::downlevel_webgl2_defaults()
+                    .using_resolution(adapter.limits()),
+                memory_hints: wgpu::MemoryHints::MemoryUsage,
+                ..Default::default()
+            });
         }
         let mut painter = pollster::block_on(egui_wgpu::winit::Painter::new(
             ctx.clone(),
