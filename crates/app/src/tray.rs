@@ -54,6 +54,25 @@ pub struct Tray {
     quit: MenuItem,
 }
 
+/// The colour of the mark: macOS gets black, as a template it tints itself
+/// (white on a dark menu bar); elsewhere white, or black on a light taskbar,
+/// where white wouldn't show.
+fn mark_colour() -> [u8; 3] {
+    if cfg!(target_os = "macos") || clairlune_platform::taskbar_is_light() == Some(true) {
+        [0, 0, 0]
+    } else {
+        [255, 255, 255]
+    }
+}
+
+/// The tray mark at the size the system shows it sharp at: 36 on macOS (an
+/// 18-point menu bar icon at 2x), 32 elsewhere.
+fn mark() -> Result<Icon, String> {
+    let size = if cfg!(target_os = "macos") { 36 } else { 32 };
+    Icon::from_rgba(crate::icon::tray_rgba(size, mark_colour()), size, size)
+        .map_err(|e| e.to_string())
+}
+
 impl Tray {
     pub fn new(mode: ThemeMode, paused: bool, live_on: bool) -> Result<Tray, String> {
         let new = MenuItem::new("New wallpaper", true, None);
@@ -103,17 +122,18 @@ impl Tray {
             &quit,
         ])
         .map_err(|e| e.to_string())?;
-        let rgba = crate::icon::moon_rgba(32);
-        let icon = Icon::from_rgba(rgba, 32, 32).map_err(|e| e.to_string())?;
-        let tray = TrayIconBuilder::new()
+        let builder = TrayIconBuilder::new()
             .with_menu(Box::new(menu.clone()))
             // Windows: a double click opens the app, so a single left click
             // mustn't pop the menu up first; the menu is on the right button.
             .with_menu_on_left_click(cfg!(not(windows)))
-            .with_tooltip(clairlune_scene::APP_NAME)
-            .with_icon(icon)
-            .build()
-            .map_err(|e| e.to_string())?;
+            .with_tooltip(clairlune_scene::APP_NAME);
+        // macOS tints a template icon to suit the menu bar.
+        #[cfg(target_os = "macos")]
+        let builder = builder.with_icon_templated(mark()?);
+        #[cfg(not(target_os = "macos"))]
+        let builder = builder.with_icon(mark()?);
+        let tray = builder.build().map_err(|e| e.to_string())?;
         Ok(Tray {
             _icon: tray,
             menu,
@@ -199,6 +219,17 @@ impl Tray {
 
     /// Shows the theme mode as a radio group (check items toggle themselves on
     /// click, so the state is always set from the settings).
+    /// Draws the mark again for the taskbar's colour now (Windows: the
+    /// taskbar turned light or dark).
+    pub fn refresh_mark(&self) {
+        if let Ok(icon) = mark() {
+            #[cfg(target_os = "macos")]
+            let _ = self._icon.set_icon_templated(Some(icon));
+            #[cfg(not(target_os = "macos"))]
+            let _ = self._icon.set_icon(Some(icon));
+        }
+    }
+
     pub fn show_theme(&self, mode: ThemeMode) {
         self.follow.set_checked(mode == ThemeMode::FollowSystem);
         self.light.set_checked(mode == ThemeMode::Light);

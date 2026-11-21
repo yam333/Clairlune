@@ -179,6 +179,8 @@ struct App {
     /// was on when last looked at (turning it on opens System Settings).
     saver_scene: Option<clairlune_scene::saver::SaverScene>,
     saver_on: bool,
+    /// The taskbar's colour when last looked at (the tray mark follows it).
+    taskbar_light: Option<bool>,
     /// The monitors the tray's "New wallpaper on" lists, for a tray made
     /// again after being hidden.
     tray_monitors: Vec<clairlune_platform::Monitor>,
@@ -849,6 +851,14 @@ impl App {
                 tracing::info!(target: "clairlune", "live frame rate too low to scroll; replacing the journey");
                 self.reapply(false);
                 return;
+            }
+        }
+        // The tray mark follows the taskbar's colour (Windows).
+        let light = clairlune_platform::taskbar_is_light();
+        if light != self.taskbar_light {
+            self.taskbar_light = light;
+            if let Some(t) = &self.tray {
+                t.refresh_mark();
             }
         }
         let theme = apply::resolve_theme(&self.settings.theme);
@@ -2481,6 +2491,7 @@ fn main() {
         background,
         saver_scene: None,
         saver_on: false,
+        taskbar_light: clairlune_platform::taskbar_is_light(),
         tray_monitors: Vec::new(),
     };
     if let Err(e) = event_loop.run_app(&mut app) {

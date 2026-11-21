@@ -271,6 +271,19 @@ pub fn set_start_at_login(exe: &Path, enable: bool) -> Result<(), PlatformError>
     }
 }
 
+/// Whether the taskbar (where the tray icon sits) is light, when that is
+/// known: Windows only (macOS tints a template icon itself).
+pub fn taskbar_is_light() -> Option<bool> {
+    #[cfg(windows)]
+    {
+        windows::taskbar_is_light()
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
 /// Whether the system asks apps for a dark appearance, when that is known.
 pub fn system_prefers_dark() -> Option<bool> {
     #[cfg(windows)]
