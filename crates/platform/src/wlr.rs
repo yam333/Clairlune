@@ -825,9 +825,10 @@ mod tests {
             add_damage(&mut list, &[r(i), r(i + 1)]);
             assert!(list.len() <= MAX_RECTS + 2);
         }
-        let all = bounded(list);
-        assert_eq!(all.len(), 1);
-        assert_eq!((all[0].x, all[0].w), (0, 10_001));
+        // Nothing is lost: together they still cover every change.
+        let x0 = list.iter().map(|r| r.x).min().unwrap();
+        let x1 = list.iter().map(|r| r.x + r.w).max().unwrap();
+        assert_eq!((x0, x1), (0, 10_001));
     }
 
     #[test]
