@@ -377,15 +377,16 @@ function COSTUME.beanie(c, p, g)
   c.rect(l, g.top - 1, r - l + 1, 1, P.red_dark)
   c.px(g.ox + s, g.top - 3, P.white) -- pompom
 end
+-- Amber lenses (brass): no colour of their own in the budget.
 function COSTUME.goggles(c, p, g)
   local s = shift(p, g, g.top + 3)
   local l, r = g.ox - g.half + s, g.ox + g.half + s
   c.rect(l, g.top + 2, r - l + 1, 1, P.ink)
   if p.facing == "side" then
-    c.rect(g.ox + 2 + s, g.top + 1, 3, 3, P.glass)
+    c.rect(g.ox + 2 + s, g.top + 1, 3, 3, P.brass)
   else
-    c.rect(g.ox - 5 + s, g.top + 1, 4, 3, P.glass)
-    c.rect(g.ox + 2 + s, g.top + 1, 4, 3, P.glass)
+    c.rect(g.ox - 5 + s, g.top + 1, 4, 3, P.brass)
+    c.rect(g.ox + 2 + s, g.top + 1, 4, 3, P.brass)
   end
 end
 function COSTUME.backpack(c, p, g)

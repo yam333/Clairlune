@@ -1,0 +1,45 @@
+# Flying the broom through the dusk and the night, the land going by below:
+# Clawd keeps to one spot on screen while the hills, woods or dunes slide
+# past at their own speeds, a big still landmark behind (a journey).
+id = "broom_journey"
+weight = 0.8
+
+[requires]
+terrain = ["ridge", "trail", "path", "dune_trail"]
+time_of_day = ["dusk", "deep_dusk", "night"]
+weather = ["none", "stars", "fireflies", "snow"]
+sky = true
+
+# Faster than a walk: the land underfoot is far below.
+[motion]
+type = "journey"
+speed_cells_per_s = [5.5, 7.5]
+screen_x = 0.42
+altitude = 0.36
+
+[character]
+headroom = 8
+
+[animation]
+start = "fly"
+
+[animation.states.fly]
+loop = true
+dwell_s = [6, 12]
+next = { glance = 1.0 }
+
+[animation.states.glance]
+loop = true
+dwell_s = [1.5, 3]
+next = { fly = 1.0 }
+
+[[effects]]
+type = "particles"
+preset = "sparkles"
+at = "item_tip"
+
+[gif]
+loop_script = ["fly", "glance"]
+
+[unattended]
+props = []

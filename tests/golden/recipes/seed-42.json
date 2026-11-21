@@ -5,12 +5,12 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "5f52c591fc9e8699",
-  "activity": "skiing",
-  "archetype": "mountains",
+  "content_ctx_hash": "36af6299a8a6ecbd",
+  "activity": "balloon_ride",
+  "archetype": "night_sky",
   "light_tod": "golden_hour",
-  "dark_tod": "dusk",
-  "platform": "rock_ledge",
+  "dark_tod": null,
+  "platform": "floating_island",
   "props": [],
   "weather": "none",
   "composition": {
@@ -21,8 +21,9 @@
     "platform_margin_pm": 15,
     "cliff_layers": 3,
     "prop_left": true,
-    "motion_speed_cc": 417,
-    "pace_half_pm": 66
+    "motion_speed_cc": 127,
+    "pace_half_pm": 0,
+    "fly_lift_pm": 232
   },
   "palette": {
     "light": "sand_day",

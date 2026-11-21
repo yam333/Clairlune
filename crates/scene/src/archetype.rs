@@ -3,7 +3,7 @@
 //! existing activities and vice versa (PLAN.md section 4.7).
 
 /// Terrain capabilities an archetype can offer.
-pub const TERRAINS: [&str; 13] = [
+pub const TERRAINS: [&str; 14] = [
     "flat",
     "ledge",
     "cliff",
@@ -17,6 +17,7 @@ pub const TERRAINS: [&str; 13] = [
     "ridge",
     "trail",
     "path",
+    "dune_trail",
 ];
 /// Surface materials.
 pub const SURFACES: [&str; 8] = [
@@ -102,7 +103,8 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 10] = [
     ArchetypeInfo {
         id: "desert",
         implemented: true,
-        terrain: &["dune", "slope", "flat"],
+        // `dune_trail`: a periodic variant for journeys over the dunes.
+        terrain: &["dune", "slope", "flat", "dune_trail"],
         surface: &["sand"],
         weather: &["none", "dust", "stars"],
         platforms: &["dune_crest"],

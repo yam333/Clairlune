@@ -5,13 +5,15 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "5f52c591fc9e8699",
-  "activity": "skiing",
-  "archetype": "snowfield",
+  "content_ctx_hash": "36af6299a8a6ecbd",
+  "activity": "paint_easel",
+  "archetype": "forest",
   "light_tod": "golden_hour",
   "dark_tod": "dusk",
-  "platform": "ice_shelf",
-  "props": [],
+  "platform": "log",
+  "props": [
+    "easel"
+  ],
   "weather": "none",
   "composition": {
     "horizon_pm": 696,
@@ -21,8 +23,8 @@
     "platform_margin_pm": 29,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 312,
-    "pace_half_pm": 139
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "paper_day",
