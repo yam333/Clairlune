@@ -1046,45 +1046,6 @@ fn page(
             if s.theme.mode == ThemeMode::Schedule {
                 theme_schedule(ui, theme, s);
             }
-            ui.add_space(space::S4);
-            group(ui, "Look");
-            ui.label(
-                RichText::new(
-                    "Line art draws the land in strokes of text. Dithered draws it as light and dark masses, every character a dot or a bar sized by how bright it is there. Changes apply to the next wallpaper.",
-                )
-                .color(c(t.text_secondary)),
-            );
-            filter_checks(ui, &mut s.content.looks, &LOOKS, &[]);
-            ui.add_space(space::S4);
-            group(ui, "Zoom");
-            ui.label(
-                RichText::new(
-                    "How far back the view stands. Close shows Clawd as he has always been; Wide and Vast make him smaller and the landscape bigger. With more than one on, each wallpaper picks one.",
-                )
-                .color(c(t.text_secondary)),
-            );
-            filter_checks(ui, &mut s.content.zooms, &ZOOMS, &[]);
-            ui.add_space(space::S2);
-            row(
-                ui,
-                theme,
-                "Contrast",
-                "How strong the ink is against the background. Vary picks one for each wallpaper.",
-                |ui| {
-                    use crate::settings::Contrast;
-                    segmented(
-                        ui,
-                        theme,
-                        &mut s.content.contrast,
-                        &[
-                            (Contrast::Soft, "Soft", true),
-                            (Contrast::Normal, "Normal", true),
-                            (Contrast::High, "High", true),
-                            (Contrast::Vary, "Vary", true),
-                        ],
-                    );
-                },
-            );
         }
         Section::Display => {
             use crate::settings::WallpaperMode;
@@ -1257,6 +1218,45 @@ fn page(
             ui.add_space(space::S4);
             group(ui, "Weather");
             filter_checks(ui, &mut s.content.weather, &WEATHER, &CLEAR_WEATHER);
+            ui.add_space(space::S4);
+            group(ui, "Look");
+            ui.label(
+                RichText::new(
+                    "Line art draws the land in strokes of text. Dithered draws it as light and dark masses, every character a dot or a bar sized by how bright it is there.",
+                )
+                .color(c(t.text_secondary)),
+            );
+            filter_checks(ui, &mut s.content.looks, &LOOKS, &[]);
+            ui.add_space(space::S2);
+            row(
+                ui,
+                theme,
+                "Contrast",
+                "How strong the ink is against the background. Vary picks one for each wallpaper.",
+                |ui| {
+                    use crate::settings::Contrast;
+                    segmented(
+                        ui,
+                        theme,
+                        &mut s.content.contrast,
+                        &[
+                            (Contrast::Soft, "Soft", true),
+                            (Contrast::Normal, "Normal", true),
+                            (Contrast::High, "High", true),
+                            (Contrast::Vary, "Vary", true),
+                        ],
+                    );
+                },
+            );
+            ui.add_space(space::S4);
+            group(ui, "Zoom");
+            ui.label(
+                RichText::new(
+                    "How far back the view stands. Close shows Clawd as he has always been; Wide and Vast make him smaller and the landscape bigger. With more than one on, each wallpaper picks one.",
+                )
+                .color(c(t.text_secondary)),
+            );
+            filter_checks(ui, &mut s.content.zooms, &ZOOMS, &[]);
         }
         Section::Archive => {
             row(
