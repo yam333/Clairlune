@@ -484,7 +484,7 @@ mod tests {
         assert_eq!(s.schedule.change_every_minutes, 60);
         assert_eq!(s.theme.mode, ThemeMode::FollowSystem);
         assert!(s.buddy.show);
-        let mode = if cfg!(windows) {
+        let mode = if cfg!(any(windows, target_os = "macos")) {
             WallpaperMode::Live
         } else {
             WallpaperMode::Still
