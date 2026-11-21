@@ -146,8 +146,8 @@ Art-independent core first (10a-10e), then the sheet loader once art exists (10f
 - [x] `dither` look: the painted scene as light and dark masses, each cell a glyph from glyphs::DITHER (`·` `•` `▪` `━` `●` `■`, ordered by measured ink coverage) chosen by brightness with 4x4 Bayer dithering between sizes. Sky: a gradient by time of day (lit from the top or the horizon, seeded) with streaky fbm cloud bands; land dark with haze dots under the ridges (dark theme) or a mid-tone mass (light theme); open water mirrors the sky in streaks of glints (shore); the platform drawn as a lighter foreground and its row under the group kept as drawn; the dome quieter. Ink is light on dark and dark on light. Sky objects that shelter the stars (moon, sun, lighthouse, boats) record the land line under them (Ctx.unsheltered), so they are marks in the sky, not columns of land. Journey strips get the same treatment.
 - [x] Contrast: soft, normal, high, or vary per scene; scales line-art shades and spreads dithered ink.
 - [x] Recipe `look` and `contrast` (absent = line, normal, so saved recipes and scenes keep rendering as before); ContentContext `enabled_looks` (default both) and `contrast`; compose draws them from their own stream. Settings > Theme: Look checkboxes and a Contrast control. CLI `--look`, `--contrast` on generate and contact-sheet.
-- [ ] The user's verdict on the first version (shipping in 0.12.0); then perhaps more ramp variants (blocks, shade characters) and coloured palettes.
-- **Status:** first version done, in 0.12.0
+- [x] The user's verdict (2026-11-21): likes the dithered look as shipped in 0.12.0. Ideas for later: more ramp variants (blocks, shade characters), coloured palettes.
+- **Status:** complete (in 0.12.0; the user likes it)
 
 ### Phase 13: M5 Static wallpaper on all OSes
 - [x] 13a `clairlune-platform` crate: `WallpaperHost` trait (monitors, current, set_static, snapshot, restore), `StillStore` (unique names, prune, first-takeover snapshot), `local_data_dir` without `dirs` (MPL dependency)
