@@ -1,0 +1,79 @@
+name: Mac profile
+
+# What the app costs on a Mac (by hand): it runs the real app on the runner's
+# screen in a few setups and records CPU, memory and a call-stack sample of
+# each. The runner is a throwaway machine, so setting its wallpaper is fine.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    runs-on: macos-latest
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: mac-profile
+      - name: Build
+        run: cargo build --release -p clairlune
+      - name: Screens
+        run: system_profiler SPDisplaysDataType | grep -E "Chipset|Resolution|Metal|Display Type|UI Looks" || true
+      - name: Profile
+        run: |
+          set -u
+          dir="$HOME/Library/Application Support/clairlune"
+          out="$PWD/profile"
+          mkdir -p "$dir" "$out"
+          run() {
+            name="$1"; mode="$2"; activities="$3"; args="$4"
+            pkill -x clairlune 2>/dev/null; sleep 2
+            rm -rf "$dir/logs"
+            cat > "$dir/settings.toml" <<EOF
+          [general]
+          asked_start_at_login = true
+          detailed_logging_until = 0
+
+          [schedule]
+          change_every_minutes = 0
+          change_at_login = true
+
+          [display]
+          mode = "$mode"
+
+          [live]
+          smoothness_fps = 12
+
+          [content]
+          activities = [$activities]
+          EOF
+            ./target/release/clairlune $args > "$out/$name-stdout.txt" 2>&1 &
+            pid=$!
+            sleep 25
+            echo "== $name (pid $pid)" | tee -a "$out/summary.txt"
+            for i in 1 2 3 4 5 6; do
+              ps -o %cpu=,rss= -p "$pid" | awk '{printf "cpu %s%%  rss %.0f MB\n", $1, $2/1024}' | tee -a "$out/summary.txt"
+              sleep 5
+            done
+            sample "$pid" 5 -file "$out/$name-sample.txt" > /dev/null 2>&1 || true
+            footprint "$pid" > "$out/$name-footprint.txt" 2>&1 || true
+            grep -E "phys_footprint:" "$out/$name-footprint.txt" | head -1 | tee -a "$out/summary.txt" || true
+            cp -R "$dir/logs" "$out/$name-logs" 2>/dev/null || true
+            kill "$pid" 2>/dev/null; sleep 2
+          }
+          run still still '"warm_hands"' --background
+          run live-campfire live '"warm_hands"' --background
+          run live-journey live '"broom_journey"' --background
+          run live-settings-open live '"warm_hands"' ""
+          run still-settings-open still '"warm_hands"' ""
+          cat "$out/summary.txt"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: mac-profile
+          path: profile
