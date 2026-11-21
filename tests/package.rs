@@ -152,6 +152,82 @@ fn newer_formats_are_refused() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A saved scene damaged in ways that still parse is an error when loaded,
+/// never a crash when played.
+#[test]
+fn a_damaged_package_is_an_error_not_a_crash() {
+    use serde_json::Value;
+    let ctx = ContentContext {
+        enabled_activities: vec!["warm_hands".into()],
+        ..ContentContext::default()
+    };
+    let r = compose(3, Aspect::from_size(W, H), &ctx);
+    let pkg = ScenePackage::capture(&r, W, H).unwrap();
+    let dir = temp("damaged");
+    pkg.save(&dir).unwrap();
+    let path = dir.join("package.json");
+    let good: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let bump = |v: &mut Value, by: u64| *v = (v.as_u64().unwrap() + by).into();
+    type Edit = Box<dyn Fn(&mut Value)>;
+    let edits: Vec<(&str, Edit)> = vec![
+        (
+            "grid cell width",
+            Box::new(move |v| bump(&mut v["themes"][0]["graph"]["grid"]["cell_w"], 2)),
+        ),
+        (
+            "scene width",
+            Box::new(move |v| bump(&mut v["themes"][0]["graph"]["width"], 64)),
+        ),
+        (
+            "atlas cut short",
+            Box::new(|v| {
+                let m = v["themes"][0]["atlas"]["masks"].as_array_mut().unwrap();
+                m.pop();
+            }),
+        ),
+        (
+            "prop colour",
+            Box::new(|v| {
+                let px = v["props"][0]["pixels"].as_array_mut().unwrap();
+                let p = px.iter_mut().find(|p| !p.is_null()).unwrap();
+                *p = serde_json::json!({ "r": 1, "g": 2, "b": 3 });
+            }),
+        ),
+        (
+            "ember life",
+            Box::new(|v| {
+                let e = &mut v["themes"][0]["graph"]["emitters"][0]["embers"][0];
+                assert!(e.is_object(), "the scene has embers");
+                e["life_ms"] = 0.into();
+            }),
+        ),
+        (
+            "prop size wraps",
+            Box::new(|v| {
+                v["props"][0]["width"] = 65_536.into();
+                v["props"][0]["height"] = 65_536.into();
+                v["props"][0]["pixels"] = Value::Array(Vec::new());
+            }),
+        ),
+        (
+            "frame past the sheet",
+            Box::new(|v| {
+                v["character"][0]["frames"][0]["y"] = u64::from(u32::MAX).into();
+            }),
+        ),
+    ];
+    for (what, edit) in &edits {
+        let mut v = good.clone();
+        edit(&mut v);
+        std::fs::write(&path, serde_json::to_string(&v).unwrap()).unwrap();
+        assert!(ScenePackage::load(&dir).is_err(), "{what}: loaded");
+    }
+    // And the undamaged one still loads.
+    std::fs::write(&path, serde_json::to_string(&good).unwrap()).unwrap();
+    assert!(ScenePackage::load(&dir).is_ok());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A format-1 package committed to the repository must keep playing the same
 /// frames, whatever later versions change in the generator or the art. If this
 /// fails, the player changed what format 1 means: keep the old behaviour for

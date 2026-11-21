@@ -112,12 +112,25 @@ impl GlyphAtlas {
         })
     }
 
-    /// Row-major alpha mask (`cell_w * cell_h`) of a glyph id.
+    /// Whether it is whole glyphs at this cell size, at least the empty one.
+    /// (A saved atlas may have fewer glyphs than today's table: an older one.)
+    pub fn fits(&self, cell_w: u32, cell_h: u32) -> bool {
+        let len = (cell_w as usize).saturating_mul(cell_h as usize);
+        (self.cell_w, self.cell_h) == (cell_w, cell_h)
+            && len > 0
+            && self.masks.len() >= len
+            && self.masks.len().is_multiple_of(len)
+    }
+
+    /// Row-major alpha mask (`cell_w * cell_h`) of a glyph id. A glyph an
+    /// older saved atlas doesn't have draws as the empty cell.
     #[inline]
     pub fn mask(&self, glyph: u8) -> &[u8] {
         let len = (self.cell_w * self.cell_h) as usize;
         let start = glyph as usize * len;
-        &self.masks[start..start + len]
+        self.masks
+            .get(start..start + len)
+            .unwrap_or(&self.masks[..len])
     }
 }
 

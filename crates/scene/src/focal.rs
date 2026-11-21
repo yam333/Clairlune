@@ -285,6 +285,11 @@ pub fn layout(
             } else {
                 ((w as f64 * 0.08) as i32, cx - cw / 2 - margin - cw)
             };
+            // On screen even when a narrow (portrait) one leaves no room
+            // past the pier.
+            let hi = (w as i32 - cw).max(0);
+            let x_min = x_min.clamp(0, hi);
+            let x_max = x_max.clamp(x_min, hi);
             let px_per_s = f64::from(comp.motion_speed_cc) / 100.0 * f64::from(cell_w);
             let period_ms = ((2.0 * f64::from((x_max - x_min).max(0)) / px_per_s.max(1.0)) * 1000.0)
                 .round() as u64;

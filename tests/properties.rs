@@ -114,6 +114,45 @@ proptest! {
     }
 }
 
+/// A boat rowing back and forth stays on screen, even on a narrow portrait
+/// monitor with no room past the pier.
+#[test]
+fn the_rowing_boat_stays_on_screen() {
+    let ctx = clairlune_scene::ContentContext {
+        enabled_activities: vec!["rowing".into()],
+        ..Default::default()
+    };
+    let mut rowed = 0;
+    for (w, h) in [(160, 3000), (180, 900), (270, 480)] {
+        for seed in 0..40 {
+            let r = clairlune_scene::compose(seed, clairlune_scene::Aspect::from_size(w, h), &ctx);
+            if r.activity.as_deref() != Some("rowing") {
+                continue;
+            }
+            rowed += 1;
+            let theme = available_theme(&r, Theme::Dark);
+            let opts = BuildOptions {
+                width: w,
+                height: h,
+                theme,
+                buddy: true,
+            };
+            let g = build(&r, &opts).unwrap();
+            for t in (0..60_000).step_by(1_250) {
+                for s in g.sprites_at(t) {
+                    assert!(
+                        s.x >= 0 && s.x + s.width() as i32 <= w as i32,
+                        "seed {seed} at {w}x{h}, {t} ms: {:?} at x {} off screen",
+                        s.kind,
+                        s.x
+                    );
+                }
+            }
+        }
+    }
+    assert!(rowed > 0, "no rowing scenes to check");
+}
+
 /// The cells whose shape must not change with the theme: line art keeps
 /// everything from the ground row down; the dithered look inks light on
 /// dark and dark on light, so only the ground under the character.

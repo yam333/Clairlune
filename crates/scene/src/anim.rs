@@ -39,7 +39,8 @@ pub fn state_at(
 
     let mut state = activity.animation.start.as_str();
     let mut since = episode * EPISODE_MS;
-    let end = since + EPISODE_MS;
+    // Saturating: the last episode before u64::MAX is cut short.
+    let end = since.saturating_add(EPISODE_MS);
     loop {
         let duration = match activity.animation.states.get(state) {
             Some(def) if def.looping => {
@@ -50,8 +51,8 @@ pub fn state_at(
             _ => one_shot_ms(state).max(1),
         };
         // The episode boundary cuts the last state short; the next episode restarts.
-        let until = (since + duration).min(end);
-        if t_ms < until {
+        let until = since.saturating_add(duration).min(end);
+        if t_ms < until || until == end {
             return StateAt {
                 state: state.to_string(),
                 since_ms: since,
@@ -82,6 +83,17 @@ mod tests {
                 let s = state_at(a, 7, ep * EPISODE_MS, &one_shot);
                 assert_eq!(s.state, a.animation.start, "{}", a.id);
                 assert_eq!(s.since_ms, ep * EPISODE_MS);
+            }
+        }
+    }
+
+    #[test]
+    fn the_end_of_time_is_still_a_state() {
+        let cat = Catalog::builtin();
+        for a in &cat.activities {
+            for t in [u64::MAX, u64::MAX - 1, u64::MAX - EPISODE_MS] {
+                let s = state_at(a, 7, t, &one_shot);
+                assert!(s.since_ms <= t && t <= s.until_ms, "{}", a.id);
             }
         }
     }
