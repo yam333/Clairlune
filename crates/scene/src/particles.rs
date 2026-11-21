@@ -134,7 +134,8 @@ fn calm_ember_set(seed: u64) -> Vec<Ember> {
 /// Offset of an ember at time `t`, in units of height, plus glyph and level.
 fn ember_state(e: &Ember, t_ms: u64) -> Option<(f64, f64, u8, f64)> {
     let life = u64::from(e.life_ms);
-    let age = (t_ms + u64::from(e.phase_ms)) % life;
+    // (Reduced first: no overflow however late `t_ms` is.)
+    let age = (t_ms % life + u64::from(e.phase_ms)) % life;
     let p = age as f64 / life as f64;
     if p >= 0.96 {
         return None;
@@ -148,6 +149,16 @@ fn ember_state(e: &Ember, t_ms: u64) -> Option<(f64, f64, u8, f64)> {
 }
 
 impl Emitter {
+    /// Whether it can play: a damaged saved scene may hold an ember with no
+    /// life or a drop with a glyph that doesn't exist.
+    pub fn is_sound(&self) -> bool {
+        self.embers.iter().all(|e| e.life_ms > 0)
+            && self
+                .drops
+                .iter()
+                .all(|d| usize::from(d.glyph) < crate::glyphs::GLYPHS.len() && d.cycles < u32::MAX)
+    }
+
     /// All live particles at time `t`, in pixels.
     pub fn sample(&self, t_ms: u64) -> Vec<Particle> {
         match self.kind {

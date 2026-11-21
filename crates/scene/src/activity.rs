@@ -274,6 +274,15 @@ pub fn int_weight(w: f64) -> u32 {
     (w * 1000.0).round().max(0.0) as u32
 }
 
+/// The largest weight a file may give (picks multiply weights).
+pub const MAX_WEIGHT: f64 = 1000.0;
+
+/// A weight from a file that picks can use: at least 0.001 (it rounds to a
+/// whole thousandth) and at most `MAX_WEIGHT`.
+fn usable_weight(w: f64) -> bool {
+    w <= MAX_WEIGHT && int_weight(w) > 0
+}
+
 fn overlaps(need: &[String], offer: &[&str]) -> bool {
     need.is_empty() || need.iter().any(|n| offer.contains(&n.as_str()))
 }
@@ -320,13 +329,27 @@ impl Activity {
         }
     }
 
+    /// Whether the state machine can run: every state that goes on has a
+    /// way to go. Looser than [`validate`](Self::validate), which also holds
+    /// art and names to today's rules, for activities saved in older scenes.
+    pub fn playable(&self) -> bool {
+        self.animation.states.values().all(|s| {
+            s.next.is_empty()
+                || s.next
+                    .values()
+                    .map(|w| u64::from(int_weight(*w)))
+                    .sum::<u64>()
+                    > 0
+        })
+    }
+
     /// Every rule from PLAN.md section 4.7 that can be checked without sprites.
     pub fn validate(&self) -> Vec<String> {
         let mut errs = Vec::new();
         let id = &self.id;
         let mut err = |m: String| errs.push(format!("{id}: {m}"));
-        if self.weight.is_nan() || self.weight <= 0.0 {
-            err("weight must be positive".into());
+        if !usable_weight(self.weight) {
+            err(format!("weight must be between 0.001 and {MAX_WEIGHT}"));
         }
         for t in &self.requires.terrain {
             if !TERRAINS.contains(&t.as_str()) {
@@ -358,9 +381,9 @@ impl Activity {
                 if !states.contains_key(to) {
                     err(format!("state `{name}` goes to undefined state `{to}`"));
                 }
-                if w.is_nan() || *w <= 0.0 {
+                if !usable_weight(*w) {
                     err(format!(
-                        "state `{name}`: weight for `{to}` must be positive"
+                        "state `{name}`: weight for `{to}` must be between 0.001 and {MAX_WEIGHT}"
                     ));
                 }
             }
@@ -619,7 +642,7 @@ mod tests {
             start = "idle"
             [animation.states.idle]
             loop = true
-            next = { nowhere = 1.0 }
+            next = { nowhere = 1.0, idle = 0.0001 }
             [gif]
             loop_script = ["sit"]
             [unattended]
@@ -637,6 +660,7 @@ mod tests {
             "unattended.props is empty",
             "pace motion needs speed",
             "must start with the start state",
+            "weight for `idle` must be between 0.001",
         ] {
             assert!(all.contains(needle), "missing `{needle}` in:\n{all}");
         }
