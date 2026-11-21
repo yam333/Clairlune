@@ -23,6 +23,7 @@ mod timeline;
 mod tokens;
 mod tray;
 mod ui;
+mod update;
 
 use apply::{Done, Job};
 use clairlune_scene::{APP_NAME, Theme};
@@ -79,6 +80,8 @@ enum AppEvent {
     Done(Done),
     /// A second launch asked for Settings.
     OpenSettings,
+    /// The update check's answer.
+    UpdateChecked(Result<update::Release, String>),
     /// The live metronome: a frame may be due. It arrives even while one
     /// of the app's windows is dragged or resized (Windows runs its own
     /// message loop then, and winit's timers stop; user events still come).
@@ -91,6 +94,13 @@ struct App {
     settings_stamp: Option<SystemTime>,
     data_dir: PathBuf,
     jobs: mpsc::Sender<Job>,
+    /// For threads that report back (the update check).
+    proxy: EventLoopProxy<AppEvent>,
+    /// What the last update check found, and whether one is running (and
+    /// was asked for by hand: then its answer shows even when it's "up to
+    /// date").
+    update: update::UpdateState,
+    checking_updates: Option<bool>,
     busy: bool,
     /// When the schedule next changes the wallpaper (None: only on demand).
     next_change: Option<Instant>,
@@ -319,6 +329,26 @@ fn open(path: &Path, text: bool) {
     };
     if let Err(e) = cmd.arg(path).spawn() {
         tracing::warn!(target: "clairlune", path = %path.display(), error = %e, "could not open");
+    }
+}
+
+/// Opens a web page in the default browser.
+fn open_url(url: &str) {
+    #[cfg(windows)]
+    let mut cmd = {
+        // `start` is a cmd builtin; the empty title keeps the URL as the target.
+        let mut c = std::process::Command::new("cmd");
+        c.args(["/C", "start", ""]);
+        use std::os::windows::process::CommandExt;
+        c.creation_flags(0x0800_0000);
+        c
+    };
+    #[cfg(target_os = "macos")]
+    let mut cmd = std::process::Command::new("open");
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let mut cmd = std::process::Command::new("xdg-open");
+    if let Err(e) = cmd.arg(url).spawn() {
+        tracing::warn!(target: "clairlune", url, error = %e, "could not open");
     }
 }
 
@@ -777,8 +807,63 @@ impl App {
         self.reschedule();
     }
 
+    /// Starts an update check on a thread; its answer comes back as an
+    /// event. `by_hand`: asked for in Settings.
+    fn check_updates(&mut self, by_hand: bool) {
+        if self.checking_updates.is_some() || self.ui_test.is_some() {
+            return;
+        }
+        self.checking_updates = Some(by_hand);
+        let proxy = self.proxy.clone();
+        let started = std::thread::Builder::new()
+            .name("clairlune-update".into())
+            .spawn(move || {
+                let _ = proxy.send_event(AppEvent::UpdateChecked(update::fetch()));
+            });
+        if started.is_err() {
+            self.checking_updates = None;
+        }
+    }
+
+    fn on_update_checked(&mut self, result: Result<update::Release, String>) {
+        let by_hand = self.checking_updates.take().unwrap_or(false);
+        let now = timefmt::now_unix();
+        match result {
+            Ok(r) => {
+                tracing::info!(target: "clairlune", latest = %r.version, "update check");
+                self.update = update::UpdateState {
+                    checked: now,
+                    latest: Some(r.version),
+                    url: Some(r.url),
+                };
+                self.status.update_note = Some(match self.update.newer() {
+                    Some(v) => format!("Clairlune {v} is out"),
+                    None => format!("Clairlune {} is up to date", env!("CARGO_PKG_VERSION")),
+                });
+            }
+            Err(e) => {
+                tracing::warn!(target: "clairlune", error = %e, "update check failed");
+                // Tried: the next try is in a few hours, not at once.
+                self.update.checked = now.saturating_sub(update::EVERY_SECS - 3 * 3600);
+                if by_hand {
+                    self.status.update_note = Some(format!("Couldn't check: {e}"));
+                }
+            }
+        }
+        self.update.save(&self.data_dir);
+        if let Some(t) = &self.tray {
+            t.show_update(self.update.newer());
+        }
+        if let Some(w) = &self.settings_window {
+            w.request_redraw();
+        }
+    }
+
     /// Picks up edits to settings.toml and system theme changes.
     fn check(&mut self) {
+        if self.settings.general.check_updates && self.update.due(timefmt::now_unix()) {
+            self.check_updates(false);
+        }
         let until = self.settings.general.detailed_logging_until;
         if until != 0 && until <= timefmt::now_unix() {
             self.settings.general.detailed_logging_until = 0;
@@ -916,6 +1001,7 @@ impl App {
             Action::OpenTimeline => self.open_timeline(event_loop),
             Action::OpenArchive => self.open_archive(event_loop),
             Action::OpenSettings => self.open_settings(event_loop, None),
+            Action::OpenUpdate => self.open_update(),
             Action::Quit => event_loop.exit(),
         }
     }
@@ -1293,6 +1379,13 @@ impl App {
 
     fn status(&self) -> ui::view::Status {
         let mut s = self.status.clone();
+        s.checking_updates = self.checking_updates.is_some();
+        s.update_url = self.update.newer().and(self.update.url.clone());
+        if s.update_note.is_none()
+            && let Some(v) = self.update.newer()
+        {
+            s.update_note = Some(format!("Clairlune {v} is out"));
+        }
         s.crash_reports = diagnostics::crash_reports(&self.data_dir).len();
         let until = self.settings.general.detailed_logging_until;
         s.detailed_until = (until > timefmt::now_unix()).then(|| {
@@ -1423,6 +1516,11 @@ impl App {
                 }
             }
             UiAction::Quit => event_loop.exit(),
+            UiAction::CheckUpdates => {
+                self.status.update_note = None;
+                self.check_updates(true);
+            }
+            UiAction::OpenUpdate => self.open_update(),
             UiAction::SetStartAtLogin(on) => {
                 let result = std::env::current_exe()
                     .map_err(|e| e.to_string())
@@ -1647,6 +1745,12 @@ impl App {
         }
     }
 
+    /// The newer version's release page, in the browser.
+    fn open_update(&self) {
+        let url = self.update.url.as_deref().unwrap_or(update::RELEASES_PAGE);
+        open_url(url);
+    }
+
     /// Hands the scene on screen to the screen saver, when it's on.
     fn write_saver_scene(&self) {
         if !self.settings.general.screen_saver || !cfg!(target_os = "macos") {
@@ -1669,6 +1773,13 @@ impl App {
     /// the settings say. Hidden, the app runs on; opening it again (a
     /// second launch) brings up Settings.
     fn sync_tray(&mut self) {
+        self.sync_tray_inner();
+        if let Some(t) = &self.tray {
+            t.show_update(self.update.newer());
+        }
+    }
+
+    fn sync_tray_inner(&mut self) {
         let want = self.settings.general.show_tray_icon;
         if !want {
             if self.tray.take().is_some() {
@@ -2018,6 +2129,7 @@ impl ApplicationHandler<AppEvent> for App {
             }
             AppEvent::Done(d) => self.on_done(d),
             AppEvent::OpenSettings => self.open_settings(event_loop, None),
+            AppEvent::UpdateChecked(r) => self.on_update_checked(r),
             AppEvent::LiveFrame => {
                 let next = self.live.tick(Instant::now());
                 self.set_metronome(next.is_some());
@@ -2383,6 +2495,8 @@ fn main() {
         }
     }
     let metronome_proxy = proxy.clone();
+    let app_proxy = proxy.clone();
+    let update_state = update::UpdateState::load(&data_dir);
     let (jobs, rx) = mpsc::channel();
     let archive_dir = data_dir.join("archive");
     // The UI test never touches the wallpaper, so it runs without a worker.
@@ -2452,6 +2566,9 @@ fn main() {
         settings_path,
         data_dir,
         jobs,
+        proxy: app_proxy,
+        update: update_state,
+        checking_updates: None,
         busy: false,
         next_change: None,
         next_check: Instant::now() + CHECK_EVERY,

@@ -65,6 +65,11 @@ pub struct Status {
     pub ask_start_at_login: bool,
     /// macOS: this copy carries the screen saver (from the DMG or Homebrew).
     pub saver_available: bool,
+    /// What the update check says (up to date, a newer version, an error),
+    /// and the newer version's page.
+    pub update_note: Option<String>,
+    pub update_url: Option<String>,
+    pub checking_updates: bool,
     /// A one-line result to show under the status (export done, an error).
     pub note: Option<String>,
     /// Timeline mode: the slot boundary to come ("Next slot at 19:30").
@@ -97,6 +102,8 @@ pub enum UiAction {
     SetStartAtLogin(bool),
     /// The first-run question's answer: start quietly at sign-in or not.
     AnswerStartAtLogin(bool),
+    CheckUpdates,
+    OpenUpdate,
     Quit,
     RestoreWallpaper,
     SaveToLibrary,
@@ -1425,6 +1432,37 @@ fn page(
                     toggle(ui, theme, &mut s.general.show_tray_icon, icon_name);
                 },
             );
+            row(
+                ui,
+                theme,
+                "Check for updates",
+                "Once a day, Clairlune asks GitHub whether a newer version is out. Nothing about you is sent.",
+                |ui| {
+                    toggle(ui, theme, &mut s.general.check_updates, "Check for updates");
+                },
+            );
+            ui.horizontal(|ui| {
+                let label = if status.checking_updates {
+                    "Checking\u{2026}"
+                } else {
+                    "Check now"
+                };
+                if ui
+                    .add_enabled(!status.checking_updates, egui::Button::new(label))
+                    .clicked()
+                {
+                    actions.push(UiAction::CheckUpdates);
+                }
+                if status.update_url.is_some() && primary_button(ui, theme, "Download").clicked() {
+                    actions.push(UiAction::OpenUpdate);
+                }
+                let note = status
+                    .update_note
+                    .clone()
+                    .unwrap_or_else(|| format!("Clairlune {}", env!("CARGO_PKG_VERSION")));
+                ui.label(RichText::new(note).color(c(t.text_secondary)));
+            });
+            ui.add_space(space::S4);
             if cfg!(target_os = "macos") {
                 if status.saver_available {
                     row(

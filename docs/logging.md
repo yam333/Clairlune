@@ -8,7 +8,7 @@ Goal: when something looks wrong (a broken scene, a stutter, a wallpaper that di
 2. **Decisions are logged, not just errors.** Generated content fails in surprising ways, so composition logs why it picked what it picked: fallbacks, theme locks, missing art falling back to the placeholder.
 3. **Structured, not prose.** Fields are key-value (`tracing`), so logs can be filtered and diffed. Files are JSON lines.
 4. **Logging never changes output.** The generator stays deterministic; nothing it logs feeds back into it.
-5. **Private by default.** No user names, paths inside the home folder are shortened to `~`, no network. Logs stay on the machine unless the user exports a diagnostic bundle.
+5. **Private by default.** No user names, paths inside the home folder are shortened to `~`, no network (the update check sends nothing about the user and logs only the version it found). Logs stay on the machine unless the user exports a diagnostic bundle.
 
 ## Levels
 

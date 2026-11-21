@@ -2,7 +2,7 @@
 
 Procedural, animated ASCII-art desktop wallpapers, written in Rust.
 
-Each wallpaper is a landscape made of text characters, with a small pixel-art Clawd doing something in it and a few things moving: embers, snow, stars. Everything is generated on your computer from a seed, and the same seed gives the same picture everywhere. There's no AI and nothing goes online.
+Each wallpaper is a landscape made of text characters, with a small pixel-art Clawd doing something in it and a few things moving: embers, snow, stars. Everything is generated on your computer from a seed, and the same seed gives the same picture everywhere. There's no AI and nothing about you goes online: the one request Clairlune makes is a once-a-day check on GitHub for a newer version, which you can turn off in Settings -> General.
 
 ![Nine generated wallpapers, one per landscape, in dark and light themes](docs/img/showcase.png)
 

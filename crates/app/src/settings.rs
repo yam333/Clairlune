@@ -35,6 +35,8 @@ pub struct General {
     /// macOS: the scene on screen is the screen saver too (Clairlune's
     /// saver installed in ~/Library/Screen Savers).
     pub screen_saver: bool,
+    /// Once a day, ask GitHub whether a newer version is out.
+    pub check_updates: bool,
 }
 
 impl Default for General {
@@ -44,6 +46,7 @@ impl Default for General {
             show_tray_icon: true,
             asked_start_at_login: false,
             screen_saver: false,
+            check_updates: true,
         }
     }
 }
