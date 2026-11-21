@@ -1,0 +1,133 @@
+name: Update check
+
+# One-click updates for real (crates/app/src/install.rs): on each OS the
+# latest release is installed the way people install it, this build is put
+# in its place (so it is the copy that updates), and `clairlune
+# --install-latest` downloads the release again, checks it and swaps it in
+# through the same helper the app uses. The copy on disk must end up being
+# the release's. The runners are throwaway machines.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["crates/app/src/install.rs", "crates/app/src/update.rs", ".github/workflows/update-check.yml"]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: update-check
+      - name: Build
+        run: cargo build --release -p clairlune
+      - name: Install the latest release with its setup.exe, then this build over it
+        shell: pwsh
+        run: |
+          $v = (gh release view --repo yam333/Clairlune --json tagName --jq .tagName).TrimStart('v')
+          gh release download "v$v" --repo yam333/Clairlune --pattern "clairlune_${v}_x64-setup.exe" --pattern "clairlune_${v}_x64-portable.zip" --dir rel
+          Start-Process -FilePath "rel/clairlune_${v}_x64-setup.exe" -ArgumentList '/S' -Wait
+          $dir = "$env:LOCALAPPDATA\Clairlune"
+          Get-ChildItem $dir | Format-Table Name, Length
+          Expand-Archive "rel/clairlune_${v}_x64-portable.zip" -DestinationPath rel/portable
+          $want = (Get-FileHash rel/portable/clairlune.exe -Algorithm SHA256).Hash
+          Copy-Item target/release/clairlune.exe "$dir\clairlune.exe" -Force
+          if ((Get-FileHash "$dir\clairlune.exe").Hash -eq $want) { throw "this build is the release itself" }
+          "WANT=$want" >> $env:GITHUB_ENV
+      - name: Update in place
+        shell: pwsh
+        run: |
+          $dir = "$env:LOCALAPPDATA\Clairlune"
+          $p = Start-Process -FilePath "$dir\clairlune.exe" -ArgumentList '--install-latest' -Wait -PassThru -NoNewWindow
+          "exit code $($p.ExitCode)"
+          if ($p.ExitCode -ne 0) { throw "--install-latest failed" }
+          $h = ""
+          for ($i = 0; $i -lt 90 -and $h -ne $env:WANT; $i++) {
+            Start-Sleep -Seconds 2
+            $h = (Get-FileHash "$dir\clairlune.exe" -ErrorAction SilentlyContinue).Hash
+          }
+          if ($h -ne $env:WANT) { throw "clairlune.exe wasn't replaced by the release's" }
+          "updated in place after about $($i * 2) s"
+          Get-ChildItem "$env:LOCALAPPDATA\clairlune\logs" -ErrorAction SilentlyContinue | Get-Content -Tail 15
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: update-check
+      - name: Build
+        run: cargo build --release -p clairlune
+      - name: Install the latest release from its DMG, then this build in the app
+        run: |
+          set -euo pipefail
+          v=$(gh release view --repo yam333/Clairlune --json tagName --jq .tagName); v=${v#v}
+          gh release download "v$v" --repo yam333/Clairlune --pattern "Clairlune_${v}_aarch64.dmg" --dir rel
+          mnt=$(mktemp -d)
+          hdiutil attach "rel/Clairlune_${v}_aarch64.dmg" -mountpoint "$mnt" -nobrowse -readonly
+          rm -rf /Applications/Clairlune.app
+          ditto "$mnt/Clairlune.app" /Applications/Clairlune.app
+          hdiutil detach "$mnt"
+          ls /Applications/Clairlune.app/Contents/MacOS
+          want=$(shasum -a 256 /Applications/Clairlune.app/Contents/MacOS/clairlune | cut -d' ' -f1)
+          cp target/release/clairlune /Applications/Clairlune.app/Contents/MacOS/clairlune
+          echo "WANT=$want" >> "$GITHUB_ENV"
+          echo "VERSION=$v" >> "$GITHUB_ENV"
+      - name: Update in place
+        run: |
+          app=/Applications/Clairlune.app
+          "$app/Contents/MacOS/clairlune" --install-latest
+          h=""
+          for i in $(seq 1 60); do
+            sleep 2
+            h=$(shasum -a 256 "$app/Contents/MacOS/clairlune" 2>/dev/null | cut -d' ' -f1 || true)
+            [ "$h" = "$WANT" ] && break
+          done
+          [ "$h" = "$WANT" ] || { echo "the app wasn't replaced by the release's"; exit 1; }
+          echo "updated in place after about $((i * 2)) s"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          [ "$(defaults read "$app/Contents/Info.plist" CFBundleShortVersionString)" = "$VERSION" ]
+          ls -la /Applications | grep -i clairlune
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: update-check
+      - name: Build
+        run: cargo build --release -p clairlune
+      # An AppImage's runtime names the file it runs from in APPIMAGE; here
+      # this build stands in for it, beside a copy of the old file.
+      - name: Update an AppImage in place
+        run: |
+          set -euo pipefail
+          v=$(gh release view --repo yam333/Clairlune --json tagName --jq .tagName); v=${v#v}
+          gh release download "v$v" --repo yam333/Clairlune --pattern "clairlune_${v}_x86_64.AppImage" --dir rel
+          want=$(sha256sum "rel/clairlune_${v}_x86_64.AppImage" | cut -d' ' -f1)
+          mkdir -p apps
+          printf 'old' > apps/Clairlune.AppImage
+          APPIMAGE="$PWD/apps/Clairlune.AppImage" ./target/release/clairlune --install-latest
+          h=""
+          for i in $(seq 1 60); do
+            sleep 2
+            h=$(sha256sum apps/Clairlune.AppImage | cut -d' ' -f1)
+            [ "$h" = "$want" ] && break
+          done
+          [ "$h" = "$want" ] || { echo "the AppImage wasn't replaced by the release's"; exit 1; }
+          [ -x apps/Clairlune.AppImage ]
+          ls -la apps
+          echo "updated in place after about $((i * 2)) s"

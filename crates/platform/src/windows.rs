@@ -32,6 +32,22 @@ pub(crate) fn attach_parent_console() {
     let _ = unsafe { AttachConsole(ATTACH_PARENT_PROCESS) };
 }
 
+/// Opens a web page in the default browser through the shell (no command
+/// prompt in between to read `&` or `%` in the link).
+pub(crate) fn open_url(url: &str) -> Result<(), String> {
+    use ::windows::Win32::UI::Shell::ShellExecuteW;
+    use ::windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    let file = HSTRING::from(url);
+    let r = unsafe { ShellExecuteW(None, w!("open"), &file, None, None, SW_SHOWNORMAL) };
+    // Above 32 is success; the rest are error codes.
+    let code = r.0 as isize;
+    if code > 32 {
+        Ok(())
+    } else {
+        Err(format!("the shell couldn't open it (code {code})"))
+    }
+}
+
 pub(crate) fn init_dpi_awareness() {
     // Fails harmlessly when already set (by a manifest or an earlier call).
     let _ = unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };

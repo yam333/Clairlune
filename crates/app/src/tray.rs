@@ -26,7 +26,7 @@ pub enum Action {
     OpenTimeline,
     OpenArchive,
     OpenSettings,
-    /// The newer version's release page.
+    /// The newer version: install it, or open its release page.
     OpenUpdate,
     Quit,
 }
@@ -226,15 +226,17 @@ impl Tray {
         }
     }
 
-    /// Shows the theme mode as a radio group (check items toggle themselves on
-    /// click, so the state is always set from the settings).
-    /// Shows "Update available: <version>" at the top of the menu, or takes
-    /// it away (`None`).
-    pub fn show_update(&self, version: Option<&str>) {
+    /// Shows the newer version at the top of the menu ("Update to 0.16.0"
+    /// where a click installs it, "Clairlune 0.16.0 is out" where it opens
+    /// the release page), or takes it away (`None`).
+    pub fn show_update(&self, version: Option<&str>, in_place: bool) {
         match version {
             Some(v) => {
-                self.update
-                    .set_text(format!("Update available: {v}\u{2026}"));
+                self.update.set_text(if in_place {
+                    format!("Update to {v}\u{2026}")
+                } else {
+                    format!("Clairlune {v} is out\u{2026}")
+                });
                 if !self.update_shown.get() {
                     let _ = self.menu.insert(&self.update, 0);
                     self.update_shown.set(true);
@@ -260,6 +262,8 @@ impl Tray {
         }
     }
 
+    /// Shows the theme mode as a radio group (check items toggle themselves on
+    /// click, so the state is always set from the settings).
     pub fn show_theme(&self, mode: ThemeMode) {
         self.follow.set_checked(mode == ThemeMode::FollowSystem);
         self.light.set_checked(mode == ThemeMode::Light);

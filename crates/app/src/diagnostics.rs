@@ -190,6 +190,22 @@ pub fn prune_logs(dir: &Path, cap: u64) -> usize {
     removed
 }
 
+/// The last `n` lines logged, with the home folder written as `~`.
+pub fn recent_lines(n: usize) -> Vec<String> {
+    let home = home();
+    LINES
+        .lock()
+        .map(|lines| {
+            let skip = lines.len().saturating_sub(n);
+            lines
+                .iter()
+                .skip(skip)
+                .map(|l| tilde(l, home.as_deref()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// The home folder, for shortening paths to `~`.
 pub fn home() -> Option<String> {
     std::env::var("USERPROFILE")

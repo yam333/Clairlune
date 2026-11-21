@@ -89,6 +89,8 @@ smithay-client-toolkit = { version = "0.20.0", default-features = false }
 x11rb = { version = "0.13.2", default-features = false, features = ["randr", "shape"] }
 libc = "0.2.191"
 tracing = "0.1.44"
+# Checking update downloads against the SHA-256 GitHub lists.
+sha2 = { version = "0.10.9", default-features = false }
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["std", "fmt", "ansi", "env-filter", "json", "registry"] }
 proptest = "1.12.0"
 

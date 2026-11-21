@@ -311,6 +311,27 @@ pub fn init_dpi_awareness() {
     windows::init_dpi_awareness();
 }
 
+/// Opens a web page in the default browser (`&` and `%` in it are safe).
+pub fn open_url(url: &str) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        windows::open_url(url)
+    }
+    #[cfg(not(windows))]
+    {
+        let opener = if cfg!(target_os = "macos") {
+            "open"
+        } else {
+            "xdg-open"
+        };
+        std::process::Command::new(opener)
+            .arg(url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
+}
+
 /// Lets a GUI-built exe print to the terminal it was started from (Windows;
 /// elsewhere the process already shares it).
 #[cfg(windows)]

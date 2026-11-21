@@ -32,6 +32,8 @@ const HEALTH_CHECK: Duration = Duration::from_secs(1);
 pub struct Live {
     /// What's on screen, to play (and to play again after a restart).
     scenes: Vec<LiveScene>,
+    /// Monitors (by id) kept on the still frame.
+    still_monitors: Vec<String>,
     enabled: bool,
     fps: u32,
     /// What a maximized or full-screen app pauses.
@@ -92,6 +94,7 @@ impl Live {
     pub fn new(enabled: bool, fps: u32) -> Live {
         Live {
             scenes: Vec::new(),
+            still_monitors: Vec::new(),
             enabled: enabled && supported().is_ok(),
             fps: fps.clamp(1, 60),
             cover_pause: crate::settings::CoverPause::default(),
@@ -119,7 +122,7 @@ impl Live {
             frames: self.frames,
             busy: self.busy,
             worst: self.worst,
-            monitors: if playing { self.scenes.len() } else { 0 },
+            monitors: if playing { self.playing().count() } else { 0 },
             fps: if playing { self.effective_fps() } else { 0 },
         };
         self.frames = 0;
@@ -170,6 +173,21 @@ impl Live {
             self.enabled = on;
             self.restart();
         }
+    }
+
+    /// Monitors (by id) that keep the still frame while the others play.
+    pub fn set_still_monitors(&mut self, ids: Vec<String>) {
+        if ids != self.still_monitors {
+            self.still_monitors = ids;
+            self.restart();
+        }
+    }
+
+    /// The scenes that play (not on a monitor kept still).
+    fn playing(&self) -> impl Iterator<Item = &LiveScene> {
+        self.scenes
+            .iter()
+            .filter(|s| !self.still_monitors.contains(&s.monitor.id))
     }
 
     pub fn set_fps(&mut self, fps: u32) {
@@ -241,9 +259,12 @@ impl Live {
     #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
     fn start(&mut self) {
         use clairlune_live::Player;
+        if self.playing().next().is_none() {
+            self.status = Some("Every monitor shows the still frame (Settings, Display).".into());
+            return;
+        }
         let players: Option<Vec<_>> = self
-            .scenes
-            .iter()
+            .playing()
             .map(|s| {
                 match s.view {
                     Some(v) => Player::new_view(s.package.clone(), s.theme, s.buddy, v),
@@ -259,7 +280,7 @@ impl Live {
         match Host::start(players) {
             Ok(mut desktop) => {
                 desktop.cover_policy = cover_policy(self.cover_pause);
-                let n = self.scenes.len();
+                let n = self.playing().count();
                 let capped = if desktop.max_fps() < self.fps {
                     format!(" (at most {} fps here)", desktop.max_fps())
                 } else {

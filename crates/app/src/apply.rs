@@ -326,23 +326,34 @@ fn scenes(
     recent: &mut Recent,
     want: &Want,
 ) -> (u64, Vec<SceneRecipe>, bool) {
-    let mut ctx = settings.content_context();
-    // Only scenes that happen in the theme they'll be shown in: no daytime
-    // scene on a dark desktop.
-    ctx.theme = Some(want.theme);
-    // No scrolling scenes at a frame rate too low to scroll smoothly.
-    if !want.scrolling {
-        let catalog = clairlune_scene::activity::builtin_catalog();
-        ctx.enabled_activities.retain(|id| {
-            catalog
-                .get(id)
-                .is_none_or(|a| a.motion.kind != clairlune_scene::activity::MotionKind::Journey)
-        });
-    }
+    // What a monitor's new scene picks from: its own choices or the ones
+    // for all (a span is one scene: the ones for all).
+    let context = |m: &Monitor| {
+        let mut ctx = if want.focus_pm.is_some() {
+            settings.content_context()
+        } else {
+            settings.content_context_for(&m.id)
+        };
+        // Only scenes that happen in the theme they'll be shown in: no
+        // daytime scene on a dark desktop.
+        ctx.theme = Some(want.theme);
+        // No scrolling scenes at a frame rate too low to scroll smoothly
+        // (a monitor kept on the still frame shows them still).
+        if !want.scrolling && !settings.still_only(&m.id) {
+            let catalog = clairlune_scene::activity::builtin_catalog();
+            ctx.enabled_activities.retain(|id| {
+                catalog
+                    .get(id)
+                    .is_none_or(|a| a.motion.kind != clairlune_scene::activity::MotionKind::Journey)
+            });
+        }
+        ctx
+    };
     // Composes a new scene with the recent picks, then remembers it, so the
     // next monitor (and the next wallpaper) avoids it. A span scene puts its
     // focal group on the primary monitor (`focus_pm`), never across a seam.
     let mut new_scene = |seed: u64, m: &Monitor| {
+        let mut ctx = context(m);
         ctx.recent = recent.entries().to_vec();
         let mut r = compose(seed, Aspect::from_size(m.width, m.height), &ctx);
         if let Some(f) = want.focus_pm {
