@@ -133,7 +133,9 @@ impl MacDesktop {
                 width: monitor.width,
                 height: monitor.height,
                 present_mode: wgpu::PresentMode::Fifo,
-                desired_maximum_frame_latency: 2,
+                // Two drawables, not three: a full-screen frame each, and a
+                // wallpaper never needs to run ahead.
+                desired_maximum_frame_latency: 1,
                 alpha_mode: if caps.alpha_modes.contains(&wgpu::CompositeAlphaMode::Opaque) {
                     wgpu::CompositeAlphaMode::Opaque
                 } else {
