@@ -27,7 +27,7 @@ Or use a package manager:
 - winget: `winget install Clairlune.Clairlune` (once Microsoft accepts the package)
 - Cargo: `cargo install clairlune`, or `cargo install --path crates/app` from a checkout
 
-Clairlune lives in the notification area (Windows) or the menu bar (macOS) as a moon icon.
+Clairlune lives in the notification area (Windows) or the menu bar (macOS) as a moon icon. The first time you open it, it asks whether to start quietly when you sign in.
 
 ## Using the app
 
@@ -37,7 +37,7 @@ On Windows, double-click the moon to open Settings and right-click it for the me
 
 The Archive keeps the last week of wallpapers so you can reuse, pin or export them. Save to library keeps one for good; it's stored as a frozen scene, so it looks the same after updates. With Settings -> Rotation set to Timeline, the app follows a daily plan instead of the hourly change: drag saved wallpapers or random scenes onto a 24-hour bar for each day, and pick each slot's theme.
 
-Settings also covers which landscapes, activities and weather to use, the look and contrast, Clawd on or off, start at login, and Restore my wallpaper, which puts back the wallpaper you had before Clairlune. Settings live in `%APPDATA%\clairlune\settings.toml` and logs in `%LOCALAPPDATA%\clairlune\logs`.
+Settings also covers which landscapes, activities and weather to use, the look and contrast, Clawd on or off, start at login, hiding the moon icon (open Clairlune again to get back to Settings), and Restore my wallpaper, which puts back the wallpaper you had before Clairlune. Settings live in `%APPDATA%\clairlune\settings.toml` and logs in `%LOCALAPPDATA%\clairlune\logs`.
 
 On Linux the app sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway, and on other Wayland compositors with the wlr layer shell (Hyprland, river, Wayfire, labwc) it shows the wallpaper itself while it runs. Live wallpapers work there and on X11 window managers without a desktop of their own (i3, Openbox, bspwm). GNOME, KDE, XFCE, Cinnamon, MATE and LXQt draw their own desktop icons, so they get the still frame. On macOS it sets a scene on each screen. Off Windows, Live is off by default; turn it on in Settings.
 

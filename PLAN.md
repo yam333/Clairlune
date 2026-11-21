@@ -790,7 +790,7 @@ It is written for each theme the scene supports, at each monitor's size at save 
 - **No tray available**: vanilla GNOME has no StatusNotifier/AppIndicator support without an extension (Ubuntu ships one; Fedora and stock GNOME don't). When no tray host is detected, open Settings on launch, install a `.desktop` launcher, and let a second launch open Settings. Document the AppIndicator extension.
 - **Single instance**: a second launch tells the running instance to open Settings, over the local socket (§3.2).
 - **No Dock / taskbar icon while idle**: on macOS set `LSUIElement` (Accessory activation policy), switching to Regular while a UI window is open.
-- **Start at login**: `auto-launch` with `set_use_launch_agent(true)` on macOS, the Run registry key on Windows, and XDG autostart on Linux.
+- **Start at login**: the Run registry key on Windows, a per-user launch agent on macOS, and XDG autostart on Linux, each starting the app with `--background` (quietly: no window). A launch without it opens Settings. The first run asks once whether to start at sign-in. Settings → General can hide the tray / menu-bar icon: the app runs on, and launching it again opens Settings.
 - **Logs**: rolling file in `<data_dir>/logs/`, viewable from Settings → About.
 - **Crash safety**: the static wallpaper is always set first (§2), so a crash never leaves a blank desktop.
 
