@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["crates/app/src/install.rs", "crates/app/src/update.rs", ".github/workflows/update-check.yml"]
+    paths: ["crates/app/src/install.rs", "crates/app/src/update.rs", "crates/app/src/apply.rs", ".github/workflows/update-check.yml"]
 
 permissions:
   contents: read
@@ -131,3 +131,97 @@ jobs:
           [ -x apps/Clairlune.AppImage ]
           ls -la apps
           echo "updated in place after about $((i * 2)) s"
+
+  # Remove Clairlune for real: the release installed the usual way, this
+  # build in its place, run once (it sets a wallpaper and makes its
+  # folders), then `--remove-everything`: the old wallpaper must be back
+  # and the folders and the app gone.
+  remove-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: update-check
+      - name: Build
+        run: cargo build --release -p clairlune -p clairlune-cli
+      - name: Install the latest release, this build over it, and run it once
+        shell: pwsh
+        run: |
+          $v = (gh release view --repo yam333/Clairlune --json tagName --jq .tagName).TrimStart('v')
+          gh release download "v$v" --repo yam333/Clairlune --pattern "clairlune_${v}_x64-setup.exe" --dir rel
+          Start-Process -FilePath "rel/clairlune_${v}_x64-setup.exe" -ArgumentList '/S' -Wait
+          $dir = "$env:LOCALAPPDATA\Clairlune"
+          Copy-Item target/release/clairlune.exe "$dir\clairlune.exe" -Force
+          "before:"; ./target/release/clairlune-cli monitors | Tee-Object before.txt
+          Start-Process -FilePath "$dir\clairlune.exe" -ArgumentList '--background'
+          Start-Sleep -Seconds 40
+          "while running:"; ./target/release/clairlune-cli monitors
+          Get-ChildItem "$env:LOCALAPPDATA\clairlune", "$env:APPDATA\clairlune" -ErrorAction SilentlyContinue | Format-Table Name
+          Stop-Process -Name clairlune -Force
+          Start-Sleep -Seconds 2
+      - name: Remove everything
+        shell: pwsh
+        run: |
+          $dir = "$env:LOCALAPPDATA\Clairlune"
+          $p = Start-Process -FilePath "$dir\clairlune.exe" -ArgumentList '--remove-everything' -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "--remove-everything failed" }
+          for ($i = 0; $i -lt 60 -and (Test-Path $dir); $i++) { Start-Sleep -Seconds 2 }
+          if (Test-Path $dir) { Get-ChildItem $dir; throw "the install folder (and data) is still there" }
+          if (Test-Path "$env:APPDATA\clairlune") { throw "the settings folder is still there" }
+          if (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Clairlune') { throw "still listed in Apps" }
+          $run = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue
+          if ($run -and ($run.PSObject.Properties.Name -match 'lairlune')) { throw "still starts at sign-in" }
+          "after:"; ./target/release/clairlune-cli monitors | Tee-Object after.txt
+          $b = (Get-Content before.txt | Select-String '^\s+current ') -join "`n"
+          $a = (Get-Content after.txt | Select-String '^\s+current ') -join "`n"
+          if ($b -ne $a) { throw "the wallpaper from before isn't back:`n$b`n---`n$a" }
+          "removed in about $($i * 2) s; the wallpaper from before is back"
+
+  remove-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: update-check
+      - name: Build
+        run: cargo build --release -p clairlune -p clairlune-cli
+      - name: Install the latest release, this build in it, and run it once
+        run: |
+          set -euo pipefail
+          v=$(gh release view --repo yam333/Clairlune --json tagName --jq .tagName); v=${v#v}
+          gh release download "v$v" --repo yam333/Clairlune --pattern "Clairlune_${v}_aarch64.dmg" --dir rel
+          mnt=$(mktemp -d)
+          hdiutil attach "rel/Clairlune_${v}_aarch64.dmg" -mountpoint "$mnt" -nobrowse -readonly
+          rm -rf /Applications/Clairlune.app
+          ditto "$mnt/Clairlune.app" /Applications/Clairlune.app
+          hdiutil detach "$mnt"
+          cp target/release/clairlune /Applications/Clairlune.app/Contents/MacOS/clairlune
+          echo "before:"; ./target/release/clairlune-cli monitors | tee before.txt
+          /Applications/Clairlune.app/Contents/MacOS/clairlune --background &
+          sleep 40
+          echo "while running:"; ./target/release/clairlune-cli monitors
+          ls "$HOME/Library/Application Support/clairlune" || true
+          pkill -x clairlune || true
+          sleep 2
+      - name: Remove everything
+        run: |
+          set -u
+          /Applications/Clairlune.app/Contents/MacOS/clairlune --remove-everything
+          data="$HOME/Library/Application Support/clairlune"
+          for i in $(seq 1 60); do
+            [ -e /Applications/Clairlune.app ] || [ -e "$data" ] || break
+            sleep 2
+          done
+          [ ! -e /Applications/Clairlune.app ] || { echo "the app is still there"; exit 1; }
+          [ ! -e "$data" ] || { ls "$data"; echo "the data folder is still there"; exit 1; }
+          ls "$HOME/.Trash" | grep -i clairlune || { echo "the app isn't in the Trash"; exit 1; }
+          ls "$HOME/Library/LaunchAgents" 2>/dev/null | grep -i clairlune && { echo "still starts at login"; exit 1; }
+          echo "after:"; ./target/release/clairlune-cli monitors | tee after.txt
+          if [ "$(grep -E "^ +current " before.txt)" != "$(grep -E "^ +current " after.txt)" ]; then
+            echo "the wallpaper from before isn't back"; exit 1
+          fi
+          echo "removed in about $((i * 2)) s; the wallpaper from before is back"

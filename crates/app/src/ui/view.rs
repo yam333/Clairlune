@@ -81,6 +81,9 @@ pub struct Status {
     pub installing: Option<String>,
     /// What a problem report would carry, to read before sending.
     pub report: String,
+    /// What Remove Clairlune does with the app itself (`Ok`: what it
+    /// removes; `Err`: how to remove it by hand).
+    pub removal: Option<Result<String, String>>,
     /// A one-line result to show under the status (export done, an error).
     pub note: Option<String>,
     /// Timeline mode: the slot boundary to come ("Next slot at 19:30").
@@ -119,6 +122,8 @@ pub enum UiAction {
     InstallUpdate,
     /// Open a new GitHub issue with the report filled in.
     ReportProblem,
+    /// Remove Clairlune: the wallpaper back, its folders and the app gone.
+    RemoveEverything,
     /// macOS: System Settings at Screen Saver.
     OpenSaverSettings,
     Quit,
@@ -175,6 +180,10 @@ pub struct PageState {
     pub toast: Option<String>,
     /// Scroll the page to this offset once (UI test screenshots).
     pub scroll_to: Option<f32>,
+    /// General: Remove Clairlune asked to confirm.
+    pub remove_confirm: bool,
+    /// The welcome: don't start with the computer (it does by default).
+    pub welcome_no_login: bool,
 }
 
 /// How long a brief note stays.
@@ -372,7 +381,11 @@ pub fn show(
         });
     toast(ui, theme, st);
     if status.ask_start_at_login {
-        ask_start_at_login(ui, theme, actions);
+        let before = settings.clone();
+        welcome(ui, theme, settings, status, &mut st.page, actions);
+        if *settings != before {
+            actions.push(UiAction::SettingsChanged);
+        }
     }
 }
 
@@ -387,9 +400,20 @@ fn tray_name() -> &'static str {
 
 /// The first run's question, over the window: start quietly at sign-in?
 /// Escape or a click outside is "Not now".
-fn ask_start_at_login(ui: &mut Ui, theme: Theme, actions: &mut Vec<UiAction>) {
+/// The first run's welcome: what Clairlune does, the few choices that
+/// matter most (live or still, theme, monitors), and whether it starts with
+/// the computer. Escape or closing it answers "not at sign-in".
+fn welcome(
+    ui: &mut Ui,
+    theme: Theme,
+    s: &mut Settings,
+    status: &Status,
+    ps: &mut PageState,
+    actions: &mut Vec<UiAction>,
+) {
+    use crate::settings::{ThemeMode, WallpaperMode};
     let t = colors(theme);
-    let modal = egui::Modal::new(egui::Id::unique("ask-start-at-login"))
+    let modal = egui::Modal::new(egui::Id::unique("welcome"))
         .frame(
             egui::Frame::new()
                 .fill(c(t.bg_raised))
@@ -398,24 +422,81 @@ fn ask_start_at_login(ui: &mut Ui, theme: Theme, actions: &mut Vec<UiAction>) {
                 .inner_margin(egui::Margin::same(space::S5 as i8)),
         )
         .show(ui.ctx(), |ui| {
-            ui.set_max_width(380.0);
-            ui.label(RichText::new("Start Clairlune with your computer?").font(style::section()));
+            ui.set_max_width(460.0);
+            ui.label(RichText::new("Welcome to Clairlune").font(style::section()));
             ui.add_space(space::S2);
             ui.label(
+                RichText::new(
+                    "A new landscape drawn in text on your desktop, with Clawd doing something in it, and a new one every hour. Everything is made on this computer.",
+                )
+                .color(c(t.text_secondary)),
+            );
+            ui.add_space(space::S4);
+            let line = |ui: &mut Ui, name: &str, control: &mut dyn FnMut(&mut Ui)| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(name).font(style::body_strong()));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| control(ui));
+                });
+                ui.add_space(space::S2);
+            };
+            let can_live = status.live_supported.is_none();
+            line(ui, "Wallpaper", &mut |ui| {
+                segmented(
+                    ui,
+                    theme,
+                    &mut s.display.mode,
+                    &[
+                        (WallpaperMode::Still, "Still frame", true),
+                        (WallpaperMode::Live, "Live", can_live),
+                    ],
+                );
+            });
+            let mut mode = match s.theme.mode {
+                ThemeMode::Schedule => ThemeMode::FollowSystem,
+                m => m,
+            };
+            let was = mode;
+            line(ui, "Theme", &mut |ui| {
+                segmented(
+                    ui,
+                    theme,
+                    &mut mode,
+                    &[
+                        (ThemeMode::FollowSystem, "Like the system", true),
+                        (ThemeMode::Light, "Light", true),
+                        (ThemeMode::Dark, "Dark", true),
+                    ],
+                );
+            });
+            if mode != was {
+                s.theme.mode = mode;
+            }
+            if status.monitors.len() > 1 {
+                line(ui, "Monitors", &mut |ui| {
+                    segmented(
+                        ui,
+                        theme,
+                        &mut s.display.span,
+                        &[(false, "One scene each", true), (true, "One across all", true)],
+                    );
+                });
+            }
+            let mut login = !ps.welcome_no_login;
+            line(ui, "Start with the computer", &mut |ui| {
+                toggle(ui, theme, &mut login, "Start with the computer");
+            });
+            ps.welcome_no_login = !login;
+            ui.label(
                 RichText::new(format!(
-                    "It starts quietly when you sign in: no window, just the {} icon, and the wallpaper changes on its own. You can change this later under General.",
+                    "Live plays the scene behind your icons and pauses while an app covers the screen. Clairlune keeps running in the {}; all of this, and much more, is in Settings.",
                     tray_name()
                 ))
                 .color(c(t.text_secondary)),
             );
             ui.add_space(space::S4);
             ui.horizontal(|ui| {
-                if primary_button(ui, theme, "Start at sign-in").clicked() {
-                    actions.push(UiAction::AnswerStartAtLogin(true));
-                }
-                ui.add_space(space::S2);
-                if ui.button("Not now").clicked() {
-                    actions.push(UiAction::AnswerStartAtLogin(false));
+                if primary_button(ui, theme, "Start").clicked() {
+                    actions.push(UiAction::AnswerStartAtLogin(login));
                 }
             });
         });
@@ -1705,6 +1786,69 @@ fn page(
                     }
                 },
             );
+            row(
+                ui,
+                theme,
+                "Remove Clairlune",
+                "Puts your old wallpaper back and removes everything Clairlune added. Asks first.",
+                |ui| {
+                    if ui.button("Remove\u{2026}").clicked() {
+                        ps.remove_confirm = !ps.remove_confirm;
+                    }
+                },
+            );
+            if ps.remove_confirm {
+                egui::Frame::new()
+                    .fill(c(t.bg_sidebar))
+                    .stroke(Stroke::new(size::HAIRLINE, c(t.hairline)))
+                    .corner_radius(egui::CornerRadius::same(6))
+                    .inner_margin(egui::Margin::same(space::S4 as i8))
+                    .show(ui, |ui| {
+                        ui.label(
+                            RichText::new("Remove Clairlune from this computer?")
+                                .font(style::body_strong()),
+                        );
+                        ui.add_space(space::S2);
+                        let mut goes = vec![
+                            "Your wallpaper from before Clairlune comes back.".to_string(),
+                            "Starting with the computer is turned off.".to_string(),
+                        ];
+                        if cfg!(target_os = "macos") {
+                            goes.push("The screen saver is removed.".into());
+                        }
+                        goes.push(
+                            "Its settings, archive, library, saved scenes and logs are deleted. PNGs and GIFs you exported stay where you saved them."
+                                .into(),
+                        );
+                        if let Some(Ok(app)) = &status.removal {
+                            goes.push(format!("Then Clairlune quits, and {app} goes too."));
+                        } else {
+                            goes.push("Then Clairlune quits.".into());
+                        }
+                        for g in &goes {
+                            ui.label(RichText::new(format!("\u{2022} {g}")).color(c(t.text_secondary)));
+                        }
+                        if let Some(Err(how)) = &status.removal {
+                            ui.add_space(space::S1);
+                            ui.label(RichText::new(how).color(c(t.text_secondary)));
+                        }
+                        ui.add_space(space::S3);
+                        ui.horizontal(|ui| {
+                            let danger = egui::Button::new(
+                                RichText::new("Remove everything").color(c(t.on_accent)),
+                            )
+                            .fill(c(t.danger));
+                            if ui.add(danger).clicked() {
+                                actions.push(UiAction::RemoveEverything);
+                                ps.remove_confirm = false;
+                            }
+                            if ui.button("Cancel").clicked() {
+                                ps.remove_confirm = false;
+                            }
+                        });
+                    });
+                ui.add_space(space::S4);
+            }
             row(
                 ui,
                 theme,

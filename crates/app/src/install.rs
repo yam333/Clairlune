@@ -5,6 +5,9 @@
 //! small helper script waits for Clairlune to quit, puts the new version in
 //! place and starts it again. Installs that something else manages (Scoop,
 //! cargo, the .deb) say how to update instead.
+//!
+//! Removing Clairlune works the same way: a helper waits for it to quit,
+//! deletes its folders and, where Clairlune can, the app itself.
 
 use crate::update::Asset;
 use std::path::{Path, PathBuf};
@@ -43,6 +46,22 @@ impl Install {
         match self {
             Install::Manual { how, .. } => Some(how),
             _ => None,
+        }
+    }
+
+    /// What "Remove Clairlune" does with the app itself: `Ok` names what it
+    /// removes, `Err` says how to remove it by hand.
+    pub fn removal(&self) -> Result<&'static str, String> {
+        match self {
+            Install::WindowsSetup { .. } => Ok("the app (its uninstaller runs)"),
+            Install::MacApp { .. } => Ok("the app (moved to the Trash)"),
+            Install::AppImage { .. } => Ok("the AppImage file"),
+            Install::Manual { name, .. } => Err(match name.as_str() {
+                "Scoop" => "Then remove the app with: scoop uninstall clairlune".into(),
+                "cargo install" => "Then remove the app with: cargo uninstall clairlune".into(),
+                "the .deb" => "Then remove the app with: sudo apt remove clairlune".into(),
+                _ => "Then delete the app where you keep it.".into(),
+            }),
         }
     }
 
@@ -404,6 +423,91 @@ pub fn finish(p: &Prepared, pid: u32, relaunch: Option<&[&str]>) -> Result<(), S
     cmd.spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
+/// Starts the helper that, once this process (`pid`) is gone, deletes
+/// Clairlune's folders (`dirs`; only folders named `clairlune`, as a
+/// guard) and removes the app itself where it can. The caller quits right
+/// after.
+pub fn remove_after_exit(install: &Install, pid: u32, dirs: &[PathBuf]) -> Result<(), String> {
+    let dirs: Vec<&PathBuf> = dirs.iter().filter(|d| is_clairlune_dir(d)).collect();
+    let mut cmd = if cfg!(windows) {
+        let mut s = format!(
+            "$ErrorActionPreference = 'SilentlyContinue'; Wait-Process -Id {pid} -Timeout 120; "
+        );
+        if let Install::WindowsSetup { exe } = install
+            && let Some(dir) = exe.parent()
+        {
+            // `_?=` runs it where it is (not from a copy that returns at
+            // once), so the folder goes after it's done.
+            let uninstaller = ps_quote(&dir.join("uninstall.exe").to_string_lossy());
+            let arg = ps_quote(&format!("_?={}", dir.to_string_lossy()));
+            s.push_str(&format!(
+                "Start-Process -FilePath {uninstaller} -ArgumentList '/S',{arg} -Wait; Remove-Item -LiteralPath {} -Recurse -Force; ",
+                ps_quote(&dir.to_string_lossy())
+            ));
+        }
+        for d in &dirs {
+            s.push_str(&format!(
+                "Remove-Item -LiteralPath {} -Recurse -Force; ",
+                ps_quote(&d.to_string_lossy())
+            ));
+        }
+        let mut c = std::process::Command::new("powershell.exe");
+        c.args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-WindowStyle",
+            "Hidden",
+            "-Command",
+            &s,
+        ]);
+        c
+    } else {
+        let mut s = format!(
+            "i=0; while kill -0 {pid} 2>/dev/null && [ $i -lt 600 ]; do sleep 0.2; i=$((i+1)); done; "
+        );
+        for d in &dirs {
+            s.push_str(&format!("rm -rf {}; ", sh_quote(&d.to_string_lossy())));
+        }
+        match install {
+            Install::MacApp { bundle } => {
+                // To the Trash, under a name of its own there.
+                let name = format!(
+                    "Clairlune {}.app",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map_or(0, |d| d.as_secs())
+                );
+                s.push_str(&format!(
+                    "mkdir -p \"$HOME/.Trash\" && mv {} \"$HOME/.Trash/\"{}; ",
+                    sh_quote(&bundle.to_string_lossy()),
+                    sh_quote(&name)
+                ));
+            }
+            Install::AppImage { file } => {
+                s.push_str(&format!("rm -f {}; ", sh_quote(&file.to_string_lossy())));
+            }
+            _ => {}
+        }
+        let mut c = std::process::Command::new("/bin/sh");
+        c.arg("-c").arg(s);
+        c
+    };
+    cmd.stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    no_window(&mut cmd);
+    cmd.spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// Only a folder named `clairlune` (any case) is ever deleted whole.
+fn is_clairlune_dir(dir: &Path) -> bool {
+    dir.file_name()
+        .is_some_and(|n| n.to_string_lossy().eq_ignore_ascii_case("clairlune"))
+        && dir.components().count() > 2
+}
+
 /// PowerShell's single-quoted string.
 fn ps_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "''"))
@@ -647,6 +751,35 @@ mod tests {
         assert!(
             !windows_script(1, Path::new("s"), Path::new("e"), None)
                 .contains("Start-Process -FilePath 'e'")
+        );
+    }
+
+    #[test]
+    fn only_clairlune_folders_are_deleted_whole() {
+        assert!(is_clairlune_dir(Path::new(
+            "/home/a/.local/share/clairlune"
+        )));
+        assert!(is_clairlune_dir(Path::new(
+            "C:/Users/a/AppData/Local/Clairlune"
+        )));
+        assert!(!is_clairlune_dir(Path::new("/home/a")));
+        assert!(!is_clairlune_dir(Path::new("/clairlune")));
+        assert!(!is_clairlune_dir(Path::new("C:/Users/a/AppData/Local")));
+    }
+
+    #[test]
+    fn removal_says_what_goes_and_how_to_finish() {
+        let w = Install::WindowsSetup {
+            exe: PathBuf::from("x"),
+        };
+        assert!(w.removal().is_ok());
+        let scoop = Install::Manual {
+            name: "Scoop".into(),
+            how: String::new(),
+        };
+        assert_eq!(
+            scoop.removal(),
+            Err("Then remove the app with: scoop uninstall clairlune".to_string())
         );
     }
 

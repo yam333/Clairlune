@@ -8,9 +8,11 @@ Each wallpaper is a landscape made of text characters, with a small pixel-art Cl
 
 > **Unofficial fan project.** Not affiliated with or endorsed by Anthropic. Clawd is Anthropic's character.
 
+**[Download](https://github.com/yam333/Clairlune/releases/latest)** · [User guide](docs/guide.md) · [Changelog](CHANGELOG.md)
+
 ## Status
 
-Early, but usable. On Windows the tray app is the main way to use it. macOS and Linux builds exist but haven't been tried on real machines yet, so reports are welcome. There are sixteen landscapes (from canyons and snowfields to a volcano, palm islands, a bamboo grove and the Moon), thirty-two things Clawd can be doing, eleven kinds of weather (petals, fog, blizzards and falling ash among them), and two looks: line art, or a dithered version built from dots and bars. Seven of the activities are journeys, where the land in front scrolls past a big still landmark (a dome, a peak, a volcano, a mesa, a rising moon): a ridge hike, ski touring, sledding, a forest walk, a desert trek, and flights on the broom or in the balloon. The roadmap is in [PLAN.md](PLAN.md).
+Usable every day on Windows and macOS, where the tray or menu bar app is the main way to use it. The Linux build hasn't been tried on real desktops yet, so reports are welcome. There are sixteen landscapes (from canyons and snowfields to a volcano, palm islands, a bamboo grove and the Moon), thirty-two things Clawd can be doing, eleven kinds of weather (petals, fog, blizzards and falling ash among them), and two looks: line art, or a dithered version built from dots and bars. Seven of the activities are journeys, where the land in front scrolls past a big still landmark (a dome, a peak, a volcano, a mesa, a rising moon): a ridge hike, ski touring, sledding, a forest walk, a desert trek, and flights on the broom or in the balloon. The roadmap is in [PLAN.md](PLAN.md).
 
 ## Install
 
@@ -41,7 +43,7 @@ Settings also covers which landscapes, activities and weather to use, the look a
 
 When a newer version is out, Settings -> General and the menu offer it: Update now downloads it from GitHub, checks it against the checksum GitHub lists, installs it and starts Clairlune again (installs from Scoop, cargo or the .deb update the usual way instead). Report a problem, next to it, opens a new GitHub issue with the version, system, monitors and recent log lines filled in; you see them in Settings first, and nothing is sent until you send the issue. Settings live in `%APPDATA%\clairlune\settings.toml` and logs in `%LOCALAPPDATA%\clairlune\logs`.
 
-On Linux the app sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway, and on other Wayland compositors with the wlr layer shell (Hyprland, river, Wayfire, labwc) it shows the wallpaper itself while it runs. Live wallpapers work there and on X11 window managers without a desktop of their own (i3, Openbox, bspwm). GNOME, KDE, XFCE, Cinnamon, MATE and LXQt draw their own desktop icons, so they get the still frame. On macOS it sets a scene on each screen, and Settings -> General -> Screen saver makes the wallpaper the screen saver too (pick Clairlune in System Settings -> Screen Saver when it opens). Off Windows, Live is off by default; turn it on in Settings.
+On Linux the app sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway, and on other Wayland compositors with the wlr layer shell (Hyprland, river, Wayfire, labwc) it shows the wallpaper itself while it runs. Live wallpapers work there and on X11 window managers without a desktop of their own (i3, Openbox, bspwm). GNOME, KDE, XFCE, Cinnamon, MATE and LXQt draw their own desktop icons, so they get the still frame. On macOS it sets a scene on each screen, and Settings -> General -> Screen saver makes the wallpaper the screen saver too (pick Clairlune in System Settings -> Screen Saver when it opens). On Linux, Live is off by default until it's tried on more desktops; turn it on in Settings.
 
 ## The command-line tool
 

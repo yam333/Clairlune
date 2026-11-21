@@ -70,6 +70,9 @@ pub enum Job {
     },
     /// Put back the wallpaper the user had before Clairlune.
     Restore,
+    /// The same, for Remove Clairlune: answered with `Done::ReadyToRemove`
+    /// whatever happens (there may be no earlier wallpaper to put back).
+    RestoreToRemove,
 }
 
 /// One monitor's scene as applied, for playing it live.
@@ -164,6 +167,8 @@ pub enum Done {
     NoHost(String),
     /// The user's own wallpaper is back.
     Restored,
+    /// Remove Clairlune may go on: the old wallpaper is back, or why not.
+    ReadyToRemove(Option<String>),
     Failed(String),
 }
 
@@ -535,6 +540,10 @@ fn run(
             buddy,
         } => export_gif(archive, &dest, source.as_deref(), theme, buddy),
         Job::Restore => restore(host, store),
+        Job::RestoreToRemove => Ok(Done::ReadyToRemove(match restore(host, store) {
+            Ok(Done::Failed(e)) | Err(e) => Some(e),
+            Ok(_) => None,
+        })),
         Job::New {
             seed,
             settings,
@@ -791,7 +800,10 @@ fn apply(
 }
 
 /// Puts back the remembered wallpaper and removes Clairlune's stills.
-fn restore(host: Option<&dyn WallpaperHost>, store: &StillStore) -> Result<Done, String> {
+pub(crate) fn restore(
+    host: Option<&dyn WallpaperHost>,
+    store: &StillStore,
+) -> Result<Done, String> {
     let host = host.ok_or("no wallpaper host on this system")?;
     let snapshot = store
         .original()
