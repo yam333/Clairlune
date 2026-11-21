@@ -123,6 +123,9 @@ struct App {
     install: install::Install,
     /// An update being installed: what it's doing.
     installing: Option<String>,
+    /// Remove Clairlune was asked for: once the old wallpaper is back, the
+    /// helper deletes the rest and the app quits.
+    removing: bool,
     busy: bool,
     /// When the schedule next changes the wallpaper (None: only on demand).
     next_change: Option<Instant>,
@@ -249,8 +252,8 @@ enum UiStep {
     /// Of the Library window when it's open, else of Settings.
     Screenshot(&'static str),
     /// Settings' page state: a monitor picked on Content, the problem
-    /// report shown, scrolled down this far.
-    Page(Option<&'static str>, bool, f32),
+    /// report shown, Remove Clairlune asking, scrolled down this far.
+    Page(Option<&'static str>, bool, bool, f32),
     Close,
     CloseLibrary,
     Exit,
@@ -305,22 +308,29 @@ impl UiTest {
         steps.push((ms(18700), UiStep::Tray(true)));
         // Each monitor's own settings (two monitors, made up for the test).
         steps.push((ms(19000), UiStep::Open(Theme::Dark, Section::Display)));
-        steps.push((ms(19300), UiStep::Page(None, false, 300.0)));
+        steps.push((ms(19300), UiStep::Page(None, false, false, 300.0)));
         steps.push((ms(19800), UiStep::Screenshot("settings-dark-display.png")));
         steps.push((ms(20300), UiStep::Close));
         // A monitor with its own choices, and the problem report.
         steps.push((ms(20600), UiStep::Open(Theme::Light, Section::Content)));
-        steps.push((ms(20900), UiStep::Page(Some("ui-test-2"), false, 0.0)));
+        steps.push((
+            ms(20900),
+            UiStep::Page(Some("ui-test-2"), false, false, 0.0),
+        ));
         steps.push((
             ms(21400),
             UiStep::Screenshot("settings-light-content-monitor.png"),
         ));
         steps.push((ms(21900), UiStep::Close));
         steps.push((ms(22200), UiStep::Open(Theme::Dark, Section::General)));
-        steps.push((ms(22500), UiStep::Page(None, true, 420.0)));
+        steps.push((ms(22500), UiStep::Page(None, true, false, 420.0)));
         steps.push((ms(23000), UiStep::Screenshot("settings-dark-report.png")));
         steps.push((ms(23500), UiStep::Close));
-        steps.push((ms(23800), UiStep::Exit));
+        steps.push((ms(23800), UiStep::Open(Theme::Light, Section::General)));
+        steps.push((ms(24100), UiStep::Page(None, false, true, 380.0)));
+        steps.push((ms(24600), UiStep::Screenshot("settings-light-remove.png")));
+        steps.push((ms(25100), UiStep::Close));
+        steps.push((ms(25400), UiStep::Exit));
         UiTest {
             out,
             steps,
@@ -410,7 +420,7 @@ impl App {
         let export = matches!(job, Job::Export { .. } | Job::ExportGif { .. });
         // Restore waits its turn behind a wallpaper being made, rather than
         // being dropped: the user asked for their own wallpaper back.
-        let restore = matches!(job, Job::Restore);
+        let restore = matches!(job, Job::Restore | Job::RestoreToRemove);
         if self.busy && !export && !restore {
             return;
         }
@@ -1440,6 +1450,7 @@ impl App {
         s.update_how = self.install.how().map(str::to_string);
         s.installing = self.installing.clone();
         s.report = report::details(&self.report_facts(), report::LOG_LINES);
+        s.removal = Some(self.install.removal().map(str::to_string));
         s.update_url = self.update.newer().and(self.update.url.clone());
         if s.update_note.is_none()
             && let Some(v) = self.update.newer()
@@ -1582,6 +1593,7 @@ impl App {
             }
             UiAction::OpenUpdate => self.open_update(),
             UiAction::InstallUpdate => self.install_update(),
+            UiAction::RemoveEverything => self.remove_everything(),
             UiAction::ReportProblem => {
                 let url = report::issue_url(&self.report_facts());
                 tracing::info!(target: "clairlune", "opening a problem report on GitHub");
@@ -1635,11 +1647,12 @@ impl App {
                     }
                     tracing::info!(target: "clairlune", ms = opened.elapsed().as_millis() as u64, memory_mb = memory_mb(), "ui test: settings opened");
                 }
-                UiStep::Page(monitor, report, scroll) => {
+                UiStep::Page(monitor, report, remove, scroll) => {
                     if let Some(w) = &mut self.settings_window {
                         let ps = w.page_state();
                         ps.content_monitor = monitor.map(str::to_string);
                         ps.report_open = report;
+                        ps.remove_confirm = remove;
                         ps.scroll_to = Some(scroll);
                     }
                 }
@@ -1912,6 +1925,53 @@ impl App {
         self.redraw_settings();
     }
 
+    /// Remove Clairlune: stops everything, then puts the old wallpaper back
+    /// (on the worker); [`finish_removal`](Self::finish_removal) does the
+    /// rest when that's done.
+    fn remove_everything(&mut self) {
+        if self.removing {
+            return;
+        }
+        tracing::info!(target: "clairlune", install = %self.install.name(), "removing Clairlune");
+        self.removing = true;
+        self.next_change = None;
+        self.live.show(Vec::new());
+        if let Ok(exe) = std::env::current_exe()
+            && let Err(e) = clairlune_platform::set_start_at_login(&exe, false)
+        {
+            tracing::warn!(target: "clairlune", error = %e, "start at login not turned off");
+        }
+        if cfg!(target_os = "macos")
+            && let Err(e) = saver::uninstall()
+        {
+            tracing::warn!(target: "clairlune", error = %e, "screen saver not removed");
+        }
+        self.status.note = Some("Removing Clairlune\u{2026}".into());
+        self.submit(Job::RestoreToRemove);
+        self.redraw_settings();
+    }
+
+    /// The old wallpaper is back (or there was none to put back): the
+    /// helper deletes Clairlune's folders and the app once it has quit.
+    fn finish_removal(&mut self, event_loop: &ActiveEventLoop) {
+        let mut dirs = vec![self.data_dir.clone()];
+        if let Some(config) = self.settings_path.parent() {
+            dirs.push(config.to_path_buf());
+        }
+        match install::remove_after_exit(&self.install, std::process::id(), &dirs) {
+            Ok(()) => {
+                tracing::info!(target: "clairlune", "removal under way; quitting");
+                event_loop.exit();
+            }
+            Err(e) => {
+                tracing::warn!(target: "clairlune", error = %e, "removal not started");
+                self.removing = false;
+                self.status.note = Some(format!("Couldn't remove Clairlune: {e}"));
+                self.redraw_settings();
+            }
+        }
+    }
+
     fn redraw_settings(&self) {
         if let Some(w) = &self.settings_window {
             w.request_redraw();
@@ -2148,6 +2208,8 @@ impl App {
                     w.request_redraw();
                 }
             }
+            // Handled where events arrive (it ends the app).
+            Done::ReadyToRemove(_) => {}
             Done::Restored => {
                 self.busy = false;
                 self.set_restored(true);
@@ -2345,6 +2407,13 @@ impl ApplicationHandler<AppEvent> for App {
                     self.on_action(action, event_loop);
                 }
             }
+            AppEvent::Done(Done::ReadyToRemove(error)) => {
+                self.busy = false;
+                if let Some(e) = error {
+                    tracing::info!(target: "clairlune", error = %e, "no earlier wallpaper put back");
+                }
+                self.finish_removal(event_loop);
+            }
             AppEvent::Done(d) => self.on_done(d),
             AppEvent::OpenSettings => self.open_settings(event_loop, None),
             AppEvent::UpdateChecked(r) => self.on_update_checked(r),
@@ -2442,6 +2511,47 @@ fn init_logging(data_dir: &Path) {
         .with(stderr_layer)
         .init();
     diagnostics::install_crash_reports(data_dir);
+}
+
+/// `clairlune --remove-everything` (for CI): Remove Clairlune as Settings
+/// does it, without the app: the old wallpaper back, start at login off,
+/// the screen saver gone, then the helper deletes the folders and the app.
+/// Returns the exit code.
+fn remove_now(data_dir: &Path) -> i32 {
+    let install = install::detect();
+    eprintln!("install: {}", install.name());
+    let host = clairlune_platform::detect().ok();
+    match clairlune_platform::StillStore::default_location()
+        .map_err(|e| e.to_string())
+        .and_then(|store| apply::restore(host.as_deref(), &store))
+    {
+        Ok(_) => eprintln!("the wallpaper from before is back"),
+        Err(e) => eprintln!("no wallpaper put back: {e}"),
+    }
+    if let Ok(exe) = std::env::current_exe()
+        && let Err(e) = clairlune_platform::set_start_at_login(&exe, false)
+    {
+        eprintln!("start at login not turned off: {e}");
+    }
+    if cfg!(target_os = "macos")
+        && let Err(e) = saver::uninstall()
+    {
+        eprintln!("screen saver not removed: {e}");
+    }
+    let mut dirs = vec![data_dir.to_path_buf()];
+    if let Some(config) = clairlune_platform::app_config_dir() {
+        dirs.push(config);
+    }
+    match install::remove_after_exit(&install, std::process::id(), &dirs) {
+        Ok(()) => {
+            eprintln!("removing {} once this exits", dirs.len());
+            0
+        }
+        Err(e) => {
+            eprintln!("couldn't start the removal: {e}");
+            1
+        }
+    }
 }
 
 /// Holds an OS lock on `<data>/instance.lock` while the app runs, so a second
@@ -2632,6 +2742,12 @@ fn main() {
         clairlune_platform::attach_parent_console();
         std::process::exit(install::install_latest_now());
     }
+    // CI's check of Remove Clairlune: the same steps, without the app.
+    if args.iter().any(|a| a == "--remove-everything") {
+        #[cfg(windows)]
+        clairlune_platform::attach_parent_console();
+        std::process::exit(remove_now(&data_dir));
+    }
     // Asked once, off the main thread, for problem reports.
     let _ = std::thread::Builder::new()
         .name("clairlune-system".into())
@@ -2809,6 +2925,7 @@ fn main() {
         checking_updates: None,
         install: install::detect(),
         installing: None,
+        removing: false,
         busy: false,
         next_change: None,
         next_check: Instant::now() + CHECK_EVERY,

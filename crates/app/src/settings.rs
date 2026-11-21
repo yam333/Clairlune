@@ -82,10 +82,10 @@ pub enum WallpaperMode {
 }
 
 impl Default for WallpaperMode {
-    /// Live where it has been tried (Windows); elsewhere Still until then,
-    /// with Live one switch away in Settings.
+    /// Live where it has been tried on real machines (Windows, macOS); on
+    /// Linux Still until then, with Live one switch away in Settings.
     fn default() -> Self {
-        if cfg!(windows) {
+        if cfg!(any(windows, target_os = "macos")) {
             WallpaperMode::Live
         } else {
             WallpaperMode::Still
