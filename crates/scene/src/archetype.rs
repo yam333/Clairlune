@@ -24,7 +24,7 @@ pub const SURFACES: [&str; 8] = [
     "rock", "snow", "sand", "grass", "wood", "roof", "water", "ice",
 ];
 /// Ambient weather. Light-source effects such as embers belong to props, not weather.
-pub const WEATHERS: [&str; 8] = [
+pub const WEATHERS: [&str; 13] = [
     "none",
     "dust",
     "snow",
@@ -33,6 +33,11 @@ pub const WEATHERS: [&str; 8] = [
     "leaves",
     "stars",
     "confetti",
+    "petals",
+    "fog",
+    "blizzard",
+    "ash",
+    "sparkle",
 ];
 
 /// What one archetype offers.
@@ -52,13 +57,13 @@ pub struct ArchetypeInfo {
 /// The archetypes (PLAN.md section 4.2, and the interior from
 /// docs/activity-system.md). Unimplemented ones carry their
 /// intended capabilities so activity files can be written against them now.
-pub const ARCHETYPE_INFO: [ArchetypeInfo; 10] = [
+pub const ARCHETYPE_INFO: [ArchetypeInfo; 16] = [
     ArchetypeInfo {
         id: "canyon",
         implemented: true,
         terrain: &["ledge", "cliff"],
         surface: &["rock"],
-        weather: &["none"],
+        weather: &["none", "dust"],
         platforms: &["rock_ledge"],
         sky: true,
     },
@@ -68,7 +73,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 10] = [
         // `path`: a periodic variant for walks through the wood.
         terrain: &["flat", "ledge", "path"],
         surface: &["grass", "wood"],
-        weather: &["none", "fireflies", "leaves", "rain"],
+        weather: &["none", "fireflies", "leaves", "rain", "fog", "petals"],
         platforms: &["log", "tree_branch"],
         sky: true,
     },
@@ -78,7 +83,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 10] = [
         // `ridge`: a periodic variant for journeys along the range.
         terrain: &["ledge", "cliff", "slope", "ridge"],
         surface: &["rock", "snow"],
-        weather: &["none", "snow", "stars"],
+        weather: &["none", "snow", "stars", "fog", "blizzard"],
         platforms: &["rock_ledge"],
         sky: true,
     },
@@ -87,7 +92,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 10] = [
         implemented: true,
         terrain: &["shore", "water", "flat"],
         surface: &["sand", "wood", "water"],
-        weather: &["none", "rain", "stars"],
+        weather: &["none", "rain", "stars", "fog"],
         platforms: &["pier"],
         sky: true,
     },
@@ -116,7 +121,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 10] = [
         // `trail`: a periodic variant for journeys across the snow.
         terrain: &["slope", "flat", "ledge", "trail"],
         surface: &["snow", "ice"],
-        weather: &["none", "snow", "stars"],
+        weather: &["none", "snow", "stars", "blizzard", "sparkle"],
         platforms: &["ice_shelf"],
         sky: true,
     },
@@ -136,6 +141,68 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 10] = [
         surface: &["rock"],
         weather: &["none", "dust"],
         platforms: &["rock_ledge"],
+        sky: false,
+    },
+    ArchetypeInfo {
+        id: "meadow",
+        implemented: true,
+        terrain: &["flat", "ledge"],
+        surface: &["grass"],
+        weather: &[
+            "none",
+            "petals",
+            "leaves",
+            "fireflies",
+            "rain",
+            "fog",
+            "stars",
+        ],
+        platforms: &["grassy_knoll"],
+        sky: true,
+    },
+    ArchetypeInfo {
+        id: "lake",
+        implemented: true,
+        terrain: &["flat", "ledge"],
+        surface: &["grass", "rock"],
+        weather: &["none", "fog", "rain", "fireflies", "snow", "stars"],
+        platforms: &["grassy_bank"],
+        sky: true,
+    },
+    ArchetypeInfo {
+        id: "volcano",
+        implemented: true,
+        terrain: &["ledge", "flat"],
+        surface: &["rock"],
+        weather: &["none", "ash", "stars"],
+        platforms: &["rock_ledge"],
+        sky: true,
+    },
+    ArchetypeInfo {
+        id: "islands",
+        implemented: true,
+        terrain: &["flat"],
+        surface: &["sand"],
+        weather: &["none", "rain", "stars"],
+        platforms: &["sand_spit"],
+        sky: true,
+    },
+    ArchetypeInfo {
+        id: "lunar",
+        implemented: true,
+        terrain: &["flat", "ledge"],
+        surface: &["rock"],
+        weather: &["none", "stars"],
+        platforms: &["crater_rim"],
+        sky: true,
+    },
+    ArchetypeInfo {
+        id: "bamboo",
+        implemented: true,
+        terrain: &["flat"],
+        surface: &["grass"],
+        weather: &["none", "rain", "fog", "fireflies", "leaves"],
+        platforms: &["mossy_bank"],
         sky: false,
     },
     ArchetypeInfo {

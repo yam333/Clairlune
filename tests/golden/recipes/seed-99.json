@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "36af6299a8a6ecbd",
-  "activity": "stroll",
-  "archetype": "cave",
+  "content_ctx_hash": "ff7a56b1aefb8046",
+  "activity": "wizard_magic",
+  "archetype": "meadow",
   "light_tod": "noon",
   "dark_tod": "deep_dusk",
-  "platform": "rock_ledge",
+  "platform": "grassy_knoll",
   "props": [
-    "lantern"
+    "spellbook"
   ],
   "weather": "none",
   "composition": {
@@ -23,8 +23,8 @@
     "platform_margin_pm": 19,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 326,
-    "pace_half_pm": 126
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "paper_day",

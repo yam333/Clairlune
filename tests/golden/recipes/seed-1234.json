@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "36af6299a8a6ecbd",
-  "activity": "paint_easel",
-  "archetype": "forest",
-  "light_tod": "golden_hour",
+  "content_ctx_hash": "ff7a56b1aefb8046",
+  "activity": "hot_cocoa",
+  "archetype": "interior",
+  "light_tod": "morning",
   "dark_tod": "dusk",
-  "platform": "log",
+  "platform": "floor",
   "props": [
-    "easel"
+    "lantern"
   ],
   "weather": "none",
   "composition": {

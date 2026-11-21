@@ -1,0 +1,33 @@
+# Catching snowflakes by a snowman, face up, arms out.
+id = "catch_snowflakes"
+weight = 1.0
+
+[requires]
+terrain = ["flat", "ledge"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
+weather = ["snow", "blizzard"]
+
+[motion]
+type = "stationary"
+
+[props.snowman]
+attach = "either_side"
+
+[animation]
+start = "catch"
+
+[animation.states.catch]
+loop = true
+dwell_s = [4, 8]
+next = { twirl = 0.3, catch = 0.7 }
+
+[animation.states.twirl]
+loop = true
+dwell_s = [1, 2]
+next = { catch = 1.0 }
+
+[gif]
+loop_script = ["catch", "twirl"]
+
+[unattended]
+props = ["snowman"]

@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "36af6299a8a6ecbd",
-  "activity": "picnic",
-  "archetype": "snowfield",
+  "content_ctx_hash": "ff7a56b1aefb8046",
+  "activity": "meditate",
+  "archetype": "volcano",
   "light_tod": "noon",
-  "dark_tod": null,
-  "platform": "ice_shelf",
+  "dark_tod": "night",
+  "platform": "rock_ledge",
   "props": [
-    "picnic_basket"
+    "stone_pile"
   ],
-  "weather": "none",
+  "weather": "stars",
   "composition": {
     "horizon_pm": 638,
     "focus_x_pm": 500,

@@ -6,6 +6,7 @@
 //! then light and particles. An archetype only supplies `background` (which
 //! returns the highest silhouette per column, for the sky pass) and `platform`.
 
+pub(crate) mod bamboo;
 pub(crate) mod canyon;
 pub(crate) mod cave;
 pub(crate) mod city;
@@ -13,13 +14,18 @@ pub(crate) mod desert;
 pub(crate) mod details;
 pub(crate) mod forest;
 pub(crate) mod interior;
+pub(crate) mod islands;
+pub(crate) mod lake;
 pub mod landmark;
 pub(crate) mod layers;
 pub(crate) mod ledge;
+pub(crate) mod lunar;
+pub(crate) mod meadow;
 pub(crate) mod mountains;
 pub(crate) mod night_sky;
 pub(crate) mod shore;
 pub(crate) mod snowfield;
+pub(crate) mod volcano;
 
 use crate::graph::{Cell, GridSpec};
 use crate::hash::{hash3, unit_from_hash};
@@ -28,7 +34,7 @@ use crate::recipe::{SceneRecipe, TimeOfDay};
 
 /// Archetypes this generator version can paint. Must match the `implemented`
 /// flags in `archetype::ARCHETYPE_INFO` (checked by a test).
-pub const PAINTED: [&str; 10] = [
+pub const PAINTED: [&str; 16] = [
     "canyon",
     "mountains",
     "desert",
@@ -39,6 +45,12 @@ pub const PAINTED: [&str; 10] = [
     "night_sky",
     "cave",
     "interior",
+    "meadow",
+    "lake",
+    "volcano",
+    "islands",
+    "lunar",
+    "bamboo",
 ];
 
 /// What an archetype paints for a journey: the still background's sky limit
@@ -166,6 +178,12 @@ pub(crate) fn background(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Vec<
         "night_sky" => night_sky::background(ctx, cells),
         "cave" => cave::background(ctx, cells),
         "interior" => interior::background(ctx, cells),
+        "meadow" => meadow::background(ctx, cells),
+        "lake" => lake::background(ctx, cells),
+        "volcano" => volcano::background(ctx, cells),
+        "islands" => islands::background(ctx, cells),
+        "lunar" => lunar::background(ctx, cells),
+        "bamboo" => bamboo::background(ctx, cells),
         other => unreachable!("archetype `{other}` is not painted"),
     }
 }
@@ -173,10 +191,10 @@ pub(crate) fn background(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Vec<
 /// The archetype's platform style.
 fn ledge_style(archetype: &str) -> &'static ledge::LedgeStyle {
     match archetype {
-        "canyon" | "mountains" | "cave" => &ledge::ROCK,
-        "desert" => &ledge::DUNE,
+        "canyon" | "mountains" | "cave" | "volcano" | "lunar" => &ledge::ROCK,
+        "desert" | "islands" => &ledge::DUNE,
         "snowfield" => &ledge::ICE,
-        "forest" => &ledge::GRASS,
+        "forest" | "meadow" | "lake" | "bamboo" => &ledge::GRASS,
         other => unreachable!("archetype `{other}` is not painted"),
     }
 }

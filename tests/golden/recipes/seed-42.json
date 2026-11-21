@@ -5,13 +5,15 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "36af6299a8a6ecbd",
-  "activity": "balloon_ride",
-  "archetype": "night_sky",
+  "content_ctx_hash": "ff7a56b1aefb8046",
+  "activity": "play_guitar",
+  "archetype": "mountains",
   "light_tod": "golden_hour",
-  "dark_tod": null,
-  "platform": "floating_island",
-  "props": [],
+  "dark_tod": "dusk",
+  "platform": "rock_ledge",
+  "props": [
+    "campfire"
+  ],
   "weather": "none",
   "composition": {
     "horizon_pm": 697,
@@ -21,9 +23,8 @@
     "platform_margin_pm": 15,
     "cliff_layers": 3,
     "prop_left": true,
-    "motion_speed_cc": 127,
-    "pace_half_pm": 0,
-    "fly_lift_pm": 232
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "sand_day",

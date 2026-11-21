@@ -386,6 +386,8 @@ fn build_scene(
     // ---- Weather across the whole screen (fireflies only after dark). ----
     let mut emitters: Vec<Emitter> = emitters;
     if let Some(kind) = WeatherKind::from_id(&recipe.weather)
+        // Confetti had no particles before generator 4.
+        && (kind != WeatherKind::Confetti || recipe.generator_version >= 4)
         && (kind != WeatherKind::Fireflies
             || matches!(
                 tod,
@@ -645,7 +647,7 @@ mod tests {
             buddy: true,
         };
         assert!(matches!(build(&r, &opts), Err(BuildError::TooSmall { .. })));
-        r.archetype = "volcano".into();
+        r.archetype = "atlantis".into();
         let opts = BuildOptions {
             width: 640,
             height: 360,
