@@ -50,7 +50,14 @@ pub fn package(args: PackageArgs) -> Result<(), String> {
     let seed = args.seed.unwrap_or_else(random_seed);
     let recipe = compose(seed, Aspect::from_size(w, h), &ctx);
     let pkg = ScenePackage::capture(&recipe, w, h).map_err(|e| e.to_string())?;
-    pkg.save(&args.out).map_err(|e| e.to_string())?;
+    if args.out.is_file() {
+        return Err(format!(
+            "{} is a file; a package is a folder",
+            args.out.display()
+        ));
+    }
+    pkg.save(&args.out)
+        .map_err(|e| format!("writing {}: {e}", args.out.display()))?;
     let themes: Vec<&str> = pkg.themes().iter().map(|t| t.as_str()).collect();
     println!("Clairlune scene package");
     println!(

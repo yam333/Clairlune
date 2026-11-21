@@ -156,7 +156,7 @@ struct GenerateArgs {
     #[arg(long)]
     recipe_out: Option<PathBuf>,
     /// Animation time in milliseconds. Defaults to the scene's hero time.
-    #[arg(long)]
+    #[arg(long, value_parser = clap::value_parser!(u64).range(..=MAX_TIME_MS))]
     time_ms: Option<u64>,
     /// Play a saved scene package instead (see `package`); no generator involved.
     #[arg(long, conflicts_with_all = ["seed", "recipe", "activity", "archetype", "look", "contrast", "recipe_out"])]
@@ -193,8 +193,21 @@ pub(crate) fn parse_size(s: &str) -> Result<(u32, u32), String> {
     if w == 0 || h == 0 {
         return Err("width and height must be positive".into());
     }
+    if w > MAX_SIDE || h > MAX_SIDE || u64::from(w) * u64::from(h) > MAX_PIXELS {
+        return Err(format!(
+            "`{s}` is too big: at most {MAX_SIDE} a side and {MAX_PIXELS} pixels (8K is 7680x4320)"
+        ));
+    }
     Ok((w, h))
 }
+
+/// The latest animation time accepted (about 285,000 years).
+pub(crate) const MAX_TIME_MS: u64 = 1 << 53;
+
+/// The largest side and area a scene is made at: past 8K both ways, short
+/// of sizes that would take hours or all the memory.
+const MAX_SIDE: u32 = 16_384;
+const MAX_PIXELS: u64 = 16_384 * 8_640;
 
 /// Limits composition to one landscape; errors list the ones that exist.
 pub(crate) fn restrict_archetype(ctx: &mut ContentContext, id: &str) -> Result<(), String> {

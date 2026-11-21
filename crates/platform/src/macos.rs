@@ -66,7 +66,14 @@ fn screens(mtm: MainThreadMarker) -> Vec<(Retained<NSScreen>, Monitor)> {
         .firstObject()
         .map(|s| s.frame().size.height)
         .unwrap_or(0.0);
-    let mut out = Vec::new();
+    // Positions in one pixel space for all screens: points at the highest
+    // scale. (Each screen's own scale would put a 1x screen next to a
+    // Retina one inside it.)
+    let pos_scale = all
+        .iter()
+        .map(|s| s.backingScaleFactor())
+        .fold(1.0, f64::max);
+    let mut out: Vec<(Retained<NSScreen>, Monitor)> = Vec::new();
     for (i, screen) in all.iter().enumerate() {
         let Some(display) = display_id(&screen) else {
             continue;
@@ -76,10 +83,15 @@ fn screens(mtm: MainThreadMarker) -> Vec<(Retained<NSScreen>, Monitor)> {
         // AppKit puts the origin at the primary screen's bottom left; the
         // rest of the app uses top left, in pixels.
         let top = main_height - (f.origin.y + f.size.height);
+        let mut id = stable_id(display);
+        // Two of the same model may report the same serial.
+        if out.iter().any(|(_, m)| m.id == id) {
+            id = format!("{id}-u{}", CGDisplayUnitNumber(display));
+        }
         let monitor = Monitor {
-            id: stable_id(display),
-            x: (f.origin.x * scale).round() as i32,
-            y: (top * scale).round() as i32,
+            id,
+            x: (f.origin.x * pos_scale).round() as i32,
+            y: (top * pos_scale).round() as i32,
             width: (f.size.width * scale).round() as u32,
             height: (f.size.height * scale).round() as u32,
             primary: i == 0,
@@ -168,6 +180,7 @@ impl WallpaperHost for MacHost {
         Ok(Snapshot {
             monitors,
             position: None,
+            settings: Vec::new(),
         })
     }
 

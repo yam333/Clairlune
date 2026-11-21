@@ -243,11 +243,18 @@ impl WallpaperHost for WindowsHost {
     fn snapshot(&self) -> Result<Snapshot, PlatformError> {
         let mut monitors = Vec::new();
         for m in self.monitors()? {
-            let current = self.current(&m)?;
-            monitors.push((m.id, current));
+            // One that won't say is left out (not taken for "no image"):
+            // what was saved for it stays.
+            if let Ok(current) = self.current(&m) {
+                monitors.push((m.id, current));
+            }
         }
         let position = unsafe { self.dw.GetPosition() }.ok().map(|p| p.0);
-        Ok(Snapshot { monitors, position })
+        Ok(Snapshot {
+            monitors,
+            position,
+            settings: Vec::new(),
+        })
     }
 
     fn restore(&self, snapshot: &Snapshot) -> Result<(), PlatformError> {
@@ -255,19 +262,28 @@ impl WallpaperHost for WindowsHost {
         if let Some(p) = snapshot.position {
             unsafe { self.dw.SetPosition(DESKTOP_WALLPAPER_POSITION(p)) }.map_err(os)?;
         }
+        // Every monitor gets its own back, even when one fails.
+        let mut first_error = None;
         for (id, path) in &snapshot.monitors {
             if !connected.iter().any(|m| &m.id == id) {
                 continue;
             }
+            // An image that is gone can't come back: that monitor keeps
+            // what it shows.
+            if path.as_deref().is_some_and(|p| !p.exists()) {
+                continue;
+            }
             // An empty path means "no image" (the background colour).
             let path = path.as_deref().map(|p| p.as_os_str()).unwrap_or_default();
-            unsafe {
+            let set = unsafe {
                 self.dw
                     .SetWallpaper(&HSTRING::from(id.as_str()), &HSTRING::from(path))
+            };
+            if let Err(e) = set {
+                first_error.get_or_insert(os(e));
             }
-            .map_err(os)?;
         }
-        Ok(())
+        first_error.map_or(Ok(()), Err)
     }
 }
 
