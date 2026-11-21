@@ -226,6 +226,11 @@ pub struct ContentContext {
     /// each time.
     #[serde(default = "normal")]
     pub contrast: String,
+    /// The theme the scene will be shown in, if known: only activities that
+    /// happen in it are picked (no daytime-only scene for a dark desktop).
+    /// `None` (the CLI, tests) allows every activity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme: Option<Theme>,
 }
 
 impl Default for ContentContext {
@@ -245,6 +250,7 @@ impl Default for ContentContext {
             data_hash: crate::activity::builtin_data_hash(),
             enabled_looks: LOOKS.iter().map(|s| s.to_string()).collect(),
             contrast: normal(),
+            theme: None,
         }
     }
 }

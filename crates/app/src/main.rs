@@ -91,6 +91,9 @@ struct App {
     next_check: Instant,
     /// The theme the current wallpaper was rendered for.
     shown_theme: Option<Theme>,
+    /// The next re-apply gives this monitor (its id) a new scene, from this
+    /// seed (New wallpaper on one monitor).
+    renew: Option<(String, u64)>,
     /// The folder of what's on screen: an archive entry or a library item.
     current: Option<PathBuf>,
     /// A library item's own theme and Clawd choices, kept while it shows.
@@ -353,6 +356,18 @@ impl App {
         self.apply_folder(dir, theme, buddy, previous);
     }
 
+    /// A new scene on one monitor (its id); the others keep theirs. It is
+    /// a new wallpaper, archived, so Previous goes back.
+    fn new_wallpaper_on(&mut self, monitor: String) {
+        let Some(dir) = self.current.clone() else {
+            return self.new_wallpaper_by_hand();
+        };
+        self.current_theme = None;
+        self.current_buddy = None;
+        self.renew = Some((monitor, random_seed()));
+        self.apply_folder(dir, None, None, true);
+    }
+
     /// Shows the scenes saved in a folder (archive entry or library item).
     fn apply_folder(
         &mut self,
@@ -365,6 +380,7 @@ impl App {
             .map_err(|e| e.to_string())
             .and_then(|t| serde_json::from_str(&t).map_err(|e| e.to_string()));
         let at = self.apply_at.take();
+        let renew = self.renew.take();
         match recipes {
             Ok(recipes) => self.submit(Job::Recipes {
                 at,
@@ -374,6 +390,7 @@ impl App {
                 buddy,
                 settings: Box::new(self.settings.clone()),
                 archive,
+                renew,
             }),
             Err(e) => {
                 tracing::warn!(target: "clairlune", dir = %dir.display(), error = %e, "unreadable saved scene")
@@ -708,6 +725,11 @@ impl App {
         use tray::Action;
         match action {
             Action::NewWallpaper => self.new_wallpaper_by_hand(),
+            Action::NewWallpaperOn(i) => {
+                if let Some(id) = self.tray.as_ref().and_then(|t| t.monitor_id(i)) {
+                    self.new_wallpaper_on(id);
+                }
+            }
             Action::Previous => self.reapply(true),
             Action::Theme(mode) => {
                 self.settings.theme.mode = mode;
@@ -1404,6 +1426,17 @@ impl App {
                 self.current = source;
                 diagnostics::set_current(self.current.clone());
                 self.shown_theme = Some(theme);
+                if let Some(t) = &self.tray {
+                    // One scene per monitor: each can get a new one. (A
+                    // span is one scene.)
+                    let span = live.iter().any(|s| s.view.is_some());
+                    let screens: Vec<_> = if span {
+                        Vec::new()
+                    } else {
+                        live.iter().map(|s| s.monitor.clone()).collect()
+                    };
+                    t.set_monitors(&screens);
+                }
                 self.live.show(live);
                 self.refresh_archive();
                 self.trim_if_idle();
@@ -2011,6 +2044,7 @@ fn main() {
         next_change: None,
         next_check: Instant::now() + CHECK_EVERY,
         shown_theme: None,
+        renew: None,
         current: None,
         current_theme: None,
         current_buddy: None,
