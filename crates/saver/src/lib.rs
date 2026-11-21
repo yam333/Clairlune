@@ -6,7 +6,7 @@
 //! with the Objective-C runtime as the library loads (the screen saver host
 //! looks it up by name). Each screen gets a view; each view plays the scene
 //! the app last set on a screen of its size (`screensaver.json`, written by
-//! the app), drawn with Core Graphics like the live wallpaper. Without
+//! the app), shown through IOSurfaces like the live wallpaper. Without
 //! that file (the app never ran, or the sandbox the host runs savers in
 //! keeps it out), the saver makes a scene of its own.
 //!

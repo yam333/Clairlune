@@ -199,10 +199,15 @@ impl WallpaperHost for MacHost {
 /// Set when the active Space changes: the picture was set on the old Space
 /// only, so it must be set again.
 static SPACE_CHANGED: AtomicBool = AtomicBool::new(false);
+/// Set when screens come, go or change size.
+static SCREENS_CHANGED: AtomicBool = AtomicBool::new(false);
 
-/// Hears Space changes. Create it on the main thread and keep it.
+type Token = Retained<objc2::runtime::ProtocolObject<dyn objc2_foundation::NSObjectProtocol>>;
+
+/// Hears Space changes and screen changes (so nothing polls for them).
+/// Create it on the main thread and keep it.
 pub struct SpaceWatcher {
-    _token: Retained<objc2::runtime::ProtocolObject<dyn objc2_foundation::NSObjectProtocol>>,
+    _tokens: [Token; 2],
 }
 
 impl SpaceWatcher {
@@ -214,7 +219,7 @@ impl SpaceWatcher {
             SPACE_CHANGED.store(true, Ordering::Relaxed);
         });
         let center = NSWorkspace::sharedWorkspace().notificationCenter();
-        let token = unsafe {
+        let spaces = unsafe {
             center.addObserverForName_object_queue_usingBlock(
                 Some(NSWorkspaceActiveSpaceDidChangeNotification),
                 None,
@@ -222,12 +227,30 @@ impl SpaceWatcher {
                 &block,
             )
         };
-        SpaceWatcher { _token: token }
+        let block = RcBlock::new(|_: std::ptr::NonNull<NSNotification>| {
+            SCREENS_CHANGED.store(true, Ordering::Relaxed);
+        });
+        // NSApplication posts it (its name is its value).
+        let name = objc2_foundation::NSString::from_str(
+            "NSApplicationDidChangeScreenParametersNotification",
+        );
+        let screens = unsafe {
+            objc2_foundation::NSNotificationCenter::defaultCenter()
+                .addObserverForName_object_queue_usingBlock(Some(&name), None, None, &block)
+        };
+        SpaceWatcher {
+            _tokens: [spaces, screens],
+        }
     }
 
     /// Whether the active Space changed since the last call.
     pub fn take_changed(&self) -> bool {
         SPACE_CHANGED.swap(false, Ordering::Relaxed)
+    }
+
+    /// Whether screens came, went or changed since the last call.
+    pub fn take_screens_changed(&self) -> bool {
+        SCREENS_CHANGED.swap(false, Ordering::Relaxed)
     }
 }
 

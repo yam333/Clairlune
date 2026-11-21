@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["crates/saver/**", "crates/live/src/cg.rs", "crates/live/src/surface.rs", "scripts/make_saver.sh", "scripts/saver_check.swift", "scripts/ci_pick_saver.py", ".github/workflows/mac-saver.yml"]
+    paths: ["crates/saver/**", "crates/live/src/surface.rs", "scripts/make_saver.sh", "scripts/saver_check.swift", "scripts/ci_pick_saver.py", ".github/workflows/mac-saver.yml"]
 
 permissions:
   contents: read
