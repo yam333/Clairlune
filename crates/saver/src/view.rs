@@ -1,17 +1,16 @@
 //! `ClairluneSaverView`: the screen saver's view, one per screen (and one
-//! small one for the preview in System Settings). It draws like the live
-//! wallpaper's windows, with Core Graphics in `drawRect:`
-//! ([`clairlune_live::cg`]), which the screen saver host shows the way it
-//! shows any saver's drawing.
+//! small one for the preview in System Settings). It shows the scene like
+//! the live wallpaper's windows, through IOSurfaces in a view of its own
+//! ([`clairlune_live::surface`]) filling it.
 
 use clairlune_live::Player;
-use clairlune_live::cg::{Painter, invalidate};
+use clairlune_live::surface::SurfaceView;
 use clairlune_render::ScenePackage;
 use clairlune_scene::saver::{SAVER_SCENE_FILE, SaverScene};
 use clairlune_scene::{Aspect, ContentContext, Theme, compose};
 use objc2::rc::{Allocated, Retained};
-use objc2::{ClassType, DefinedClass, MainThreadOnly, define_class, msg_send};
-use objc2_app_kit::{NSResponder, NSView};
+use objc2::{ClassType, DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
+use objc2_app_kit::{NSAutoresizingMaskOptions, NSResponder, NSView};
 use objc2_foundation::{NSDistributedNotificationCenter, NSObject, NSRect, NSString};
 use objc2_screen_saver::ScreenSaverView;
 use std::cell::RefCell;
@@ -21,7 +20,7 @@ use std::sync::{Arc, Once};
 
 #[derive(Default)]
 struct Ivars {
-    playing: RefCell<Option<(Player, Painter)>>,
+    playing: RefCell<Option<SurfaceView>>,
 }
 
 define_class!(
@@ -65,21 +64,14 @@ define_class!(
         #[unsafe(method(stopAnimation))]
         fn stop_animation(&self) {
             let _: () = unsafe { msg_send![super(self), stopAnimation] };
-            self.ivars().playing.borrow_mut().take();
+            if let Some(p) = self.ivars().playing.borrow_mut().take() {
+                p.view().removeFromSuperview();
+            }
         }
 
         #[unsafe(method(animateOneFrame))]
         fn animate_one_frame(&self) {
             self.next_frame();
-        }
-
-        #[unsafe(method(drawRect:))]
-        fn draw_rect(&self, dirty: NSRect) {
-            match self.ivars().playing.borrow().as_ref() {
-                Some((player, painter)) => painter.draw(self, player),
-                // Not playing (yet): the host's black.
-                None => unsafe { msg_send![super(self), drawRect: dirty] },
-            }
         }
 
         #[unsafe(method(isOpaque))]
@@ -135,8 +127,13 @@ impl ClairluneSaverView {
         }
         match self.make() {
             Ok(p) => {
+                // Filling this view, as it resizes.
+                p.view().setAutoresizingMask(
+                    NSAutoresizingMaskOptions::ViewWidthSizable
+                        | NSAutoresizingMaskOptions::ViewHeightSizable,
+                );
+                self.addSubview(p.view());
                 *self.ivars().playing.borrow_mut() = Some(p);
-                self.setNeedsDisplay(true);
             }
             Err(e) => log(&format!("not playing: {e}")),
         }
@@ -151,7 +148,7 @@ impl ClairluneSaverView {
         )
     }
 
-    fn make(&self) -> Result<(Player, Painter), String> {
+    fn make(&self) -> Result<SurfaceView, String> {
         let (w, h) = self.pixel_size();
         if w < 16 || h < 16 {
             return Err(format!("the view is too small ({w}x{h})"));
@@ -185,20 +182,15 @@ impl ClairluneSaverView {
         player.set_smooth(true);
         let t = player.now_ms();
         player.advance(t);
-        let painter = Painter::new(&player).ok_or("no colour space for the palette")?;
         unsafe { self.setAnimationTimeInterval(1.0 / f64::from(fps.clamp(1, 30))) };
-        Ok((player, painter))
+        let mtm = MainThreadMarker::from(self);
+        SurfaceView::new(mtm, self.bounds(), player).ok_or_else(|| "no IOSurface".to_string())
     }
 
     fn next_frame(&self) {
-        let mut slot = self.ivars().playing.borrow_mut();
-        let Some((player, _)) = slot.as_mut() else {
-            return;
-        };
-        let t = player.now_ms();
-        let rects = player.advance(t);
-        // Drawn when AppKit next redraws, not inside this call.
-        invalidate(self, player, &rects);
+        if let Some(p) = self.ivars().playing.borrow_mut().as_mut() {
+            p.advance();
+        }
     }
 }
 
