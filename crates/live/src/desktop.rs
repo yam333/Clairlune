@@ -427,7 +427,7 @@ impl Desktop {
                 _ => covered(&monitors),
             };
             if self.cover_policy == CoverPolicy::AllMonitors && found.iter().any(|&c| c) {
-                found.iter_mut().for_each(|c| *c = true);
+                found.fill(true);
             }
             for (o, c) in self.outputs.iter_mut().zip(found) {
                 if o.covered != c {

@@ -152,7 +152,7 @@ impl Library {
             .and_then(|r| r.monitors.first().map(|m| m.recipe.generator_version))
             .unwrap_or(clairlune_scene::GENERATOR_VERSION);
         let item = Item {
-            id: id.clone(),
+            id,
             name: default_name(&entry.archetype, entry.seed),
             created: now,
             tags: Vec::new(),

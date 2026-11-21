@@ -640,7 +640,14 @@ pub(super) fn segmented<T: PartialEq + Copy>(
     };
     for (v, label, enabled) in ordered {
         let on = *value == *v;
-        let text = RichText::new(*label).color(if on { c(t.on_accent) } else { c(t.text) });
+        let color = if on {
+            t.on_accent
+        } else if *enabled {
+            t.text
+        } else {
+            t.text_disabled
+        };
+        let text = RichText::new(*label).color(c(color));
         let mut b = egui::Button::new(text).min_size(vec2(0.0, size::CONTROL));
         if on {
             b = b.fill(c(t.accent)).stroke(Stroke::NONE);
@@ -690,7 +697,7 @@ pub(super) fn filter_checks(ui: &mut Ui, list: &mut Vec<String>, items: &[Item],
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .clicked()
             {
-                on.iter_mut().for_each(|o| *o = true);
+                on.fill(true);
                 changed = true;
             }
         }

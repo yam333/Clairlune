@@ -146,11 +146,6 @@ impl Lighting {
         (c + d).floor().clamp(0.0, f64::from(BANDS - 1)) as u8
     }
 
-    /// Background band of one pixel.
-    pub fn band_at(&self, px: u32, py: u32) -> u8 {
-        self.band_in_row(&self.row_terms(py), px)
-    }
-
     /// Fills one image row with band indices.
     pub fn fill_row(&self, py: u32, out: &mut [u8]) {
         let rt = self.row_terms(py);

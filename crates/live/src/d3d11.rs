@@ -183,7 +183,7 @@ impl D3d11 {
     ) -> Result<u64, String> {
         match self.stage(s, player, changed, whole)? {
             Some((pixels, dirty)) => {
-                self.flip(s, dirty)?;
+                Self::flip(s, &dirty)?;
                 Ok(pixels)
             }
             None => Ok(0),
@@ -226,7 +226,7 @@ impl D3d11 {
     }
 
     /// Presents the back buffer, telling the compositor what changed.
-    fn flip(&self, s: &mut FlipSurface, dirty: Vec<PixelRect>) -> Result<(), String> {
+    fn flip(s: &mut FlipSurface, dirty: &[PixelRect]) -> Result<(), String> {
         let mut rects: Vec<RECT> = dirty
             .iter()
             .map(|r| RECT {
@@ -269,7 +269,7 @@ impl D3d11 {
                 0,
             )
         };
-        self.flip(s, Vec::new())
+        Self::flip(s, &[])
     }
 
     /// The back buffer's pixels as RGBA (tests).
@@ -370,7 +370,7 @@ mod tests {
             );
             if let Some((pixels, dirty)) = staged {
                 copied.push(pixels);
-                gpu.flip(&mut surface, dirty).unwrap();
+                D3d11::flip(&mut surface, &dirty).unwrap();
             }
         }
         // After the first two frames, only small parts are copied.

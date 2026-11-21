@@ -80,8 +80,6 @@ pub const SNOW: [u8; 4] = [id('.'), id('\''), id('`'), id(',')];
 pub const SAND: [u8; 5] = [id('.'), id(','), id(':'), id('-'), id('~')];
 /// Foliage: tree canopies, bushes.
 pub const FOLIAGE: [u8; 5] = [id('.'), id('o'), id('&'), id('%'), id('@')];
-/// Water rows.
-pub const WATER: [u8; 3] = [id('-'), id('~'), id('=')];
 /// Ice shelf body.
 pub const ICE: [u8; 4] = [id('-'), id('='), id('+'), id('#')];
 /// Grass and earth: forest floor.
