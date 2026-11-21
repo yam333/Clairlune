@@ -61,6 +61,8 @@ pub struct Status {
     pub busy: bool,
     /// Registered to start at login; `None` where this build can't manage it.
     pub start_at_login: Option<bool>,
+    /// Ask, once, whether to start quietly at sign-in (the first run).
+    pub ask_start_at_login: bool,
     /// A one-line result to show under the status (export done, an error).
     pub note: Option<String>,
     /// Timeline mode: the slot boundary to come ("Next slot at 19:30").
@@ -91,6 +93,9 @@ pub enum UiAction {
     SavePng,
     SaveGif,
     SetStartAtLogin(bool),
+    /// The first-run question's answer: start quietly at sign-in or not.
+    AnswerStartAtLogin(bool),
+    Quit,
     RestoreWallpaper,
     SaveToLibrary,
     OpenLibrary,
@@ -277,6 +282,61 @@ pub fn show(
             });
         });
     toast(ui, theme, st);
+    if status.ask_start_at_login {
+        ask_start_at_login(ui, theme, actions);
+    }
+}
+
+/// Where the app lives when no window is open: the tray, or the menu bar.
+fn tray_name() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "menu bar"
+    } else {
+        "tray"
+    }
+}
+
+/// The first run's question, over the window: start quietly at sign-in?
+/// Escape or a click outside is "Not now".
+fn ask_start_at_login(ui: &mut Ui, theme: Theme, actions: &mut Vec<UiAction>) {
+    let t = colors(theme);
+    let modal = egui::Modal::new(egui::Id::unique("ask-start-at-login"))
+        .frame(
+            egui::Frame::new()
+                .fill(c(t.bg_raised))
+                .stroke(Stroke::new(size::HAIRLINE, c(t.hairline)))
+                .corner_radius(radius::PANEL)
+                .inner_margin(egui::Margin::same(space::S5 as i8)),
+        )
+        .show(ui.ctx(), |ui| {
+            ui.set_max_width(380.0);
+            ui.label(RichText::new("Start Clairlune with your computer?").font(style::section()));
+            ui.add_space(space::S2);
+            ui.label(
+                RichText::new(format!(
+                    "It starts quietly when you sign in: no window, just the {} icon, and the wallpaper changes on its own. You can change this later under General.",
+                    tray_name()
+                ))
+                .color(c(t.text_secondary)),
+            );
+            ui.add_space(space::S4);
+            ui.horizontal(|ui| {
+                if primary_button(ui, theme, "Start at sign-in").clicked() {
+                    actions.push(UiAction::AnswerStartAtLogin(true));
+                }
+                ui.add_space(space::S2);
+                if ui.button("Not now").clicked() {
+                    actions.push(UiAction::AnswerStartAtLogin(false));
+                }
+            });
+        });
+    if modal.should_close()
+        && !actions
+            .iter()
+            .any(|a| matches!(a, UiAction::AnswerStartAtLogin(_)))
+    {
+        actions.push(UiAction::AnswerStartAtLogin(false));
+    }
 }
 
 /// A faint note at the bottom of the window that fades after two seconds.
@@ -1280,23 +1340,21 @@ fn page(
             ui.label(RichText::new("Where saved images go.").color(c(t.text_secondary)));
         }
         Section::General => {
+            let tray_desc = format!(
+                "Starts quietly in the {} when you sign in, with no window.",
+                tray_name()
+            );
             match status.start_at_login {
-                Some(mut on) => row(
-                    ui,
-                    theme,
-                    "Start at login",
-                    "Run Clairlune in the tray when you sign in.",
-                    |ui| {
-                        if toggle(ui, theme, &mut on, "Start at login").changed() {
-                            actions.push(UiAction::SetStartAtLogin(on));
-                        }
-                    },
-                ),
+                Some(mut on) => row(ui, theme, "Start at login", &tray_desc, |ui| {
+                    if toggle(ui, theme, &mut on, "Start at login").changed() {
+                        actions.push(UiAction::SetStartAtLogin(on));
+                    }
+                }),
                 None => row(
                     ui,
                     theme,
                     "Start at login",
-                    "Available with the installers for this system.",
+                    "Not available on this system.",
                     |ui| {
                         ui.add_enabled_ui(false, |ui| {
                             let mut off = false;
@@ -1305,6 +1363,35 @@ fn page(
                     },
                 ),
             }
+            let (icon_name, back) = if cfg!(target_os = "macos") {
+                ("Show menu bar icon", "Launchpad or Spotlight")
+            } else if cfg!(windows) {
+                ("Show tray icon", "the Start menu")
+            } else {
+                ("Show tray icon", "your app menu")
+            };
+            row(
+                ui,
+                theme,
+                icon_name,
+                &format!(
+                    "Hidden, Clairlune keeps running in the background. Open it again from {back} to come back here."
+                ),
+                |ui| {
+                    toggle(ui, theme, &mut s.general.show_tray_icon, icon_name);
+                },
+            );
+            row(
+                ui,
+                theme,
+                "Quit Clairlune",
+                "Stops it until you open it again. The wallpaper on screen stays.",
+                |ui| {
+                    if ui.button("Quit").clicked() {
+                        actions.push(UiAction::Quit);
+                    }
+                },
+            );
             row(
                 ui,
                 theme,
@@ -1387,6 +1474,69 @@ fn page(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Renders Settings with the first run's question up for `frames`, each
+    /// with `events`, and returns the actions asked for.
+    fn ask_frames(events: &[egui::Event], frames: usize) -> Vec<UiAction> {
+        let ctx = egui::Context::default();
+        style::apply(&ctx, Theme::Light);
+        let mut st = ViewState {
+            section: Section::General,
+            thumb: None,
+            moon: None,
+            toast: None,
+        };
+        let mut settings = Settings::default();
+        let status = Status {
+            ask_start_at_login: true,
+            start_at_login: Some(false),
+            ..Status::default()
+        };
+        let mut actions = Vec::new();
+        for i in 0..frames {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    vec2(900.0, 640.0),
+                )),
+                events: if i + 1 == frames {
+                    events.to_vec()
+                } else {
+                    Vec::new()
+                },
+                ..Default::default()
+            };
+            ctx.run_ui(input, |ui| {
+                show(
+                    ui,
+                    Theme::Light,
+                    &mut st,
+                    &mut settings,
+                    &status,
+                    &mut actions,
+                )
+            })
+            .drop_without_applying_deltas();
+        }
+        actions
+    }
+
+    #[test]
+    fn the_first_run_question_waits_and_escape_is_not_now() {
+        // Up, and nothing is answered until the user does.
+        assert!(ask_frames(&[], 3).is_empty());
+        let escape = |pressed| egui::Event::Key {
+            key: egui::Key::Escape,
+            physical_key: None,
+            pressed,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        };
+        assert_eq!(
+            ask_frames(&[escape(true), escape(false)], 3),
+            vec![UiAction::AnswerStartAtLogin(false)]
+        );
+    }
 
     #[test]
     fn a_half_typed_time_reaches_the_settings_only_when_done() {
