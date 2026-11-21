@@ -67,7 +67,6 @@ pub fn body_strong() -> FontId {
 pub fn body_medium() -> FontId {
     FontId::new(text::BODY.size, FontFamily::Name(MEDIUM.into()))
 }
-#[allow(dead_code)] // section headings inside long pages (14d)
 pub fn section() -> FontId {
     FontId::new(text::LARGE.size, FontFamily::Name(SEMIBOLD.into()))
 }

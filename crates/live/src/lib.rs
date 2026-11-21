@@ -250,15 +250,6 @@ impl Player {
 /// the whole screen, and Very smooth already scrolls evenly.
 pub const JOURNEY_MAX_FPS: u32 = 30;
 
-/// Live frame rates, by their names in Settings (PLAN.md section 5.3).
-pub const SMOOTHNESS_FPS: [(u32, &str); 5] = [
-    (6, "Battery saver"),
-    (12, "Balanced"),
-    (24, "Smooth"),
-    (30, "Very smooth"),
-    (60, "Ultra smooth"),
-];
-
 #[cfg(test)]
 mod tests {
     use super::*;
