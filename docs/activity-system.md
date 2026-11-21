@@ -163,7 +163,7 @@ Each wave adds one engine capability and the activities it unlocks. Waves map on
 | E | `fly` and `bob` motion | broom flight (wizard), kite, hot-air balloon, rowing | M4 |
 | F | `interior` archetype with a window view | coffee at a counter, chess indoors, coding at a desk, the wizard's study | M4+ |
 | G | Seasonal and celebration sets, more costumes | snowman, fireworks, birthday cake, leaf piles | ongoing |
-| J | `journey` motion: the land scrolls past in layers (docs/scrolling-scenes.md) | hiking a ridge; then cross-country skiing, a train, sailing | M4+ |
+| J | `journey` motion: the land scrolls past in layers (docs/scrolling-scenes.md) | hiking a ridge, ski touring, sledding, a forest walk; later a train, sailing, a desert caravan | M4+ |
 
 Every activity is weighted equally by default, and the variety test (no activity above twice its share) keeps any one from dominating as the catalogue grows.
 

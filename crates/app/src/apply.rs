@@ -903,12 +903,17 @@ mod tests {
             };
             compose(seed, Aspect::from_size(640, 360), &ctx)
         };
-        let both = compose(9, Aspect::from_size(640, 360), &settings.content_context());
-        let both = if both.is_theme_locked() {
-            day_only(1)
-        } else {
-            both
-        };
+        // A scene with both themes (and no scrolling).
+        let both = (9u64..)
+            .map(|seed| {
+                compose(
+                    seed,
+                    Aspect::from_size(640, 360),
+                    &settings.content_context(),
+                )
+            })
+            .find(|r| !r.is_theme_locked() && !r.is_journey())
+            .unwrap();
         let day = day_only(2);
         assert!(day.tod_for(Theme::Dark).is_none());
         let entry = saved(&screens, &[both.clone(), day.clone()]);

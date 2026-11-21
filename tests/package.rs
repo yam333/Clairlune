@@ -17,9 +17,12 @@ const H: u32 = 270;
 
 fn recipes() -> Vec<SceneRecipe> {
     let aspect = Aspect::from_size(W, H);
-    let mut out: Vec<SceneRecipe> = [1u64, 7, 42]
-        .iter()
-        .map(|&s| compose(s, aspect, &ContentContext::default()))
+    // Scenes that stay put: journeys (format 2, their background moves)
+    // have their own tests in tests/journey.rs.
+    let mut out: Vec<SceneRecipe> = (1u64..)
+        .map(|s| compose(s, aspect, &ContentContext::default()))
+        .filter(|r| !r.is_journey())
+        .take(3)
         .collect();
     // Activities with anchor effects (sparkles, steam) and a weather scene.
     for (seed, activity) in [(5u64, "wizard_magic"), (6, "make_coffee"), (8, "stroll")] {

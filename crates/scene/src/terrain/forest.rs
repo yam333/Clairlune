@@ -3,8 +3,8 @@
 //! group) and big trees framing the edges; the focal group stands on a grassy
 //! bank.
 
-use super::layers::{self, Layer};
-use super::{Ctx, family_glyph};
+use super::layers::{self, Layer, Strip, StripCells};
+use super::{Ctx, Journeyed, family_glyph};
 use crate::glyphs::{self, EMPTY, id};
 use crate::graph::Cell;
 use crate::hash::{hash_label, hash3, unit_from_hash};
@@ -58,6 +58,7 @@ struct Tree {
 }
 
 /// A row of trees across the screen.
+#[derive(Clone, Copy)]
 struct TreeRow {
     label: &'static str,
     /// Crown half-height as a fraction of the screen's short side, before the
@@ -198,6 +199,19 @@ fn tree_row(ctx: &Ctx, row: &TreeRow) -> Vec<Tree> {
 /// Trunk, then a lumpy round crown filled with foliage glyphs, lit from above.
 /// The crown hides what is behind it and lowers the sky limit.
 fn draw_tree(ctx: &Ctx, cells: &mut [Cell], sky: &mut [f64], t: &Tree) {
+    let cols = ctx.cols;
+    draw_tree_with(t, &mut |c, r, glyph, shade, crown| {
+        if crown && r >= 0 && c >= 0 && (c as u32) < cols {
+            let ny = ctx.co.ny(r as u32) - 0.5 / f64::from(ctx.rows);
+            sky[c as usize] = sky[c as usize].min(ny);
+        }
+        layers::put(ctx, cells, c, r, glyph, shade);
+    });
+}
+
+/// [`draw_tree`] through a writer (a screen, or a journey's strip), told
+/// whether each cell is in the crown (gaps included).
+fn draw_tree_with(t: &Tree, put: &mut dyn FnMut(i64, i64, u8, f64, bool)) {
     let cy = t.ground - t.trunk - t.ry;
     // Trunk: one column of `|` for small trees; wider trunks get `|` edges and
     // bark between, flaring by a column at the foot.
@@ -215,7 +229,7 @@ fn draw_tree(ctx: &Ctx, cells: &mut [Cell], sky: &mut [f64], t: &Tree) {
                 let k = hash3(t.seed, c, r);
                 BARK[(k % BARK.len() as u64) as usize]
             };
-            layers::put(ctx, cells, c, r, glyph, t.shade * 0.75);
+            put(c, r, glyph, t.shade * 0.75, false);
         }
     }
     let rows = (cy - t.ry * 1.2).floor() as i64..=(cy + t.ry * 1.2).ceil() as i64;
@@ -228,14 +242,10 @@ fn draw_tree(ctx: &Ctx, cells: &mut [Cell], sky: &mut [f64], t: &Tree) {
             if u * u + v * v > lump * lump {
                 continue;
             }
-            if r >= 0 && c >= 0 && (c as u32) < ctx.cols {
-                let ny = ctx.co.ny(r as u32) - 0.5 / f64::from(ctx.rows);
-                sky[c as usize] = sky[c as usize].min(ny);
-            }
             let n = fbm2(t.seed ^ 0x5EED, c as f64 * 0.45, r as f64 * 0.8, 3);
             let d = clamp01((n - 0.5) * 1.8 + 0.6 - 0.2 * v);
             if d < 0.32 {
-                layers::put(ctx, cells, c, r, EMPTY, 0.0);
+                put(c, r, EMPTY, 0.0, true);
                 continue;
             }
             let glyph = family_glyph(
@@ -247,7 +257,113 @@ fn draw_tree(ctx: &Ctx, cells: &mut [Cell], sky: &mut [f64], t: &Tree) {
                 r.max(0) as u32,
             );
             let shade = t.shade * (1.0 - 0.3 * v.max(0.0));
-            layers::put(ctx, cells, c, r, glyph, shade);
+            put(c, r, glyph, shade, true);
         }
+    }
+}
+
+/// The forest floor a journey walks: a gently rolling path.
+const PATH: Layer = Layer {
+    family: &glyphs::EARTH,
+    hatch: None,
+    base: 0.08,
+    amp: 0.03,
+    freq: 1.2,
+    ridged: false,
+    plateau: None,
+    fill: (30.0, 24.0),
+    threshold: 0.6,
+    shade: 0.45,
+    outline: Some(0.6),
+    snow: None,
+    label: "forest_path",
+};
+/// The wood beyond the path: a low floor the middle trees stand on.
+const WOOD: Layer = Layer {
+    family: &glyphs::EARTH,
+    hatch: None,
+    base: 0.0,
+    amp: 0.02,
+    freq: 1.0,
+    ridged: false,
+    plateau: None,
+    fill: (30.0, 24.0),
+    threshold: 0.66,
+    shade: 0.35,
+    outline: None,
+    snow: None,
+    label: "forest_wood",
+};
+
+/// Trees along a strip, standing on its silhouette, wrapping with it.
+fn strip_trees(ctx: &Ctx, strip: &Strip, row: &TreeRow) -> Vec<Tree> {
+    let seed = hash_label(ctx.terrain, row.label);
+    let mut trees = Vec::new();
+    let mut cx = 0.0;
+    let mut i = 0i64;
+    while cx < f64::from(strip.cols) {
+        let k = hash3(seed, i, 1);
+        let ry = row.size * (0.7 + 0.6 * pick(k, 0)) * rows_per_unit(ctx);
+        let rx = ry * aspect_of_cells(ctx) * (0.95 + 0.3 * pick(k, 9));
+        let ground = layers::row_f(ctx, strip.top(ctx, cx + 0.5)).ceil() + row.ground;
+        let t = Tree {
+            cx,
+            ground,
+            rx,
+            ry,
+            trunk: ry * (row.trunk.0 + row.trunk.1 * pick(k, 27)),
+            shade: row.shade,
+            seed: k,
+        };
+        if pick(k, 36) >= row.gaps {
+            trees.push(t);
+        }
+        cx += rx * (row.spacing.0 + row.spacing.1 * pick(k, 45));
+        i += 1;
+    }
+    trees
+}
+
+/// A walk through the forest: the hills and the far treeline stay put, the
+/// wood's trees slide by, and the path underfoot (big trees beside it now
+/// and then) twice as fast.
+pub(crate) fn journey(ctx: &Ctx, cells: &mut [Cell]) -> Journeyed {
+    let mut sky_limit = layers::paint(ctx, cells, &[HILLS]);
+    for t in tree_row(ctx, &ROWS[0]) {
+        draw_tree(ctx, cells, &mut sky_limit, &t);
+    }
+    let paint = |strip: &Strip, row: &TreeRow| {
+        let mut cells = strip.paint(ctx);
+        let mut out = StripCells {
+            cells: &mut cells,
+            cols: strip.cols,
+            rows: ctx.rows,
+        };
+        for t in strip_trees(ctx, strip, row) {
+            draw_tree_with(&t, &mut |c, r, g, s, _| out.put(c, r, g, s));
+        }
+        cells
+    };
+    let mid = Strip {
+        layer: &WOOD,
+        cols: ctx.cols,
+    };
+    let near = Strip {
+        layer: &PATH,
+        cols: 2 * ctx.cols,
+    };
+    let mid_cells = paint(&mid, &ROWS[1]);
+    let near_trees = TreeRow {
+        label: "forest_path_trees",
+        gaps: 0.55,
+        ground: 0.0,
+        ..ROWS[2]
+    };
+    let near_cells = paint(&near, &near_trees);
+    let (layers, surface) = layers::journey_layers(ctx, (&mid, mid_cells), (&near, near_cells));
+    Journeyed {
+        sky_limit,
+        layers,
+        surface,
     }
 }

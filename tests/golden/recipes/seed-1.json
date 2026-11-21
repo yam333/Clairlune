@@ -5,16 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "c6e7d0405d89d33e",
-  "activity": "wizard_magic",
-  "archetype": "interior",
+  "content_ctx_hash": "5f52c591fc9e8699",
+  "activity": "forest_walk",
+  "archetype": "forest",
   "light_tod": "noon",
   "dark_tod": "dusk",
-  "platform": "floor",
-  "props": [
-    "spellbook"
-  ],
-  "weather": "none",
+  "platform": "log",
+  "props": [],
+  "weather": "leaves",
   "composition": {
     "horizon_pm": 587,
     "focus_x_pm": 355,
@@ -24,7 +22,8 @@
     "cliff_layers": 3,
     "prop_left": true,
     "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "pace_half_pm": 0,
+    "journey_pace_c": 508
   },
   "palette": {
     "light": "sand_day",

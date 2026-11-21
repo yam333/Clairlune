@@ -14,7 +14,7 @@ clairlune-cli generate --seed 7 --theme dark --size 3840x2160 --out wallpaper.pn
 | `--theme light\|dark` | Palette and time of day. |
 | `--size <W>x<H>` | Output size in pixels (default 1920x1080). |
 | `--out <path>` | Output PNG (indexed, at most 255 colours). |
-| `--activity <id>` | Force an activity: `warm_hands`, `stroll`, `stargaze` (night only), `wizard_magic`, `make_coffee`, `read_lantern`, `play_guitar`, `fishing` (shore only), `fly_kite` (daytime), `skip_stones` (shore only), `broom_flight` (evening and night), `paint_easel` (daytime), `snowballs` (snow only), `balloon_ride` (daytime), `picnic` (daytime), `chess`, `tennis` (daytime), `rowing` (shore only), `skiing` (snow only), `hike_ridge` (a journey: the land scrolls past). |
+| `--activity <id>` | Force an activity: `warm_hands`, `stroll`, `stargaze` (night only), `wizard_magic`, `make_coffee`, `read_lantern`, `play_guitar`, `fishing` (shore only), `fly_kite` (daytime), `skip_stones` (shore only), `broom_flight` (evening and night), `paint_easel` (daytime), `snowballs` (snow only), `balloon_ride` (daytime), `picnic` (daytime), `chess`, `tennis` (daytime), `rowing` (shore only), `skiing` (snow only), `hike_ridge`, `ski_tour`, `sledding`, `forest_walk` (journeys: the land scrolls past). |
 | `--look <look>` | `line` (line art) or `dither` (light and dark masses of dots and bars). |
 | `--contrast <c>` | `soft`, `normal`, `high`, or `vary` (one per seed). |
 | `--no-buddy` | Same scene without the character. |

@@ -1,0 +1,38 @@
+# Sledding across rolling snow: sitting on a wooden sled with a scarf and
+# a beanie, bumping over the drifts, now and then both arms up (a journey).
+id = "sledding"
+weight = 0.7
+
+[requires]
+terrain = ["trail"]
+surface = ["snow"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk"]
+weather = ["none", "snow"]
+
+[motion]
+type = "journey"
+speed_cells_per_s = [7.5, 8.5]
+screen_x = 0.35
+
+[animation]
+start = "ride"
+
+[animation.states.ride]
+loop = true
+dwell_s = [5, 10]
+next = { ride = 0.5, whee = 0.5 }
+
+# One-shot: both arms up.
+[animation.states.whee]
+next = { ride = 1.0 }
+
+[[effects]]
+type = "particles"
+preset = "snow_spray"
+at = "origin"
+
+[gif]
+loop_script = ["ride", "whee"]
+
+[unattended]
+props = []
