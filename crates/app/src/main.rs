@@ -15,6 +15,7 @@ mod icon;
 mod ipc;
 mod library;
 mod live;
+mod saver;
 mod settings;
 mod sun;
 mod timefmt;
@@ -174,6 +175,10 @@ struct App {
     ui_test: Option<UiTest>,
     /// Started quietly (at sign-in): no window at launch.
     background: bool,
+    /// The scene on screen, for the screen saver; and whether the saver
+    /// was on when last looked at (turning it on opens System Settings).
+    saver_scene: Option<clairlune_scene::saver::SaverScene>,
+    saver_on: bool,
     /// The monitors the tray's "New wallpaper on" lists, for a tray made
     /// again after being hidden.
     tray_monitors: Vec<clairlune_platform::Monitor>,
@@ -819,6 +824,7 @@ impl App {
                         self.follow_display_settings();
                     }
                     self.sync_tray();
+                    self.sync_saver(false);
                     if schedule_changed {
                         self.reschedule();
                     }
@@ -915,6 +921,7 @@ impl App {
         self.status.start_at_login = std::env::current_exe()
             .ok()
             .and_then(|exe| clairlune_platform::start_at_login(&exe));
+        self.status.saver_available = saver::shipped().is_some();
         self.status.ask_start_at_login = !self.settings.general.asked_start_at_login
             && self.status.start_at_login == Some(false)
             && self.ui_test.is_none();
@@ -1306,6 +1313,7 @@ impl App {
             UiAction::SettingsChanged => {
                 self.save_settings();
                 self.sync_tray();
+                self.sync_saver(true);
                 if let Some(t) = &self.tray {
                     t.show_theme(self.settings.theme.mode);
                     t.show_paused(self.settings.schedule.paused);
@@ -1599,6 +1607,48 @@ impl App {
         self.usage_cpu = cpu;
     }
 
+    /// Installs or removes the screen saver as the setting says, and keeps
+    /// an installed one the app's own version. `by_hand`: the user just
+    /// turned it on, so System Settings opens to pick it.
+    fn sync_saver(&mut self, by_hand: bool) {
+        let want = self.settings.general.screen_saver && saver::shipped().is_some();
+        let turned_on = want && !self.saver_on;
+        self.saver_on = want;
+        if want {
+            if saver::installed_version().as_deref() != Some(env!("CARGO_PKG_VERSION")) {
+                if let Err(e) = saver::install() {
+                    tracing::warn!(target: "clairlune", error = %e, "screen saver not installed");
+                    self.status.note = Some(format!("Couldn't add the screen saver: {e}"));
+                    return;
+                }
+                tracing::info!(target: "clairlune", "screen saver installed");
+            }
+            self.write_saver_scene();
+            if turned_on && by_hand {
+                saver::open_settings();
+            }
+        } else if !self.settings.general.screen_saver && saver::installed_version().is_some() {
+            match saver::uninstall() {
+                Ok(()) => tracing::info!(target: "clairlune", "screen saver removed"),
+                Err(e) => {
+                    tracing::warn!(target: "clairlune", error = %e, "screen saver not removed")
+                }
+            }
+        }
+    }
+
+    /// Hands the scene on screen to the screen saver, when it's on.
+    fn write_saver_scene(&self) {
+        if !self.settings.general.screen_saver || !cfg!(target_os = "macos") {
+            return;
+        }
+        if let Some(scene) = &self.saver_scene
+            && let Err(e) = saver::write_scene(&self.data_dir, scene)
+        {
+            tracing::warn!(target: "clairlune", error = %e, "screen saver scene not written");
+        }
+    }
+
     /// The tray icon is wanted but isn't up (no tray on this desktop, or it
     /// failed): Settings is the only way in, and closing it quits.
     fn tray_missing(&self) -> bool {
@@ -1695,6 +1745,21 @@ impl App {
                     .or(live.first())
                     .filter(|s| s.view.is_none())
                     .and_then(|s| s.still.clone());
+                // What the screen saver plays: these scenes, at each screen.
+                self.saver_scene = (!live.is_empty()).then(|| clairlune_scene::saver::SaverScene {
+                    theme,
+                    buddy: live.first().is_none_or(|s| s.buddy),
+                    fps: self.settings.live.smoothness_fps.clamp(6, 30),
+                    monitors: live
+                        .iter()
+                        .map(|s| clairlune_scene::saver::SaverMonitor {
+                            width: s.monitor.width,
+                            height: s.monitor.height,
+                            recipe: s.package.recipe.clone(),
+                        })
+                        .collect(),
+                });
+                self.write_saver_scene();
                 // One scene per monitor: each can get a new one. (A span is
                 // one scene.)
                 let span = live.iter().any(|s| s.view.is_some());
@@ -1787,6 +1852,9 @@ impl ApplicationHandler<AppEvent> for App {
         }
         // macOS wants the tray created once the loop runs.
         self.sync_tray();
+        if self.ui_test.is_none() {
+            self.sync_saver(false);
+        }
         if let Some(report) = diagnostics::new_crash_report(&self.data_dir) {
             tracing::warn!(target: "clairlune", report = %report.display(), "Clairlune stopped unexpectedly last time");
             self.status.note = Some(
@@ -2411,6 +2479,8 @@ fn main() {
         status: ui::view::Status::default(),
         ui_test: ui_test_out.map(UiTest::new),
         background,
+        saver_scene: None,
+        saver_on: false,
         tray_monitors: Vec::new(),
     };
     if let Err(e) = event_loop.run_app(&mut app) {

@@ -75,6 +75,8 @@ jobs:
           v=$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json, sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"] == "clairlune"))')
           app=target/packages/Clairlune.app
           codesign --verify --deep --strict "$app" 2>&1 || echo "as packaged: not sealed"
+          # The screen saver goes in the app, which installs it on request.
+          sh scripts/make_saver.sh ${{ matrix.target }} "$app/Contents/Resources" "$v"
           xattr -cr "$app"
           codesign --force --deep --sign - "$app"
           codesign --verify --deep --strict --verbose=2 "$app"
