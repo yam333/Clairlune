@@ -551,13 +551,14 @@ mod tests {
 
     #[test]
     fn each_kind_of_install_is_told_apart() {
-        let setup = r"C:\Users\a\AppData\Local\Clairlune\clairlune.exe";
+        // Forward slashes: every OS's Path splits them (the test runs on all).
+        let setup = "C:/Users/a/AppData/Local/Clairlune/clairlune.exe";
         assert!(matches!(
             kind(
                 setup,
                 "windows",
                 None,
-                &[r"C:\Users\a\AppData\Local\Clairlune\uninstall.exe"]
+                &["C:/Users/a/AppData/Local/Clairlune/uninstall.exe"]
             ),
             Install::WindowsSetup { .. }
         ));

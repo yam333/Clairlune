@@ -2,7 +2,7 @@
 
 Procedural, animated ASCII-art desktop wallpapers, written in Rust.
 
-Each wallpaper is a landscape made of text characters, with a small pixel-art Clawd doing something in it and a few things moving: embers, snow, stars. Everything is generated on your computer from a seed, and the same seed gives the same picture everywhere. There's no AI and nothing about you goes online: the one request Clairlune makes is a once-a-day check on GitHub for a newer version, which you can turn off in Settings -> General.
+Each wallpaper is a landscape made of text characters, with a small pixel-art Clawd doing something in it and a few things moving: embers, snow, stars. Everything is generated on your computer from a seed, and the same seed gives the same picture everywhere. There's no AI and nothing about you goes online: Clairlune checks GitHub once a day for a newer version (you can turn that off in Settings -> General), and downloads one only when you click Update now.
 
 ![Nine generated wallpapers, one per landscape, in dark and light themes](docs/img/showcase.png)
 
@@ -37,7 +37,9 @@ On Windows, double-click the moon to open Settings and right-click it for the me
 
 The Archive keeps the last week of wallpapers so you can reuse, pin or export them. Save to library keeps one for good; it's stored as a frozen scene, so it looks the same after updates. With Settings -> Rotation set to Timeline, the app follows a daily plan instead of the hourly change: drag saved wallpapers or random scenes onto a 24-hour bar for each day, and pick each slot's theme.
 
-Settings also covers which landscapes, activities and weather to use, the look and contrast, the zoom (Clawd up close, smaller, or tiny in a huge landscape), Clawd on or off, start at login, hiding the moon icon (open Clairlune again to get back to Settings), and Restore my wallpaper, which puts back the wallpaper you had before Clairlune. Settings live in `%APPDATA%\clairlune\settings.toml` and logs in `%LOCALAPPDATA%\clairlune\logs`.
+Settings also covers which landscapes, activities and weather to use, the look and contrast, the zoom (Clawd up close, smaller, or tiny in a huge landscape), Clawd on or off, start at login, hiding the moon icon (open Clairlune again to get back to Settings), and Restore my wallpaper, which puts back the wallpaper you had before Clairlune. With more than one monitor, each can keep the still frame while the others play live (Display), or pick from its own landscapes and activities (Content).
+
+When a newer version is out, Settings -> General and the menu offer it: Update now downloads it from GitHub, checks it against the checksum GitHub lists, installs it and starts Clairlune again (installs from Scoop, cargo or the .deb update the usual way instead). Report a problem, next to it, opens a new GitHub issue with the version, system, monitors and recent log lines filled in; you see them in Settings first, and nothing is sent until you send the issue. Settings live in `%APPDATA%\clairlune\settings.toml` and logs in `%LOCALAPPDATA%\clairlune\logs`.
 
 On Linux the app sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway, and on other Wayland compositors with the wlr layer shell (Hyprland, river, Wayfire, labwc) it shows the wallpaper itself while it runs. Live wallpapers work there and on X11 window managers without a desktop of their own (i3, Openbox, bspwm). GNOME, KDE, XFCE, Cinnamon, MATE and LXQt draw their own desktop icons, so they get the still frame. On macOS it sets a scene on each screen, and Settings -> General -> Screen saver makes the wallpaper the screen saver too (pick Clairlune in System Settings -> Screen Saver when it opens). Off Windows, Live is off by default; turn it on in Settings.
 
