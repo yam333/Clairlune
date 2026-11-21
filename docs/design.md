@@ -74,9 +74,9 @@ The product in one line: the wallpaper is the hero, and the app around it is a q
 - Why it works: grid, asymmetric left-aligned layouts, typography as structure, objective clarity; "less, but better", honest, unobtrusive, thorough down to the last detail.
 - *Take:* a visible 8 px rhythm, left alignment, no centred card layouts; nothing on screen that carries no information.
 
-## 2. What "AI-made" UI looks like (to avoid)
+## 2. What generic UI looks like (to avoid)
 
-From current critiques ([Built In](https://builtin.com/articles/ai-design-slop-era), [925 Studios](https://www.925studios.co/blog/ai-slop-design-tells), [Kosta Canatselis](https://world.hey.com/kostac/spot-the-slop-a-ui-designer-s-guide-to-fixing-ai-defaults-4c448c9c), [DEV](https://dev.to/olehvolos/users-can-tell-when-your-ui-was-ai-generated-and-they-dont-like-it-33kn)) plus PLAN.md's list. The common thread: design with no author, made of defaults.
+From current design critiques plus PLAN.md's list. The common thread: design with no author, made of defaults.
 
 - Purple, violet or indigo gradients; cyan on dark; glowing accents; gradient text.
 - Inter everywhere at default settings; random serif/sans mixing; italic for no reason.
@@ -88,7 +88,7 @@ From current critiques ([Built In](https://builtin.com/articles/ai-design-slop-e
 - Stock framework styling (default egui look and font).
 - Contrast that fails WCAG because the palette was picked by mood.
 
-**The test** we apply in review: if someone would immediately believe "AI made this", it fails.
+**The test** we apply in review: if it looks like a template anyone could have shipped, it fails.
 
 ## 3. Decisions
 
