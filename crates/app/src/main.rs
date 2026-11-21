@@ -76,7 +76,8 @@ const TIMELINE_LEAD: jiff::SignedDuration = jiff::SignedDuration::from_secs(4);
 
 /// How long the monitor layout must stay still before the wallpaper follows.
 const MONITOR_SETTLE: Duration = Duration::from_millis(1500);
-/// Where no system message says the monitors changed, how often to look.
+/// Where no system message says the monitors changed (Linux), how often to
+/// look.
 const MONITOR_POLL: Duration = Duration::from_secs(5);
 
 enum AppEvent {
@@ -1339,11 +1340,15 @@ impl App {
             }
         }
         #[cfg(target_os = "macos")]
-        if self.spaces.take_changed() && !self.busy {
-            // The stills were set on the Space that was active then.
-            self.live.reset_stills();
+        {
+            if self.spaces.take_changed() && !self.busy {
+                // The stills were set on the Space that was active then.
+                self.live.reset_stills();
+            }
+            noticed |= self.spaces.take_screens_changed();
         }
-        if !cfg!(windows) && now >= self.next_monitor_poll {
+        // Linux has no such message here: it looks now and then.
+        if cfg!(target_os = "linux") && now >= self.next_monitor_poll {
             self.next_monitor_poll = now + MONITOR_POLL;
             noticed = self.monitor_layout.as_ref() != Some(&monitor_layout(event_loop));
         }
@@ -2198,7 +2203,7 @@ impl ApplicationHandler<AppEvent> for App {
                 wake = wake.min(t);
             }
         }
-        if !cfg!(windows) {
+        if cfg!(target_os = "linux") {
             wake = wake.min(self.next_monitor_poll);
         }
         if let Some(t) = self.ui_test.as_ref().and_then(|t| t.wake()) {

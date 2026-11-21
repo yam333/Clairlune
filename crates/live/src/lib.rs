@@ -15,8 +15,6 @@ use clairlune_scene::Theme;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-#[cfg(target_os = "macos")]
-pub mod cg;
 #[cfg(windows)]
 pub mod d3d11;
 #[cfg(windows)]
