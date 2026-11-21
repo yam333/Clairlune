@@ -99,6 +99,31 @@ pub struct DisplaySettings {
     pub mode: WallpaperMode,
     /// One scene spread across all monitors instead of one each.
     pub span: bool,
+    /// Monitors set apart from the rest (by id); the others follow the
+    /// settings for all.
+    pub monitors: Vec<MonitorSettings>,
+}
+
+/// One monitor's own settings.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MonitorSettings {
+    /// The monitor's id, as the system names it.
+    pub id: String,
+    /// Its name in Settings when it was last seen ("Left (2560x1440)"),
+    /// for reading this file.
+    pub label: String,
+    /// Shows the still frame even when Live plays on the others.
+    pub still: bool,
+    /// What its new scenes pick from, instead of the choices for all.
+    pub content: Option<Content>,
+}
+
+impl MonitorSettings {
+    /// Nothing set apart: the entry can go.
+    fn is_plain(&self) -> bool {
+        !self.still && self.content.is_none()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -329,32 +354,85 @@ impl Settings {
         std::fs::rename(&tmp, path)
     }
 
-    /// The scene filters for composition.
+    /// The scene filters for composition, for all monitors.
     pub fn content_context(&self) -> clairlune_scene::ContentContext {
-        let mut ctx = clairlune_scene::ContentContext::default();
-        if !self.content.archetypes.is_empty() {
-            ctx.enabled_archetypes = self.content.archetypes.clone();
-        }
-        if !self.content.activities.is_empty() {
-            ctx.enabled_activities = self.content.activities.clone();
-        }
-        if !self.content.weather.is_empty() {
-            ctx.enabled_weather = self.content.weather.clone();
-        }
-        if !self.content.looks.is_empty() {
-            ctx.enabled_looks = self.content.looks.clone();
-        }
-        ctx.contrast = self.content.contrast.as_str().to_string();
-        ctx.enabled_zooms = if self.content.zooms.is_empty() {
-            clairlune_scene::ZOOMS
-                .iter()
-                .map(|z| z.to_string())
-                .collect()
-        } else {
-            self.content.zooms.clone()
-        };
-        ctx
+        context_of(&self.content)
     }
+
+    /// The scene filters for one monitor: its own choices, if it has
+    /// them, or the ones for all.
+    pub fn content_context_for(&self, monitor: &str) -> clairlune_scene::ContentContext {
+        context_of(
+            self.monitor(monitor)
+                .and_then(|m| m.content.as_ref())
+                .unwrap_or(&self.content),
+        )
+    }
+
+    /// A monitor's own settings, if it has any.
+    pub fn monitor(&self, id: &str) -> Option<&MonitorSettings> {
+        self.display.monitors.iter().find(|m| m.id == id)
+    }
+
+    /// Whether this monitor shows the still frame while Live plays.
+    pub fn still_only(&self, id: &str) -> bool {
+        self.monitor(id).is_some_and(|m| m.still)
+    }
+
+    /// The monitors that show the still frame while Live plays.
+    pub fn still_monitors(&self) -> Vec<String> {
+        self.display
+            .monitors
+            .iter()
+            .filter(|m| m.still)
+            .map(|m| m.id.clone())
+            .collect()
+    }
+
+    /// Changes one monitor's settings (`label` names it in the file); an
+    /// entry left with nothing set apart goes.
+    pub fn edit_monitor(&mut self, id: &str, label: &str, f: impl FnOnce(&mut MonitorSettings)) {
+        let list = &mut self.display.monitors;
+        let i = match list.iter().position(|m| m.id == id) {
+            Some(i) => i,
+            None => {
+                list.push(MonitorSettings {
+                    id: id.to_string(),
+                    ..MonitorSettings::default()
+                });
+                list.len() - 1
+            }
+        };
+        list[i].label = label.to_string();
+        f(&mut list[i]);
+        list.retain(|m| !m.is_plain());
+    }
+}
+
+fn context_of(content: &Content) -> clairlune_scene::ContentContext {
+    let mut ctx = clairlune_scene::ContentContext::default();
+    if !content.archetypes.is_empty() {
+        ctx.enabled_archetypes = content.archetypes.clone();
+    }
+    if !content.activities.is_empty() {
+        ctx.enabled_activities = content.activities.clone();
+    }
+    if !content.weather.is_empty() {
+        ctx.enabled_weather = content.weather.clone();
+    }
+    if !content.looks.is_empty() {
+        ctx.enabled_looks = content.looks.clone();
+    }
+    ctx.contrast = content.contrast.as_str().to_string();
+    ctx.enabled_zooms = if content.zooms.is_empty() {
+        clairlune_scene::ZOOMS
+            .iter()
+            .map(|z| z.to_string())
+            .collect()
+    } else {
+        content.zooms.clone()
+    };
+    ctx
 }
 
 #[cfg(test)]
@@ -367,6 +445,36 @@ mod tests {
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
         d.join("settings.toml")
+    }
+
+    #[test]
+    fn a_monitor_keeps_its_own_choices_and_plain_entries_go() {
+        let mut s = Settings::default();
+        s.content.activities = vec!["stroll".into()];
+        s.edit_monitor("DISPLAY2", "Right (1920x1080)", |m| {
+            m.content = Some(Content {
+                activities: vec!["hike_ridge".into()],
+                ..Content::default()
+            });
+        });
+        s.edit_monitor("DISPLAY1", "Left (2560x1440, main)", |m| m.still = true);
+        assert_eq!(
+            s.content_context_for("DISPLAY2").enabled_activities,
+            vec!["hike_ridge".to_string()]
+        );
+        assert_eq!(
+            s.content_context_for("DISPLAY1").enabled_activities,
+            vec!["stroll".to_string()]
+        );
+        assert_eq!(s.still_monitors(), vec!["DISPLAY1".to_string()]);
+        // Saved and read back.
+        let path = temp("monitors");
+        s.save(&path).unwrap();
+        assert_eq!(Settings::reload(&path).unwrap(), s);
+        // Nothing left set apart: the entry goes.
+        s.edit_monitor("DISPLAY1", "Left (2560x1440, main)", |m| m.still = false);
+        s.edit_monitor("DISPLAY2", "Right (1920x1080)", |m| m.content = None);
+        assert!(s.display.monitors.is_empty());
     }
 
     #[test]

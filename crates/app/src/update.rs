@@ -4,7 +4,8 @@
 //! through the system's own `curl` (on Windows 10 and later, macOS and
 //! Linux alike), so the app carries no networking code; it sends nothing
 //! but the request itself. A newer version shows in Settings and the tray
-//! menu, linking to its release page: installing stays the user's step.
+//! menu: one click installs it ([`crate::install`]), or opens its release
+//! page where Clairlune can't install it itself.
 
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -13,6 +14,8 @@ use std::path::Path;
 pub const RELEASES_API: &str = "https://api.github.com/repos/yam333/Clairlune/releases/latest";
 /// The release list, for when the newest can't be named.
 pub const RELEASES_PAGE: &str = "https://github.com/yam333/Clairlune/releases";
+/// Where release downloads are; nothing else is downloaded.
+pub const DOWNLOADS: &str = "https://github.com/yam333/Clairlune/releases/download/";
 /// How often the automatic check runs.
 pub const EVERY_SECS: u64 = 24 * 60 * 60;
 
@@ -54,11 +57,22 @@ impl UpdateState {
     }
 }
 
-/// The newest release: its version (without the `v`) and page.
+/// The newest release: its version (without the `v`), page and downloads.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Release {
     pub version: String,
     pub url: String,
+    pub assets: Vec<Asset>,
+}
+
+/// One download of a release.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Asset {
+    pub name: String,
+    pub url: String,
+    pub size: u64,
+    /// Its SHA-256 (hex), as GitHub lists it.
+    pub sha256: Option<String>,
 }
 
 /// `x.y.z` as numbers; anything after a `-` or `+` (a pre-release) is left
@@ -81,6 +95,15 @@ pub fn is_newer(candidate: &str, current: &str) -> bool {
 /// Reads GitHub's answer for the latest release.
 pub fn parse_release(json: &str) -> Result<Release, String> {
     #[derive(Deserialize)]
+    struct RawAsset {
+        name: String,
+        browser_download_url: String,
+        #[serde(default)]
+        size: u64,
+        #[serde(default)]
+        digest: Option<String>,
+    }
+    #[derive(Deserialize)]
     struct Raw {
         tag_name: String,
         html_url: String,
@@ -88,14 +111,34 @@ pub fn parse_release(json: &str) -> Result<Release, String> {
         draft: bool,
         #[serde(default)]
         prerelease: bool,
+        #[serde(default)]
+        assets: Vec<RawAsset>,
     }
     let raw: Raw = serde_json::from_str(json).map_err(|e| format!("unexpected answer: {e}"))?;
     if raw.draft || raw.prerelease {
         return Err("the newest release isn't final yet".into());
     }
+    let assets = raw
+        .assets
+        .into_iter()
+        // Only Clairlune's own downloads.
+        .filter(|a| a.browser_download_url.starts_with(DOWNLOADS))
+        .map(|a| Asset {
+            sha256: a
+                .digest
+                .as_deref()
+                .and_then(|d| d.strip_prefix("sha256:"))
+                .filter(|h| h.len() == 64 && h.chars().all(|c| c.is_ascii_hexdigit()))
+                .map(str::to_string),
+            name: a.name,
+            url: a.browser_download_url,
+            size: a.size,
+        })
+        .collect();
     Ok(Release {
         version: raw.tag_name.trim_start_matches('v').to_string(),
         url: raw.html_url,
+        assets,
     })
 }
 
@@ -159,12 +202,20 @@ mod tests {
 
     #[test]
     fn the_answer_is_read_and_drafts_are_refused() {
-        let ok = r#"{"tag_name":"v0.15.0","html_url":"https://github.com/yam333/Clairlune/releases/tag/v0.15.0","draft":false,"prerelease":false,"assets":[]}"#;
+        let ok = r#"{"tag_name":"v0.15.0","html_url":"https://github.com/yam333/Clairlune/releases/tag/v0.15.0","draft":false,"prerelease":false,"assets":[
+            {"name":"clairlune_0.15.0_x64-setup.exe","size":6957316,"digest":"sha256:e56c8d94f7c72e6d252a56f590e01628b87d11771546b1e118ded1fc993c8c7a","browser_download_url":"https://github.com/yam333/Clairlune/releases/download/v0.15.0/clairlune_0.15.0_x64-setup.exe"},
+            {"name":"elsewhere.exe","size":1,"browser_download_url":"https://example.com/elsewhere.exe"}]}"#;
         assert_eq!(
             parse_release(ok).unwrap(),
             Release {
                 version: "0.15.0".into(),
-                url: "https://github.com/yam333/Clairlune/releases/tag/v0.15.0".into()
+                url: "https://github.com/yam333/Clairlune/releases/tag/v0.15.0".into(),
+                assets: vec![Asset {
+                    name: "clairlune_0.15.0_x64-setup.exe".into(),
+                    url: "https://github.com/yam333/Clairlune/releases/download/v0.15.0/clairlune_0.15.0_x64-setup.exe".into(),
+                    size: 6957316,
+                    sha256: Some("e56c8d94f7c72e6d252a56f590e01628b87d11771546b1e118ded1fc993c8c7a".into()),
+                }],
             }
         );
         assert!(parse_release(r#"{"tag_name":"v1","html_url":"x","prerelease":true}"#).is_err());

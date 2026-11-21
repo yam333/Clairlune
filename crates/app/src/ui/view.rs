@@ -65,11 +65,22 @@ pub struct Status {
     pub ask_start_at_login: bool,
     /// macOS: this copy carries the screen saver (from the DMG or Homebrew).
     pub saver_available: bool,
+    /// The monitors the wallpaper is on: id and name ("Left (2560x1440,
+    /// main)").
+    pub monitors: Vec<(String, String)>,
     /// What the update check says (up to date, a newer version, an error),
     /// and the newer version's page.
     pub update_note: Option<String>,
     pub update_url: Option<String>,
     pub checking_updates: bool,
+    /// Clairlune can install the newer version itself; where it can't,
+    /// how to update by hand.
+    pub update_in_place: bool,
+    pub update_how: Option<String>,
+    /// An update being downloaded or installed ("Downloading 0.16.0: 40%").
+    pub installing: Option<String>,
+    /// What a problem report would carry, to read before sending.
+    pub report: String,
     /// A one-line result to show under the status (export done, an error).
     pub note: Option<String>,
     /// Timeline mode: the slot boundary to come ("Next slot at 19:30").
@@ -104,6 +115,10 @@ pub enum UiAction {
     AnswerStartAtLogin(bool),
     CheckUpdates,
     OpenUpdate,
+    /// Download the newer version and install it in place.
+    InstallUpdate,
+    /// Open a new GitHub issue with the report filled in.
+    ReportProblem,
     /// macOS: System Settings at Screen Saver.
     OpenSaverSettings,
     Quit,
@@ -145,6 +160,21 @@ pub struct ViewState {
     pub moon: Option<egui::TextureHandle>,
     /// A brief note over the page and when it appeared.
     pub toast: Option<(String, std::time::Instant)>,
+    pub page: PageState,
+}
+
+/// What a page remembers between frames.
+#[derive(Default)]
+pub struct PageState {
+    /// Content: the monitor whose own choices are shown (`None`: the
+    /// choices for all).
+    pub content_monitor: Option<String>,
+    /// General: the problem report's details are shown.
+    pub report_open: bool,
+    /// A brief note to show (the page asks; the view shows it).
+    pub toast: Option<String>,
+    /// Scroll the page to this offset once (UI test screenshots).
+    pub scroll_to: Option<f32>,
 }
 
 /// How long a brief note stays.
@@ -309,12 +339,27 @@ pub fn show(
                 .inner_margin(egui::Margin::symmetric(space::S6 as i8, space::S5 as i8)),
         )
         .show(ui, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
+            let mut area = egui::ScrollArea::vertical();
+            if let Some(y) = st.page.scroll_to.take() {
+                area = area.vertical_scroll_offset(y);
+            }
+            area.show(ui, |ui| {
                 ui.set_max_width(size::PAGE_MAX);
                 status_strip(ui, theme, st, status, actions);
                 ui.add_space(space::S6);
                 let buddy = settings.buddy.show;
-                page(ui, theme, st.section, settings, status, actions);
+                page(
+                    ui,
+                    theme,
+                    st.section,
+                    &mut st.page,
+                    settings,
+                    status,
+                    actions,
+                );
+                if let Some(text) = st.page.toast.take() {
+                    st.toast = Some((text, std::time::Instant::now()));
+                }
                 if settings.buddy.show != buddy {
                     let text = if settings.buddy.show {
                         "Clawd joins the next wallpaper"
@@ -950,6 +995,7 @@ fn page(
     ui: &mut Ui,
     theme: Theme,
     section: Section,
+    ps: &mut PageState,
     s: &mut Settings,
     status: &Status,
     actions: &mut Vec<UiAction>,
@@ -1125,6 +1171,36 @@ fn page(
                     );
                 },
             );
+            if status.monitors.len() > 1 && s.display.mode == WallpaperMode::Live && can_live {
+                group(ui, "Each monitor");
+                ui.label(
+                    RichText::new(
+                        "A monitor can keep the still frame while Live plays on the others. What each one shows is set under Content.",
+                    )
+                    .color(c(t.text_secondary)),
+                );
+                ui.add_space(space::S2);
+                for (id, label) in &status.monitors {
+                    let mut still = s.still_only(id);
+                    let was = still;
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new(label).font(style::body_strong()));
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            segmented(
+                                ui,
+                                theme,
+                                &mut still,
+                                &[(false, "Live", true), (true, "Still frame", true)],
+                            );
+                        });
+                    });
+                    ui.add_space(space::S2);
+                    if still != was {
+                        s.edit_monitor(id, label, |m| m.still = still);
+                    }
+                }
+                ui.add_space(space::S2);
+            }
         }
         Section::Live => {
             // Every setting plays at the same speed; only the choppiness and
@@ -1241,14 +1317,88 @@ fn page(
                 )
                 .color(c(t.text_secondary)),
             );
+            // Which monitor's choices: all of them, or one with its own.
+            let span = s.display.span;
+            if status.monitors.len() > 1 {
+                ui.add_space(space::S3);
+                if span {
+                    ui.label(
+                        RichText::new(
+                            "The monitors share one spread-across scene, so it picks from the choices for all of them.",
+                        )
+                        .color(c(t.text_secondary)),
+                    );
+                } else {
+                    let mut pick = ps
+                        .content_monitor
+                        .as_ref()
+                        .and_then(|id| status.monitors.iter().position(|(m, _)| m == id))
+                        .map_or(0, |i| i + 1);
+                    let mut options = vec![(0usize, "All monitors", true)];
+                    for (i, (_, label)) in status.monitors.iter().enumerate() {
+                        options.push((i + 1, label.as_str(), true));
+                    }
+                    ui.horizontal_wrapped(|ui| {
+                        segmented(ui, theme, &mut pick, &options);
+                    });
+                    ps.content_monitor = pick
+                        .checked_sub(1)
+                        .and_then(|i| status.monitors.get(i))
+                        .map(|(id, _)| id.clone());
+                }
+                ui.add_space(space::S3);
+            }
+            let selected = ps
+                .content_monitor
+                .clone()
+                .filter(|_| !span)
+                .and_then(|id| status.monitors.iter().find(|(m, _)| *m == id).cloned());
+            if let Some((id, label)) = &selected {
+                let mut own = s.monitor(id).is_some_and(|m| m.content.is_some());
+                let was = own;
+                row(
+                    ui,
+                    theme,
+                    "Its own choices",
+                    "On, this monitor's new scenes pick from the choices below, set for it alone. Off, it picks from the choices for all monitors.",
+                    |ui| {
+                        toggle(ui, theme, &mut own, "Its own choices");
+                    },
+                );
+                if own != was {
+                    let shared = s.content.clone();
+                    s.edit_monitor(id, label, |m| m.content = own.then_some(shared));
+                }
+            }
+            // What the chips below change: the monitor's own choices, the
+            // ones for all (shown, not changeable, for a monitor without
+            // its own), or the ones for all.
+            let own_id = selected
+                .as_ref()
+                .map(|(id, _)| id.clone())
+                .filter(|id| s.monitor(id).is_some_and(|m| m.content.is_some()));
+            let mut shown = s.content.clone();
+            let editable = selected.is_none() || own_id.is_some();
+            let content: &mut crate::settings::Content = match &own_id {
+                Some(id) => s
+                    .display
+                    .monitors
+                    .iter_mut()
+                    .find(|m| m.id == *id)
+                    .and_then(|m| m.content.as_mut())
+                    .expect("checked above"),
+                None if selected.is_some() => &mut shown,
+                None => &mut s.content,
+            };
+            ui.add_enabled_ui(editable, |ui| {
             group(ui, "Landscapes");
-            filter_checks(ui, &mut s.content.archetypes, &LANDSCAPES, &[]);
+            filter_checks(ui, &mut content.archetypes, &LANDSCAPES, &[]);
             ui.add_space(space::S4);
             group(ui, "What Clawd does");
-            filter_checks(ui, &mut s.content.activities, &ACTIVITIES, &[]);
+            filter_checks(ui, &mut content.activities, &ACTIVITIES, &[]);
             ui.add_space(space::S4);
             group(ui, "Weather");
-            filter_checks(ui, &mut s.content.weather, &WEATHER, &CLEAR_WEATHER);
+            filter_checks(ui, &mut content.weather, &WEATHER, &CLEAR_WEATHER);
             ui.add_space(space::S4);
             group(ui, "Look");
             ui.label(
@@ -1257,7 +1407,7 @@ fn page(
                 )
                 .color(c(t.text_secondary)),
             );
-            filter_checks(ui, &mut s.content.looks, &LOOKS, &[]);
+            filter_checks(ui, &mut content.looks, &LOOKS, &[]);
             ui.add_space(space::S2);
             row(
                 ui,
@@ -1269,7 +1419,7 @@ fn page(
                     segmented(
                         ui,
                         theme,
-                        &mut s.content.contrast,
+                        &mut content.contrast,
                         &[
                             (Contrast::Soft, "Soft", true),
                             (Contrast::Normal, "Normal", true),
@@ -1287,7 +1437,8 @@ fn page(
                 )
                 .color(c(t.text_secondary)),
             );
-            filter_checks(ui, &mut s.content.zooms, &ZOOMS, &[]);
+            filter_checks(ui, &mut content.zooms, &ZOOMS, &[]);
+        });
         }
         Section::Archive => {
             row(
@@ -1443,27 +1594,54 @@ fn page(
                     toggle(ui, theme, &mut s.general.check_updates, "Check for updates");
                 },
             );
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
+                let busy = status.checking_updates || status.installing.is_some();
                 let label = if status.checking_updates {
                     "Checking\u{2026}"
                 } else {
                     "Check now"
                 };
-                if ui
-                    .add_enabled(!status.checking_updates, egui::Button::new(label))
-                    .clicked()
-                {
+                if ui.add_enabled(!busy, egui::Button::new(label)).clicked() {
                     actions.push(UiAction::CheckUpdates);
                 }
-                if status.update_url.is_some() && primary_button(ui, theme, "Download").clicked() {
-                    actions.push(UiAction::OpenUpdate);
+                if status.update_url.is_some() {
+                    if status.update_in_place {
+                        if status.installing.is_none()
+                            && primary_button(ui, theme, "Update now").clicked()
+                        {
+                            actions.push(UiAction::InstallUpdate);
+                        }
+                        if ui.button("What's new").clicked() {
+                            actions.push(UiAction::OpenUpdate);
+                        }
+                    } else if primary_button(ui, theme, "Download").clicked() {
+                        actions.push(UiAction::OpenUpdate);
+                    }
                 }
-                let note = status
-                    .update_note
-                    .clone()
-                    .unwrap_or_else(|| format!("Clairlune {}", env!("CARGO_PKG_VERSION")));
+                let note = status.installing.clone().unwrap_or_else(|| {
+                    status
+                        .update_note
+                        .clone()
+                        .unwrap_or_else(|| format!("Clairlune {}", env!("CARGO_PKG_VERSION")))
+                });
                 ui.label(RichText::new(note).color(c(t.text_secondary)));
             });
+            if status.update_url.is_some()
+                && status.installing.is_none()
+                && let Some(how) = &status.update_how
+            {
+                ui.label(RichText::new(how).color(c(t.text_secondary)));
+            } else if status.update_url.is_some()
+                && status.update_in_place
+                && status.installing.is_none()
+            {
+                ui.label(
+                    RichText::new(
+                        "Update now downloads it from GitHub, checks it, installs it and starts Clairlune again.",
+                    )
+                    .color(c(t.text_secondary)),
+                );
+            }
             ui.add_space(space::S4);
             if cfg!(target_os = "macos") {
                 if status.saver_available {
@@ -1527,6 +1705,49 @@ fn page(
                     }
                 },
             );
+            row(
+                ui,
+                theme,
+                "Report a problem",
+                "Opens a new issue on GitHub with the details below filled in, for you to describe what happened and send (a GitHub account is needed). Nothing is sent until you do.",
+                |ui| {
+                    if primary_button(ui, theme, "Report on GitHub").clicked() {
+                        actions.push(UiAction::ReportProblem);
+                    }
+                    if ui.button("Copy details").clicked() {
+                        ui.ctx().copy_text(status.report.clone());
+                        ps.toast = Some("Copied the details".into());
+                    }
+                },
+            );
+            let shown = if ps.report_open {
+                "Hide the details"
+            } else {
+                "Show the details"
+            };
+            if ui.link(shown).clicked() {
+                ps.report_open = !ps.report_open;
+            }
+            if ps.report_open {
+                egui::Frame::new()
+                    .fill(c(t.bg_sidebar))
+                    .corner_radius(egui::CornerRadius::same(6))
+                    .inner_margin(egui::Margin::same(space::S3 as i8))
+                    .show(ui, |ui| {
+                        egui::ScrollArea::vertical()
+                            .id_salt("report")
+                            .max_height(220.0)
+                            .min_scrolled_height(200.0)
+                            .show(ui, |ui| {
+                                ui.label(
+                                    RichText::new(&status.report)
+                                        .font(style::mono())
+                                        .color(c(t.text_secondary)),
+                                );
+                            });
+                    });
+            }
+            ui.add_space(space::S4);
             row(ui, theme, "Logs", "Details for bug reports.", |ui| {
                 if ui.button("Open").clicked() {
                     actions.push(UiAction::OpenLogs);
@@ -1609,6 +1830,7 @@ mod tests {
             thumb: None,
             moon: None,
             toast: None,
+            page: PageState::default(),
         };
         let mut settings = Settings::default();
         let status = Status {

@@ -225,6 +225,7 @@ impl UiWindow {
                 thumb: None,
                 moon: None,
                 toast: None,
+                page: Default::default(),
             },
             theme,
             screenshot_to: None,
@@ -280,6 +281,13 @@ impl UiWindow {
     pub fn set_section(&mut self, section: view::Section) {
         self.view.section = section;
         self.window.request_redraw();
+    }
+
+    /// The page's own state (UI test: a monitor picked, details shown,
+    /// scrolled down).
+    pub fn page_state(&mut self) -> &mut view::PageState {
+        self.window.request_redraw();
+        &mut self.view.page
     }
 
     /// Shows a brief note over the page (UI test).

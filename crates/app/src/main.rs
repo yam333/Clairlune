@@ -12,9 +12,11 @@ mod apply;
 mod archive;
 mod diagnostics;
 mod icon;
+mod install;
 mod ipc;
 mod library;
 mod live;
+mod report;
 mod saver;
 mod settings;
 mod sun;
@@ -87,11 +89,21 @@ enum AppEvent {
     OpenSettings,
     /// The update check's answer.
     UpdateChecked(Result<update::Release, String>),
+    /// How installing an update goes.
+    Installing(InstallStep),
     /// The live metronome: a frame may be due. It arrives even while one
     /// of the app's windows is dragged or resized (Windows runs its own
     /// message loop then, and winit's timers stop; user events still come).
     #[cfg(windows)]
     LiveFrame,
+}
+
+/// Installing an update, step by step (from its thread).
+enum InstallStep {
+    /// Downloading this version: the share done, 0 to 100.
+    Progress(String, u32),
+    /// Downloaded, checked and ready, or why not.
+    Ready(Result<install::Prepared, String>),
 }
 
 struct App {
@@ -107,6 +119,10 @@ struct App {
     /// date").
     update: update::UpdateState,
     checking_updates: Option<bool>,
+    /// How this copy was installed (so whether it can update itself).
+    install: install::Install,
+    /// An update being installed: what it's doing.
+    installing: Option<String>,
     busy: bool,
     /// When the schedule next changes the wallpaper (None: only on demand).
     next_change: Option<Instant>,
@@ -202,6 +218,9 @@ struct App {
     /// The monitors the tray's "New wallpaper on" lists, for a tray made
     /// again after being hidden.
     tray_monitors: Vec<clairlune_platform::Monitor>,
+    /// The monitors the wallpaper is on (for Settings: each one's own
+    /// settings).
+    screens: Vec<clairlune_platform::Monitor>,
 }
 
 /// The M6 toolkit spike's pass criterion, scripted: open and close Settings
@@ -229,6 +248,9 @@ enum UiStep {
     CloseArchive,
     /// Of the Library window when it's open, else of Settings.
     Screenshot(&'static str),
+    /// Settings' page state: a monitor picked on Content, the problem
+    /// report shown, scrolled down this far.
+    Page(Option<&'static str>, bool, f32),
     Close,
     CloseLibrary,
     Exit,
@@ -281,7 +303,24 @@ impl UiTest {
         steps.push((ms(18100), UiStep::Close));
         steps.push((ms(18400), UiStep::Tray(false)));
         steps.push((ms(18700), UiStep::Tray(true)));
-        steps.push((ms(19000), UiStep::Exit));
+        // Each monitor's own settings (two monitors, made up for the test).
+        steps.push((ms(19000), UiStep::Open(Theme::Dark, Section::Display)));
+        steps.push((ms(19300), UiStep::Page(None, false, 300.0)));
+        steps.push((ms(19800), UiStep::Screenshot("settings-dark-display.png")));
+        steps.push((ms(20300), UiStep::Close));
+        // A monitor with its own choices, and the problem report.
+        steps.push((ms(20600), UiStep::Open(Theme::Light, Section::Content)));
+        steps.push((ms(20900), UiStep::Page(Some("ui-test-2"), false, 0.0)));
+        steps.push((
+            ms(21400),
+            UiStep::Screenshot("settings-light-content-monitor.png"),
+        ));
+        steps.push((ms(21900), UiStep::Close));
+        steps.push((ms(22200), UiStep::Open(Theme::Dark, Section::General)));
+        steps.push((ms(22500), UiStep::Page(None, true, 420.0)));
+        steps.push((ms(23000), UiStep::Screenshot("settings-dark-report.png")));
+        steps.push((ms(23500), UiStep::Close));
+        steps.push((ms(23800), UiStep::Exit));
         UiTest {
             out,
             steps,
@@ -342,21 +381,10 @@ fn open(path: &Path, text: bool) {
 
 /// Opens a web page in the default browser.
 fn open_url(url: &str) {
-    #[cfg(windows)]
-    let mut cmd = {
-        // `start` is a cmd builtin; the empty title keeps the URL as the target.
-        let mut c = std::process::Command::new("cmd");
-        c.args(["/C", "start", ""]);
-        use std::os::windows::process::CommandExt;
-        c.creation_flags(0x0800_0000);
-        c
-    };
-    #[cfg(target_os = "macos")]
-    let mut cmd = std::process::Command::new("open");
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let mut cmd = std::process::Command::new("xdg-open");
-    if let Err(e) = cmd.arg(url).spawn() {
-        tracing::warn!(target: "clairlune", url, error = %e, "could not open");
+    if let Err(e) = clairlune_platform::open_url(url) {
+        // The link may be long (a problem report): its start says enough.
+        let start: String = url.chars().take(80).collect();
+        tracing::warn!(target: "clairlune", url = %start, error = %e, "could not open");
     }
 }
 
@@ -869,7 +897,7 @@ impl App {
         }
         self.update.save(&self.data_dir);
         if let Some(t) = &self.tray {
-            t.show_update(self.update.newer());
+            t.show_update(self.update.newer(), self.install.in_place());
         }
         if let Some(w) = &self.settings_window {
             w.request_redraw();
@@ -1018,7 +1046,7 @@ impl App {
             Action::OpenTimeline => self.open_timeline(event_loop),
             Action::OpenArchive => self.open_archive(event_loop),
             Action::OpenSettings => self.open_settings(event_loop, None),
-            Action::OpenUpdate => self.open_update(),
+            Action::OpenUpdate => self.install_update(),
             Action::Quit => event_loop.exit(),
         }
     }
@@ -1392,6 +1420,7 @@ impl App {
         );
         self.live
             .set_cover_pause(self.settings.live.pause_when_covered);
+        self.live.set_still_monitors(self.settings.still_monitors());
         self.live.set_enabled(live);
         if let Some(t) = &self.tray {
             t.show_live(live && live::supported().is_ok());
@@ -1400,7 +1429,17 @@ impl App {
 
     fn status(&self) -> ui::view::Status {
         let mut s = self.status.clone();
+        s.monitors = self
+            .screens
+            .iter()
+            .zip(tray::monitor_labels(&self.screens))
+            .map(|(m, label)| (m.id.clone(), label))
+            .collect();
         s.checking_updates = self.checking_updates.is_some();
+        s.update_in_place = self.install.in_place();
+        s.update_how = self.install.how().map(str::to_string);
+        s.installing = self.installing.clone();
+        s.report = report::details(&self.report_facts(), report::LOG_LINES);
         s.update_url = self.update.newer().and(self.update.url.clone());
         if s.update_note.is_none()
             && let Some(v) = self.update.newer()
@@ -1542,6 +1581,12 @@ impl App {
                 self.check_updates(true);
             }
             UiAction::OpenUpdate => self.open_update(),
+            UiAction::InstallUpdate => self.install_update(),
+            UiAction::ReportProblem => {
+                let url = report::issue_url(&self.report_facts());
+                tracing::info!(target: "clairlune", "opening a problem report on GitHub");
+                open_url(&url);
+            }
             UiAction::OpenSaverSettings => saver::open_settings(),
             UiAction::SetStartAtLogin(on) => {
                 let result = std::env::current_exe()
@@ -1589,6 +1634,14 @@ impl App {
                         }
                     }
                     tracing::info!(target: "clairlune", ms = opened.elapsed().as_millis() as u64, memory_mb = memory_mb(), "ui test: settings opened");
+                }
+                UiStep::Page(monitor, report, scroll) => {
+                    if let Some(w) = &mut self.settings_window {
+                        let ps = w.page_state();
+                        ps.content_monitor = monitor.map(str::to_string);
+                        ps.report_open = report;
+                        ps.scroll_to = Some(scroll);
+                    }
                 }
                 UiStep::Tray(on) => {
                     self.settings.general.show_tray_icon = on;
@@ -1774,6 +1827,141 @@ impl App {
         }
     }
 
+    /// Downloads the newer version and installs it in place, on a thread;
+    /// where this install can't update itself, opens the release page.
+    fn install_update(&mut self) {
+        if self.installing.is_some() {
+            return;
+        }
+        if !self.install.in_place() {
+            self.open_update();
+            return;
+        }
+        let install = self.install.clone();
+        let proxy = self.proxy.clone();
+        self.installing = Some("Getting the new version\u{2026}".into());
+        tracing::info!(target: "clairlune", install = %install.name(), "installing an update");
+        let started = std::thread::Builder::new()
+            .name("clairlune-install".into())
+            .spawn(move || {
+                let ready = (|| {
+                    let release = update::fetch()?;
+                    if !update::is_newer(&release.version, env!("CARGO_PKG_VERSION")) {
+                        return Err("this is already the newest version".to_string());
+                    }
+                    let name = install
+                        .asset_name(&release.version)
+                        .ok_or("nothing to download for this install")?;
+                    let asset = release
+                        .assets
+                        .iter()
+                        .find(|a| a.name == name)
+                        .ok_or_else(|| format!("the release has no {name}"))?;
+                    let v = release.version.clone();
+                    let p = proxy.clone();
+                    install::prepare(&install, asset, &release.version, &|share| {
+                        let _ = p.send_event(AppEvent::Installing(InstallStep::Progress(
+                            v.clone(),
+                            share,
+                        )));
+                    })
+                })();
+                let _ = proxy.send_event(AppEvent::Installing(InstallStep::Ready(ready)));
+            });
+        if started.is_err() {
+            self.installing = None;
+        }
+        self.redraw_settings();
+    }
+
+    fn on_installing(&mut self, step: InstallStep, event_loop: &ActiveEventLoop) {
+        match step {
+            InstallStep::Progress(version, share) => {
+                self.installing = Some(if share >= 100 {
+                    format!("Checking {version}\u{2026}")
+                } else {
+                    format!("Downloading {version}: {share}%")
+                });
+            }
+            InstallStep::Ready(Ok(p)) => {
+                // Back as it was: Settings again if it's open, else quietly.
+                let relaunch: &[&str] = if self.settings_window.is_some() {
+                    &[]
+                } else {
+                    &["--background"]
+                };
+                match install::finish(&p, std::process::id(), Some(relaunch)) {
+                    Ok(()) => {
+                        tracing::info!(target: "clairlune", version = %p.version, "update ready; quitting to install it");
+                        self.installing = Some(format!("Installing {}\u{2026}", p.version));
+                        event_loop.exit();
+                    }
+                    Err(e) => {
+                        tracing::warn!(target: "clairlune", error = %e, "update not installed");
+                        self.installing = None;
+                        self.status.update_note = Some(format!("Couldn't install it: {e}"));
+                    }
+                }
+            }
+            InstallStep::Ready(Err(e)) => {
+                tracing::warn!(target: "clairlune", error = %e, "update not installed");
+                self.installing = None;
+                self.status.update_note = Some(format!("Couldn't update: {e}"));
+            }
+        }
+        self.redraw_settings();
+    }
+
+    fn redraw_settings(&self) {
+        if let Some(w) = &self.settings_window {
+            w.request_redraw();
+        }
+    }
+
+    /// What a problem report carries.
+    fn report_facts(&self) -> report::Facts {
+        use settings::WallpaperMode;
+        let d = &self.settings.display;
+        let wallpaper = match d.mode {
+            WallpaperMode::Live => {
+                let still = d.monitors.iter().filter(|m| m.still).count();
+                format!(
+                    "Live at {} fps, {}{}",
+                    self.settings.live.smoothness_fps,
+                    if d.span {
+                        "spread across"
+                    } else {
+                        "one scene each"
+                    },
+                    if still > 0 {
+                        format!(
+                            ", {still} monitor{} kept still",
+                            if still == 1 { "" } else { "s" }
+                        )
+                    } else {
+                        String::new()
+                    }
+                )
+            }
+            WallpaperMode::Still => "Still frame".into(),
+        };
+        let showing = match self.status.seed {
+            Some(seed) if !self.status.what.is_empty() => {
+                format!("{}, seed {seed}", self.status.what)
+            }
+            _ => self.status.what.clone(),
+        };
+        report::Facts {
+            install: self.install.name(),
+            monitors: tray::monitor_labels(&self.screens),
+            wallpaper,
+            live: self.live.status.clone(),
+            showing,
+            crash_reports: self.status.crash_reports,
+            log: diagnostics::recent_lines(report::LOG_LINES),
+        }
+    }
+
     /// The newer version's release page, in the browser.
     fn open_update(&self) {
         let url = self.update.url.as_deref().unwrap_or(update::RELEASES_PAGE);
@@ -1804,7 +1992,7 @@ impl App {
     fn sync_tray(&mut self) {
         self.sync_tray_inner();
         if let Some(t) = &self.tray {
-            t.show_update(self.update.newer());
+            t.show_update(self.update.newer(), self.install.in_place());
         }
     }
 
@@ -1913,6 +2101,7 @@ impl App {
                 // One scene per monitor: each can get a new one. (A span is
                 // one scene.)
                 let span = live.iter().any(|s| s.view.is_some());
+                self.screens = live.iter().map(|s| s.monitor.clone()).collect();
                 self.tray_monitors = if span {
                     Vec::new()
                 } else {
@@ -2159,6 +2348,7 @@ impl ApplicationHandler<AppEvent> for App {
             AppEvent::Done(d) => self.on_done(d),
             AppEvent::OpenSettings => self.open_settings(event_loop, None),
             AppEvent::UpdateChecked(r) => self.on_update_checked(r),
+            AppEvent::Installing(step) => self.on_installing(step, event_loop),
             #[cfg(windows)]
             AppEvent::LiveFrame => {
                 let next = self.live.tick(Instant::now());
@@ -2435,6 +2625,19 @@ fn main() {
     };
     let _ = std::fs::create_dir_all(&data_dir);
     init_logging(&data_dir);
+    // CI's check of in-place updates: install the latest release over this
+    // copy and exit (install::install_latest_now).
+    if args.iter().any(|a| a == "--install-latest") {
+        #[cfg(windows)]
+        clairlune_platform::attach_parent_console();
+        std::process::exit(install::install_latest_now());
+    }
+    // Asked once, off the main thread, for problem reports.
+    let _ = std::thread::Builder::new()
+        .name("clairlune-system".into())
+        .spawn(|| {
+            let _ = report::system();
+        });
     if ui_test_out.is_some()
         && let Err(e) = seed_ui_test(&data_dir)
     {
@@ -2547,6 +2750,7 @@ fn main() {
         settings.live.pause_on_battery,
     );
     live.set_cover_pause(settings.live.pause_when_covered);
+    live.set_still_monitors(settings.still_monitors());
     #[cfg(windows)]
     let watcher = match clairlune_platform::windows_live::SystemWatcher::new() {
         Ok(w) => Some(w),
@@ -2603,6 +2807,8 @@ fn main() {
         proxy: app_proxy,
         update: update_state,
         checking_updates: None,
+        install: install::detect(),
+        installing: None,
         busy: false,
         next_change: None,
         next_check: Instant::now() + CHECK_EVERY,
@@ -2644,7 +2850,32 @@ fn main() {
         saver_on: false,
         taskbar_light: clairlune_platform::taskbar_is_light(),
         tray_monitors: Vec::new(),
+        screens: Vec::new(),
     };
+    if app.ui_test.is_some() {
+        let m = |id: &str, x: i32, w: u32, h: u32, primary: bool| clairlune_platform::Monitor {
+            id: id.into(),
+            x,
+            y: 0,
+            width: w,
+            height: h,
+            primary,
+        };
+        app.screens = vec![
+            m("ui-test-1", 0, 2560, 1440, true),
+            m("ui-test-2", 2560, 1920, 1080, false),
+        ];
+        app.settings.display.mode = settings::WallpaperMode::Live;
+        // The right one: its own choices, and the still frame.
+        app.settings
+            .edit_monitor("ui-test-2", "Right (1920x1080)", |m| {
+                m.still = true;
+                m.content = Some(settings::Content {
+                    archetypes: vec!["lake".into(), "islands".into()],
+                    ..settings::Content::default()
+                });
+            });
+    }
     if let Err(e) = event_loop.run_app(&mut app) {
         tracing::error!(target: "clairlune", error = %e, "event loop ended with an error");
     }
