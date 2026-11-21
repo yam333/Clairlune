@@ -175,7 +175,7 @@ pub(super) const LANDSCAPES: [Item; 10] = [
     ),
 ];
 
-pub(super) const ACTIVITIES: [Item; 23] = [
+pub(super) const ACTIVITIES: [Item; 26] = [
     ("warm_hands", "Campfire", "Warming hands by a fire"),
     ("stroll", "Strolling", ""),
     ("stargaze", "Stargazing", "Night only"),
@@ -206,6 +206,21 @@ pub(super) const ACTIVITIES: [Item; 23] = [
         "forest_walk",
         "Forest walk",
         "Forest; the land scrolls past",
+    ),
+    (
+        "desert_trek",
+        "Desert trek",
+        "Desert; the land scrolls past",
+    ),
+    (
+        "broom_journey",
+        "Broom journey",
+        "Evening and night; the land scrolls past below",
+    ),
+    (
+        "balloon_journey",
+        "Balloon journey",
+        "Daytime; the land drifts past below",
     ),
 ];
 

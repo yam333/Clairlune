@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "5f52c591fc9e8699",
-  "activity": "broom_flight",
-  "archetype": "desert",
-  "light_tod": null,
+  "content_ctx_hash": "36af6299a8a6ecbd",
+  "activity": "stroll",
+  "archetype": "cave",
+  "light_tod": "noon",
   "dark_tod": "deep_dusk",
-  "platform": "dune_crest",
+  "platform": "rock_ledge",
   "props": [
-    "spellbook"
+    "lantern"
   ],
   "weather": "none",
   "composition": {
@@ -23,9 +23,8 @@
     "platform_margin_pm": 19,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 437,
-    "pace_half_pm": 0,
-    "fly_lift_pm": 181
+    "motion_speed_cc": 326,
+    "pace_half_pm": 126
   },
   "palette": {
     "light": "paper_day",

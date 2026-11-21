@@ -13,6 +13,7 @@ pub(crate) mod desert;
 pub(crate) mod details;
 pub(crate) mod forest;
 pub(crate) mod interior;
+pub mod landmark;
 pub(crate) mod layers;
 pub(crate) mod ledge;
 pub(crate) mod mountains;
@@ -52,12 +53,19 @@ pub(crate) struct Journeyed {
 /// Paints a journey's still background into `cells` and returns its moving
 /// layers, or `None` when the archetype has no journey.
 pub(crate) fn journey(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Option<Journeyed> {
-    match archetype {
-        "mountains" => Some(mountains::journey(ctx, cells)),
-        "snowfield" => Some(snowfield::journey(ctx, cells)),
-        "forest" => Some(forest::journey(ctx, cells)),
-        _ => None,
+    // The landmark is the farthest thing: the still land goes over its foot.
+    let landmark = landmark::paint(ctx, cells);
+    let mut j = match archetype {
+        "mountains" => mountains::journey(ctx, cells),
+        "snowfield" => snowfield::journey(ctx, cells),
+        "forest" => forest::journey(ctx, cells),
+        "desert" => desert::journey(ctx, cells),
+        _ => return None,
+    };
+    for (s, l) in j.sky_limit.iter_mut().zip(landmark) {
+        *s = s.min(l);
     }
+    Some(j)
 }
 
 /// Normalised cell-centre coordinates.

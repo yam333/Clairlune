@@ -1,0 +1,33 @@
+# A trek over the dunes in goggles and a scarf against the sand (a journey:
+# the dunes go by underfoot, the mesas and the sky stay put).
+id = "desert_trek"
+weight = 0.8
+
+[requires]
+terrain = ["dune_trail"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
+weather = ["none", "dust", "stars"]
+
+# The ground goes by at about the walk's own stride.
+[motion]
+type = "journey"
+speed_cells_per_s = [4.4, 5.2]
+screen_x = 0.36
+
+[animation]
+start = "walk"
+
+[animation.states.walk]
+loop = true
+dwell_s = [6, 12]
+next = { walk = 0.6, look = 0.4 }
+
+# One-shot: a look up at the mesas, still walking.
+[animation.states.look]
+next = { walk = 1.0 }
+
+[gif]
+loop_script = ["walk"]
+
+[unattended]
+props = []

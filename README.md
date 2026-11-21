@@ -10,7 +10,7 @@ Each wallpaper is a landscape made of text characters, with a small pixel-art Cl
 
 ## Status
 
-Early, but usable. On Windows the tray app is the main way to use it. macOS and Linux builds exist but haven't been tried on real machines yet, so reports are welcome. There are ten landscapes, twenty-three things Clawd can be doing, weather, and two looks: line art, or a dithered version built from dots and bars. Four of the activities are journeys, where the land scrolls past: a ridge hike, ski touring, sledding and a forest walk. The roadmap is in [PLAN.md](PLAN.md).
+Early, but usable. On Windows the tray app is the main way to use it. macOS and Linux builds exist but haven't been tried on real machines yet, so reports are welcome. There are ten landscapes, twenty-six things Clawd can be doing, weather, and two looks: line art, or a dithered version built from dots and bars. Seven of the activities are journeys, where the land in front scrolls past a big still landmark (a dome, a peak, a volcano, a mesa, a rising moon): a ridge hike, ski touring, sledding, a forest walk, a desert trek, and flights on the broom or in the balloon. The roadmap is in [PLAN.md](PLAN.md).
 
 ## Install
 

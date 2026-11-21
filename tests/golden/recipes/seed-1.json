@@ -5,14 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "5f52c591fc9e8699",
-  "activity": "forest_walk",
-  "archetype": "forest",
-  "light_tod": "noon",
-  "dark_tod": "dusk",
-  "platform": "log",
-  "props": [],
-  "weather": "leaves",
+  "content_ctx_hash": "36af6299a8a6ecbd",
+  "activity": "stargaze",
+  "archetype": "city_rooftops",
+  "light_tod": null,
+  "dark_tod": "night",
+  "platform": "rooftop_edge",
+  "props": [
+    "telescope"
+  ],
+  "weather": "none",
   "composition": {
     "horizon_pm": 587,
     "focus_x_pm": 355,
@@ -22,8 +24,7 @@
     "cliff_layers": 3,
     "prop_left": true,
     "motion_speed_cc": 0,
-    "pace_half_pm": 0,
-    "journey_pace_c": 508
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "sand_day",

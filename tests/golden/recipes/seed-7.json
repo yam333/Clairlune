@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "5f52c591fc9e8699",
-  "activity": "stroll",
-  "archetype": "shore",
+  "content_ctx_hash": "36af6299a8a6ecbd",
+  "activity": "picnic",
+  "archetype": "snowfield",
   "light_tod": "noon",
-  "dark_tod": "night",
-  "platform": "pier",
+  "dark_tod": null,
+  "platform": "ice_shelf",
   "props": [
-    "lantern"
+    "picnic_basket"
   ],
-  "weather": "stars",
+  "weather": "none",
   "composition": {
     "horizon_pm": 638,
     "focus_x_pm": 500,
@@ -23,8 +23,8 @@
     "platform_margin_pm": 31,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 222,
-    "pace_half_pm": 113
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "paper_day",
