@@ -21,7 +21,7 @@ Decided 2026-11-19 (resolves PLAN.md section 14, question 1).
 | Platform | Live wallpaper | Notes |
 |---|---|---|
 | Windows | done, the default | A window per monitor in the desktop layer (both layouts), Direct3D 11 dirty-rect presents; wgpu DirectX 12, then GDI (classic desktop only, at most 12 fps) as fallbacks. Pauses behind maximized and full-screen apps, while locked, with the displays off, and optionally on battery. |
-| macOS | written, not yet tried on a Mac; Still is the default there until then | A borderless window per screen at the desktop picture's level (below the icons), on every Space, ignoring the mouse, drawn with wgpu on Metal (changed rects uploaded). A screen whose window is covered (zoomed app, lock screen, sleeping display) reports itself occluded and isn't drawn. No battery rule yet. |
+| macOS | done, tried on a Mac | A borderless window per screen at the desktop picture's level (below the icons), on every Space, ignoring the mouse. Its view draws the changed rectangles with Core Graphics (each an indexed image with the palette as its colour table), into the view's own backing store: no GPU device or swapchain, so it stays light on memory and threads. A screen whose window is covered (zoomed app, lock screen, sleeping display) reports itself occluded and isn't drawn. Battery saver and pause on battery as on Windows. The screen saver (Clairlune.saver) draws the same way. |
 | Linux | not started | X11: a `_NET_WM_WINDOW_TYPE_DESKTOP` window; wlroots: a background layer-shell surface. |
 
 Stills live in the local data directory (`%LOCALAPPDATA%\clairlune\current` on Windows), each under a new file name because some systems don't reload a changed file at the same path. Old stills for a monitor are deleted after the new one is set.
@@ -41,7 +41,7 @@ Stills live in the local data directory (`%LOCALAPPDATA%\clairlune\current` on W
 - macOS 26 Tahoe is the last release for Intel Macs, and macOS 27 runs on Apple Silicon only. Apple keeps shipping security updates for Intel Macs on Tahoe for about two more years, so Intel stays supported through a universal binary.
 - 13 keeps 2017-2018 Intel Macs that can't upgrade past Ventura.
 - Nothing in the stack needs newer:
-  - wgpu's Metal backend needs 10.13.
+  - wgpu's Metal backend (the Settings window) needs 10.13.
   - Rust's Apple Silicon target needs 11.
   - `NSWorkspace.setDesktopImageURL`, desktop-level windows and launch agents are all older than 13.
 - Build with `MACOSX_DEPLOYMENT_TARGET=13.0` (milestone M8, packaging).
