@@ -169,6 +169,11 @@ struct App {
     last_section: ui::view::Section,
     /// `--ui-test`: scripted open/close cycles with screenshots, then exit.
     ui_test: Option<UiTest>,
+    /// Started quietly (at sign-in): no window at launch.
+    background: bool,
+    /// The monitors the tray's "New wallpaper on" lists, for a tray made
+    /// again after being hidden.
+    tray_monitors: Vec<clairlune_platform::Monitor>,
 }
 
 /// The M6 toolkit spike's pass criterion, scripted: open and close Settings
@@ -184,6 +189,10 @@ struct UiTest {
 #[derive(Clone, Copy)]
 enum UiStep {
     Open(Theme, ui::view::Section),
+    /// Settings with the first run's question over it.
+    OpenAsking(Theme),
+    /// The tray icon hidden or shown again, as the setting does it.
+    Tray(bool),
     OpenLibrary,
     /// The Timeline window in a theme, with a slot (day, index) selected.
     OpenTimeline(Theme, usize, usize),
@@ -234,7 +243,17 @@ impl UiTest {
         steps.push((ms(13400), UiStep::Open(Theme::Light, Section::Theme)));
         steps.push((ms(14100), UiStep::Screenshot("settings-light-theme.png")));
         steps.push((ms(14600), UiStep::Close));
-        steps.push((ms(15100), UiStep::Exit));
+        // General (start at login, the tray icon, quit), then the first
+        // run's question.
+        steps.push((ms(15100), UiStep::Open(Theme::Dark, Section::General)));
+        steps.push((ms(15800), UiStep::Screenshot("settings-dark-general.png")));
+        steps.push((ms(16300), UiStep::Close));
+        steps.push((ms(16800), UiStep::OpenAsking(Theme::Light)));
+        steps.push((ms(17600), UiStep::Screenshot("first-run-question.png")));
+        steps.push((ms(18100), UiStep::Close));
+        steps.push((ms(18400), UiStep::Tray(false)));
+        steps.push((ms(18700), UiStep::Tray(true)));
+        steps.push((ms(19000), UiStep::Exit));
         UiTest {
             out,
             steps,
@@ -796,6 +815,7 @@ impl App {
                     if display_changed {
                         self.follow_display_settings();
                     }
+                    self.sync_tray();
                     if schedule_changed {
                         self.reschedule();
                     }
@@ -892,6 +912,9 @@ impl App {
         self.status.start_at_login = std::env::current_exe()
             .ok()
             .and_then(|exe| clairlune_platform::start_at_login(&exe));
+        self.status.ask_start_at_login = !self.settings.general.asked_start_at_login
+            && self.status.start_at_login == Some(false)
+            && self.ui_test.is_none();
         self.status.note = None;
         match ui::UiWindow::open(event_loop, ui::Kind::Settings, theme, self.last_section) {
             Ok(w) => {
@@ -1279,6 +1302,7 @@ impl App {
         match action {
             UiAction::SettingsChanged => {
                 self.save_settings();
+                self.sync_tray();
                 if let Some(t) = &self.tray {
                     t.show_theme(self.settings.theme.mode);
                     t.show_paused(self.settings.schedule.paused);
@@ -1369,6 +1393,15 @@ impl App {
                 self.status.note = Some("Making the GIF...".to_string());
                 self.export_gif();
             }
+            UiAction::AnswerStartAtLogin(yes) => {
+                self.settings.general.asked_start_at_login = true;
+                self.status.ask_start_at_login = false;
+                self.save_settings();
+                if yes {
+                    self.on_ui_action(UiAction::SetStartAtLogin(true), event_loop);
+                }
+            }
+            UiAction::Quit => event_loop.exit(),
             UiAction::SetStartAtLogin(on) => {
                 let result = std::env::current_exe()
                     .map_err(|e| e.to_string())
@@ -1415,6 +1448,18 @@ impl App {
                         }
                     }
                     tracing::info!(target: "clairlune", ms = opened.elapsed().as_millis() as u64, memory_mb = memory_mb(), "ui test: settings opened");
+                }
+                UiStep::Tray(on) => {
+                    self.settings.general.show_tray_icon = on;
+                    self.sync_tray();
+                    tracing::info!(target: "clairlune", shown = self.tray.is_some(), "ui test: tray");
+                }
+                UiStep::OpenAsking(theme) => {
+                    self.open_settings(event_loop, Some(theme));
+                    self.status.ask_start_at_login = true;
+                    if let Some(w) = &self.settings_window {
+                        w.request_redraw();
+                    }
                 }
                 UiStep::Screenshot(name) => {
                     let out = self.ui_test.as_ref().map(|t| t.out.join(name));
@@ -1503,9 +1548,39 @@ impl App {
         }
     }
 
-    /// Whether a tray icon is up (the app's usual face).
-    fn has_tray(&self) -> bool {
-        self.tray.is_some()
+    /// The tray icon is wanted but isn't up (no tray on this desktop, or it
+    /// failed): Settings is the only way in, and closing it quits.
+    fn tray_missing(&self) -> bool {
+        self.settings.general.show_tray_icon && self.tray.is_none()
+    }
+
+    /// Shows or takes away the tray icon (the menu bar icon on macOS) as
+    /// the settings say. Hidden, the app runs on; opening it again (a
+    /// second launch) brings up Settings.
+    fn sync_tray(&mut self) {
+        let want = self.settings.general.show_tray_icon;
+        if !want {
+            if self.tray.take().is_some() {
+                tracing::info!(target: "clairlune", "tray icon hidden");
+            }
+            return;
+        }
+        if self.tray.is_some() {
+            return;
+        }
+        match tray::Tray::new(
+            self.settings.theme.mode,
+            self.settings.schedule.paused,
+            self.settings.display.mode == settings::WallpaperMode::Live
+                && live::supported().is_ok(),
+        ) {
+            Ok(t) => {
+                t.set_monitors(&self.tray_monitors);
+                self.tray = Some(t);
+                tracing::debug!(target: "clairlune", memory_mb = memory_mb(), "tray ready");
+            }
+            Err(e) => tracing::error!(target: "clairlune", error = %e, "no tray icon"),
+        }
     }
 
     /// Saves the wallpaper on screen (not the newest archive entry: that's
@@ -1569,16 +1644,16 @@ impl App {
                     .or(live.first())
                     .filter(|s| s.view.is_none())
                     .and_then(|s| s.still.clone());
+                // One scene per monitor: each can get a new one. (A span is
+                // one scene.)
+                let span = live.iter().any(|s| s.view.is_some());
+                self.tray_monitors = if span {
+                    Vec::new()
+                } else {
+                    live.iter().map(|s| s.monitor.clone()).collect()
+                };
                 if let Some(t) = &self.tray {
-                    // One scene per monitor: each can get a new one. (A
-                    // span is one scene.)
-                    let span = live.iter().any(|s| s.view.is_some());
-                    let screens: Vec<_> = if span {
-                        Vec::new()
-                    } else {
-                        live.iter().map(|s| s.monitor.clone()).collect()
-                    };
-                    t.set_monitors(&screens);
+                    t.set_monitors(&self.tray_monitors);
                 }
                 self.live.show(live);
                 self.refresh_archive();
@@ -1660,18 +1735,7 @@ impl ApplicationHandler<AppEvent> for App {
             return;
         }
         // macOS wants the tray created once the loop runs.
-        match tray::Tray::new(
-            self.settings.theme.mode,
-            self.settings.schedule.paused,
-            self.settings.display.mode == settings::WallpaperMode::Live
-                && live::supported().is_ok(),
-        ) {
-            Ok(t) => {
-                self.tray = Some(t);
-                tracing::debug!(target: "clairlune", memory_mb = memory_mb(), "tray ready");
-            }
-            Err(e) => tracing::error!(target: "clairlune", error = %e, "no tray icon"),
-        }
+        self.sync_tray();
         if let Some(report) = diagnostics::new_crash_report(&self.data_dir) {
             tracing::warn!(target: "clairlune", report = %report.display(), "Clairlune stopped unexpectedly last time");
             self.status.note = Some(
@@ -1679,11 +1743,26 @@ impl ApplicationHandler<AppEvent> for App {
                     .into(),
             );
         }
-        // No tray (no host on this desktop, or it failed): Settings is the
-        // app's only face, so it opens at launch and closing it quits
-        // (PLAN.md section 10, "No tray available"). Checked after making the
-        // tray: before, it opened Settings at every launch.
-        if !self.has_tray() && self.ui_test.is_none() {
+        // The first run asks, once, whether to start quietly at sign-in;
+        // already registered (or nowhere to register) is an answer too.
+        if !self.settings.general.asked_start_at_login && self.ui_test.is_none() {
+            let registered = std::env::current_exe()
+                .ok()
+                .and_then(|exe| clairlune_platform::start_at_login(&exe));
+            if registered != Some(false) {
+                self.settings.general.asked_start_at_login = true;
+                self.save_settings();
+            }
+        }
+        // Settings opens at launch unless Clairlune started quietly (at
+        // sign-in), and always when the tray it wants didn't come up: then
+        // Settings is its only face and closing it quits (PLAN.md section
+        // 10, "No tray available"). And for the first run's question.
+        if self.ui_test.is_none()
+            && (!self.background
+                || self.tray_missing()
+                || !self.settings.general.asked_start_at_login)
+        {
             self.open_settings(event_loop, None);
         }
         let latest = self.archive().and_then(|a| a.latest());
@@ -1777,7 +1856,7 @@ impl ApplicationHandler<AppEvent> for App {
                 ui::Kind::Settings => {
                     self.settings_window = None;
                     tracing::debug!(target: "clairlune", "settings closed");
-                    if !self.has_tray()
+                    if self.tray_missing()
                         && self.ui_test.is_none()
                         && self.library_window.is_none()
                         && self.timeline_window.is_none()
@@ -2064,7 +2143,7 @@ fn command_line_answer(args: &[String]) -> Option<String> {
         "--help" | "-h" => Some(format!(
             "{APP_NAME} {}: procedural, animated ASCII-art wallpapers.\n\n\
              Run it without arguments: it lives in the notification area (the menu bar on macOS).\n\
-             Options:\n  --version   print the version and exit\n  --help      print this and exit",
+             Options:\n  --background  start quietly: no window (how it starts at sign-in)\n  --version     print the version and exit\n  --help        print this and exit",
             env!("CARGO_PKG_VERSION")
         )),
         _ => None,
@@ -2102,8 +2181,21 @@ fn main() {
     {
         tracing::warn!(target: "clairlune", error = %e, "ui test content");
     }
+    // Started at sign-in: quietly. An entry from 0.12 or older starts the
+    // app without saying so: quiet as it always was, and brought up to date.
+    let mut background = args.iter().any(|a| a == clairlune_platform::BACKGROUND_ARG);
+    if ui_test_out.is_none()
+        && let Ok(exe) = std::env::current_exe()
+        && clairlune_platform::login_entry_outdated(&exe)
+    {
+        background = true;
+        if let Err(e) = clairlune_platform::set_start_at_login(&exe, true) {
+            tracing::warn!(target: "clairlune", error = %e, "couldn't update the login entry");
+        }
+    }
     let _instance = match single_instance(&data_dir) {
         Ok(f) => f,
+        Err(_) if background => return,
         Err(e) => {
             let asked = ipc::ask_running_copy(&data_dir);
             tracing::info!(target: "clairlune", reason = %e, asked, "another copy is running; asked it to open Settings");
@@ -2271,6 +2363,8 @@ fn main() {
         last_section: ui::view::Section::Rotation,
         status: ui::view::Status::default(),
         ui_test: ui_test_out.map(UiTest::new),
+        background,
+        tray_monitors: Vec::new(),
     };
     if let Err(e) = event_loop.run_app(&mut app) {
         tracing::error!(target: "clairlune", error = %e, "event loop ended with an error");

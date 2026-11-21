@@ -11,6 +11,7 @@
 
 #[cfg(target_os = "linux")]
 mod linux;
+mod login;
 /// macOS: the wallpaper per screen, and Space changes.
 #[cfg(target_os = "macos")]
 pub mod macos;
@@ -24,6 +25,7 @@ pub mod windows_live;
 #[cfg(target_os = "linux")]
 pub mod wlr;
 
+pub use login::BACKGROUND_ARG;
 pub use store::{Snapshot, StillStore};
 
 /// Linux: the whole desktop as the one monitor wallpapers are made for (its
@@ -195,38 +197,72 @@ pub fn app_config_dir() -> Option<PathBuf> {
     config_dir().map(|d| d.join(clairlune_scene::ident::APP_ID))
 }
 
-/// The command line that starts `exe` at login.
+/// The command line that starts `exe` at login, quietly.
+#[cfg_attr(not(windows), allow(dead_code))]
 fn login_command(exe: &Path) -> String {
+    format!("\"{}\" {BACKGROUND_ARG}", exe.display())
+}
+
+/// The command 0.12 and older registered: no background argument.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn old_login_command(exe: &Path) -> String {
     format!("\"{}\"", exe.display())
 }
 
 /// Whether `exe` is registered to start at login; `None` where this build
-/// can't manage login items yet.
+/// can't manage login items.
 pub fn start_at_login(exe: &Path) -> Option<bool> {
     #[cfg(windows)]
     {
-        let want = login_command(exe);
-        Some(windows::start_at_login_command().is_some_and(|c| c.eq_ignore_ascii_case(&want)))
+        let (want, old) = (login_command(exe), old_login_command(exe));
+        Some(
+            windows::start_at_login_command()
+                .is_some_and(|c| c.eq_ignore_ascii_case(&want) || c.eq_ignore_ascii_case(&old)),
+        )
     }
-    #[cfg(not(windows))]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     {
-        let _ = login_command(exe);
+        Some(login::registered(exe))
+    }
+    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
+    {
+        let _ = exe;
         None
     }
 }
 
-/// Registers or removes `exe` as a login item (per user, no admin rights).
+/// Whether the login entry for `exe` is one from 0.12 or older (Windows),
+/// which starts it without [`BACKGROUND_ARG`].
+pub fn login_entry_outdated(exe: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        windows::start_at_login_command()
+            .is_some_and(|c| c.eq_ignore_ascii_case(&old_login_command(exe)))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = exe;
+        false
+    }
+}
+
+/// Registers or removes `exe` as a login item (per user, no admin rights),
+/// started with [`BACKGROUND_ARG`].
 pub fn set_start_at_login(exe: &Path, enable: bool) -> Result<(), PlatformError> {
     #[cfg(windows)]
     {
         let cmd = login_command(exe);
         windows::set_start_at_login_command(enable.then_some(cmd.as_str()))
     }
-    #[cfg(not(windows))]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    {
+        login::set(exe, enable)
+    }
+    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
     {
         let _ = (exe, enable);
         Err(PlatformError::Unsupported(
-            "starting at login arrives with the installers".into(),
+            "starting at login isn't supported on this system".into(),
         ))
     }
 }

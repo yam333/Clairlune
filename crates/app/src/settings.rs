@@ -22,11 +22,26 @@ pub struct Settings {
     pub general: General,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct General {
     /// Detailed logging until this Unix time (0: off).
     pub detailed_logging_until: u64,
+    /// The tray icon (the menu bar icon on macOS) shows. Hidden, Clairlune
+    /// runs on in the background; opening it again brings up Settings.
+    pub show_tray_icon: bool,
+    /// The first-run question, start quietly at sign-in, was answered.
+    pub asked_start_at_login: bool,
+}
+
+impl Default for General {
+    fn default() -> Self {
+        General {
+            detailed_logging_until: 0,
+            show_tray_icon: true,
+            asked_start_at_login: false,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -396,6 +411,30 @@ mod tests {
         assert!(p.with_extension("toml.bad").exists());
         std::fs::remove_file(&p).unwrap();
         assert_eq!(Settings::reload(&p).unwrap(), Settings::default());
+        std::fs::remove_dir_all(p.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn the_tray_icon_shows_unless_hidden_and_the_question_waits() {
+        let p = temp("general");
+        std::fs::write(
+            &p,
+            "[general]
+detailed_logging_until = 0
+",
+        )
+        .unwrap();
+        let s = Settings::load(&p);
+        assert!(s.general.show_tray_icon);
+        assert!(!s.general.asked_start_at_login);
+        std::fs::write(
+            &p,
+            "[general]
+show_tray_icon = false
+",
+        )
+        .unwrap();
+        assert!(!Settings::load(&p).general.show_tray_icon);
         std::fs::remove_dir_all(p.parent().unwrap()).unwrap();
     }
 
