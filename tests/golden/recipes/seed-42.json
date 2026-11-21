@@ -5,12 +5,12 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "c6e7d0405d89d33e",
-  "activity": "fly_kite",
-  "archetype": "forest",
+  "content_ctx_hash": "5f52c591fc9e8699",
+  "activity": "skiing",
+  "archetype": "mountains",
   "light_tod": "golden_hour",
-  "dark_tod": null,
-  "platform": "log",
+  "dark_tod": "dusk",
+  "platform": "rock_ledge",
   "props": [],
   "weather": "none",
   "composition": {
@@ -21,8 +21,8 @@
     "platform_margin_pm": 15,
     "cliff_layers": 3,
     "prop_left": true,
-    "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "motion_speed_cc": 417,
+    "pace_half_pm": 66
   },
   "palette": {
     "light": "sand_day",

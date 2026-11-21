@@ -1,0 +1,41 @@
+# Cross-country skiing across the snowfield: a long glide, a push with
+# the pole, snow spraying behind, while the drifts and their pines go by
+# (a journey, docs/scrolling-scenes.md).
+id = "ski_tour"
+weight = 0.7
+
+[requires]
+terrain = ["trail"]
+surface = ["snow"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk"]
+weather = ["none", "snow"]
+
+# Faster than walking: a glide.
+[motion]
+type = "journey"
+speed_cells_per_s = [6.5, 7.5]
+screen_x = 0.33
+
+[animation]
+start = "glide"
+
+[animation.states.glide]
+loop = true
+dwell_s = [4, 8]
+next = { push = 1.0 }
+
+# One-shot: plant the pole, push, tuck again.
+[animation.states.push]
+next = { glide = 1.0 }
+
+[[effects]]
+type = "particles"
+preset = "snow_spray"
+at = "origin"
+
+[gif]
+loop_script = ["glide", "push"]
+
+# With Buddy off, the snowfield goes by on its own.
+[unattended]
+props = []

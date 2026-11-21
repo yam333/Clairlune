@@ -54,6 +54,8 @@ pub(crate) struct Journeyed {
 pub(crate) fn journey(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Option<Journeyed> {
     match archetype {
         "mountains" => Some(mountains::journey(ctx, cells)),
+        "snowfield" => Some(snowfield::journey(ctx, cells)),
+        "forest" => Some(forest::journey(ctx, cells)),
         _ => None,
     }
 }

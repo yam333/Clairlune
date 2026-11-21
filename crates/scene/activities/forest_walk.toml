@@ -1,0 +1,33 @@
+# A walk through the forest: a scarf, a stick, an eye on the trees going by
+# (a journey: the wood slides past, big trees beside the path now and then).
+id = "forest_walk"
+weight = 0.8
+
+[requires]
+terrain = ["path"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk"]
+weather = ["none", "leaves", "fireflies", "rain"]
+
+# The ground goes by at about the walk's own stride.
+[motion]
+type = "journey"
+speed_cells_per_s = [4.6, 5.4]
+screen_x = 0.36
+
+[animation]
+start = "walk"
+
+[animation.states.walk]
+loop = true
+dwell_s = [6, 12]
+next = { walk = 0.6, look = 0.4 }
+
+# One-shot: a look up at the canopy, still walking.
+[animation.states.look]
+next = { walk = 1.0 }
+
+[gif]
+loop_script = ["walk"]
+
+[unattended]
+props = []

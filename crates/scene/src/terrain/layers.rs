@@ -495,3 +495,65 @@ pub(crate) fn stamp_along(
         col += spacing;
     }
 }
+
+/// Text stamps along a strip's silhouette, about one per `spacing` columns
+/// (a share `keep` of them), wrapping with the strip. `lift` rows up from
+/// the silhouette's row: 0 stands the stamp's last line on it.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn stamp_strip(
+    ctx: &Ctx,
+    strip: &Strip,
+    cells: &mut [Cell],
+    shapes: &[&[&str]],
+    spacing: u32,
+    keep: f64,
+    shade: f64,
+    lift: i64,
+    label: &str,
+) {
+    let seed = hash_label(ctx.terrain, label);
+    let spacing = spacing.max(1);
+    let mut out = StripCells {
+        cells,
+        cols: strip.cols,
+        rows: ctx.rows,
+    };
+    let mut col = 0;
+    while col < strip.cols {
+        let k = hash3(seed, i64::from(col), 3);
+        let c = col + ((k >> 20) % u64::from(spacing)) as u32;
+        if unit_from_hash(k) < keep && c < strip.cols {
+            let row = row_at(ctx, strip.top(ctx, f64::from(c) + 0.5)) - lift;
+            let shape = shapes[((k >> 40) % shapes.len() as u64) as usize];
+            out.stamp(shape, i64::from(c), row, shade);
+        }
+        col += spacing;
+    }
+}
+
+/// A journey's two moving layers, the middle one (a screen wide, once per
+/// loop) and the one walked on (two screens wide, also once: twice as fast),
+/// with the walking layer's ground at every pixel column of its strip.
+pub(crate) fn journey_layers(
+    ctx: &Ctx,
+    mid: (&Strip, Vec<Cell>),
+    near: (&Strip, Vec<Cell>),
+) -> (Vec<crate::graph::ScrollLayer>, Vec<f64>) {
+    let cw = f64::from(ctx.co.g.cell_w);
+    let surface = (0..near.0.cols * ctx.co.g.cell_w)
+        .map(|x| near.0.top(ctx, (f64::from(x) + 0.5) / cw) * ctx.co.h)
+        .collect();
+    let layers = vec![
+        crate::graph::ScrollLayer {
+            cols: mid.0.cols,
+            turns: 1,
+            cells: mid.1,
+        },
+        crate::graph::ScrollLayer {
+            cols: near.0.cols,
+            turns: 1,
+            cells: near.1,
+        },
+    ];
+    (layers, surface)
+}

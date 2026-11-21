@@ -1,11 +1,10 @@
 //! Mountains: three ranges of ridged peaks, snow on the high ones, hatching
 //! that follows each face; the focal group stands on a rock ledge in front.
 
-use super::layers::{self, Layer, Snow, Strip, StripCells};
+use super::layers::{self, Layer, Snow, Strip};
 use super::{Ctx, Journeyed};
 use crate::glyphs::{self, id};
-use crate::graph::{Cell, ScrollLayer};
-use crate::hash::{hash_label, hash3, unit_from_hash};
+use crate::graph::Cell;
 
 const SNOWCAP: [u8; 3] = [id('.'), id(':'), id('\'')];
 
@@ -111,44 +110,23 @@ pub(crate) fn journey(ctx: &Ctx, cells: &mut [Cell]) -> Journeyed {
         cols: 2 * ctx.cols,
     };
     let mut near_cells = near.paint(ctx);
-    // Waymarks standing on the ridge line, with wrap-around columns.
-    let seed = hash_label(ctx.terrain, "waymarks");
-    let spacing = 23u32;
-    let mut strip = StripCells {
-        cells: &mut near_cells,
-        cols: near.cols,
-        rows: ctx.rows,
-    };
-    let mut col = 0;
-    while col < near.cols {
-        let k = hash3(seed, i64::from(col), 3);
-        let c = col + ((k >> 20) % u64::from(spacing)) as u32;
-        if unit_from_hash(k) < 0.45 && c < near.cols {
-            let row = layers::row_at(ctx, near.top(ctx, f64::from(c) + 0.5)) - 1;
-            let shape = WAYMARKS[((k >> 40) % WAYMARKS.len() as u64) as usize];
-            strip.stamp(shape, i64::from(c), row, 0.7);
-        }
-        col += spacing;
-    }
-    // The ground's height at every pixel column of the ridge's strip.
-    let cw = f64::from(ctx.co.g.cell_w);
-    let surface = (0..near.cols * ctx.co.g.cell_w)
-        .map(|x| near.top(ctx, (f64::from(x) + 0.5) / cw) * ctx.co.h)
-        .collect();
+    // Waymarks standing on the ridge line.
+    layers::stamp_strip(
+        ctx,
+        &near,
+        &mut near_cells,
+        &WAYMARKS,
+        23,
+        0.45,
+        0.7,
+        1,
+        "waymarks",
+    );
+    let mid_cells = mid.paint(ctx);
+    let (layers, surface) = layers::journey_layers(ctx, (&mid, mid_cells), (&near, near_cells));
     Journeyed {
         sky_limit,
-        layers: vec![
-            ScrollLayer {
-                cols: mid.cols,
-                turns: 1,
-                cells: mid.paint(ctx),
-            },
-            ScrollLayer {
-                cols: near.cols,
-                turns: 1,
-                cells: near_cells,
-            },
-        ],
+        layers,
         surface,
     }
 }

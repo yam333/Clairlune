@@ -3,7 +3,7 @@
 //! existing activities and vice versa (PLAN.md section 4.7).
 
 /// Terrain capabilities an archetype can offer.
-pub const TERRAINS: [&str; 11] = [
+pub const TERRAINS: [&str; 13] = [
     "flat",
     "ledge",
     "cliff",
@@ -15,6 +15,8 @@ pub const TERRAINS: [&str; 11] = [
     "water",
     "indoor",
     "ridge",
+    "trail",
+    "path",
 ];
 /// Surface materials.
 pub const SURFACES: [&str; 8] = [
@@ -62,7 +64,8 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 10] = [
     ArchetypeInfo {
         id: "forest",
         implemented: true,
-        terrain: &["flat", "ledge"],
+        // `path`: a periodic variant for walks through the wood.
+        terrain: &["flat", "ledge", "path"],
         surface: &["grass", "wood"],
         weather: &["none", "fireflies", "leaves", "rain"],
         platforms: &["log", "tree_branch"],
@@ -108,7 +111,8 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 10] = [
     ArchetypeInfo {
         id: "snowfield",
         implemented: true,
-        terrain: &["slope", "flat", "ledge"],
+        // `trail`: a periodic variant for journeys across the snow.
+        terrain: &["slope", "flat", "ledge", "trail"],
         surface: &["snow", "ice"],
         weather: &["none", "snow", "stars"],
         platforms: &["ice_shelf"],

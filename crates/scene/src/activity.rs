@@ -55,7 +55,7 @@ pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "i
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 20] = [
+const SOURCES: [(&str, &str); 23] = [
     (
         "balloon_ride.toml",
         include_str!("../activities/balloon_ride.toml"),
@@ -67,6 +67,10 @@ const SOURCES: [(&str, &str); 20] = [
     ("chess.toml", include_str!("../activities/chess.toml")),
     ("fishing.toml", include_str!("../activities/fishing.toml")),
     ("fly_kite.toml", include_str!("../activities/fly_kite.toml")),
+    (
+        "forest_walk.toml",
+        include_str!("../activities/forest_walk.toml"),
+    ),
     (
         "hike_ridge.toml",
         include_str!("../activities/hike_ridge.toml"),
@@ -89,11 +93,13 @@ const SOURCES: [(&str, &str); 20] = [
         include_str!("../activities/read_lantern.toml"),
     ),
     ("rowing.toml", include_str!("../activities/rowing.toml")),
+    ("ski_tour.toml", include_str!("../activities/ski_tour.toml")),
     ("skiing.toml", include_str!("../activities/skiing.toml")),
     (
         "skip_stones.toml",
         include_str!("../activities/skip_stones.toml"),
     ),
+    ("sledding.toml", include_str!("../activities/sledding.toml")),
     (
         "snowballs.toml",
         include_str!("../activities/snowballs.toml"),
