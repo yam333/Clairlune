@@ -708,6 +708,14 @@ fn apply(
     } else {
         saved.and_then(|s| s.dir.map(Path::to_path_buf))
     };
+    // Saved (with every theme) where it's kept; what plays on screen needs
+    // only the theme it shows.
+    let mut packages = packages;
+    for (pkg, theme) in packages.iter_mut().zip(&themes) {
+        if let Some(p) = Arc::get_mut(pkg) {
+            p.keep_only(*theme);
+        }
+    }
     let mut live = Vec::new();
     if let (Some(host), Some((_, views)), Some((img, palette))) = (host, &span, &span_still) {
         // Each monitor gets its part of the one scene.

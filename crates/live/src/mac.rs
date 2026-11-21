@@ -1,17 +1,19 @@
 //! The live wallpaper on macOS: one borderless window per screen at the
 //! desktop picture's window level (above the wallpaper, below the desktop
-//! icons), on every Space, ignoring the mouse, drawn with wgpu on Metal.
-//! Only the rectangles that changed are uploaded; the Metal layer presents
-//! the frame.
+//! icons), on every Space, ignoring the mouse. Its view draws the frame
+//! with Core Graphics ([`crate::cg`]): only the rectangles that changed are
+//! drawn, into the view's own backing store, with no GPU device or
+//! swapchain to keep (they cost far more memory and threads than a
+//! wallpaper needs).
 //!
 //! A screen whose window is fully covered (a zoomed app, the lock screen, a
 //! sleeping display) reports itself occluded, and isn't drawn until it shows
 //! again.
 //!
-//! Untried: written and compile-checked without a Mac. Everything here runs
-//! on the main thread (AppKit's rule), which is where the app ticks it.
+//! Everything here runs on the main thread (AppKit's rule), which is where
+//! the app ticks it.
 
-use crate::gpu::{Canvas, Gpu, exact_format};
+use crate::cg::FrameView;
 use crate::{CoverPolicy, FrameStats, Player};
 use clairlune_platform::Monitor;
 use clairlune_platform::macos::find_screen;
@@ -22,20 +24,13 @@ use objc2_app_kit::{
     NSWindowStyleMask,
 };
 use objc2_core_graphics::{CGWindowLevelForKey, CGWindowLevelKey};
-use raw_window_handle::{
-    AppKitDisplayHandle, AppKitWindowHandle, RawDisplayHandle, RawWindowHandle,
-};
-use std::ptr::NonNull;
+use objc2_foundation::{NSPoint, NSRect};
 use std::time::{Duration, Instant};
 
-/// One screen's window and what draws into it. The surface is dropped
-/// before the window (field order).
+/// One screen's window and the view that draws into it.
 struct Output {
     monitor: Monitor,
-    player: Player,
-    surface: wgpu::Surface<'static>,
-    config: wgpu::SurfaceConfiguration,
-    canvas: Canvas,
+    view: Retained<FrameView>,
     covered: bool,
     window: Retained<NSWindow>,
 }
@@ -43,8 +38,6 @@ struct Output {
 /// Live wallpapers on every screen given.
 pub struct MacDesktop {
     outputs: Vec<Output>,
-    gpu: Gpu,
-    _instance: wgpu::Instance,
     pub cover_policy: CoverPolicy,
 }
 
@@ -74,26 +67,8 @@ fn desktop_window(mtm: MainThreadMarker, monitor: &Monitor) -> Result<Retained<N
     window.setIgnoresMouseEvents(true);
     window.setHasShadow(false);
     window.setOpaque(true);
-    window.setFrame_display(frame, true);
-    window.orderFrontRegardless();
+    window.setFrame_display(frame, false);
     Ok(window)
-}
-
-fn surface_for(
-    instance: &wgpu::Instance,
-    window: &NSWindow,
-) -> Result<wgpu::Surface<'static>, String> {
-    let view = window.contentView().ok_or("the window has no view")?;
-    let handle = AppKitWindowHandle::new(NonNull::from(&*view).cast());
-    // The surface is dropped before the window (field order in `Output`),
-    // and the window keeps its view.
-    unsafe {
-        instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::RawHandle {
-            raw_display_handle: Some(RawDisplayHandle::AppKit(AppKitDisplayHandle::new())),
-            raw_window_handle: RawWindowHandle::AppKit(handle),
-        })
-    }
-    .map_err(|e| e.to_string())
 }
 
 impl MacDesktop {
@@ -101,10 +76,6 @@ impl MacDesktop {
     /// screen's size in pixels) and shows its first frame. Main thread only.
     pub fn start(scenes: Vec<(Monitor, Player)>) -> Result<MacDesktop, String> {
         let mtm = MainThreadMarker::new().ok_or("live wallpapers start on the main thread")?;
-        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
-        desc.backends = wgpu::Backends::METAL;
-        let instance = wgpu::Instance::new(desc);
-        let mut gpu: Option<Gpu> = None;
         let mut outputs = Vec::new();
         for (monitor, mut player) in scenes {
             if player.size() != (monitor.width, monitor.height) {
@@ -117,68 +88,42 @@ impl MacDesktop {
                 ));
             }
             let window = desktop_window(mtm, &monitor)?;
-            let surface = surface_for(&instance, &window)?;
-            if gpu.is_none() {
-                let g = Gpu::new(&instance, Some(&surface), None, false)?;
-                tracing::info!(target: "clairlune", adapter = %g.adapter.get_info().name, "live: Metal device ready");
-                gpu = Some(g);
-            }
-            let g = gpu.as_mut().expect("just set");
-            let caps = surface.get_capabilities(&g.adapter);
-            let format = exact_format(&caps.formats)
-                .ok_or_else(|| format!("no 8-bit surface format in {:?}", caps.formats))?;
-            let config = wgpu::SurfaceConfiguration {
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                format,
-                width: monitor.width,
-                height: monitor.height,
-                present_mode: wgpu::PresentMode::Fifo,
-                // Two drawables, not three: a full-screen frame each, and a
-                // wallpaper never needs to run ahead.
-                desired_maximum_frame_latency: 1,
-                alpha_mode: if caps.alpha_modes.contains(&wgpu::CompositeAlphaMode::Opaque) {
-                    wgpu::CompositeAlphaMode::Opaque
-                } else {
-                    wgpu::CompositeAlphaMode::Auto
-                },
-                view_formats: vec![],
-                color_space: Default::default(),
-            };
-            surface.configure(&g.device, &config);
+            // Sub-cell particles, as on the GPU: drawing only what changed
+            // keeps a higher frame rate cheap.
             player.set_smooth(true);
             let t = player.now_ms();
             player.advance(t);
-            let canvas = g.canvas(&player);
-            let mut out = Output {
+            let size = window.frame().size;
+            let view = FrameView::new(mtm, NSRect::new(NSPoint::new(0.0, 0.0), size), player)
+                .ok_or("the scene's palette didn't make a colour space")?;
+            window.setContentView(Some(&view));
+            window.orderFrontRegardless();
+            outputs.push(Output {
                 monitor,
-                player,
-                surface,
-                config,
-                canvas,
+                view,
                 covered: false,
                 window,
-            };
-            draw(g, &mut out);
-            outputs.push(out);
+            });
         }
-        let gpu = gpu.ok_or("no screens to play on")?;
+        if outputs.is_empty() {
+            return Err("no screens to play on".into());
+        }
+        tracing::info!(target: "clairlune", screens = outputs.len(), "live: drawing with Core Graphics");
         Ok(MacDesktop {
             outputs,
-            gpu,
-            _instance: instance,
             cover_policy: CoverPolicy::default(),
         })
     }
 
-    /// "metal (adapter)".
+    /// "coregraphics".
     pub fn presenter(&self) -> String {
-        format!("metal ({})", self.gpu.adapter.get_info().name)
+        "coregraphics".into()
     }
 
     /// The highest frame rate worth asking for (a journey redraws the
     /// whole screen: at most Very smooth).
     pub fn max_fps(&self) -> u32 {
-        if self.outputs.iter().any(|o| o.player.is_journey()) {
+        if self.outputs.iter().any(|o| o.view.is_journey()) {
             crate::JOURNEY_MAX_FPS
         } else {
             60
@@ -190,7 +135,9 @@ impl MacDesktop {
         self.outputs.iter().map(|o| &o.monitor)
     }
 
-    /// Draws the current time on every screen that shows.
+    /// Draws the current time on every screen that shows. The drawing
+    /// itself happens when AppKit next redraws (right after this, as the
+    /// run loop turns).
     pub fn tick(&mut self) -> Result<FrameStats, String> {
         let started = Instant::now();
         let shown: Vec<bool> = self
@@ -211,58 +158,29 @@ impl MacDesktop {
             };
         }
         let (mut pixels, mut count) = (0u64, 0usize);
-        let (mut upload, mut present) = (Duration::ZERO, Duration::ZERO);
-        let mut stalls = 0;
-        for o in &mut self.outputs {
+        // The last tick's drawing (AppKit drew it after that tick returned).
+        let mut drawing = Duration::ZERO;
+        for o in &self.outputs {
+            drawing += o.view.take_drawing_time();
             if o.covered {
                 continue; // nobody sees it; resumes at the time it is then
             }
-            let t = o.player.now_ms();
-            let rects = o.player.advance(t);
-            if rects.is_empty() {
-                continue;
-            }
-            let t0 = Instant::now();
-            self.gpu.upload(&mut o.canvas, &o.player, &rects);
-            let t1 = Instant::now();
-            pixels += rects.iter().map(|r| u64::from(r.w * r.h)).sum::<u64>();
-            count += rects.len();
-            if draw(&mut self.gpu, o) > Duration::from_millis(50) {
-                stalls += 1;
-            }
-            upload += t1 - t0;
-            present += t1.elapsed();
+            let (p, n) = o.view.advance();
+            pixels += p;
+            count += n;
         }
+        let compose = started.elapsed();
         Ok(FrameStats {
             pixels,
             rects: count,
             covered: self.outputs.iter().filter(|o| o.covered).count(),
             away: false,
-            stalls,
-            busy: started.elapsed(),
-            upload,
-            present,
+            stalls: 0,
+            busy: compose + drawing,
+            upload: compose,
+            present: drawing,
         })
     }
-}
-
-/// Draws an output's canvas and presents it; returns how long getting the
-/// drawable took.
-fn draw(gpu: &mut Gpu, o: &mut Output) -> Duration {
-    let asked = Instant::now();
-    let frame = match o.surface.get_current_texture() {
-        wgpu::CurrentSurfaceTexture::Success(t) | wgpu::CurrentSurfaceTexture::Suboptimal(t) => t,
-        wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
-            o.surface.configure(&gpu.device, &o.config);
-            return asked.elapsed();
-        }
-        _ => return asked.elapsed(), // timed out or occluded: try next tick
-    };
-    let waited = asked.elapsed();
-    let view = frame.texture.create_view(&Default::default());
-    gpu.draw(&o.canvas, &view, o.config.format);
-    gpu.queue.present(frame);
-    waited
 }
 
 impl Drop for MacDesktop {

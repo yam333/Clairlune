@@ -132,6 +132,28 @@ fn playback_ignores_the_generator() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Keeping one theme (what a live wallpaper plays) leaves that theme's
+/// frames as they were, and asking for one the scene lacks keeps them all.
+#[test]
+fn keeping_one_theme_plays_it_the_same() {
+    let r = &recipes()[0];
+    let full = ScenePackage::capture(r, W, H).unwrap();
+    assert!(full.themes().len() > 1, "{:?}", full.themes());
+    let theme = full.themes()[1];
+    let mut one = ScenePackage::capture(r, W, H).unwrap();
+    one.keep_only(theme);
+    assert_eq!(one.themes(), vec![theme]);
+    for t in times(&full, theme) {
+        let a = full.frame(theme, true, t, Clock::Live).unwrap().0;
+        let b = one.frame(theme, true, t, Clock::Live).unwrap().0;
+        assert!(a.pixels == b.pixels, "t {t}");
+    }
+    let mut night = ScenePackage::capture(r, W, H).unwrap();
+    night.keep_only(theme);
+    night.keep_only(full.themes()[0]);
+    assert_eq!(night.themes(), vec![theme]);
+}
+
 #[test]
 fn newer_formats_are_refused() {
     let pkg = ScenePackage::capture(&recipes()[0], W, H).unwrap();

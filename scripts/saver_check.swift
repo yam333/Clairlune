@@ -1,6 +1,8 @@
 // Loads Clairlune.saver the way the screen saver host does (its principal
 // class, initWithFrame:isPreview:), plays it full screen for a few seconds
-// and a preview-sized one beside it, then takes a screenshot.
+// and a preview-sized one beside it, then takes two screenshots a second and
+// a half apart: <out.png> and <out>-later.png. They must differ (the scene
+// moves), or it exits with 5.
 //   swift scripts/saver_check.swift <path/Clairlune.saver> <out.png>
 import AppKit
 import ScreenSaver
@@ -53,16 +55,40 @@ let timer = Timer.scheduledTimer(withTimeInterval: full.animationTimeInterval, r
     preview?.animateOneFrame()
     frames += 1
 }
-DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+func capture(_ path: String) {
     let shot = Process()
     shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-    shot.arguments = ["-x", args[2]]
+    shot.arguments = ["-x", path]
     try? shot.run()
     shot.waitUntilExit()
-    timer.invalidate()
-    full.stopAnimation()
-    preview?.stopAnimation()
-    print("played \(frames) frames; screenshot \(args[2])")
-    exit(0)
+}
+
+/// How many bytes of two screenshots differ.
+func difference(_ a: String, _ b: String) -> Int {
+    guard let ra = NSBitmapImageRep(data: (try? Data(contentsOf: URL(fileURLWithPath: a))) ?? Data()),
+          let rb = NSBitmapImageRep(data: (try? Data(contentsOf: URL(fileURLWithPath: b))) ?? Data()),
+          let pa = ra.bitmapData, let pb = rb.bitmapData,
+          ra.bytesPerRow == rb.bytesPerRow, ra.pixelsHigh == rb.pixelsHigh else {
+        return -1
+    }
+    var n = 0
+    for i in 0..<(ra.bytesPerRow * ra.pixelsHigh) where pa[i] != pb[i] {
+        n += 1
+    }
+    return n
+}
+
+let later = (args[2] as NSString).deletingPathExtension + "-later.png"
+DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+    capture(args[2])
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        capture(later)
+        timer.invalidate()
+        full.stopAnimation()
+        preview?.stopAnimation()
+        let changed = difference(args[2], later)
+        print("played \(frames) frames; screenshots \(args[2]), \(later); \(changed) bytes changed between them")
+        exit(changed > 0 ? 0 : 5)
+    }
 }
 app.run()

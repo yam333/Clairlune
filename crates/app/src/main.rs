@@ -30,8 +30,12 @@ use clairlune_scene::{APP_NAME, Theme};
 use settings::Settings;
 use std::hash::BuildHasher;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, mpsc};
+use std::sync::mpsc;
+#[cfg(windows)]
+use std::sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+};
 use std::time::{Duration, Instant, SystemTime};
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
@@ -85,6 +89,7 @@ enum AppEvent {
     /// The live metronome: a frame may be due. It arrives even while one
     /// of the app's windows is dragged or resized (Windows runs its own
     /// message loop then, and winit's timers stop; user events still come).
+    #[cfg(windows)]
     LiveFrame,
 }
 
@@ -136,8 +141,10 @@ struct App {
     tray: Option<tray::Tray>,
     /// The live wallpaper (Live mode), playing what's on screen.
     live: live::Live,
-    /// The live metronome's frame interval in microseconds (0: idle).
-    metronome: Arc<AtomicU64>,
+    /// Windows: the live metronome's frame interval in microseconds (0:
+    /// idle, parked), and its thread, to wake it.
+    #[cfg(windows)]
+    metronome: (Arc<AtomicU64>, std::thread::Thread),
     /// Hears display changes and Explorer restarts (Windows).
     #[cfg(windows)]
     watcher: Option<clairlune_platform::windows_live::SystemWatcher>,
@@ -389,14 +396,23 @@ impl App {
         }
     }
 
-    /// Keeps the metronome at the live frame rate while live plays.
+    /// Keeps the metronome at the live frame rate while live plays
+    /// (Windows; elsewhere the event loop's own timer is enough).
     fn set_metronome(&self, playing: bool) {
-        let us = if playing {
-            self.live.frame_interval().as_micros() as u64
-        } else {
-            0
-        };
-        self.metronome.store(us, Ordering::Relaxed);
+        #[cfg(windows)]
+        {
+            let us = if playing {
+                self.live.frame_interval().as_micros() as u64
+            } else {
+                0
+            };
+            let (interval, thread) = &self.metronome;
+            if interval.swap(us, Ordering::Relaxed) == 0 && us != 0 {
+                thread.unpark();
+            }
+        }
+        #[cfg(not(windows))]
+        let _ = playing;
     }
 
     /// Marks (or clears) that the user's own wallpaper is on screen after
@@ -1521,6 +1537,7 @@ impl App {
                 self.check_updates(true);
             }
             UiAction::OpenUpdate => self.open_update(),
+            UiAction::OpenSaverSettings => saver::open_settings(),
             UiAction::SetStartAtLogin(on) => {
                 let result = std::env::current_exe()
                     .map_err(|e| e.to_string())
@@ -1733,7 +1750,14 @@ impl App {
             }
             self.write_saver_scene();
             if turned_on && by_hand {
-                saver::open_settings();
+                // Picked for the user where macOS allows it; elsewhere the
+                // user picks it, in System Settings.
+                if saver::select() {
+                    tracing::info!(target: "clairlune", "screen saver selected");
+                    self.status.note = Some("Clairlune is the screen saver now.".into());
+                } else {
+                    saver::open_settings();
+                }
             }
         } else if !self.settings.general.screen_saver && saver::installed_version().is_some() {
             match saver::uninstall() {
@@ -2130,6 +2154,7 @@ impl ApplicationHandler<AppEvent> for App {
             AppEvent::Done(d) => self.on_done(d),
             AppEvent::OpenSettings => self.open_settings(event_loop, None),
             AppEvent::UpdateChecked(r) => self.on_update_checked(r),
+            #[cfg(windows)]
             AppEvent::LiveFrame => {
                 let next = self.live.tick(Instant::now());
                 self.set_metronome(next.is_some());
@@ -2193,8 +2218,8 @@ pub(crate) fn memory_mb() -> u64 {
 }
 
 /// Logs to a daily file in `<data>/logs/` (seven kept), and to stderr in debug
-/// builds. The guard flushes the file writer when dropped.
-fn init_logging(data_dir: &Path) -> Option<tracing_appender::non_blocking::WorkerGuard> {
+/// builds.
+fn init_logging(data_dir: &Path) {
     use tracing_subscriber::fmt;
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::util::SubscriberInitExt;
@@ -2209,16 +2234,11 @@ fn init_logging(data_dir: &Path) -> Option<tracing_appender::non_blocking::Worke
         .filename_suffix("log")
         .max_log_files(7)
         .build(data_dir.join("logs"));
-    let (file_layer, guard) = match appender {
-        Ok(a) => {
-            let (writer, guard) = tracing_appender::non_blocking(a);
-            (
-                Some(fmt::layer().with_writer(writer).with_ansi(false)),
-                Some(guard),
-            )
-        }
-        Err(_) => (None, None),
-    };
+    // Written as it comes, on the thread that logs: a few lines a minute
+    // don't need a writer thread of their own.
+    let file_layer = appender
+        .ok()
+        .map(|a| fmt::layer().with_writer(a).with_ansi(false));
     let stderr_layer = cfg!(debug_assertions).then(|| fmt::layer().with_writer(std::io::stderr));
     tracing_subscriber::registry()
         .with(filter)
@@ -2227,7 +2247,6 @@ fn init_logging(data_dir: &Path) -> Option<tracing_appender::non_blocking::Worke
         .with(stderr_layer)
         .init();
     diagnostics::install_crash_reports(data_dir);
-    guard
 }
 
 /// Holds an OS lock on `<data>/instance.lock` while the app runs, so a second
@@ -2410,7 +2429,7 @@ fn main() {
         return;
     };
     let _ = std::fs::create_dir_all(&data_dir);
-    let _log = init_logging(&data_dir);
+    init_logging(&data_dir);
     if ui_test_out.is_some()
         && let Err(e) = seed_ui_test(&data_dir)
     {
@@ -2531,17 +2550,19 @@ fn main() {
             None
         }
     };
-    // The live metronome: a LiveFrame event every frame while live plays.
-    let metronome = Arc::new(AtomicU64::new(0));
-    {
-        let (m, p) = (metronome.clone(), metronome_proxy);
-        let _ = std::thread::Builder::new()
+    // The live metronome (Windows): a LiveFrame event every frame while
+    // live plays; parked otherwise.
+    #[cfg(windows)]
+    let metronome = {
+        let interval = Arc::new(AtomicU64::new(0));
+        let (m, p) = (interval.clone(), metronome_proxy);
+        let spawned = std::thread::Builder::new()
             .name("clairlune-live-metronome".into())
             .spawn(move || {
                 loop {
                     let us = m.load(Ordering::Relaxed);
                     if us == 0 {
-                        std::thread::sleep(Duration::from_millis(200));
+                        std::thread::park();
                         continue;
                     }
                     std::thread::sleep(Duration::from_micros(us));
@@ -2550,9 +2571,17 @@ fn main() {
                     }
                 }
             });
-    }
+        match spawned {
+            Ok(handle) => (interval, handle.thread().clone()),
+            // No metronome: winit's timers still drive frames.
+            Err(_) => (interval, std::thread::current()),
+        }
+    };
+    #[cfg(not(windows))]
+    drop(metronome_proxy);
     let mut app = App {
         live,
+        #[cfg(windows)]
         metronome,
         #[cfg(windows)]
         watcher,
