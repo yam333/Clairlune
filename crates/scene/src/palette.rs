@@ -97,7 +97,7 @@ pub const FAMILIES: [PaletteFamily; 4] = [
         glow_strength: 0.17,
         tint_strength: 0.62,
     },
-    // Paper and near-black ink, close to the Claude FM daytime look.
+    // Paper and near-black ink: the daytime look.
     PaletteFamily {
         id: "paper_day",
         theme: Theme::Light,

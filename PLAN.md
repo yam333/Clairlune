@@ -50,7 +50,7 @@ This document is self-contained. The session building this app has no other cont
 - Archive browser: a grid of thumbnails with actions to re-apply, export GIF, export PNG, pin and delete.
 
 ### 1.6 Clawd sprites (our own art)
-- Clawd is the app's character. **All Clawd sprites are drawn by this project from scratch.** No third-party sprite files are used, downloaded or imported: not the davecurry.net `clawd.zip`, not frames captured from the Claude FM stream, and not assets from Anthropic or other fan projects.
+- Clawd is the app's character. **All Clawd sprites are drawn by this project from scratch.** No third-party sprite files are used, downloaded or imported: not the davecurry.net `clawd.zip`, not frames captured from other ASCII-art streams or videos, and not assets from Anthropic or other fan projects.
 - Our sprites are original drawings of the character, made in our own pixel style. They live in the repo as source files and exported sprite sheets (§7).
 - **Buddy toggle**: Settings → Buddy → "Show Clawd in wallpapers" (default **on**). Off removes Clawd from new and current wallpapers (§7.2 step 7).
 - Clawd is still Anthropic's character, so drawing our own sprites does not remove all legal risk. See §15.
@@ -214,7 +214,7 @@ The `SceneRecipe` is produced by sequential, seeded, **weighted table** picks. E
    - **No eligible activity** (content filters or a small v1 catalog): fall back to an archetype-first scene with no activity and no character, and log it.
 
 1. **Archetype** (landscape template). It defines the layer stack and the composition, and declares its **capabilities** (§4.7). Ship these 9 in v1, with snake_case ids:
-   - `canyon` (cliffs left and right, open center). This matches the Claude FM look and is the reference scene.
+   - `canyon` (cliffs left and right, open center). This is the reference scene.
    - `forest` (vertical trunk streaks, canopy band)
    - `mountains` (ridged noise silhouettes, 3–4 parallax ridges)
    - `shore` (horizon line, wave rows animated, pier platform)
@@ -290,7 +290,7 @@ Keep the animated set **small and cheap**. The static background never re-render
   - ink (glyph) color with N shade steps
   - accent (warm or cool)
   - sprite-friendly ground tone
-- Light theme: cream or paper background (about `#ECE9DF`) with near-black ink. This matches the Claude FM look.
+- Light theme: cream or paper background (about `#ECE9DF`) with near-black ink.
 - Dark theme: warm near-black background (about `#151412`) with cream ink and orange ember accent. The prototype used these values.
 - Clawd keeps its own sprite colors in both themes. Make sure the palette background contrasts with Clawd's salmon in both.
 - **Limit total colors to ≤ 255 per scene rendering** (index 255 is reserved for GIF transparency). That lets GIF export use one global palette with **zero quantization cost** (§6.4). Every pixel must land on a palette entry, which requires compositing **by palette index, not by RGB blending**:
@@ -515,7 +515,7 @@ The live wallpaper itself never plays the GIF. It renders natively (§5.3), beca
 ## 7. Clawd sprites: creation and pipeline
 
 ### 7.1 Creating our own sprites
-- **Draw from scratch.** Use the character's public look as the only reference. Never trace, color-pick from, or frame-step anyone else's sprites or the Claude FM stream. Keep the drawing history (source files and git commits) as a record that the art is our own work.
+- **Draw from scratch.** Use the character's public look as the only reference. Never trace, color-pick from, or frame-step anyone else's sprites or videos. Keep the drawing history (source files and git commits) as a record that the art is our own work.
 - **Tooling: Aseprite is required** for sprite authoring. Anchors use Aseprite **slices with per-frame keys**, which LibreSprite (forked before slices existed) and Pixelorama don't export. Source files live in `assets/clawd/src/*.aseprite`. Exported **PNG sprite sheets + JSON frame data** live in `assets/clawd/`, and are embedded in the binary with `include_bytes!`.
   - `just export-sprites` runs the Aseprite CLI locally. CI does **not** run Aseprite, because it is paid software. Instead, the export script records each source file's hash in the exported JSON, and CI fails if a committed `.aseprite` file's hash doesn't match its export.
 - **Style guide** (`docs/clawd-style.md`, written before drawing):
@@ -796,7 +796,7 @@ It is written for each theme the scene supports, at each monitor's size at save 
 
 ---
 
-## 10a. UI/UX design: neomodern, and must not look AI-made
+## 10a. UI/UX design: neomodern, and must not look generic
 
 The settings window, library, archive browser and timeline editor are what users judge the app by. Treat design as a deliverable with its own research phase, not as styling added at the end.
 
@@ -815,7 +815,7 @@ Spend real time on this and write the findings to `docs/design.md`, including a 
   - Dieter Rams' "less but better" principles
 
   For each, note *why* it works, not just how it looks.
-- **What "AI-made" UI looks like**, so it can be avoided. Search for current critiques of generic AI-generated interfaces and list the tells.
+- **What generic, template-made UI looks like**, so it can be avoided. Search for current critiques of generic interfaces and list the tells.
 
 ### The neomodern direction
 "Neomodern" here means modernist discipline with contemporary refinement:
@@ -841,7 +841,7 @@ Spend real time on this and write the findings to `docs/design.md`, including a 
 - **Motion**: short (120–200 ms), purposeful transitions with ease-out curves. No bouncing, and respect "reduce motion".
 - **The wallpaper is the hero**: thumbnails and previews get the space. Chrome stays quiet.
 
-### Anti-patterns that are not allowed (common AI-made tells)
+### Anti-patterns that are not allowed (common tells of generic UI)
 - purple/blue gradients, gradient text, glowing buttons
 - emoji used as icons or decoration
 - everything centered in cards, card-inside-card nesting, identical card grids for every screen
@@ -1028,10 +1028,10 @@ This is a risk review, not legal advice.
 
 | Item | Status | Remaining risk with the rules in §15.2 |
 |---|---|---|
-| **Third-party Clawd GIFs (davecurry.net zip, Claude FM captures)** | Not used. | **None.** That risk is removed. |
+| **Third-party Clawd GIFs (davecurry.net zip, captures of other streams)** | Not used. | **None.** That risk is removed. |
 | **Our own Clawd sprites** | Original drawings, but of Anthropic's character. Copyright in a character covers new drawings of it, so this is fan art. | **Medium.** Lower than reusing someone's files, but not zero. The same position as the popular fan projects in §15.3. |
 | **"Clawd" / "Claude" / "Anthropic" in the app name, icon or listing** | Anthropic's trademark guidelines require prior approval for its names, logos and brand elements, and forbid implying sponsorship or affiliation. In January 2026, the open-source project "Clawdbot" was asked by Anthropic to rename, and became "Moltbot". | **Avoided.** The chosen name, Clairlune, uses none of these words or sound-alikes. The app icon must not be Clawd. |
-| **ASCII landscape style inspired by Claude FM** | A visual style or technique is not protectable. Our scenes are generated by our own code. | **Low**, as long as we don't copy specific Claude FM frames or layouts pixel for pixel, its track-name overlay, or its branding. |
+| **ASCII landscape style** | A visual style or technique is not protectable. Our scenes are generated by our own code. | **Low**, as long as we don't copy anyone's specific frames or layouts pixel for pixel, overlays, or branding. |
 | **Palette colors** | Colors alone are generally not protected. | **Low.** |
 | **Generated wallpapers** | Contain Clawd when the Buddy toggle is on. Users who publish or sell them take on the same fan-art risk. | Say so in the README. With Buddy off, wallpapers contain only our own content. |
 | **Fonts** | The prototype used **Menlo**, which is Apple-proprietary and **cannot be bundled**. | Bundle only OFL fonts (JetBrains Mono, Iosevka, IBM Plex Mono) and include their `OFL.txt`. |

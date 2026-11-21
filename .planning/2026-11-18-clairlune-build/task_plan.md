@@ -170,7 +170,7 @@ Order: the app core first (usable in still mode with no UI), then the design wor
   - archive entry per apply (recipes per monitor, thumb, PNG) + index.json + retention sweep (age, size cap)
   - previous wallpaper from the archive; export current PNG to Pictures/Clairlune
   - rolling log file in `<data_dir>/logs/`, panic hook; single instance via an OS file lock (opening Settings from a second launch waits for the IPC in 14d)
-- [x] 14b docs/design.md (sources and why each works, AI-made tells, decisions, wireframes, states, review checklist); crates/app/src/tokens.rs with WCAG contrast tests. Fonts: IBM Plex Sans (UI) + JetBrains Mono (data); one accent, the ember orange
+- [x] 14b docs/design.md (sources and why each works, tells of generic UI, decisions, wireframes, states, review checklist); crates/app/src/tokens.rs with WCAG contrast tests. Fonts: IBM Plex Sans (UI) + JetBrains Mono (data); one accent, the ember orange
 - [x] 14c Toolkit: egui (Slint's licences aren't permissive). `clairlune --ui-test` passes: Settings opened and closed 3x on one loop beside the tray, restyled from the tokens in both themes (docs/design.md section 8)
 - [x] 14d Settings window: all sections (Schedule, Theme, Display, Live, Buddy, Content, Archive, Export, General); moon empty state; inline notes for results and errors; start at login via the per-user Run key (Windows; the OS is the source of truth); Restore my wallpaper (pauses the schedule); title follows the section; reopens on the last section
 - [x] 14e Frozen scene package (below), second launch opens Settings (IPC), Linux tray (ksni), Linux static hosts (GNOME/Cinnamon/MATE/KDE/XFCE/Sway, unit-tested, not tried on hardware), package CLI and GIF export
@@ -212,7 +212,7 @@ Design (2026-11-20): the CPU compositor stays the single source of pixels. A liv
 - [x] Decide minimum OS versions with reasons; recorded in docs/platform-support.md and PLAN.md section 14
 - **Status:** complete
 
-### Phase 20: Scripted Aseprite art (user installs Aseprite; Claude drives it)
+### Phase 20: Scripted Aseprite art (Aseprite driven by scripts)
 - [x] Research: Lua API has no per-frame slice keys (Slice.bounds only), so anchors move to an `anchors` marker layer; MCP servers exist but only wrap the CLI, so drive the CLI directly
 - [x] Build Aseprite v1.3.18.6 from source (user's choice; the EULA allows personal builds, no redistribution). Source zip + prebuilt Skia m124 (`m124-08a5439a6b`, Skia-Windows-Release-x64) unpacked in a `tools/` folder next to the repository. VsDevCmd x64 with the v143 toolset (14.44), Windows SDK 10.0.26100, VS-bundled CMake + Ninja (not the MinGW ones in C:/gcc-14.2.0)
 - [x] Smoke-test batch mode: `aseprite -b --script` creates a sprite and saves a .aseprite file
