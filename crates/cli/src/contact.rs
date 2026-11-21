@@ -36,6 +36,9 @@ pub struct ContactArgs {
     /// Only this look: `line` or `dither`.
     #[arg(long)]
     look: Option<String>,
+    /// Only this zoom: `close`, `wide` or `vast`.
+    #[arg(long)]
+    zoom: Option<String>,
     /// Ink contrast: `soft`, `normal`, `high` or `vary`.
     #[arg(long)]
     contrast: Option<String>,
@@ -77,6 +80,7 @@ pub fn contact_sheet(args: ContactArgs) -> Result<(), String> {
         crate::restrict_archetype(&mut ctx, id)?;
     }
     crate::restrict_look(&mut ctx, args.look.as_deref(), args.contrast.as_deref())?;
+    crate::restrict_zoom(&mut ctx, args.zoom.as_deref())?;
     if let Some(id) = &args.activity {
         if builtin_catalog().get(id).is_none() {
             return Err(format!("unknown activity `{id}`"));

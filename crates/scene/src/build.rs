@@ -6,7 +6,7 @@
 
 use crate::activity::{Activity, Catalog, builtin_catalog};
 use crate::glyphs::{self, EMPTY};
-use crate::graph::{Cell, Glow, Lighting, SceneGraph, grid_spec};
+use crate::graph::{Cell, Glow, Lighting, SceneGraph, grid_for};
 use crate::hash::hash_label;
 use crate::math::pm;
 use crate::palette::{self, PaletteFamily, Theme};
@@ -147,7 +147,8 @@ fn build_scene(
     let aspect = wf / hf;
     // Object sizes follow the short side; layout fractions follow width/height.
     let unit = wf.min(hf);
-    let grid = grid_spec(w, h);
+    let zoom = recipe.zoom_factor();
+    let grid = grid_for(w, h, zoom);
     let comp = &recipe.composition;
     let seed = recipe.seed;
     let (cols, rows) = (grid.cols, grid.rows);
@@ -355,7 +356,7 @@ fn build_scene(
         glow: focal.light.map(|l| Glow {
             cx: l.cx,
             cy: l.cy,
-            radius: 0.417 * unit * tod_glow(tod) * l.strength,
+            radius: 0.417 * unit * zoom * tod_glow(tod) * l.strength,
         }),
     };
 
@@ -369,7 +370,8 @@ fn build_scene(
             kind: EmitterKind::Embers,
             origin_x: x,
             origin_y: y,
-            unit,
+            // The plume follows the fire's size.
+            unit: unit * zoom,
             intensity: match opts.theme {
                 Theme::Dark => 1.0,
                 Theme::Light => 0.85,
@@ -481,6 +483,7 @@ fn build_scene(
         generator: recipe.generator_version,
         water,
         journey,
+        zoom,
     }
 }
 
@@ -489,6 +492,7 @@ mod tests {
     use super::*;
     use crate::compose::compose;
     use crate::graph::SpriteKind;
+    use crate::graph::grid_spec;
     use crate::recipe::{Aspect, ContentContext};
 
     fn graph(seed: u64, w: u32, h: u32, theme: Theme, buddy: bool) -> SceneGraph {

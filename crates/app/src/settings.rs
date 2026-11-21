@@ -200,6 +200,9 @@ pub struct Content {
     pub weather: Vec<String>,
     /// How scenes may be drawn: `line`, `dither` (empty: both).
     pub looks: Vec<String>,
+    /// How far back the camera may stand: `close`, `wide`, `vast` (empty:
+    /// all three, a different one for each wallpaper).
+    pub zooms: Vec<String>,
     pub contrast: Contrast,
 }
 
@@ -335,6 +338,14 @@ impl Settings {
             ctx.enabled_looks = self.content.looks.clone();
         }
         ctx.contrast = self.content.contrast.as_str().to_string();
+        ctx.enabled_zooms = if self.content.zooms.is_empty() {
+            clairlune_scene::ZOOMS
+                .iter()
+                .map(|z| z.to_string())
+                .collect()
+        } else {
+            self.content.zooms.clone()
+        };
         ctx
     }
 }
