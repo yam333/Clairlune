@@ -694,7 +694,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "clairlune-live",
  "clairlune-platform",
@@ -723,7 +723,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-cli"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "clairlune-live",
  "clairlune-platform",
@@ -740,7 +740,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-live"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "clairlune-platform",
  "clairlune-render",
@@ -763,7 +763,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-platform"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "block2 0.6.2",
  "clairlune-scene",
@@ -784,7 +784,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-render"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "clairlune-scene",
  "clairlune-sprites",
@@ -799,7 +799,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-saver"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "block2 0.6.2",
  "clairlune-live",
@@ -816,7 +816,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-scene"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "libm",
  "proptest",
@@ -829,7 +829,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-sprites"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "clairlune-scene",
  "png",
@@ -839,7 +839,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-tests"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "clairlune-render",
  "clairlune-scene",
