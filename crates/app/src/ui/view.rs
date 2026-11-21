@@ -63,6 +63,8 @@ pub struct Status {
     pub start_at_login: Option<bool>,
     /// Ask, once, whether to start quietly at sign-in (the first run).
     pub ask_start_at_login: bool,
+    /// macOS: this copy carries the screen saver (from the DMG or Homebrew).
+    pub saver_available: bool,
     /// A one-line result to show under the status (export done, an error).
     pub note: Option<String>,
     /// Timeline mode: the slot boundary to come ("Next slot at 19:30").
@@ -1401,6 +1403,32 @@ fn page(
                     toggle(ui, theme, &mut s.general.show_tray_icon, icon_name);
                 },
             );
+            if cfg!(target_os = "macos") {
+                if status.saver_available {
+                    row(
+                        ui,
+                        theme,
+                        "Screen saver",
+                        "Plays the wallpaper on screen as the screen saver too. Turning it on adds Clairlune to System Settings, Screen Saver, and opens it there: pick Clairlune.",
+                        |ui| {
+                            toggle(ui, theme, &mut s.general.screen_saver, "Screen saver");
+                        },
+                    );
+                } else {
+                    row(
+                        ui,
+                        theme,
+                        "Screen saver",
+                        "Comes with the app from the DMG or Homebrew.",
+                        |ui| {
+                            ui.add_enabled_ui(false, |ui| {
+                                let mut off = false;
+                                toggle(ui, theme, &mut off, "Screen saver");
+                            });
+                        },
+                    );
+                }
+            }
             row(
                 ui,
                 theme,

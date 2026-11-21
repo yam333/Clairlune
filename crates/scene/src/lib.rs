@@ -28,6 +28,8 @@ pub mod particles;
 pub mod placeholder;
 pub mod recipe;
 pub mod rng;
+/// What the macOS screen saver plays.
+pub mod saver;
 pub(crate) mod terrain;
 
 pub use activity::{Activity, Catalog};
