@@ -35,7 +35,7 @@ jobs:
           cargo build --release -p clairlune-cli
           # A scene as the app would hand it over, for this screen.
           read w h <<EOF
-          $(system_profiler SPDisplaysDataType | awk '/Resolution/ {print $2, $4; exit}')
+          $(swift -e 'import AppKit; let s = NSScreen.main!; print(Int(s.frame.width * s.backingScaleFactor), Int(s.frame.height * s.backingScaleFactor))')
           EOF
           echo "screen ${w}x${h}"
           ./target/release/clairlune-cli generate --seed 21 --activity warm_hands --zoom wide --size "${w}x${h}" --out out/scene.png --recipe-out out/recipe.json
