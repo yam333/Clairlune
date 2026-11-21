@@ -146,6 +146,9 @@ struct GenerateArgs {
     /// Force a look: `line` (line art) or `dither` (light and dark masses).
     #[arg(long, conflicts_with = "recipe")]
     look: Option<String>,
+    /// Force a zoom: `close` (Clawd as in 0.13), `wide` or `vast`.
+    #[arg(long, conflicts_with = "recipe")]
+    zoom: Option<String>,
     /// Ink contrast: `soft`, `normal`, `high`, or `vary` (one per seed).
     #[arg(long, conflicts_with = "recipe")]
     contrast: Option<String>,
@@ -243,6 +246,18 @@ pub(crate) fn restrict_activity(ctx: &mut ContentContext, id: &str) -> Result<()
 
 /// A seed from OS entropy: `RandomState` keys come from the OS random source.
 /// Forces a look and a contrast (either may be left to the defaults).
+/// Limits composition to one zoom.
+pub(crate) fn restrict_zoom(ctx: &mut ContentContext, zoom: Option<&str>) -> Result<(), String> {
+    use clairlune_scene::ZOOMS;
+    if let Some(z) = zoom {
+        if !ZOOMS.contains(&z) {
+            return Err(format!("unknown zoom `{z}`; zooms: {}", ZOOMS.join(", ")));
+        }
+        ctx.enabled_zooms = vec![z.to_string()];
+    }
+    Ok(())
+}
+
 pub(crate) fn restrict_look(
     ctx: &mut ContentContext,
     look: Option<&str>,
@@ -299,6 +314,7 @@ fn generate(args: GenerateArgs) -> Result<(), String> {
                 restrict_activity(&mut ctx, id)?;
             }
             restrict_look(&mut ctx, args.look.as_deref(), args.contrast.as_deref())?;
+            restrict_zoom(&mut ctx, args.zoom.as_deref())?;
             compose(seed, Aspect::from_size(width, height), &ctx)
         }
     };

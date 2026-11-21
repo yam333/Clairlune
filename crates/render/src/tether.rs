@@ -139,10 +139,12 @@ fn kite_string(
     a: &Anchor,
     t_ms: u64,
 ) {
+    // Stood further back, the string is as long for the flyer as ever.
     let (w, h) = (f64::from(graph.width), f64::from(graph.height));
+    let (zw, zh) = (w * graph.zoom, h * graph.zoom);
     let dir = f64::from(a.dir);
-    let kx = f64::from(a.x) + dir * w * (0.16 + 0.025 * wave(t_ms, 6000, 0.0));
-    let ky = f64::from(a.y) - h * (0.26 + 0.02 * wave(t_ms, 3000, 1.0));
+    let kx = f64::from(a.x) + dir * zw * (0.16 + 0.025 * wave(t_ms, 6000, 0.0));
+    let ky = f64::from(a.y) - zh * (0.26 + 0.02 * wave(t_ms, 3000, 1.0));
     let kx = kx.clamp(w * 0.04, w * 0.96).round() as i32;
     let ky = ky.max(h * 0.06).round() as i32;
     let sc = a.sc;

@@ -47,7 +47,20 @@ pub struct GridSpec {
 
 /// Grid for a pixel size: about [`TARGET_ROWS`] rows, never smaller than 6x11 cells.
 pub fn grid_spec(width: u32, height: u32) -> GridSpec {
-    let cell_h = ((f64::from(height) / f64::from(TARGET_ROWS)).round() as u32).max(MIN_CELL_H);
+    grid_with_rows(width, height, f64::from(TARGET_ROWS))
+}
+
+/// Grid for a pixel size at a zoom (see `recipe::zoom_factor`): stood further
+/// back, the land has finer text, as far as the smallest cell allows.
+pub fn grid_for(width: u32, height: u32, zoom: f64) -> GridSpec {
+    if zoom >= 1.0 {
+        return grid_spec(width, height);
+    }
+    grid_with_rows(width, height, f64::from(TARGET_ROWS) / zoom.sqrt())
+}
+
+fn grid_with_rows(width: u32, height: u32, rows: f64) -> GridSpec {
+    let cell_h = ((f64::from(height) / rows).round() as u32).max(MIN_CELL_H);
     let font_px = f64::from(cell_h) * FONT_TO_CELL;
     let cell_w = ((font_px * ADVANCE_RATIO).round() as u32).max(MIN_CELL_W);
     let cols = width / cell_w;
@@ -486,6 +499,14 @@ pub struct SceneGraph {
     /// A travelling scene: layers that scroll past, ground under the feet.
     #[serde(default)]
     pub journey: Option<Journey>,
+    /// The focal group's size against the closest zoom (1, 1/2, 1/4): what
+    /// reaches out from it (a kite's string, a stone's skips) scales too.
+    #[serde(default = "full_zoom")]
+    pub zoom: f64,
+}
+
+fn full_zoom() -> f64 {
+    1.0
 }
 
 impl SceneGraph {

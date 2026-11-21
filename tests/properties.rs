@@ -153,6 +153,68 @@ fn the_rowing_boat_stays_on_screen() {
     assert!(rowed > 0, "no rowing scenes to check");
 }
 
+/// Further back (wide, vast), Clawd is smaller than up close and still on
+/// screen with his feet on the ground (or over it, flying).
+#[test]
+fn zoomed_out_scenes_shrink_clawd_and_keep_him_grounded() {
+    let sizes = [(1920, 1080), (2560, 1440), (1280, 720), (1080, 1920)];
+    for (w, h) in sizes {
+        for seed in 0..24u64 {
+            let at = |zoom: &str| {
+                let ctx = clairlune_scene::ContentContext {
+                    enabled_zooms: vec![zoom.into()],
+                    ..Default::default()
+                };
+                let r =
+                    clairlune_scene::compose(seed, clairlune_scene::Aspect::from_size(w, h), &ctx);
+                assert_eq!(r.zoom, zoom);
+                let theme = available_theme(&r, Theme::Dark);
+                let opts = BuildOptions {
+                    width: w,
+                    height: h,
+                    theme,
+                    buddy: true,
+                };
+                build(&r, &opts).unwrap()
+            };
+            let close = at("close");
+            let scale_of = |g: &SceneGraph| g.character.map_or(0, |c| c.scale);
+            for zoom in ["wide", "vast"] {
+                let g = at(zoom);
+                assert!(
+                    scale_of(&g) < scale_of(&close) || scale_of(&close) == 1,
+                    "seed {seed} {w}x{h} {zoom}: Clawd isn't smaller"
+                );
+                assert!(
+                    g.grid.cell_h <= close.grid.cell_h,
+                    "finer text, or the same"
+                );
+                let flies = g.character.is_some_and(|t| t.flies());
+                for s in g.sprites_at(g.t_hero_ms) {
+                    assert!(
+                        s.x >= 0 && s.x + s.width() as i32 <= w as i32 && s.y >= 0,
+                        "seed {seed} {w}x{h} {zoom}: {:?} off screen",
+                        s.kind
+                    );
+                    if flies || s.kind != SpriteKind::Character {
+                        continue;
+                    }
+                    let ground = g
+                        .journey
+                        .as_ref()
+                        .and_then(|j| j.ground_at(g.grid.cell_w, g.grid.origin_x, g.t_hero_ms))
+                        .unwrap_or(g.ground_y);
+                    assert_eq!(
+                        s.y + s.height() as i32,
+                        ground,
+                        "seed {seed} {w}x{h} {zoom}"
+                    );
+                }
+            }
+        }
+    }
+}
+
 /// The cells whose shape must not change with the theme: line art keeps
 /// everything from the ground row down; the dithered look inks light on
 /// dark and dark on light, so only the ground under the character.

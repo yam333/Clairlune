@@ -16,7 +16,13 @@ const SAFE_MARGIN: f64 = 0.06;
 /// Largest integer scale that keeps a sprite at most 9 % of the screen's short
 /// side (the height on landscape screens; the width in portrait).
 pub fn sprite_scale(short_side: u32, sprite_h: u32) -> u32 {
-    ((CHARACTER_MAX_FRACTION * f64::from(short_side) / f64::from(sprite_h)).floor() as u32).max(1)
+    sprite_scale_at(short_side, sprite_h, 1.0)
+}
+
+/// [`sprite_scale`] at a zoom: smaller the further back, never below 1.
+pub fn sprite_scale_at(short_side: u32, sprite_h: u32, zoom: f64) -> u32 {
+    ((CHARACTER_MAX_FRACTION * zoom * f64::from(short_side) / f64::from(sprite_h)).floor() as u32)
+        .max(1)
 }
 
 /// A prop that lights the scene.
@@ -85,7 +91,8 @@ pub fn layout(
 ) -> FocalLayout {
     let comp = &recipe.composition;
     let wf = f64::from(w);
-    let scale = sprite_scale(w.min(h), CHARACTER_BOX.1);
+    let zoom = recipe.zoom_factor();
+    let scale = sprite_scale_at(w.min(h), CHARACTER_BOX.1, zoom);
     let s = scale as i32;
     let (cw, ch) = (
         (CHARACTER_BOX.0 * scale) as i32,
@@ -137,7 +144,7 @@ pub fn layout(
     // The character's band: its rest width plus the pace range, shrunk if the
     // whole group would not fit the safe frame.
     let mut pace_half = match activity.motion.kind {
-        MotionKind::Pace => (pm(comp.pace_half_pm) * f64::from(w.min(h))) as i32,
+        MotionKind::Pace => (pm(comp.pace_half_pm) * zoom * f64::from(w.min(h))) as i32,
         _ => 0,
     };
     let fixed = cw + side_width(true) + side_width(false);

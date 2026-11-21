@@ -180,7 +180,11 @@ struct Hop {
 /// The stone's hops: the throw, then three skips, each 55 % as long and
 /// 40 % as high as the last, and quicker.
 fn hops(graph: &SceneGraph, a: &Anchor, water_x: f64, water_y: f64) -> Vec<Hop> {
-    let (w, h) = (f64::from(graph.width), f64::from(graph.height));
+    // Skips as long for the thrower as ever, however far back the camera.
+    let (w, h) = (
+        f64::from(graph.width) * graph.zoom,
+        f64::from(graph.height) * graph.zoom,
+    );
     let dir = f64::from(a.dir);
     // The first touch lands well out on the open water.
     let first = (water_x - f64::from(a.x)).abs() + w * 0.05;

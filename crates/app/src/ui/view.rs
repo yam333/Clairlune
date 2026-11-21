@@ -163,6 +163,17 @@ pub(super) const LOOKS: [Item; 2] = [
     ),
 ];
 
+/// The zooms, by their ids in the recipe.
+pub(super) const ZOOMS: [Item; 3] = [
+    ("close", "Close", "Clawd up close, as he has always been"),
+    (
+        "wide",
+        "Wide",
+        "Clawd about half the size, in a bigger landscape",
+    ),
+    ("vast", "Vast", "Clawd tiny in a huge landscape"),
+];
+
 pub(super) const LANDSCAPES: [Item; 10] = [
     ("canyon", "Canyon", ""),
     ("mountains", "Mountains", ""),
@@ -1042,6 +1053,15 @@ fn page(
                 .color(c(t.text_secondary)),
             );
             filter_checks(ui, &mut s.content.looks, &LOOKS, &[]);
+            ui.add_space(space::S4);
+            group(ui, "Zoom");
+            ui.label(
+                RichText::new(
+                    "How far back the view stands. Close shows Clawd as he has always been; Wide and Vast make him smaller and the landscape bigger. With more than one on, each wallpaper picks one.",
+                )
+                .color(c(t.text_secondary)),
+            );
+            filter_checks(ui, &mut s.content.zooms, &ZOOMS, &[]);
             ui.add_space(space::S2);
             row(
                 ui,
@@ -1593,5 +1613,7 @@ mod tests {
         for id in WEATHER.iter().map(|(id, _, _)| *id).chain(CLEAR_WEATHER) {
             assert!(clairlune_scene::archetype::WEATHERS.contains(&id), "{id}");
         }
+        let zooms: Vec<&str> = ZOOMS.iter().map(|(id, _, _)| *id).collect();
+        assert_eq!(zooms, clairlune_scene::ZOOMS);
     }
 }

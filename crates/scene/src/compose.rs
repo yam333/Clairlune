@@ -11,7 +11,7 @@ use crate::archetype::{ARCHETYPE_INFO, ArchetypeInfo};
 use crate::palette::{Theme, families_for};
 use crate::recipe::{
     Aspect, CONTRASTS, Composition, ContentContext, GENERATOR_VERSION, LOOKS, PalettePick,
-    SceneRecipe, TimeOfDay,
+    SceneRecipe, TimeOfDay, ZOOMS,
 };
 use crate::rng::Rng;
 
@@ -180,6 +180,18 @@ pub fn compose_with(
     } else {
         *look_rng.choose(&looks)
     };
+    // How far back the camera stands, from the zooms allowed (its own
+    // stream: nothing else about the scene changes with it).
+    let zooms: Vec<&str> = ZOOMS
+        .iter()
+        .copied()
+        .filter(|z| ctx.enabled_zooms.iter().any(|e| e == z))
+        .collect();
+    let zoom = match zooms.as_slice() {
+        [] => "close",
+        [only] => only,
+        _ => *Rng::stream(seed, "zoom").choose(&zooms),
+    };
     let contrast = match ctx.contrast.as_str() {
         "vary" => *look_rng.choose(&CONTRASTS),
         c if CONTRASTS.contains(&c) => c,
@@ -227,6 +239,7 @@ pub fn compose_with(
         },
         look: look.to_string(),
         contrast: contrast.to_string(),
+        zoom: zoom.to_string(),
     };
     log_composed(&recipe, eligible.len());
     recipe
