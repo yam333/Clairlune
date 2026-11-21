@@ -26,7 +26,8 @@ jobs:
         run: system_profiler SPDisplaysDataType | grep -E "Chipset|Resolution|Metal|Display Type|UI Looks" || true
       - name: Profile
         run: |
-          set -u
+          # Keep going when a step finds nothing (no copy running yet).
+          set +e
           dir="$HOME/Library/Application Support/clairlune"
           out="$PWD/profile"
           mkdir -p "$dir" "$out"
