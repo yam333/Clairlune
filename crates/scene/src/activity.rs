@@ -55,7 +55,11 @@ pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "i
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 23] = [
+const SOURCES: [(&str, &str); 26] = [
+    (
+        "balloon_journey.toml",
+        include_str!("../activities/balloon_journey.toml"),
+    ),
     (
         "balloon_ride.toml",
         include_str!("../activities/balloon_ride.toml"),
@@ -64,7 +68,15 @@ const SOURCES: [(&str, &str); 23] = [
         "broom_flight.toml",
         include_str!("../activities/broom_flight.toml"),
     ),
+    (
+        "broom_journey.toml",
+        include_str!("../activities/broom_journey.toml"),
+    ),
     ("chess.toml", include_str!("../activities/chess.toml")),
+    (
+        "desert_trek.toml",
+        include_str!("../activities/desert_trek.toml"),
+    ),
     ("fishing.toml", include_str!("../activities/fishing.toml")),
     ("fly_kite.toml", include_str!("../activities/fly_kite.toml")),
     (
@@ -226,6 +238,10 @@ pub struct Motion {
     /// Journeys: where the character walks, as a fraction of the width.
     #[serde(default)]
     pub screen_x: Option<f64>,
+    /// Journeys: fly instead of walking, the feet this far down the screen
+    /// (a fraction of the height), the land going by below.
+    #[serde(default)]
+    pub altitude: Option<f64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -489,6 +505,9 @@ impl Activity {
                 err(format!("unattended: unknown prop or effect `{p}`"));
             }
         }
+        if self.motion.altitude.is_some() && self.motion.kind != MotionKind::Journey {
+            err("altitude is for journeys".into());
+        }
         match self.motion.kind {
             MotionKind::Stationary => {}
             MotionKind::Pace | MotionKind::Fly | MotionKind::Bob => {
@@ -512,6 +531,11 @@ impl Activity {
                     && !(0.15..=0.85).contains(&x)
                 {
                     err("journey screen_x must be within 0.15..=0.85".into());
+                }
+                if let Some(y) = self.motion.altitude
+                    && !(0.2..=0.6).contains(&y)
+                {
+                    err("journey altitude must be within 0.2..=0.6".into());
                 }
             }
             MotionKind::Path => err(format!(

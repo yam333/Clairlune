@@ -1,0 +1,45 @@
+# Drifting over the land in the balloon by day: the basket keeps to the
+# middle of the screen while the land goes slowly by below, a big still
+# landmark behind (a journey).
+id = "balloon_journey"
+weight = 0.8
+
+[requires]
+terrain = ["ridge", "trail", "path", "dune_trail"]
+time_of_day = ["morning", "noon", "golden_hour"]
+weather = ["none", "dust", "leaves"]
+sky = true
+
+# A slow drift.
+[motion]
+type = "journey"
+speed_cells_per_s = [2.0, 3.0]
+screen_x = 0.5
+altitude = 0.5
+
+[character]
+# The envelope above the basket, in sprite pixels.
+headroom = 30
+
+[animation]
+start = "drift"
+
+[animation.states.drift]
+loop = true
+dwell_s = [6, 12]
+next = { look = 0.6, wave = 0.4 }
+
+[animation.states.look]
+loop = true
+dwell_s = [2, 4]
+next = { drift = 1.0 }
+
+# One-shot: a wave over the rim.
+[animation.states.wave]
+next = { drift = 1.0 }
+
+[gif]
+loop_script = ["drift", "look"]
+
+[unattended]
+props = []

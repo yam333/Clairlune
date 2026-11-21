@@ -1,6 +1,6 @@
 # Scrolling scenes ("journeys")
 
-Wallpapers where the camera travels: Clawd hikes across mountains while the landscape slides by, then the whole thing loops back seamlessly. Status: the first journey ships (2026-11-21: `hike_ridge`, CPU composition); GPU layer grids are M7. Builds on PLAN.md sections 4 and 5 and `docs/activity-system.md`.
+Wallpapers where the camera travels: Clawd hikes across mountains while the landscape slides by, then the whole thing loops back seamlessly. Status: seven journeys ship (2026-11-21: walks, flights and a desert trek, with landmarks; CPU composition); GPU layer grids are M7. Builds on PLAN.md sections 4 and 5 and `docs/activity-system.md`.
 
 ## The idea: a world that wraps around
 
@@ -58,6 +58,19 @@ Props placed along a layer (trees, signposts, a cabin, a frozen lake) use world 
 - Packages: format 2 adds `journey-<theme>-<i>.png` per layer (glyph as grey, shade as alpha); scenes without a journey are still written as format 1.
 - GIF: a journey exports its own loop.
 
+## Landmarks and flights (2026-11-21)
+
+The depth reads best when most of the picture holds still and only the land in front moves. So a journey usually has a **landmark**: one big, far shape behind everything, painted into the still background, its foot hidden by the land in front.
+
+- Kinds: `dome` (a granite dome, steep sides and a broad round top), `peak`, `twin_peaks`, `volcano` (a broad cone with a notched crater), `mesa` (a butte: flat top, sheer cliffs, a talus slope) and `moon_rise` (a moon far bigger than the sky's own, half risen behind the land, on the side away from Clawd).
+- Each landscape has its own list: mountains (dome, peak, twin peaks, volcano), snowfield (peak, twin peaks, dome), forest (dome, peak, volcano, rising moon), desert (mesa, volcano, rising moon, dome). Five journeys in six get one.
+- The recipe records it (`composition.landmark`, left out when empty), picked from its own random stream, so nothing else about a scene changes and older recipes come out as before.
+- Texture: an outline that follows the face (`/` rising, `\` falling, `|` on cliffs, `_` on tops), strokes along the face just under the edge, then a noise fill (`v` and `^` rock, `:` ash, `=` strata) that fades toward the foot; peaks in the mountains and the snow wear snow.
+
+**Flights** are journeys where Clawd doesn't touch the ground: the activity's `altitude` puts the feet that far down the screen, on a gentle swell (two over the near strip, so it loops) kept clear above the land going by. The still background gets room around the flier, the way a still scene clears around its group; the moving layers pass in front of that clearing. `broom_journey` (dusk to night, sparkles from the bristles) and `balloon_journey` (by day, a slow drift) fly over the ridge, the snow trail, the forest path and the desert's `dune_trail`.
+
+**The desert** has a route of its own: the sky (with its big sun or moon when there's no landmark) and the mesas stay put; the far dunes slide by, and the trail with brush, rocks and the odd cactus twice as fast. `desert_trek` walks it in goggles and a scarf.
+
 ## Rendering cost
 
 - **Live (GPU)**:
@@ -93,10 +106,10 @@ Each one is an activity plus a periodic archetype:
 |---|---|---|
 | Hiking a mountain ridge | ridge path, rocks, signposts | far peaks, clouds |
 | Cross-country skiing | snowy rolling hills, ski tracks left behind | pine forests, mountains |
-| Desert caravan | dunes | mesas, heat shimmer |
+| Desert trek, built | dunes | mesas, a landmark |
 | Riding a train | Clawd on the roof or at a window | fields, poles, distant towns |
 | Sailing along a coast | waves, boat bob | cliffs, lighthouse, gulls |
-| Hot-air balloon or broom flight (wizard) | clouds below | mountains far below, stars |
+| Hot-air balloon or broom flight (wizard), built | the land far below | a landmark, stars |
 | Cycling across a city at dusk | rooftops, street | skyline, lit windows |
 | Walking a forest trail in autumn | leaves falling | layered trunks |
 | Night sky drift | (no ground) | stars, aurora bands |

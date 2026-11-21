@@ -5,16 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "5f52c591fc9e8699",
-  "activity": "paint_easel",
-  "archetype": "shore",
+  "content_ctx_hash": "36af6299a8a6ecbd",
+  "activity": "ski_tour",
+  "archetype": "snowfield",
   "light_tod": "morning",
   "dark_tod": "dusk",
-  "platform": "pier",
-  "props": [
-    "easel"
-  ],
-  "weather": "none",
+  "platform": "ice_shelf",
+  "props": [],
+  "weather": "snow",
   "composition": {
     "horizon_pm": 641,
     "focus_x_pm": 650,
@@ -24,7 +22,9 @@
     "cliff_layers": 3,
     "prop_left": false,
     "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "pace_half_pm": 0,
+    "journey_pace_c": 705,
+    "landmark": "twin_peaks"
   },
   "palette": {
     "light": "sand_day",

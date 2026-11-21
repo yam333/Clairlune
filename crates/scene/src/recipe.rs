@@ -135,6 +135,11 @@ pub struct Composition {
     /// looks the same on every monitor). The loop follows from it.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub journey_pace_c: u32,
+    /// A journey's landmark: one big, far shape that stays put while the
+    /// land in front scrolls (`terrain::landmark`), or empty for none; then
+    /// it isn't written.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub landmark: String,
 }
 
 fn is_zero(v: &u32) -> bool {

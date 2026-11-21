@@ -155,6 +155,18 @@ pub fn compose_with(
         }
         _ => 0,
     };
+    // A journey's landmark, far behind the land going by (most have one).
+    let landmark = if journey_pace_c > 0 {
+        let options = crate::terrain::landmark::options(archetype.id);
+        let mut lm = Rng::stream(seed, "landmark");
+        if !options.is_empty() && lm.chance(5, 6) {
+            lm.choose(options).to_string()
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
 
     // How it is drawn, from the looks allowed; the contrast, fixed or varied.
     let mut look_rng = Rng::stream(seed, "look");
@@ -207,6 +219,7 @@ pub fn compose_with(
             fly_lift_pm,
             journey_ms: 0,
             journey_pace_c,
+            landmark,
         },
         palette: PalettePick {
             light: light_family,

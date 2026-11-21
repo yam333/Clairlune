@@ -210,6 +210,35 @@ fn build_scene(
     };
     // (A journey's walker keeps moving through the landscape: no clearing.)
     let dome_rows = if journeyed.is_some() { 0 } else { platform_row };
+    // A flier stays put on screen: the still land behind gets room around
+    // it (the land going by passes in front).
+    let flight = activity
+        .and_then(|a| a.motion.altitude)
+        .filter(|_| journeyed.is_some());
+    if let (Some(alt), Some(track)) = (flight, focal.character) {
+        let cw = f64::from(crate::graph::CHARACTER_BOX.0 * track.scale);
+        let fx = f64::from(track.x_range().0) + cw * 0.5;
+        let fy = alt * hf - f64::from(group_h) * 0.5;
+        let a = (cw * 0.5 + 3.0 * f64::from(grid.cell_w)) / f64::from(grid.cell_w);
+        let b = (f64::from(group_h) * 0.5 + 0.03 * hf) / f64::from(grid.cell_h) + 2.0;
+        let (ccx, ccy) = (
+            (fx - f64::from(grid.origin_x)) / f64::from(grid.cell_w),
+            (fy - f64::from(grid.origin_y)) / f64::from(grid.cell_h),
+        );
+        for row in 0..rows {
+            for col in 0..cols {
+                let u = (f64::from(col) + 0.5 - ccx) / a;
+                let v = (f64::from(row) + 0.5 - ccy) / b;
+                let s = u * u * u * u + v * v * v * v;
+                let cell = &mut cells[(row * cols + col) as usize];
+                if s <= 1.0 {
+                    *cell = Cell::default();
+                } else if s <= 2.4 {
+                    cell.shade = (f64::from(cell.shade) * 0.55).round() as u8;
+                }
+            }
+        }
+    }
     for row in 0..dome_rows {
         for col in 0..cols {
             let s = dome(col, row);
@@ -381,14 +410,27 @@ fn build_scene(
         let feet_x = track.x_range().0 + (cw / 2) as i32;
         let half = (cw * 3 / 10).max(1);
         let n = j.surface.len() as i64;
-        let ground = (0..n)
-            .map(|x| {
-                (x - half..=x + half)
-                    .map(|k| j.surface[k.rem_euclid(n) as usize])
-                    .fold(f64::INFINITY, f64::min)
-                    .round() as i32
-            })
-            .collect();
+        let under = |x: i64| {
+            (x - half..=x + half)
+                .map(|k| j.surface[k.rem_euclid(n) as usize])
+                .fold(f64::INFINITY, f64::min)
+        };
+        let ground = match activity.and_then(|a| a.motion.altitude) {
+            // Flying: a gentle swell up and down (two over the strip, so it
+            // loops with it), kept clear above the land going by.
+            Some(alt) => {
+                let clear = 0.05 * hf;
+                (0..n)
+                    .map(|x| {
+                        let wave =
+                            crate::math::sin(crate::math::TAU * 2.0 * x as f64 / n.max(1) as f64);
+                        let line = alt * hf + 0.012 * hf * wave;
+                        line.min(under(x) - clear).max(f64::from(group_h)).round() as i32
+                    })
+                    .collect()
+            }
+            None => (0..n).map(|x| under(x).round() as i32).collect(),
+        };
         let mut layers = j.layers;
         for l in &mut layers {
             if recipe.look == "dither" {

@@ -57,7 +57,13 @@ fn every_landscape_hosts_activities_in_both_themes() {
                         .into_iter()
                         .find(|s| s.kind == SpriteKind::Character)
                         .expect("a character");
-                    if let Some(j) = &g.journey {
+                    // A flight's feet are over the land, not on it.
+                    let flight = g
+                        .activity
+                        .as_deref()
+                        .and_then(|a| clairlune_scene::activity::builtin_catalog().get(a))
+                        .is_some_and(|a| a.motion.altitude.is_some());
+                    if let Some(j) = g.journey.as_ref().filter(|_| !flight) {
                         // The walking layer's strip, where it is under the
                         // feet now: its ground line, on the feet's row or
                         // just above (a line near a cell's top is drawn as
@@ -79,6 +85,9 @@ fn every_landscape_hosts_activities_in_both_themes() {
                             ground,
                             "{id}: seed {seed} {w}x{h} {theme:?}: journey feet in the air"
                         );
+                        continue;
+                    }
+                    if flight {
                         continue;
                     }
                     let col =
