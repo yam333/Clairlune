@@ -186,7 +186,7 @@ fn build_scene(
     // ---- The archetype's background layers, painted back to front. A
     // journey paints its still part here and the layers that scroll past
     // into strips of their own. ----
-    let journeying = comp.journey_ms > 0
+    let journeying = recipe.is_journey()
         && activity.is_some_and(|a| a.motion.kind == crate::activity::MotionKind::Journey);
     let journeyed = if journeying {
         terrain::journey(&recipe.archetype, &ctx, &mut cells)
@@ -397,8 +397,19 @@ fn build_scene(
                 crate::look::line_contrast(&mut l.cells, &recipe.contrast);
             }
         }
+        // The loop: as long as the ground underfoot takes to come round at
+        // the scene's pace, in whole particle loops (0.11.0 recipes kept
+        // their loop length).
+        let loop_ms = if comp.journey_pace_c > 0 {
+            let near = layers.last().map_or(0, |l| u64::from(l.cols * l.turns));
+            let ms = near * 100_000 / u64::from(comp.journey_pace_c);
+            let step = LOOP_MS;
+            ((ms + step / 2) / step).max(2) * step
+        } else {
+            u64::from(comp.journey_ms)
+        };
         crate::graph::Journey {
-            loop_ms: u64::from(comp.journey_ms),
+            loop_ms,
             layers,
             ground,
             feet_x,

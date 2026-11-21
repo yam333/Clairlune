@@ -126,15 +126,17 @@ impl UiWindow {
         theme: Theme,
         section: view::Section,
     ) -> Result<UiWindow, String> {
+        // The smallest sizes at which every page still fits without
+        // anything cut off (the sidebar, a row's label and its controls).
         let (title, w, h, min) = match kind {
             Kind::Settings => (
                 format!("{APP_NAME} Settings: {}", section.name()),
-                880.0,
-                600.0,
-                (640.0, 420.0),
+                900.0,
+                640.0,
+                (820.0, 560.0),
             ),
-            Kind::Library => (format!("{APP_NAME} Library"), 980.0, 660.0, (640.0, 420.0)),
-            Kind::Archive => (format!("{APP_NAME} Archive"), 980.0, 660.0, (640.0, 420.0)),
+            Kind::Library => (format!("{APP_NAME} Library"), 980.0, 660.0, (820.0, 540.0)),
+            Kind::Archive => (format!("{APP_NAME} Archive"), 980.0, 660.0, (820.0, 540.0)),
             Kind::Timeline => (
                 format!("{APP_NAME} Timeline"),
                 1280.0,
@@ -147,6 +149,10 @@ impl UiWindow {
             .with_inner_size(winit::dpi::LogicalSize::new(w, h))
             .with_min_inner_size(winit::dpi::LogicalSize::new(min.0, min.1))
             .with_enabled_buttons(winit::window::WindowButtons::CLOSE)
+            // The moon in the title bar and the taskbar button.
+            .with_window_icon(
+                winit::window::Icon::from_rgba(crate::icon::moon_rgba(32), 32, 32).ok(),
+            )
             .with_theme(Some(match theme {
                 Theme::Light => winit::window::Theme::Light,
                 Theme::Dark => winit::window::Theme::Dark,

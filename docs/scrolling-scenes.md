@@ -16,7 +16,9 @@ speed_i = n_i * P_i / T        offset_i(t) = (speed_i * (t mod T)) mod P_i
 
 Because every layer completes whole periods in `T`, all of them line up again at `t = T`, and the whole scene loops perfectly. Parallax comes from choosing larger `P_i * n_i` for nearer layers.
 
-A layer's strip is at least a screen wide, so the slowest *moving* layer covers a whole screen per loop; at a walking pace that makes long loops. The way out is physical: what is far enough away doesn't move at all. Sky, stars, sun and moon, and the far peaks are baked into the still background; only the nearer layers scroll. As built for the ridge hike (`T` = 24 to 36 s, whole multiples of the 6 s particle loop):
+A layer's strip is at least a screen wide, so the slowest *moving* layer covers a whole screen per loop; at a walking pace that makes long loops. The way out is physical: what is far enough away doesn't move at all. Sky, stars, sun and moon, and the far peaks are baked into the still background; only the nearer layers scroll.
+
+The pace is set in cells per second (the recipe's `journey_pace_c`, 4.6 to 5.4 for the hike, about the walk's own stride), and the loop follows from it: as long as the ground underfoot takes to come round, in whole 6 s particle loops (126 to 144 s on 16:9 screens). Cells grow with the screen, so a 1080p and a 1440p monitor scroll at the same speed for the eye. (0.11.0 set a loop of 24 to 36 s instead, which scrolled about four times faster and differed per monitor; its recipes keep that.) A GIF holds a whole journey loop only up to 36 s; longer ones export an excerpt of the length asked for. Live drops journeys below 12 fps (Battery saver): new wallpapers skip them and one on screen is replaced. As built for the ridge hike:
 
 | Layer | Period | Turns per loop | Speed |
 |---|---|---|---|

@@ -213,8 +213,8 @@ pub struct Motion {
     /// One of [`FACINGS`].
     #[serde(default)]
     pub face: Option<String>,
-    /// Journeys: the loop length range in seconds (snapped to whole particle
-    /// loops, so everything comes around together).
+    /// Journeys before 0.12: the loop length range in seconds. Unused now
+    /// (the pace, `speed_cells_per_s`, sets the loop); still read.
     #[serde(default)]
     pub loop_s: Option<[f64; 2]>,
     /// Journeys: where the character walks, as a fraction of the width.
@@ -472,9 +472,12 @@ impl Activity {
                 }
             }
             MotionKind::Journey => {
-                match self.motion.loop_s {
-                    Some([lo, hi]) if (12.0..=120.0).contains(&lo) && hi >= lo && hi <= 120.0 => {}
-                    _ => err("journey motion needs loop_s = [lo, hi] within 12..=120 s".into()),
+                match self.motion.speed_cells_per_s {
+                    Some([lo, hi]) if lo >= 1.0 && hi >= lo && hi <= 20.0 => {}
+                    _ => err(
+                        "journey motion needs speed_cells_per_s = [lo, hi] within 1..=20 (the ground's pace)"
+                            .into(),
+                    ),
                 }
                 if let Some(x) = self.motion.screen_x
                     && !(0.15..=0.85).contains(&x)

@@ -145,53 +145,71 @@ const INTERVALS: [(u32, &str); 8] = [
     (0, "Only on demand"),
 ];
 
-/// The looks, by their ids in the recipe.
-pub(super) const LOOKS: [(&str, &str); 2] = [("line", "Line art"), ("dither", "Dithered")];
+/// Filter items: id, short label, and what limits it (shown on hover).
+pub(super) type Item = (&'static str, &'static str, &'static str);
 
-pub(super) const LANDSCAPES: [(&str, &str); 10] = [
-    ("canyon", "Canyon"),
-    ("mountains", "Mountains"),
-    ("forest", "Forest"),
-    ("desert", "Desert"),
-    ("snowfield", "Snowfield"),
-    ("shore", "Shore"),
-    ("city_rooftops", "City rooftops"),
-    ("night_sky", "Night sky"),
-    ("cave", "Cave"),
-    ("interior", "Indoors, by a window"),
+/// The looks, by their ids in the recipe.
+pub(super) const LOOKS: [Item; 2] = [
+    ("line", "Line art", "The land in strokes of text"),
+    (
+        "dither",
+        "Dithered",
+        "Light and dark masses of dots and bars",
+    ),
 ];
 
-pub(super) const ACTIVITIES: [(&str, &str); 20] = [
-    ("warm_hands", "Warming hands by a fire"),
-    ("stroll", "Strolling"),
-    ("stargaze", "Stargazing (night only)"),
-    ("wizard_magic", "Casting spells"),
-    ("make_coffee", "Making coffee"),
-    ("read_lantern", "Reading by a lantern"),
-    ("play_guitar", "Playing guitar"),
-    ("fishing", "Fishing off a pier (shore only)"),
-    ("fly_kite", "Flying a kite (daytime)"),
-    ("skip_stones", "Skipping stones (shore only)"),
-    ("broom_flight", "Flying a broom (evening and night)"),
-    ("paint_easel", "Painting at an easel (daytime)"),
-    ("snowballs", "Throwing snowballs (snow only)"),
-    ("balloon_ride", "A hot-air balloon ride (daytime)"),
-    ("picnic", "Having a picnic (daytime)"),
-    ("chess", "Playing chess"),
-    ("tennis", "Tennis against a wall (daytime)"),
-    ("rowing", "Rowing a boat (shore only)"),
-    ("skiing", "Skiing (snow only)"),
-    ("hike_ridge", "Hiking a ridge (mountains, scrolling)"),
+pub(super) const LANDSCAPES: [Item; 10] = [
+    ("canyon", "Canyon", ""),
+    ("mountains", "Mountains", ""),
+    ("forest", "Forest", ""),
+    ("desert", "Desert", ""),
+    ("snowfield", "Snowfield", ""),
+    ("shore", "Shore", ""),
+    ("city_rooftops", "Rooftops", "City rooftops"),
+    ("night_sky", "Night sky", ""),
+    ("cave", "Cave", ""),
+    (
+        "interior",
+        "Indoors",
+        "A room, with a landscape through the window",
+    ),
+];
+
+pub(super) const ACTIVITIES: [Item; 20] = [
+    ("warm_hands", "Campfire", "Warming hands by a fire"),
+    ("stroll", "Strolling", ""),
+    ("stargaze", "Stargazing", "Night only"),
+    ("wizard_magic", "Spells", "Casting spells"),
+    ("make_coffee", "Coffee", "Making coffee"),
+    ("read_lantern", "Reading", "Reading by a lantern"),
+    ("play_guitar", "Guitar", "Playing guitar"),
+    ("fishing", "Fishing", "Off a pier, shore only"),
+    ("fly_kite", "Kite", "Flying a kite, daytime"),
+    ("skip_stones", "Skipping stones", "Shore only"),
+    ("broom_flight", "Broom flight", "Evening and night"),
+    ("paint_easel", "Painting", "At an easel, daytime"),
+    ("snowballs", "Snowballs", "Snow only"),
+    ("balloon_ride", "Balloon ride", "A hot-air balloon, daytime"),
+    ("picnic", "Picnic", "Daytime"),
+    ("chess", "Chess", ""),
+    ("tennis", "Tennis", "Against a wall, daytime"),
+    ("rowing", "Rowing", "A boat, shore only"),
+    ("skiing", "Skiing", "Snow only"),
+    (
+        "hike_ridge",
+        "Ridge hike",
+        "Mountains; the land scrolls past",
+    ),
 ];
 
 /// Weather that shows as particles. Clear weather ("none", "stars") is
 /// always allowed so every scene has something to fall back to.
-pub(super) const WEATHER: [(&str, &str); 5] = [
-    ("snow", "Snow"),
-    ("rain", "Rain"),
-    ("fireflies", "Fireflies"),
-    ("leaves", "Falling leaves"),
-    ("dust", "Dust"),
+pub(super) const WEATHER: [Item; 5] = [
+    ("snow", "Snow", ""),
+    ("rain", "Rain", ""),
+    ("fireflies", "Fireflies", ""),
+    ("leaves", "Leaves", "Falling leaves"),
+    ("dust", "Dust", ""),
 ];
 pub(super) const CLEAR_WEATHER: [&str; 2] = ["none", "stars"];
 
@@ -628,28 +646,44 @@ pub(super) fn segmented<T: PartialEq + Copy>(
     changed
 }
 
-/// A list of checkboxes over a filter list where empty means "all". At
-/// least one stays checked.
-pub(super) fn filter_checks(
-    ui: &mut Ui,
-    list: &mut Vec<String>,
-    items: &[(&str, &str)],
-    always: &[&str],
-) {
-    let all: Vec<String> = items.iter().map(|(id, _)| id.to_string()).collect();
+/// A filter list where empty means "all", as a row of chips: a filled
+/// pill when on, a quiet outline when off, what limits each in its
+/// tooltip. At least one stays on; "All" turns every one back on.
+pub(super) fn filter_checks(ui: &mut Ui, list: &mut Vec<String>, items: &[Item], always: &[&str]) {
+    let all: Vec<String> = items.iter().map(|(id, _, _)| id.to_string()).collect();
     let mut on: Vec<bool> = items
         .iter()
-        .map(|(id, _)| list.is_empty() || list.iter().any(|x| x == id))
+        .map(|(id, _, _)| list.is_empty() || list.iter().any(|x| x == id))
         .collect();
     let mut changed = false;
     ui.horizontal_wrapped(|ui| {
-        ui.spacing_mut().item_spacing = vec2(space::S4, space::S2);
-        for (i, (_, label)) in items.iter().enumerate() {
+        ui.spacing_mut().item_spacing = vec2(space::S2, space::S2);
+        for (i, (_, label, hint)) in items.iter().enumerate() {
             let last_one = on[i] && on.iter().filter(|x| **x).count() == 1;
-            if ui
-                .add_enabled(!last_one, egui::Checkbox::new(&mut on[i], *label))
-                .changed()
+            let mut r = chip(ui, on[i], label, !last_one);
+            if !hint.is_empty() {
+                r = r.on_hover_text(*hint);
+            }
+            if r.clicked() {
+                on[i] = !on[i];
+                changed = true;
+            }
+        }
+        // Back to everything, when something is off.
+        if on.iter().any(|o| !o) {
+            let link = ui.add(
+                egui::Label::new(
+                    RichText::new("All")
+                        .color(ui.visuals().hyperlink_color)
+                        .font(style::body()),
+                )
+                .sense(egui::Sense::click()),
+            );
+            if link
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                .clicked()
             {
+                on.iter_mut().for_each(|o| *o = true);
                 changed = true;
             }
         }
@@ -667,6 +701,71 @@ pub(super) fn filter_checks(
             always.iter().map(|s| s.to_string()).chain(picked).collect()
         };
     }
+}
+
+/// One filter chip: a rounded pill, filled with a tint of the accent and
+/// a check when on, outlined when off. `enabled` false: it can't be
+/// turned off (the last one on).
+fn chip(ui: &mut Ui, on: bool, label: &str, enabled: bool) -> egui::Response {
+    let v = ui.visuals().clone();
+    let accent = v.selection.bg_fill;
+    let text = if on {
+        v.text_color()
+    } else {
+        v.widgets.noninteractive.fg_stroke.color
+    };
+    let font = style::body();
+    let galley = ui.painter().layout_no_wrap(label.to_string(), font, text);
+    let check_w = if on { 14.0 } else { 0.0 };
+    let pad = space::S3;
+    let h = 26.0;
+    let w = galley.size().x + 2.0 * pad + check_w;
+    let sense = if enabled {
+        egui::Sense::click()
+    } else {
+        egui::Sense::hover()
+    };
+    let (rect, resp) = ui.allocate_exact_size(vec2(w, h), sense);
+    if ui.is_rect_visible(rect) {
+        let p = ui.painter();
+        let radius = egui::CornerRadius::same((h / 2.0) as u8);
+        let hovered = resp.hovered() && enabled;
+        let (fill, stroke) = if on {
+            (
+                accent.gamma_multiply(if hovered { 0.28 } else { 0.18 }),
+                Stroke::new(1.0, accent.gamma_multiply(0.9)),
+            )
+        } else {
+            (
+                if hovered {
+                    v.widgets.hovered.weak_bg_fill
+                } else {
+                    egui::Color32::TRANSPARENT
+                },
+                Stroke::new(1.0, v.widgets.noninteractive.bg_stroke.color),
+            )
+        };
+        p.rect(rect, radius, fill, stroke, egui::StrokeKind::Inside);
+        let mut x = rect.left() + pad;
+        if on {
+            // A small check mark, drawn (no font has to have one).
+            let cy = rect.center().y;
+            let pts = [
+                egui::pos2(x, cy),
+                egui::pos2(x + 3.5, cy + 3.5),
+                egui::pos2(x + 9.0, cy - 3.5),
+            ];
+            p.line(pts.to_vec(), Stroke::new(1.6, accent));
+            x += check_w;
+        }
+        let y = rect.center().y - galley.size().y / 2.0;
+        p.galley(egui::pos2(x, y), galley, text);
+    }
+    resp.on_hover_cursor(if enabled {
+        egui::CursorIcon::PointingHand
+    } else {
+        egui::CursorIcon::NotAllowed
+    })
 }
 
 fn page(
@@ -990,7 +1089,7 @@ fn page(
         Section::Content => {
             ui.label(
                 RichText::new(
-                    "New scenes pick from what's checked. Changes apply to the next wallpaper.",
+                    "New scenes pick from what's selected; hover for what each needs. Changes apply to the next wallpaper.",
                 )
                 .color(c(t.text_secondary)),
             );
@@ -1217,11 +1316,11 @@ mod tests {
 
     #[test]
     fn content_lists_cover_the_real_ids() {
-        for (id, _) in LANDSCAPES {
+        for (id, _, _) in LANDSCAPES {
             assert!(clairlune_scene::archetype::archetype(id).is_some(), "{id}");
         }
         let catalog = clairlune_scene::activity::builtin_catalog();
-        for (id, _) in ACTIVITIES {
+        for (id, _, _) in ACTIVITIES {
             assert!(catalog.get(id).is_some(), "{id}");
         }
         assert_eq!(
@@ -1229,7 +1328,7 @@ mod tests {
             catalog.activities.len(),
             "a new activity needs a label"
         );
-        for id in WEATHER.iter().map(|(id, _)| *id).chain(CLEAR_WEATHER) {
+        for id in WEATHER.iter().map(|(id, _, _)| *id).chain(CLEAR_WEATHER) {
             assert!(clairlune_scene::archetype::WEATHERS.contains(&id), "{id}");
         }
     }

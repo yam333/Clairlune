@@ -107,6 +107,9 @@ impl Tray {
         let icon = Icon::from_rgba(rgba, 32, 32).map_err(|e| e.to_string())?;
         let tray = TrayIconBuilder::new()
             .with_menu(Box::new(menu.clone()))
+            // Windows: a double click opens the app, so a single left click
+            // mustn't pop the menu up first; the menu is on the right button.
+            .with_menu_on_left_click(cfg!(not(windows)))
             .with_tooltip(clairlune_scene::APP_NAME)
             .with_icon(icon)
             .build()
