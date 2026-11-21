@@ -50,6 +50,18 @@ pub fn valid_loop_ms(loop_ms: u64) -> bool {
     loop_ms > 0 && loop_ms.is_multiple_of(LOOP_MS)
 }
 
+/// The longest journey loop a GIF holds whole; past it, a journey's GIF is
+/// an excerpt of the length asked for (its land jumps where it repeats).
+pub const JOURNEY_GIF_MAX_MS: u64 = 36_000;
+
+/// The GIF's length: the one asked for, or a short journey's own loop.
+fn gif_loop(journey: Option<&clairlune_scene::Journey>, asked: u64) -> u64 {
+    match journey {
+        Some(j) if j.loop_ms <= JOURNEY_GIF_MAX_MS => j.loop_ms,
+        _ => asked,
+    }
+}
+
 /// Per-frame delays in centiseconds that sum exactly to the loop, as even as
 /// possible around the target (e.g. a mix of 16 and 17 cs).
 pub fn frame_delays(loop_ms: u64, target_cs: u32) -> Vec<u16> {
@@ -154,8 +166,7 @@ pub fn encode_gif<W: Write>(
     }
     let started = Instant::now();
     let graph = build(recipe, opts).map_err(GifError::Build)?;
-    // A journey loops once its land has come round: its own loop length.
-    let loop_ms = graph.journey.as_ref().map_or(loop_ms, |j| j.loop_ms);
+    let loop_ms = gif_loop(graph.journey.as_ref(), loop_ms);
     let atlas = GlyphAtlas::for_grid(&graph.grid);
     let palette = IndexedPalette::for_graph(&graph);
     let background = bake_static(&graph, &atlas);
@@ -305,10 +316,7 @@ pub fn encode_package_gif<W: Write>(
         .palette(theme)
         .ok_or(GifError::Build(BuildError::ThemeLocked(theme)))?
         .clone();
-    let loop_ms = pkg
-        .graph(theme)
-        .and_then(|g| g.journey.as_ref())
-        .map_or(loop_ms, |j| j.loop_ms);
+    let loop_ms = gif_loop(pkg.graph(theme).and_then(|g| g.journey.as_ref()), loop_ms);
     let started = Instant::now();
     let clock = Clock::Loop(loop_ms);
     let (rendered, written) = encode_frames(

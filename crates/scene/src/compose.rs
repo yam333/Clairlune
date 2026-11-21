@@ -146,14 +146,12 @@ pub fn compose_with(
             }
             _ => (0, 0, 0),
         };
-    // A journey's loop: whole particle loops, so the layers, the walk and
-    // the weather all come around together.
-    let journey_ms = match picked.map(|(a, _)| (&a.motion.kind, a.motion.loop_s)) {
+    // A journey's pace: the ground underfoot goes by at about the walk's
+    // own speed; the loop length follows from it at build time.
+    let journey_pace_c = match picked.map(|(a, _)| (&a.motion.kind, a.motion.speed_cells_per_s)) {
         Some((MotionKind::Journey, Some([lo, hi]))) => {
-            let (lo, hi) = ((lo * 1000.0).round() as u32, (hi * 1000.0).round() as u32);
-            let ms = motion.range_u32(lo, hi.max(lo));
-            let step = crate::particles::LOOP_MS as u32;
-            ((ms + step / 2) / step).max(2) * step
+            let (lo, hi) = ((lo * 100.0).round() as u32, (hi * 100.0).round() as u32);
+            motion.range_u32(lo, hi.max(lo))
         }
         _ => 0,
     };
@@ -207,7 +205,8 @@ pub fn compose_with(
             motion_speed_cc,
             pace_half_pm,
             fly_lift_pm,
-            journey_ms,
+            journey_ms: 0,
+            journey_pace_c,
         },
         palette: PalettePick {
             light: light_family,

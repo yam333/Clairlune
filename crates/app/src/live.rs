@@ -163,6 +163,21 @@ impl Live {
         }
     }
 
+    /// The lowest frame rate a scrolling scene (a journey) still looks right
+    /// at; below it (Battery saver) journeys aren't shown.
+    pub const SCROLL_MIN_FPS: u32 = 12;
+
+    /// Whether scrolling scenes look right now: a still frame shows them
+    /// still, and live needs enough frames a second to scroll smoothly.
+    pub fn scrolling_ok(&self) -> bool {
+        !self.enabled || self.effective_fps() >= Self::SCROLL_MIN_FPS
+    }
+
+    /// How long one frame lasts now.
+    pub fn frame_interval(&self) -> Duration {
+        self.frame()
+    }
+
     fn frame(&self) -> Duration {
         Duration::from_secs_f64(1.0 / f64::from(self.effective_fps()))
     }

@@ -22,6 +22,8 @@ pub enum Job {
         settings: Box<Settings>,
         /// Made now, shown then (a timeline slot prepared ahead of its start).
         at: Option<Instant>,
+        /// Scrolling scenes (journeys) look right at this frame rate.
+        scrolling: bool,
     },
     /// Saved recipes again (previous wallpaper, theme change, resolution
     /// change): same scenes, rendered for the current monitors and theme.
@@ -42,6 +44,8 @@ pub enum Job {
         /// A new scene for this one monitor (its id), from this seed; the
         /// others keep theirs.
         renew: Option<(String, u64)>,
+        /// Scrolling scenes (journeys) look right at this frame rate.
+        scrolling: bool,
     },
     /// Copy the current wallpaper's primary image to the export folder.
     /// From `source` (an archive entry or library item folder), or the newest
@@ -290,6 +294,17 @@ struct Want {
     renew: Option<(String, u64)>,
     /// Span mode: the focal group's place on the virtual monitor.
     focus_pm: Option<u32>,
+    /// Scrolling scenes (journeys) are fine: live plays smoothly enough,
+    /// or the wallpaper is a still frame.
+    scrolling: bool,
+}
+
+impl Want {
+    /// Whether a saved scene still fits: the theme has a variant for it, and
+    /// it doesn't scroll where scrolling can't look right.
+    fn fits(&self, r: &SceneRecipe) -> bool {
+        r.tod_for(self.theme).is_some() && (self.scrolling || !r.is_journey())
+    }
 }
 
 fn scenes(
@@ -304,6 +319,15 @@ fn scenes(
     // Only scenes that happen in the theme they'll be shown in: no daytime
     // scene on a dark desktop.
     ctx.theme = Some(want.theme);
+    // No scrolling scenes at a frame rate too low to scroll smoothly.
+    if !want.scrolling {
+        let catalog = clairlune_scene::activity::builtin_catalog();
+        ctx.enabled_activities.retain(|id| {
+            catalog
+                .get(id)
+                .is_none_or(|a| a.motion.kind != clairlune_scene::activity::MotionKind::Journey)
+        });
+    }
     // Composes a new scene with the recent picks, then remembers it, so the
     // next monitor (and the next wallpaper) avoids it. A span scene puts its
     // focal group on the primary monitor (`focus_pm`), never across a seam.
@@ -337,11 +361,10 @@ fn scenes(
                         return new_scene(monitor_seed(*s, m), m);
                     }
                     match r.monitors.iter().find(|s| s.monitor == m.id) {
-                        Some(s) if !want.refresh || s.recipe.tod_for(want.theme).is_some() => {
-                            s.recipe.clone()
-                        }
+                        Some(s) if !want.refresh || want.fits(&s.recipe) => s.recipe.clone(),
                         // The theme changed and this scene has nothing for
-                        // it: a new one, the same each time for this
+                        // it (or it scrolls, and live went to a low frame
+                        // rate): a new one, the same each time for this
                         // wallpaper and theme.
                         Some(_) => {
                             changed = true;
@@ -475,8 +498,13 @@ fn run(
             buddy,
         } => export_gif(archive, &dest, source.as_deref(), theme, buddy),
         Job::Restore => restore(host, store),
-        Job::New { seed, settings, at } => apply(
-            None, seed, &settings, true, host, store, archive, recent, at,
+        Job::New {
+            seed,
+            settings,
+            at,
+            scrolling,
+        } => apply(
+            None, seed, &settings, true, host, store, archive, recent, at, scrolling,
         ),
         Job::Recipes {
             recipes,
@@ -487,6 +515,7 @@ fn run(
             archive: add,
             at,
             renew,
+            scrolling,
         } => apply(
             Some(Source {
                 recipes: &recipes,
@@ -503,6 +532,7 @@ fn run(
             archive,
             recent,
             at,
+            scrolling,
         ),
     }
     .unwrap_or_else(Done::Failed)
@@ -531,6 +561,7 @@ fn apply(
     archive: &Archive,
     recent: &mut Recent,
     at: Option<Instant>,
+    scrolling: bool,
 ) -> Result<Done, String> {
     let started = Instant::now();
     let monitors = match host {
@@ -573,6 +604,7 @@ fn apply(
             .and_then(|s| s.renew)
             .map(|(id, s)| (id.to_string(), s)),
         focus_pm,
+        scrolling,
     };
     let (base_seed, packages, replayed, changed) =
         packages(saved, seed, &monitors, settings, recent, &want)?;
@@ -805,6 +837,7 @@ mod tests {
             refresh: false,
             renew: None,
             focus_pm: None,
+            scrolling: true,
         }
     }
 
@@ -915,6 +948,44 @@ mod tests {
         );
         assert!(!changed);
         assert_eq!(kept, vec![both, day]);
+    }
+
+    #[test]
+    fn no_scrolling_scenes_at_a_low_frame_rate() {
+        let mut settings = Settings::default();
+        settings.content.activities = vec!["hike_ridge".into(), "warm_hands".into()];
+        let screens = two_monitors();
+        let mut w = want(Theme::Dark);
+        w.scrolling = false;
+        for seed in 0..30u64 {
+            let (_, recipes, _) =
+                scenes(None, seed, &screens, &settings, &mut Recent::default(), &w);
+            assert!(recipes.iter().all(|r| !r.is_journey()), "seed {seed}");
+        }
+        // A journey on screen when the frame rate drops gives way.
+        let hike = {
+            let ctx = clairlune_scene::ContentContext {
+                enabled_activities: vec!["hike_ridge".into()],
+                enabled_archetypes: vec!["mountains".into()],
+                ..clairlune_scene::ContentContext::default()
+            };
+            compose(1, Aspect::from_size(640, 360), &ctx)
+        };
+        assert!(hike.is_journey());
+        let (_, kept, _) = scenes(None, 2, &screens, &settings, &mut Recent::default(), &w);
+        let entry = saved(&screens, &[kept[0].clone(), hike]);
+        w.refresh = true;
+        let (_, after, changed) = scenes(
+            Some(&entry),
+            0,
+            &screens,
+            &settings,
+            &mut Recent::default(),
+            &w,
+        );
+        assert!(changed);
+        assert_eq!(after[0], kept[0]);
+        assert!(!after[1].is_journey());
     }
 
     #[test]
@@ -1198,6 +1269,7 @@ mod tests {
             &archive,
             &mut Recent::default(),
             None,
+            true,
         )
         .unwrap();
         let Done::Applied { live, monitors, .. } = done else {

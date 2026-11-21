@@ -144,8 +144,8 @@ fn describe(content: &Content, items: &[Item]) -> String {
                 .map(|a| {
                     view::LANDSCAPES
                         .iter()
-                        .find(|(id, _)| id == a)
-                        .map_or(a.as_str(), |(_, n)| *n)
+                        .find(|(id, _, _)| id == a)
+                        .map_or(a.as_str(), |(_, n, _)| *n)
                 })
                 .collect();
             format!("Random: {}", names.join(", "))

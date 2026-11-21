@@ -127,8 +127,14 @@ pub struct Composition {
     pub fly_lift_pm: u32,
     /// A journey's loop length in milliseconds (a whole number of particle
     /// loops), or 0 for a scene that stays put; then it isn't written.
+    /// Recipes from 0.11.0 only: newer journeys set `journey_pace_c`.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub journey_ms: u32,
+    /// A journey's pace: how fast the ground underfoot goes by, in
+    /// hundredths of a cell per second (cells grow with the screen, so it
+    /// looks the same on every monitor). The loop follows from it.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub journey_pace_c: u32,
 }
 
 fn is_zero(v: &u32) -> bool {
@@ -197,6 +203,11 @@ impl SceneRecipe {
 
     pub fn from_json(s: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(s)
+    }
+
+    /// Whether the scene travels (its land scrolls past).
+    pub fn is_journey(&self) -> bool {
+        self.composition.journey_ms > 0 || self.composition.journey_pace_c > 0
     }
 }
 

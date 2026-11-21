@@ -28,11 +28,11 @@ fn loop_of(pkg: &ScenePackage, theme: Theme) -> u64 {
 fn a_journey_comes_round_exactly() {
     for seed in [1, 2, 3] {
         let r = hike(seed);
-        let ms = u64::from(r.composition.journey_ms);
-        assert!(ms >= 12_000 && ms.is_multiple_of(6_000), "loop {ms}");
+        assert!(r.composition.journey_pace_c > 0 && r.composition.journey_ms == 0);
         let pkg = ScenePackage::capture(&r, W, H).unwrap();
         for theme in pkg.themes() {
-            assert_eq!(loop_of(&pkg, theme), ms);
+            let ms = loop_of(&pkg, theme);
+            assert!(ms >= 12_000 && ms.is_multiple_of(6_000), "loop {ms}");
             let clock = Clock::Loop(ms);
             for t in [0, 1_234, ms / 2, ms - 40] {
                 let a = pkg.frame(theme, true, t, clock).unwrap().0;
@@ -43,6 +43,41 @@ fn a_journey_comes_round_exactly() {
                 );
             }
         }
+    }
+}
+
+/// The ground goes by at the scene's pace in cells a second, whatever the
+/// screen's size: the same scene on a 1080p and a 1440p monitor (and a 4K
+/// one) scrolls at the same speed for the eye, near the walk's own stride.
+#[test]
+fn the_pace_is_the_same_on_every_screen() {
+    let r = hike(4);
+    let pace = f64::from(r.composition.journey_pace_c) / 100.0;
+    assert!((4.0..=6.0).contains(&pace), "pace {pace}");
+    for (w, h) in [(1920, 1080), (2560, 1440), (3840, 2160)] {
+        let g = build(
+            &r,
+            &BuildOptions {
+                width: w,
+                height: h,
+                theme: Theme::Dark,
+                buddy: true,
+            },
+        )
+        .unwrap();
+        let j = g.journey.as_ref().unwrap();
+        let near = j.layers.last().unwrap();
+        let cells_per_s = f64::from(near.cols * near.turns) * 1000.0 / j.loop_ms as f64;
+        eprintln!(
+            "{w}x{h}: loop {} s, {cells_per_s:.2} cells/s",
+            j.loop_ms / 1000
+        );
+        // Within what snapping the loop to whole 6 s particle loops allows.
+        assert!(
+            (cells_per_s - pace).abs() / pace < 0.03,
+            "{w}x{h}: {cells_per_s:.2} cells/s for a pace of {pace}, loop {} ms",
+            j.loop_ms
+        );
     }
 }
 
@@ -165,15 +200,17 @@ fn a_saved_journey_plays_as_it_was() {
 }
 
 #[test]
-fn a_journey_gif_loops_with_the_land() {
+fn a_long_journey_gif_is_an_excerpt() {
     let r = hike(8);
     let opts = BuildOptions {
-        width: 320,
-        height: 180,
+        width: 960,
+        height: 540,
         theme: Theme::Dark,
         buddy: true,
     };
+    let g = build(&r, &opts).unwrap();
+    assert!(g.journey.as_ref().unwrap().loop_ms > clairlune_render::gif_export::JOURNEY_GIF_MAX_MS);
     let mut bytes = Vec::new();
     let stats = encode_gif(&r, &opts, 6_000, Smoothness::BatterySaver, &mut bytes).unwrap();
-    assert_eq!(stats.loop_ms, u64::from(r.composition.journey_ms));
+    assert_eq!(stats.loop_ms, 6_000);
 }

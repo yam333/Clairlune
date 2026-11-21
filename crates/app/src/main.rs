@@ -28,7 +28,8 @@ use clairlune_scene::{APP_NAME, Theme};
 use settings::Settings;
 use std::hash::BuildHasher;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant, SystemTime};
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
@@ -77,6 +78,10 @@ enum AppEvent {
     Done(Done),
     /// A second launch asked for Settings.
     OpenSettings,
+    /// The live metronome: a frame may be due. It arrives even while one
+    /// of the app's windows is dragged or resized (Windows runs its own
+    /// message loop then, and winit's timers stop; user events still come).
+    LiveFrame,
 }
 
 struct App {
@@ -91,6 +96,10 @@ struct App {
     next_check: Instant,
     /// The theme the current wallpaper was rendered for.
     shown_theme: Option<Theme>,
+    /// The wallpaper on screen has a scrolling scene (a journey).
+    shown_journey: bool,
+    /// Whether scrolling scenes looked right at the last check.
+    scrolling_ok: bool,
     /// The next re-apply gives this monitor (its id) a new scene, from this
     /// seed (New wallpaper on one monitor).
     renew: Option<(String, u64)>,
@@ -104,6 +113,8 @@ struct App {
     tray: Option<tray::Tray>,
     /// The live wallpaper (Live mode), playing what's on screen.
     live: live::Live,
+    /// The live metronome's frame interval in microseconds (0: idle).
+    metronome: Arc<AtomicU64>,
     /// Hears display changes and Explorer restarts (Windows).
     #[cfg(windows)]
     watcher: Option<clairlune_platform::windows_live::SystemWatcher>,
@@ -186,6 +197,7 @@ impl UiTest {
             (Theme::Dark, Section::Rotation, "settings-dark-rotation.png"),
             (Theme::Light, Section::Buddy, "settings-light-buddy.png"),
             (Theme::Dark, Section::Live, "settings-dark-live.png"),
+            (Theme::Dark, Section::Content, "settings-dark-content.png"),
         ];
         for (i, (theme, section, shot)) in cycles.into_iter().enumerate() {
             let t0 = 1500 * i as u64;
@@ -193,27 +205,27 @@ impl UiTest {
             steps.push((ms(t0 + 700), UiStep::Screenshot(shot)));
             steps.push((ms(t0 + 1200), UiStep::Close));
         }
-        steps.push((ms(4800), UiStep::OpenLibrary));
-        steps.push((ms(5600), UiStep::Screenshot("library.png")));
-        steps.push((ms(6100), UiStep::CloseLibrary));
+        steps.push((ms(6300), UiStep::OpenLibrary));
+        steps.push((ms(7100), UiStep::Screenshot("library.png")));
+        steps.push((ms(7600), UiStep::CloseLibrary));
         let timelines = [
             (Theme::Dark, 0, 1, "timeline-dark.png"),
             (Theme::Light, 0, 4, "timeline-light.png"),
         ];
         for (i, (theme, day, index, shot)) in timelines.into_iter().enumerate() {
-            let t0 = 6600 + 1700 * i as u64;
+            let t0 = 8100 + 1700 * i as u64;
             steps.push((ms(t0), UiStep::OpenTimeline(theme, day, index)));
             steps.push((ms(t0 + 900), UiStep::Screenshot(shot)));
             steps.push((ms(t0 + 1400), UiStep::CloseTimeline));
         }
-        steps.push((ms(10100), UiStep::OpenArchive));
-        steps.push((ms(10900), UiStep::Screenshot("archive.png")));
-        steps.push((ms(11400), UiStep::CloseArchive));
+        steps.push((ms(11600), UiStep::OpenArchive));
+        steps.push((ms(12400), UiStep::Screenshot("archive.png")));
+        steps.push((ms(12900), UiStep::CloseArchive));
         // The theme schedule, following the sun (seeded in settings.toml).
-        steps.push((ms(11900), UiStep::Open(Theme::Light, Section::Theme)));
-        steps.push((ms(12600), UiStep::Screenshot("settings-light-theme.png")));
-        steps.push((ms(13100), UiStep::Close));
-        steps.push((ms(13600), UiStep::Exit));
+        steps.push((ms(13400), UiStep::Open(Theme::Light, Section::Theme)));
+        steps.push((ms(14100), UiStep::Screenshot("settings-light-theme.png")));
+        steps.push((ms(14600), UiStep::Close));
+        steps.push((ms(15100), UiStep::Exit));
         UiTest {
             out,
             steps,
@@ -306,15 +318,27 @@ impl App {
         }
     }
 
+    /// Keeps the metronome at the live frame rate while live plays.
+    fn set_metronome(&self, playing: bool) {
+        let us = if playing {
+            self.live.frame_interval().as_micros() as u64
+        } else {
+            0
+        };
+        self.metronome.store(us, Ordering::Relaxed);
+    }
+
     fn new_wallpaper(&mut self) {
         self.current_theme = None;
         self.current_buddy = None;
         let seed = random_seed();
         let at = self.apply_at.take();
+        let scrolling = self.live.scrolling_ok();
         self.submit(Job::New {
             seed,
             settings: Box::new(self.settings.clone()),
             at,
+            scrolling,
         });
     }
 
@@ -381,6 +405,7 @@ impl App {
             .and_then(|t| serde_json::from_str(&t).map_err(|e| e.to_string()));
         let at = self.apply_at.take();
         let renew = self.renew.take();
+        let scrolling = self.live.scrolling_ok();
         match recipes {
             Ok(recipes) => self.submit(Job::Recipes {
                 at,
@@ -391,6 +416,7 @@ impl App {
                 settings: Box::new(self.settings.clone()),
                 archive,
                 renew,
+                scrolling,
             }),
             Err(e) => {
                 tracing::warn!(target: "clairlune", dir = %dir.display(), error = %e, "unreadable saved scene")
@@ -556,10 +582,12 @@ impl App {
                 self.current_theme = None;
                 self.current_buddy = None;
                 let at = self.apply_at.take();
+                let scrolling = self.live.scrolling_ok();
                 self.submit(Job::New {
                     seed: random_seed(),
                     settings: Box::new(s),
                     at,
+                    scrolling,
                 });
             }
         }
@@ -708,6 +736,17 @@ impl App {
                 if schedule_changed {
                     self.reschedule();
                 }
+            }
+        }
+        // Live went to a frame rate too low to scroll smoothly (Battery
+        // saver): a journey on screen gives way.
+        let scrolling = self.live.scrolling_ok();
+        if scrolling != self.scrolling_ok {
+            self.scrolling_ok = scrolling;
+            if !scrolling && self.shown_journey && !self.busy && self.current_theme.is_none() {
+                tracing::info!(target: "clairlune", "live frame rate too low to scroll; replacing the journey");
+                self.reapply(false);
+                return;
             }
         }
         let theme = apply::resolve_theme(&self.settings.theme);
@@ -1426,6 +1465,7 @@ impl App {
                 self.current = source;
                 diagnostics::set_current(self.current.clone());
                 self.shown_theme = Some(theme);
+                self.shown_journey = live.iter().any(|s| s.package.recipe.is_journey());
                 if let Some(t) = &self.tray {
                     // One scene per monitor: each can get a new one. (A
                     // span is one scene.)
@@ -1652,6 +1692,10 @@ impl ApplicationHandler<AppEvent> for App {
             }
             AppEvent::Done(d) => self.on_done(d),
             AppEvent::OpenSettings => self.open_settings(event_loop, None),
+            AppEvent::LiveFrame => {
+                let next = self.live.tick(Instant::now());
+                self.set_metronome(next.is_some());
+            }
         }
         let _ = event_loop;
     }
@@ -1669,6 +1713,7 @@ impl ApplicationHandler<AppEvent> for App {
             self.next_check = now + CHECK_EVERY;
         }
         let live_next = self.live.tick(Instant::now());
+        self.set_metronome(live_next.is_some());
         let mut wake = match self.next_change {
             Some(t) => t.min(self.next_check),
             None => self.next_check,
@@ -1982,6 +2027,18 @@ fn main() {
         tray_icon::menu::MenuEvent::set_event_handler(Some(move |e| {
             let _ = p.send_event(AppEvent::Menu(e));
         }));
+        // Double-clicking the tray icon opens the app (Windows; the menu is
+        // on a right click).
+        let p = proxy.clone();
+        tray_icon::TrayIconEvent::set_event_handler(Some(move |e| {
+            if let tray_icon::TrayIconEvent::DoubleClick {
+                button: tray_icon::MouseButton::Left,
+                ..
+            } = e
+            {
+                let _ = p.send_event(AppEvent::OpenSettings);
+            }
+        }));
     }
 
     if ui_test_out.is_none() {
@@ -1992,6 +2049,7 @@ fn main() {
             tracing::warn!(target: "clairlune", error = %e, "no single-instance channel; a second launch won't open Settings");
         }
     }
+    let metronome_proxy = proxy.clone();
     let (jobs, rx) = mpsc::channel();
     let archive_dir = data_dir.join("archive");
     // The UI test never touches the wallpaper, so it runs without a worker.
@@ -2026,8 +2084,29 @@ fn main() {
             None
         }
     };
+    // The live metronome: a LiveFrame event every frame while live plays.
+    let metronome = Arc::new(AtomicU64::new(0));
+    {
+        let (m, p) = (metronome.clone(), metronome_proxy);
+        let _ = std::thread::Builder::new()
+            .name("clairlune-live-metronome".into())
+            .spawn(move || {
+                loop {
+                    let us = m.load(Ordering::Relaxed);
+                    if us == 0 {
+                        std::thread::sleep(Duration::from_millis(200));
+                        continue;
+                    }
+                    std::thread::sleep(Duration::from_micros(us));
+                    if p.send_event(AppEvent::LiveFrame).is_err() {
+                        return; // the event loop is gone
+                    }
+                }
+            });
+    }
     let mut app = App {
         live,
+        metronome,
         #[cfg(windows)]
         watcher,
         #[cfg(target_os = "macos")]
@@ -2044,6 +2123,8 @@ fn main() {
         next_change: None,
         next_check: Instant::now() + CHECK_EVERY,
         shown_theme: None,
+        shown_journey: false,
+        scrolling_ok: true,
         renew: None,
         current: None,
         current_theme: None,
