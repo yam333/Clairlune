@@ -737,7 +737,9 @@ dependencies = [
  "clairlune-scene",
  "objc2 0.6.5",
  "objc2-app-kit 0.3.2",
+ "objc2-core-foundation",
  "objc2-core-graphics",
+ "objc2-foundation 0.3.2",
  "pollster",
  "raw-window-handle",
  "softbuffer",
@@ -787,6 +789,7 @@ dependencies = [
 name = "clairlune-saver"
 version = "0.14.1"
 dependencies = [
+ "block2 0.6.2",
  "clairlune-live",
  "clairlune-render",
  "clairlune-scene",
@@ -795,10 +798,8 @@ dependencies = [
  "objc2-app-kit 0.3.2",
  "objc2-foundation 0.3.2",
  "objc2-screen-saver",
- "raw-window-handle",
  "serde",
  "serde_json",
- "wgpu",
 ]
 
 [[package]]

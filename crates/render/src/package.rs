@@ -227,6 +227,15 @@ impl ScenePackage {
         self.themes.iter().map(|t| t.theme).collect()
     }
 
+    /// Keeps only `theme` (when the scene has it): a wallpaper on screen
+    /// plays one, and each theme carries a full-size background and its
+    /// own layout. Saved after this, the package has only that theme.
+    pub fn keep_only(&mut self, theme: Theme) {
+        if self.theme(theme).is_some() {
+            self.themes.retain(|t| t.theme == theme);
+        }
+    }
+
     fn theme(&self, theme: Theme) -> Option<&ThemeScene> {
         self.themes.iter().find(|t| t.theme == theme)
     }

@@ -29,5 +29,7 @@ x11rb.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2.workspace = true
-objc2-app-kit = { workspace = true, features = ["NSWindow", "NSResponder", "NSView", "NSGraphics"] }
-objc2-core-graphics = { workspace = true, features = ["CGWindowLevel"] }
+objc2-foundation = { workspace = true, features = ["NSGeometry"] }
+objc2-app-kit = { workspace = true, features = ["NSWindow", "NSResponder", "NSView", "NSGraphics", "NSGraphicsContext", "objc2-core-graphics"] }
+objc2-core-graphics = { workspace = true, features = ["CGWindowLevel", "CGColorSpace", "CGContext", "CGDataProvider", "CGImage"] }
+objc2-core-foundation.workspace = true

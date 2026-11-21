@@ -1,38 +1,27 @@
 //! `ClairluneSaverView`: the screen saver's view, one per screen (and one
-//! small one for the preview in System Settings).
+//! small one for the preview in System Settings). It draws like the live
+//! wallpaper's windows, with Core Graphics in `drawRect:`
+//! ([`clairlune_live::cg`]), which the screen saver host shows the way it
+//! shows any saver's drawing.
 
 use clairlune_live::Player;
-use clairlune_live::gpu::{Canvas, Gpu, exact_format};
+use clairlune_live::cg::{Painter, invalidate};
 use clairlune_render::ScenePackage;
 use clairlune_scene::saver::{SAVER_SCENE_FILE, SaverScene};
 use clairlune_scene::{Aspect, ContentContext, Theme, compose};
 use objc2::rc::{Allocated, Retained};
 use objc2::{ClassType, DefinedClass, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{NSResponder, NSView};
-use objc2_foundation::{NSObject, NSRect};
+use objc2_foundation::{NSDistributedNotificationCenter, NSObject, NSRect, NSString};
 use objc2_screen_saver::ScreenSaverView;
-use raw_window_handle::{
-    AppKitDisplayHandle, AppKitWindowHandle, RawDisplayHandle, RawWindowHandle,
-};
 use std::cell::RefCell;
+use std::io::Write;
 use std::path::PathBuf;
-use std::ptr::NonNull;
-use std::sync::Arc;
-
-/// What a view plays, once it starts. Fields drop in order: the surface
-/// before the device and the instance.
-struct Playing {
-    player: Player,
-    surface: wgpu::Surface<'static>,
-    config: wgpu::SurfaceConfiguration,
-    canvas: Canvas,
-    gpu: Gpu,
-    _instance: wgpu::Instance,
-}
+use std::sync::{Arc, Once};
 
 #[derive(Default)]
 struct Ivars {
-    playing: RefCell<Option<Playing>>,
+    playing: RefCell<Option<(Player, Painter)>>,
 }
 
 define_class!(
@@ -56,6 +45,13 @@ define_class!(
                 unsafe { msg_send![super(this), initWithFrame: frame, isPreview: is_preview] };
             if let Some(view) = &this {
                 unsafe { view.setAnimationTimeInterval(1.0 / 12.0) };
+                if !is_preview {
+                    quit_when_the_saver_stops();
+                }
+                log(&format!(
+                    "view {}x{} points, preview {is_preview}",
+                    frame.size.width, frame.size.height
+                ));
             }
             this
         }
@@ -77,6 +73,20 @@ define_class!(
             self.next_frame();
         }
 
+        #[unsafe(method(drawRect:))]
+        fn draw_rect(&self, dirty: NSRect) {
+            match self.ivars().playing.borrow().as_ref() {
+                Some((player, painter)) => painter.draw(self, player),
+                // Not playing (yet): the host's black.
+                None => unsafe { msg_send![super(self), drawRect: dirty] },
+            }
+        }
+
+        #[unsafe(method(isOpaque))]
+        fn is_opaque(&self) -> bool {
+            true
+        }
+
         #[unsafe(method(hasConfigureSheet))]
         fn has_configure_sheet(&self) -> bool {
             false
@@ -95,44 +105,76 @@ extern "C" fn register() {
 #[unsafe(link_section = "__DATA,__mod_init_func")]
 static REGISTER: extern "C" fn() = register;
 
+/// macOS 14 and later keep a saver's host running after the screen saver
+/// ends (its views keep animating, unseen): it says the saver will stop,
+/// and the host quits then, the way other screen savers do it. The next
+/// screen saver starts a new host.
+fn quit_when_the_saver_stops() {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        let name = NSString::from_str("com.apple.screensaver.willstop");
+        let block = block2::RcBlock::new(|_| {
+            log("the screen saver stops; quitting");
+            std::process::exit(0);
+        });
+        let center = NSDistributedNotificationCenter::defaultCenter();
+        // SAFETY: the name is a valid NSString; the block takes the
+        // notification and asks nothing of it.
+        let token = unsafe {
+            center.addObserverForName_object_queue_usingBlock(Some(&name), None, None, &block)
+        };
+        // Observed until the host quits.
+        std::mem::forget(token);
+    });
+}
+
 impl ClairluneSaverView {
     fn start(&self) {
         if self.ivars().playing.borrow().is_some() {
             return;
         }
         match self.make() {
-            Ok(p) => *self.ivars().playing.borrow_mut() = Some(p),
-            Err(e) => eprintln!("Clairlune screen saver: {e}"),
+            Ok(p) => {
+                *self.ivars().playing.borrow_mut() = Some(p);
+                self.setNeedsDisplay(true);
+            }
+            Err(e) => log(&format!("not playing: {e}")),
         }
     }
 
     /// The view's size in pixels.
     fn pixel_size(&self) -> (u32, u32) {
-        let scale = self.window().map_or(2.0, |w| w.backingScaleFactor());
-        let b = self.bounds();
+        let b = self.convertRectToBacking(self.bounds());
         (
-            (b.size.width * scale).round().max(0.0) as u32,
-            (b.size.height * scale).round().max(0.0) as u32,
+            b.size.width.round().max(0.0) as u32,
+            b.size.height.round().max(0.0) as u32,
         )
     }
 
-    fn make(&self) -> Result<Playing, String> {
+    fn make(&self) -> Result<(Player, Painter), String> {
         let (w, h) = self.pixel_size();
         if w < 16 || h < 16 {
             return Err(format!("the view is too small ({w}x{h})"));
         }
-        let picked = current_scene().and_then(|s| {
+        let picked = current_scene().and_then(|(s, from)| {
             s.for_size(w, h)
-                .map(|m| (m.recipe.clone(), s.theme, s.buddy, s.fps))
+                .map(|m| (m.recipe.clone(), s.theme, s.buddy, s.fps, from))
         });
-        let (recipe, theme, buddy, fps) = picked.unwrap_or_else(|| {
-            // Nothing from the app: a scene of our own.
-            let seed = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_or(1, |d| d.as_nanos() as u64);
-            let r = compose(seed, Aspect::from_size(w, h), &ContentContext::default());
-            (r, Theme::Dark, true, 12)
-        });
+        let (recipe, theme, buddy, fps) = match picked {
+            Some((r, theme, buddy, fps, from)) => {
+                log(&format!("{w}x{h}: the app's scene, from {from}"));
+                (r, theme, buddy, fps)
+            }
+            None => {
+                // Nothing from the app for this size: a scene of our own.
+                log(&format!("{w}x{h}: a scene of its own"));
+                let seed = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(1, |d| d.as_nanos() as u64);
+                let r = compose(seed, Aspect::from_size(w, h), &ContentContext::default());
+                (r, Theme::Dark, true, 12)
+            }
+        };
         let pkg = Arc::new(ScenePackage::capture(&recipe, w, h).map_err(|e| e.to_string())?);
         let theme = if pkg.themes().contains(&theme) {
             theme
@@ -141,103 +183,80 @@ impl ClairluneSaverView {
         };
         let mut player = Player::new(pkg, theme, buddy).ok_or("the scene has no theme")?;
         player.set_smooth(true);
-        unsafe { self.setAnimationTimeInterval(1.0 / f64::from(fps.clamp(1, 30))) };
-
-        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
-        desc.backends = wgpu::Backends::METAL;
-        let instance = wgpu::Instance::new(desc);
-        let view: &NSView = self;
-        let handle = AppKitWindowHandle::new(NonNull::from(view).cast());
-        // SAFETY: the surface is dropped (with `Playing`) before the view,
-        // which owns it through its ivars.
-        let surface = unsafe {
-            instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::RawHandle {
-                raw_display_handle: Some(RawDisplayHandle::AppKit(AppKitDisplayHandle::new())),
-                raw_window_handle: RawWindowHandle::AppKit(handle),
-            })
-        }
-        .map_err(|e| e.to_string())?;
-        let gpu = Gpu::new(&instance, Some(&surface), None, false)?;
-        let caps = surface.get_capabilities(&gpu.adapter);
-        let format = exact_format(&caps.formats)
-            .ok_or_else(|| format!("no 8-bit surface format in {:?}", caps.formats))?;
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format,
-            width: w,
-            height: h,
-            present_mode: wgpu::PresentMode::Fifo,
-            desired_maximum_frame_latency: 1,
-            alpha_mode: if caps.alpha_modes.contains(&wgpu::CompositeAlphaMode::Opaque) {
-                wgpu::CompositeAlphaMode::Opaque
-            } else {
-                wgpu::CompositeAlphaMode::Auto
-            },
-            view_formats: vec![],
-            color_space: Default::default(),
-        };
-        surface.configure(&gpu.device, &config);
         let t = player.now_ms();
         player.advance(t);
-        let canvas = gpu.canvas(&player);
-        let mut playing = Playing {
-            player,
-            surface,
-            config,
-            canvas,
-            gpu,
-            _instance: instance,
-        };
-        draw(&mut playing);
-        Ok(playing)
+        let painter = Painter::new(&player).ok_or("no colour space for the palette")?;
+        unsafe { self.setAnimationTimeInterval(1.0 / f64::from(fps.clamp(1, 30))) };
+        Ok((player, painter))
     }
 
     fn next_frame(&self) {
         let mut slot = self.ivars().playing.borrow_mut();
-        let Some(p) = slot.as_mut() else {
+        let Some((player, _)) = slot.as_mut() else {
             return;
         };
-        let t = p.player.now_ms();
-        let rects = p.player.advance(t);
-        if rects.is_empty() {
-            return;
-        }
-        p.gpu.upload(&mut p.canvas, &p.player, &rects);
-        draw(p);
+        let t = player.now_ms();
+        let rects = player.advance(t);
+        // Drawn when AppKit next redraws, not inside this call.
+        invalidate(self, player, &rects);
     }
 }
 
-fn draw(p: &mut Playing) {
-    let frame = match p.surface.get_current_texture() {
-        wgpu::CurrentSurfaceTexture::Success(t) | wgpu::CurrentSurfaceTexture::Suboptimal(t) => t,
-        wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
-            p.surface.configure(&p.gpu.device, &p.config);
-            return;
-        }
-        _ => return,
-    };
-    let view = frame.texture.create_view(&Default::default());
-    p.gpu.draw(&p.canvas, &view, p.config.format);
-    p.gpu.queue.present(frame);
+/// The scene the app last set, and where it came from: the app's data
+/// folder (the user's real home: the host gives savers a home of their own,
+/// and its sandbox may keep that folder out) or this bundle's Resources,
+/// where the app copies it too.
+fn current_scene() -> Option<(SaverScene, &'static str)> {
+    let paths = [
+        (
+            real_home().map(|h| {
+                h.join("Library")
+                    .join("Application Support")
+                    .join("clairlune")
+                    .join(SAVER_SCENE_FILE)
+            }),
+            "the app's folder",
+        ),
+        (
+            bundle_resources().map(|r| r.join(SAVER_SCENE_FILE)),
+            "the saver's Resources",
+        ),
+    ];
+    paths.into_iter().find_map(|(p, from)| {
+        let text = std::fs::read_to_string(p?).ok()?;
+        Some((serde_json::from_str(&text).ok()?, from))
+    })
 }
 
-/// The scene the app last set, from its data folder (the user's real home:
-/// the host gives savers a home of their own) or from this bundle's
-/// Resources, where the app copies it too.
-fn current_scene() -> Option<SaverScene> {
-    let paths = [
-        real_home().map(|h| {
-            h.join("Library")
-                .join("Application Support")
-                .join("clairlune")
-                .join(SAVER_SCENE_FILE)
-        }),
-        bundle_resources().map(|r| r.join(SAVER_SCENE_FILE)),
-    ];
-    paths.into_iter().flatten().find_map(|p| {
-        let text = std::fs::read_to_string(p).ok()?;
-        serde_json::from_str(&text).ok()
-    })
+/// A line in `~/Library/Logs/Clairlune Saver.log` of the home the host
+/// gives the saver (inside its container: on macOS 14,
+/// `~/Library/Containers/com.apple.ScreenSaver.Engine.legacyScreenSaver/Data`).
+fn log(line: &str) {
+    let Some(home) = std::env::var_os("HOME").filter(|h| !h.is_empty()) else {
+        return;
+    };
+    let dir = PathBuf::from(home).join("Library").join("Logs");
+    let path = dir.join("Clairlune Saver.log");
+    let _ = std::fs::create_dir_all(&dir);
+    // Kept small: started over past 256 KB.
+    let fresh = std::fs::metadata(&path).is_ok_and(|m| m.len() > 256 * 1024);
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(!fresh)
+        .write(true)
+        .truncate(fresh)
+        .open(&path);
+    if let Ok(mut f) = file {
+        let secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs());
+        let _ = writeln!(
+            f,
+            "{secs} [{}] {} {line}",
+            std::process::id(),
+            env!("CARGO_PKG_VERSION")
+        );
+    }
 }
 
 fn real_home() -> Option<PathBuf> {

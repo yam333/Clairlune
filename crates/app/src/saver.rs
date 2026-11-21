@@ -2,8 +2,9 @@
 //! (`Clairlune.app/Contents/Resources/Clairlune.saver`), installs it in
 //! `~/Library/Screen Savers` when Settings asks, and writes the scene on
 //! screen for it (`screensaver.json`) each time the wallpaper changes.
-//! macOS 14 and later let only the user pick the screen saver, so turning
-//! it on opens System Settings at Screen Saver.
+//! macOS 13 lets the app pick it (the screen saver's own defaults); macOS
+//! 14 and later let only the user pick the screen saver, so turning it on
+//! opens System Settings at Screen Saver there.
 
 use clairlune_scene::saver::{SAVER_SCENE_FILE, SaverScene};
 use std::path::{Path, PathBuf};
@@ -96,6 +97,43 @@ pub fn write_scene(data_dir: &Path, scene: &SaverScene) -> Result<(), String> {
     Ok(())
 }
 
+/// The macOS major version (13 for Ventura), from `sw_vers`.
+fn macos_major() -> Option<u32> {
+    let out = std::process::Command::new("sw_vers")
+        .arg("-productVersion")
+        .output()
+        .ok()?;
+    parse_major(&String::from_utf8_lossy(&out.stdout))
+}
+
+fn parse_major(version: &str) -> Option<u32> {
+    version.trim().split('.').next()?.parse().ok()
+}
+
+/// Picks the installed saver as the screen saver, where macOS lets an app
+/// do that (macOS 13 and earlier); `false` where only the user can.
+pub fn select() -> bool {
+    if !macos_major().is_some_and(|m| m <= 13) {
+        return false;
+    }
+    let Some(path) = installed_path() else {
+        return false;
+    };
+    std::process::Command::new("defaults")
+        .args([
+            "-currentHost",
+            "write",
+            "com.apple.screensaver",
+            "moduleDict",
+            "-dict",
+        ])
+        .args(["moduleName", "Clairlune", "path"])
+        .arg(&path)
+        .args(["type", "0"])
+        .status()
+        .is_ok_and(|s| s.success())
+}
+
 /// System Settings at Screen Saver, to pick Clairlune.
 pub fn open_settings() {
     let _ = std::process::Command::new("open")
@@ -120,6 +158,19 @@ fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_major_version_is_read() {
+        assert_eq!(
+            parse_major(
+                "13.6.1
+"
+            ),
+            Some(13)
+        );
+        assert_eq!(parse_major("15.1"), Some(15));
+        assert_eq!(parse_major(""), None);
+    }
 
     #[test]
     fn a_folder_is_copied_whole() {

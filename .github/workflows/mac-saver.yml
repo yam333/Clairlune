@@ -47,6 +47,29 @@ jobs:
           json.dump(scene, open("out/Clairlune.saver/Contents/Resources/screensaver.json", "w"))
           PY
           swift scripts/saver_check.swift out/Clairlune.saver out/saver-app-scene.png
+      - name: Play it in the real screen saver host
+        # Best effort: macOS 14 and later may not take the module from
+        # these defaults (only System Settings picks a saver there); the
+        # host's log and the screenshots say what it played.
+        continue-on-error: true
+        run: |
+          set +e
+          mkdir -p "$HOME/Library/Screen Savers"
+          rm -rf "$HOME/Library/Screen Savers/Clairlune.saver"
+          cp -R out/Clairlune.saver "$HOME/Library/Screen Savers/"
+          defaults -currentHost write com.apple.screensaver moduleDict -dict moduleName Clairlune path "$HOME/Library/Screen Savers/Clairlune.saver" type 0
+          open -a /System/Library/CoreServices/ScreenSaverEngine.app
+          sleep 8
+          screencapture -x out/host.png
+          sleep 2
+          screencapture -x out/host-later.png
+          ps -axo pid,rss,%cpu,command | grep -iE "screensaver|legacyScreenSaver" | grep -v grep
+          killall ScreenSaverEngine legacyScreenSaver 2>/dev/null
+          sleep 2
+          ps -axo pid,command | grep -iE "legacyScreenSaver" | grep -v grep && echo "the host is still running after the saver stopped"
+          find "$HOME/Library/Containers" -name "Clairlune Saver.log" -exec sh -c 'echo "== $1"; cat "$1"' _ {} \; 2>/dev/null
+          find "$HOME/Library/Logs" -name "Clairlune Saver.log" -exec cat {} \; 2>/dev/null
+          true
       - uses: actions/upload-artifact@v5
         if: always()
         with:

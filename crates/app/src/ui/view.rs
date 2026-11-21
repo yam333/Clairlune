@@ -104,6 +104,8 @@ pub enum UiAction {
     AnswerStartAtLogin(bool),
     CheckUpdates,
     OpenUpdate,
+    /// macOS: System Settings at Screen Saver.
+    OpenSaverSettings,
     Quit,
     RestoreWallpaper,
     SaveToLibrary,
@@ -1469,11 +1471,25 @@ fn page(
                         ui,
                         theme,
                         "Screen saver",
-                        "Plays the wallpaper on screen as the screen saver too. Turning it on adds Clairlune to System Settings, Screen Saver, and opens it there: pick Clairlune.",
+                        "Plays the wallpaper as the Mac's screen saver: it starts when the Mac sits idle and ends with a key or the mouse, as System Settings says. Turning it on adds Clairlune to System Settings, Screen Saver, and opens it there: pick Clairlune.",
                         |ui| {
                             toggle(ui, theme, &mut s.general.screen_saver, "Screen saver");
                         },
                     );
+                    if s.general.screen_saver {
+                        ui.horizontal(|ui| {
+                            if ui.button("Open Screen Saver settings").clicked() {
+                                actions.push(UiAction::OpenSaverSettings);
+                            }
+                            ui.label(
+                                RichText::new(
+                                    "Pick Clairlune there; start it after, and lock, as you like.",
+                                )
+                                .color(c(t.text_secondary)),
+                            );
+                        });
+                        ui.add_space(space::S4);
+                    }
                 } else {
                     row(
                         ui,

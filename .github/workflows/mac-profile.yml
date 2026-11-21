@@ -61,6 +61,9 @@ jobs:
               ps -o %cpu=,rss= -p "$pid" | awk '{printf "cpu %s%%  rss %.0f MB\n", $1, $2/1024}' | tee -a "$out/summary.txt"
               sleep 5
             done
+            # Threads, and idle wake-ups over 10 s (Activity Monitor's
+            # columns), from top's second sample.
+            top -l 2 -s 10 -pid "$pid" -stats pid,th,idlew,cpu,mem | tail -1 | awk '{printf "threads %s  idle wakeups %s in 10 s  cpu %s  mem %s\n", $2, $3, $4, $5}' | tee -a "$out/summary.txt"
             sample "$pid" 5 -file "$out/$name-sample.txt" > /dev/null 2>&1 || true
             footprint "$pid" > "$out/$name-footprint.txt" 2>&1 || true
             grep -E "phys_footprint:" "$out/$name-footprint.txt" | head -1 | tee -a "$out/summary.txt" || true
