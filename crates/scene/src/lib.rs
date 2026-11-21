@@ -39,4 +39,6 @@ pub use graph::{
 };
 pub use ident::{APP_ID, APP_NAME};
 pub use palette::{PaletteFamily, Rgb, Theme};
-pub use recipe::{Aspect, ContentContext, GENERATOR_VERSION, SceneRecipe, TimeOfDay};
+pub use recipe::{
+    Aspect, ContentContext, GENERATOR_VERSION, SceneRecipe, TimeOfDay, ZOOMS, zoom_factor,
+};

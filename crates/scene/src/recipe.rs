@@ -31,6 +31,26 @@ pub const ARCHETYPES: [&str; crate::archetype::ARCHETYPE_INFO.len()] = {
 pub const LOOKS: [&str; 2] = ["line", "dither"];
 /// Ink contrast, softest first.
 pub const CONTRASTS: [&str; 3] = ["soft", "normal", "high"];
+/// How far back the camera stands: `close` (Clawd at the size he has always
+/// been), `wide` (about half that, in a bigger landscape) or `vast` (about a
+/// quarter, the land huge around him).
+pub const ZOOMS: [&str; 3] = ["close", "wide", "vast"];
+
+/// The focal group's size against `close`.
+pub fn zoom_factor(zoom: &str) -> f64 {
+    match zoom {
+        "wide" => 0.5,
+        "vast" => 0.25,
+        _ => 1.0,
+    }
+}
+
+fn close() -> String {
+    "close".into()
+}
+fn is_close(v: &str) -> bool {
+    v == "close"
+}
 
 fn line() -> String {
     "line".into()
@@ -180,9 +200,18 @@ pub struct SceneRecipe {
     /// One of [`CONTRASTS`]; normal when absent (and then not written).
     #[serde(default = "normal", skip_serializing_if = "is_normal")]
     pub contrast: String,
+    /// One of [`ZOOMS`]; close when absent (and then not written, so older
+    /// recipes stay as they were).
+    #[serde(default = "close", skip_serializing_if = "is_close")]
+    pub zoom: String,
 }
 
 impl SceneRecipe {
+    /// The focal group's size against `close` (1, 1/2 or 1/4).
+    pub fn zoom_factor(&self) -> f64 {
+        zoom_factor(&self.zoom)
+    }
+
     /// Time of day for a theme, or `None` if the scene is locked to the other theme.
     pub fn tod_for(&self, theme: Theme) -> Option<TimeOfDay> {
         match theme {
@@ -247,6 +276,9 @@ pub struct ContentContext {
     /// `None` (the CLI, tests) allows every activity.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<Theme>,
+    /// Zooms scenes may use (of [`ZOOMS`]); none means close.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub enabled_zooms: Vec<String>,
 }
 
 impl Default for ContentContext {
@@ -267,6 +299,7 @@ impl Default for ContentContext {
             enabled_looks: LOOKS.iter().map(|s| s.to_string()).collect(),
             contrast: normal(),
             theme: None,
+            enabled_zooms: Vec::new(),
         }
     }
 }
