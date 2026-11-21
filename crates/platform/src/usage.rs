@@ -70,12 +70,14 @@ mod tests {
 
     #[test]
     fn this_process_uses_something() {
-        // Burn a little CPU so the clock moves.
+        // Burn CPU until the clock moves (Windows counts in 15.6 ms ticks).
+        let start = std::time::Instant::now();
         let mut x = 0u64;
-        for i in 0..2_000_000u64 {
-            x = x.wrapping_mul(31).wrapping_add(i);
+        while process_cpu_time() == Duration::ZERO && start.elapsed() < Duration::from_secs(5) {
+            for i in 0..1_000_000u64 {
+                x = std::hint::black_box(x.wrapping_mul(31).wrapping_add(i));
+            }
         }
-        assert!(x != 1);
         assert!(process_cpu_time() > Duration::ZERO);
         assert!(process_memory() > 0);
     }
