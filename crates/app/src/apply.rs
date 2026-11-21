@@ -46,6 +46,10 @@ pub enum Job {
         renew: Option<(String, u64)>,
         /// Scrolling scenes (journeys) look right at this frame rate.
         scrolling: bool,
+        /// Re-showing an automatic wallpaper in a new theme (or at a new
+        /// frame rate): a scene with nothing for it gives way to a new one.
+        /// Never for a wallpaper the user picked.
+        refresh: bool,
     },
     /// Copy the current wallpaper's primary image to the export folder.
     /// From `source` (an archive entry or library item folder), or the newest
@@ -53,6 +57,9 @@ pub enum Job {
     Export {
         dest: PathBuf,
         source: Option<PathBuf>,
+        /// The image on the primary monitor right now, when it's the whole
+        /// scene (a theme change re-renders it without a new archive entry).
+        still: Option<PathBuf>,
     },
     /// Export a saved scene as a looping GIF.
     ExportGif {
@@ -141,6 +148,9 @@ pub enum Done {
         source: Option<PathBuf>,
         seed: u64,
         theme: Theme,
+        /// The theme it was made for (a scene that only happens in the other
+        /// one shows in that one instead).
+        wanted: Theme,
         archetype: String,
         activity: Option<String>,
         monitors: usize,
@@ -175,7 +185,7 @@ pub fn resolve_theme_at(t: &ThemeSettings, now: &jiff::ZonedDateTime) -> Theme {
             if t.follow_sun
                 && let Some((lat, lon)) = crate::sun::parse_location(&t.location)
             {
-                return if crate::sun::is_day(now.date(), lat, lon, now.timestamp()) {
+                return if crate::sun::is_day(lat, lon, now.timestamp()) {
                     Theme::Light
                 } else {
                     Theme::Dark
@@ -473,7 +483,18 @@ pub fn worker(
     }
     for job in jobs {
         let result = match (&archive, &store) {
-            (Ok(archive), Ok(store)) => run(job, host.as_deref(), store, archive, &mut recent),
+            // A bug in one job (the crash report has it) mustn't leave the
+            // app waiting on this thread for ever.
+            (Ok(archive), Ok(store)) => {
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    run(job, host.as_deref(), store, archive, &mut recent)
+                }))
+                .unwrap_or_else(|_| {
+                    Done::Failed(
+                        "something went wrong making the wallpaper (see the crash report)".into(),
+                    )
+                })
+            }
             (Err(e), _) | (_, Err(e)) => Done::Failed(format!("data folder: {e}")),
         };
         if let Done::Failed(e) = &result {
@@ -491,7 +512,11 @@ fn run(
     recent: &mut Recent,
 ) -> Done {
     match job {
-        Job::Export { dest, source } => export(archive, &dest, source.as_deref()),
+        Job::Export {
+            dest,
+            source,
+            still,
+        } => export(archive, &dest, source.as_deref(), still.as_deref()),
         Job::ExportGif {
             dest,
             source,
@@ -517,6 +542,7 @@ fn run(
             at,
             renew,
             scrolling,
+            refresh,
         } => apply(
             Some(Source {
                 recipes: &recipes,
@@ -524,6 +550,7 @@ fn run(
                 theme,
                 buddy,
                 renew: renew.as_ref().map(|(id, s)| (id.as_str(), *s)),
+                refresh,
             }),
             0,
             &settings,
@@ -549,6 +576,8 @@ struct Source<'a> {
     buddy: Option<bool>,
     /// One monitor to give a new scene (its id, and the seed).
     renew: Option<(&'a str, u64)>,
+    /// Scenes that don't fit the theme or frame rate may be replaced.
+    refresh: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -598,9 +627,8 @@ fn apply(
     let buddy = saved.and_then(|s| s.buddy).unwrap_or(settings.buddy.show);
     let want = Want {
         theme: wanted,
-        // Showing what's there again in the current theme (not a previous
-        // wallpaper, nor a library item with a theme of its own).
-        refresh: saved.is_some_and(|s| s.theme.is_none()) && !add_to_archive,
+        // Showing an automatic wallpaper again in the current theme.
+        refresh: saved.is_some_and(|s| s.refresh && s.theme.is_none()),
         renew: saved
             .and_then(|s| s.renew)
             .map(|(id, s)| (id.to_string(), s)),
@@ -734,6 +762,7 @@ fn apply(
         source,
         seed: base_seed,
         theme: used_theme,
+        wanted,
         archetype: primary.archetype.clone(),
         activity: primary.activity.clone(),
         monitors: screens.len(),
@@ -807,10 +836,17 @@ fn export_gif(
 }
 
 /// Copies a saved scene's primary image to `dest`.
-fn export(archive: &Archive, dest: &Path, source: Option<&Path>) -> Result<Done, String> {
+fn export(
+    archive: &Archive,
+    dest: &Path,
+    source: Option<&Path>,
+    still: Option<&Path>,
+) -> Result<Done, String> {
     let dir = export_source(archive, source)?;
     std::fs::create_dir_all(dest).map_err(|e| e.to_string())?;
-    let src = dir.join("wallpaper-0.png");
+    let src = still
+        .filter(|p| p.is_file())
+        .map_or_else(|| dir.join("wallpaper-0.png"), Path::to_path_buf);
     let out = dest.join(format!("{}.png", file_stem(&dir)));
     std::fs::copy(&src, &out).map_err(|e| format!("{}: {e}", src.display()))?;
     tracing::info!(target: "clairlune", path = %out.display(), "exported");
@@ -1061,6 +1097,7 @@ mod tests {
             theme: None,
             buddy: None,
             renew: None,
+            refresh: false,
         };
         // Same monitor: replayed from the package.
         let (_, again, replayed, _) = packages(

@@ -58,8 +58,13 @@ pub fn daylight(date: Date, lat: f64, lon: f64) -> Daylight {
     }
 }
 
-/// Whether the sun is up at `now`, for the local `date`.
-pub fn is_day(date: Date, lat: f64, lon: f64, now: Timestamp) -> bool {
+/// Whether the sun is up at `now` at a place. The day is the place's own
+/// (from its longitude), not this computer's: the two differ when the
+/// computer's time zone is another one's.
+pub fn is_day(lat: f64, lon: f64, now: Timestamp) -> bool {
+    // Local mean solar time there: 4 minutes per degree east of Greenwich.
+    let solar = now + SignedDuration::from_secs((lon * 240.0).round() as i64);
+    let date = solar.to_zoned_datetime(jiff::tz::TimeZone::UTC).date();
     match daylight(date, lat, lon) {
         Daylight::Normal { rise, set } => rise <= now && now < set,
         Daylight::AlwaysUp => true,
@@ -151,11 +156,38 @@ mod tests {
                 .unwrap()
                 .timestamp()
         };
-        let d = date(2026, 6, 21);
-        assert!(!is_day(d, 40.7128, -74.0060, at(5, 0)));
-        assert!(is_day(d, 40.7128, -74.0060, at(12, 0)));
-        assert!(is_day(d, 40.7128, -74.0060, at(20, 20)));
-        assert!(!is_day(d, 40.7128, -74.0060, at(21, 0)));
+        assert!(!is_day(40.7128, -74.0060, at(5, 0)));
+        assert!(is_day(40.7128, -74.0060, at(12, 0)));
+        assert!(is_day(40.7128, -74.0060, at(20, 20)));
+        assert!(!is_day(40.7128, -74.0060, at(21, 0)));
+    }
+
+    #[test]
+    fn the_place_keeps_its_own_day_whatever_the_computer_clock() {
+        // Tokyo, 06:00 there on June 21 is 21:00 UTC on June 20: a computer
+        // on UTC has the wrong date for Tokyo.
+        let tokyo = |h: i8| {
+            date(2026, 6, 21)
+                .at(h, 0, 0, 0)
+                .to_zoned_datetime(TimeZone::get("Asia/Tokyo").unwrap())
+                .unwrap()
+                .timestamp()
+        };
+        assert!(is_day(35.6762, 139.6503, tokyo(6)));
+        assert!(is_day(35.6762, 139.6503, tokyo(12)));
+        assert!(!is_day(35.6762, 139.6503, tokyo(2)));
+        assert!(!is_day(35.6762, 139.6503, tokyo(22)));
+        // Los Angeles, 18:00 there is the next UTC day.
+        let la = |h: i8| {
+            date(2026, 6, 21)
+                .at(h, 0, 0, 0)
+                .to_zoned_datetime(TimeZone::get("America/Los_Angeles").unwrap())
+                .unwrap()
+                .timestamp()
+        };
+        assert!(is_day(34.05, -118.24, la(18)));
+        assert!(!is_day(34.05, -118.24, la(23)));
+        assert!(!is_day(34.05, -118.24, la(4)));
     }
 
     #[test]

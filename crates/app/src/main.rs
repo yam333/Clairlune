@@ -96,8 +96,17 @@ struct App {
     next_check: Instant,
     /// The theme the current wallpaper was rendered for.
     shown_theme: Option<Theme>,
+    /// The theme the wallpaper on screen was made for: a theme change is a
+    /// change from this, not from what a one-theme scene could show.
+    asked_theme: Option<Theme>,
+    /// The wallpaper on screen was picked by the user (Previous, the
+    /// Archive, the Library, a timeline item): kept as picked.
+    chosen: bool,
     /// The wallpaper on screen has a scrolling scene (a journey).
     shown_journey: bool,
+    /// The primary monitor's image on screen, when it shows a whole scene
+    /// (not a part of one spanning the monitors).
+    shown_still: Option<PathBuf>,
     /// Whether scrolling scenes looked right at the last check.
     scrolling_ok: bool,
     /// The next re-apply gives this monitor (its id) a new scene, from this
@@ -304,7 +313,10 @@ impl App {
 
     fn submit(&mut self, job: Job) {
         let export = matches!(job, Job::Export { .. } | Job::ExportGif { .. });
-        if self.busy && !export {
+        // Restore waits its turn behind a wallpaper being made, rather than
+        // being dropped: the user asked for their own wallpaper back.
+        let restore = matches!(job, Job::Restore);
+        if self.busy && !export && !restore {
             return;
         }
         if !export {
@@ -328,7 +340,24 @@ impl App {
         self.metronome.store(us, Ordering::Relaxed);
     }
 
+    /// Marks (or clears) that the user's own wallpaper is on screen after
+    /// Restore: nothing changes it on its own until Clairlune applies one
+    /// by request or the schedule resumes. Kept across restarts.
+    fn set_restored(&self, on: bool) {
+        let path = self.data_dir.join("restored");
+        let _ = if on {
+            std::fs::write(&path, b"")
+        } else {
+            std::fs::remove_file(&path)
+        };
+    }
+
+    fn restored(&self) -> bool {
+        self.data_dir.join("restored").exists()
+    }
+
     fn new_wallpaper(&mut self) {
+        self.chosen = false;
         self.current_theme = None;
         self.current_buddy = None;
         let seed = random_seed();
@@ -377,7 +406,13 @@ impl App {
             };
             (dir, self.current_theme, self.current_buddy)
         };
-        self.apply_folder(dir, theme, buddy, previous);
+        if previous {
+            self.chosen = true;
+        }
+        // Going back shows the older entry as it is (archiving it again
+        // would make the next Previous come back here).
+        let refresh = !previous && !self.chosen;
+        self.apply_folder(dir, theme, buddy, false, refresh);
     }
 
     /// A new scene on one monitor (its id); the others keep theirs. It is
@@ -388,8 +423,11 @@ impl App {
         };
         self.current_theme = None;
         self.current_buddy = None;
+        self.chosen = false;
         self.renew = Some((monitor, random_seed()));
-        self.apply_folder(dir, None, None, true);
+        // Archived only if a monitor really got a new scene (it may have
+        // been unplugged since the menu was made).
+        self.apply_folder(dir, None, None, false, false);
     }
 
     /// Shows the scenes saved in a folder (archive entry or library item).
@@ -399,6 +437,7 @@ impl App {
         theme: Option<Theme>,
         buddy: Option<bool>,
         archive: bool,
+        refresh: bool,
     ) {
         let recipes = std::fs::read_to_string(dir.join("recipe.json"))
             .map_err(|e| e.to_string())
@@ -417,6 +456,7 @@ impl App {
                 archive,
                 renew,
                 scrolling,
+                refresh,
             }),
             Err(e) => {
                 tracing::warn!(target: "clairlune", dir = %dir.display(), error = %e, "unreadable saved scene")
@@ -519,10 +559,16 @@ impl App {
         let Some(slot) = self.timeline.day(weekday).get(index).cloned() else {
             return;
         };
-        let key = format!(
-            "{}-{index}",
-            timeline::day_name(timeline::weekday_index(weekday))
-        );
+        // Pools keep their place per slot: per weekday slot with one
+        // plan per weekday, per slot of the one plan for every day.
+        let key = if self.timeline.day_count() == 1 {
+            format!("every-day-{index}")
+        } else {
+            format!(
+                "{}-{index}",
+                timeline::day_name(timeline::weekday_index(weekday))
+            )
+        };
         tracing::info!(target: "clairlune", slot = %key, start = %timeline::format_time(slot.start), "timeline slot");
         match slot.content {
             timeline::Content::Item { id } => self.show_library_item(&id, slot.theme, slot.buddy),
@@ -579,8 +625,19 @@ impl App {
                     library::BuddyChoice::Off => s.buddy.show = false,
                     library::BuddyChoice::Follow => {}
                 }
-                self.current_theme = None;
-                self.current_buddy = None;
+                // The slot's own choices hold on screen: a theme change
+                // doesn't re-render them away.
+                self.current_theme = match slot.theme {
+                    library::ThemeChoice::Light => Some(Theme::Light),
+                    library::ThemeChoice::Dark => Some(Theme::Dark),
+                    library::ThemeChoice::Follow => None,
+                };
+                self.current_buddy = match slot.buddy {
+                    library::BuddyChoice::On => Some(true),
+                    library::BuddyChoice::Off => Some(false),
+                    library::BuddyChoice::Follow => None,
+                };
+                self.chosen = false;
                 let at = self.apply_at.take();
                 let scrolling = self.live.scrolling_ok();
                 self.submit(Job::New {
@@ -618,7 +675,8 @@ impl App {
         let (theme, buddy) = Self::library_choices(&item, &self.settings);
         self.current_theme = theme;
         self.current_buddy = buddy;
-        self.apply_folder(lib.item_dir(id), theme, buddy, false);
+        self.chosen = true;
+        self.apply_folder(lib.item_dir(id), theme, buddy, false, false);
     }
 
     /// After the timeline changed (in the editor or in the file): the active
@@ -724,26 +782,41 @@ impl App {
         let stamp = file_stamp(&self.settings_path);
         if stamp != self.settings_stamp {
             self.settings_stamp = stamp;
-            let new = Settings::load(&self.settings_path);
-            if new != self.settings {
-                tracing::info!(target: "clairlune", "settings changed on disk");
-                let schedule_changed = new.schedule != self.settings.schedule;
-                self.settings = new;
-                if let Some(t) = &self.tray {
-                    t.show_theme(self.settings.theme.mode);
-                    t.show_paused(self.settings.schedule.paused);
+            match Settings::reload(&self.settings_path) {
+                Ok(new) if new != self.settings => {
+                    tracing::info!(target: "clairlune", "settings changed on disk");
+                    let schedule_changed = new.schedule != self.settings.schedule;
+                    let display_changed =
+                        new.display != self.settings.display || new.live != self.settings.live;
+                    self.settings = new;
+                    if let Some(t) = &self.tray {
+                        t.show_theme(self.settings.theme.mode);
+                        t.show_paused(self.settings.schedule.paused);
+                    }
+                    if display_changed {
+                        self.follow_display_settings();
+                    }
+                    if schedule_changed {
+                        self.reschedule();
+                    }
                 }
-                if schedule_changed {
-                    self.reschedule();
+                Ok(_) => {}
+                Err(e) => {
+                    tracing::warn!(target: "clairlune", error = %e, "settings.toml did not parse; keeping the current settings");
+                    self.status.note = Some(format!(
+                        "settings.toml has an error, so the current settings stay: {e}"
+                    ));
                 }
             }
         }
         // Live went to a frame rate too low to scroll smoothly (Battery
         // saver): a journey on screen gives way.
         let scrolling = self.live.scrolling_ok();
-        if scrolling != self.scrolling_ok {
+        // (Noted only when not busy: a wallpaper being made is checked
+        // once it's up.)
+        if scrolling != self.scrolling_ok && !self.busy {
             self.scrolling_ok = scrolling;
-            if !scrolling && self.shown_journey && !self.busy && self.current_theme.is_none() {
+            if !scrolling && self.shown_journey && self.current_theme.is_none() && !self.chosen {
                 tracing::info!(target: "clairlune", "live frame rate too low to scroll; replacing the journey");
                 self.reapply(false);
                 return;
@@ -751,7 +824,7 @@ impl App {
         }
         let theme = apply::resolve_theme(&self.settings.theme);
         if self.current_theme.is_none()
-            && self.shown_theme.is_some_and(|t| t != theme)
+            && self.asked_theme.is_some_and(|t| t != theme)
             && !self.busy
         {
             tracing::info!(target: "clairlune", theme = theme.as_str(), "theme changed; re-rendering");
@@ -796,8 +869,7 @@ impl App {
                 self.reschedule();
             }
             Action::SavePng => {
-                let dest = self.export_dir();
-                self.submit(Job::Export { dest, source: None });
+                self.export_png();
             }
             Action::SaveGif => self.export_gif(),
             Action::SaveToLibrary => self.save_to_library(),
@@ -943,7 +1015,8 @@ impl App {
             UiAction::ApplyArchive(name) => {
                 self.current_theme = None;
                 self.current_buddy = None;
-                self.apply_folder(dir_of(&name), None, None, false);
+                self.chosen = true;
+                self.apply_folder(dir_of(&name), None, None, false, false);
             }
             UiAction::PinArchive { name, pinned } => {
                 if let Err(e) = archive.set_pinned(&name, pinned) {
@@ -964,7 +1037,11 @@ impl App {
                         buddy: self.settings.buddy.show,
                     });
                 } else {
-                    self.submit(Job::Export { dest, source });
+                    self.submit(Job::Export {
+                        dest,
+                        source,
+                        still: None,
+                    });
                 }
             }
             UiAction::DeleteArchive(name) => {
@@ -1008,7 +1085,8 @@ impl App {
                     let (theme, buddy) = Self::library_choices(&item, &self.settings);
                     self.current_theme = theme;
                     self.current_buddy = buddy;
-                    self.apply_folder(lib.item_dir(&id), theme, buddy, false);
+                    self.chosen = true;
+                    self.apply_folder(lib.item_dir(&id), theme, buddy, false, false);
                 }
             }
             UiAction::UpdateLibrary(item) => {
@@ -1055,7 +1133,11 @@ impl App {
                         buddy: buddy.unwrap_or(self.settings.buddy.show),
                     });
                 } else {
-                    self.submit(Job::Export { dest, source });
+                    self.submit(Job::Export {
+                        dest,
+                        source,
+                        still: None,
+                    });
                 }
             }
             _ => {}
@@ -1141,7 +1223,9 @@ impl App {
         }
         tracing::info!(target: "clairlune", monitors = layout.len(), "monitors changed; making the wallpaper again");
         self.monitor_layout = Some(layout);
-        if self.current.is_some() {
+        if self.restored() {
+            // The user's own wallpaper is on: Clairlune leaves it alone.
+        } else if self.current.is_some() {
             self.reapply(false);
         } else {
             self.new_wallpaper();
@@ -1273,8 +1357,7 @@ impl App {
                 );
             }
             UiAction::SavePng => {
-                let dest = self.export_dir();
-                self.submit(Job::Export { dest, source: None });
+                self.export_png();
             }
             UiAction::SaveToLibrary => self.save_to_library(),
             UiAction::OpenLibrary => self.open_library(event_loop),
@@ -1425,6 +1508,17 @@ impl App {
         self.tray.is_some()
     }
 
+    /// Saves the wallpaper on screen (not the newest archive entry: that's
+    /// another one after Previous or a Library pick).
+    fn export_png(&mut self) {
+        let dest = self.export_dir();
+        self.submit(Job::Export {
+            dest,
+            source: self.current.clone(),
+            still: self.shown_still.clone(),
+        });
+    }
+
     fn export_gif(&mut self) {
         let dest = self.export_dir();
         let theme = self
@@ -1432,9 +1526,9 @@ impl App {
             .unwrap_or_else(|| apply::resolve_theme(&self.settings.theme));
         self.submit(Job::ExportGif {
             dest,
-            source: None,
+            source: self.current.clone(),
             theme,
-            buddy: self.settings.buddy.show,
+            buddy: self.current_buddy.unwrap_or(self.settings.buddy.show),
         });
     }
 
@@ -1455,6 +1549,7 @@ impl App {
                 source,
                 seed,
                 theme,
+                wanted,
                 archetype,
                 activity,
                 monitors,
@@ -1462,10 +1557,18 @@ impl App {
                 live,
             } => {
                 self.busy = false;
+                self.set_restored(false);
                 self.current = source;
                 diagnostics::set_current(self.current.clone());
                 self.shown_theme = Some(theme);
+                self.asked_theme = Some(wanted);
                 self.shown_journey = live.iter().any(|s| s.package.recipe.is_journey());
+                self.shown_still = live
+                    .iter()
+                    .find(|s| s.monitor.primary)
+                    .or(live.first())
+                    .filter(|s| s.view.is_none())
+                    .and_then(|s| s.still.clone());
                 if let Some(t) = &self.tray {
                     // One scene per monitor: each can get a new one. (A
                     // span is one scene.)
@@ -1517,6 +1620,13 @@ impl App {
             }
             Done::Restored => {
                 self.busy = false;
+                self.set_restored(true);
+                // Stop playing over it (with no scenes left, stopping
+                // doesn't set Clairlune's stills again).
+                self.live.show(Vec::new());
+                self.shown_theme = None;
+                self.shown_journey = false;
+                self.shown_still = None;
                 self.current = None;
                 self.status.what.clear();
                 self.status.seed = None;
@@ -1601,10 +1711,18 @@ impl ApplicationHandler<AppEvent> for App {
             "dark" => Some(Theme::Dark),
             _ => None,
         });
-        if self.timeline_mode() {
+        // What it was made for isn't saved; take what it shows.
+        self.asked_theme = self.shown_theme;
+        let paused = self.settings.schedule.paused;
+        if self.restored() {
+            // The user's own wallpaper is back (Restore): leave it, and
+            // nothing of Clairlune's is on screen to re-render.
+            self.current = None;
+            self.shown_theme = None;
+        } else if self.timeline_mode() {
             // The timeline's active slot, right away.
             self.check_timeline();
-        } else if self.settings.schedule.change_at_login || self.current.is_none() {
+        } else if (self.settings.schedule.change_at_login && !paused) || self.current.is_none() {
             self.new_wallpaper();
         } else if self.settings.display.mode == settings::WallpaperMode::Live {
             // Play what's there (the saved scenes, no new one).
@@ -2123,7 +2241,10 @@ fn main() {
         next_change: None,
         next_check: Instant::now() + CHECK_EVERY,
         shown_theme: None,
+        asked_theme: None,
+        chosen: false,
         shown_journey: false,
+        shown_still: None,
         scrolling_ok: true,
         renew: None,
         current: None,

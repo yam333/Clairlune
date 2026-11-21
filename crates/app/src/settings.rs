@@ -274,6 +274,22 @@ impl Settings {
         }
     }
 
+    /// Loads settings edited while the app runs. A file that doesn't parse
+    /// (a typo, or an editor half-way through saving) is an error: the app
+    /// keeps what it has. A copy goes to `settings.toml.bad` so the edits
+    /// survive the app saving over them.
+    pub fn reload(path: &Path) -> Result<Settings, String> {
+        let text = match std::fs::read_to_string(path) {
+            Ok(t) => t,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Settings::default()),
+            Err(e) => return Err(e.to_string()),
+        };
+        toml::from_str(&text).map_err(|e| {
+            let _ = std::fs::write(path.with_extension("toml.bad"), &text);
+            e.message().to_string()
+        })
+    }
+
     /// Saves atomically (write a temporary file, then rename over).
     pub fn save(&self, path: &Path) -> std::io::Result<()> {
         if let Some(dir) = path.parent() {
@@ -362,6 +378,24 @@ mod tests {
         assert_eq!(s.schedule.change_every_minutes, 5);
         assert!(s.schedule.change_at_login);
         assert_eq!(s.archive.keep_days, 7);
+        std::fs::remove_dir_all(p.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn a_typo_while_running_keeps_the_settings_and_the_file() {
+        let p = temp("reload");
+        std::fs::write(&p, "[schedule]\nchange_every_minutes = 5\n").unwrap();
+        assert_eq!(
+            Settings::reload(&p).unwrap().schedule.change_every_minutes,
+            5
+        );
+        std::fs::write(&p, "[schedule]\nchange_every_minutes = = 5\n").unwrap();
+        assert!(Settings::reload(&p).is_err());
+        // Left where it is, with a copy aside.
+        assert!(p.exists());
+        assert!(p.with_extension("toml.bad").exists());
+        std::fs::remove_file(&p).unwrap();
+        assert_eq!(Settings::reload(&p).unwrap(), Settings::default());
         std::fs::remove_dir_all(p.parent().unwrap()).unwrap();
     }
 
