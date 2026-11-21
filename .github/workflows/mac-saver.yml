@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["crates/saver/**", "scripts/make_saver.sh", "scripts/saver_check.swift", ".github/workflows/mac-saver.yml"]
+    paths: ["crates/saver/**", "crates/live/src/cg.rs", "scripts/make_saver.sh", "scripts/saver_check.swift", "scripts/ci_pick_saver.py", ".github/workflows/mac-saver.yml"]
 
 permissions:
   contents: read
@@ -48,9 +48,10 @@ jobs:
           PY
           swift scripts/saver_check.swift out/Clairlune.saver out/saver-app-scene.png
       - name: Play it in the real screen saver host
-        # Best effort: macOS 14 and later may not take the module from
-        # these defaults (only System Settings picks a saver there); the
-        # host's log and the screenshots say what it played.
+        # Best effort: macOS 14 and later don't take the module from these
+        # defaults (System Settings records the pick in the wallpaper store,
+        # which scripts/ci_pick_saver.py writes on this throwaway runner);
+        # the host's log and the screenshots say what it played.
         continue-on-error: true
         run: |
           set +e
@@ -58,12 +59,21 @@ jobs:
           rm -rf "$HOME/Library/Screen Savers/Clairlune.saver"
           cp -R out/Clairlune.saver "$HOME/Library/Screen Savers/"
           defaults -currentHost write com.apple.screensaver moduleDict -dict moduleName Clairlune path "$HOME/Library/Screen Savers/Clairlune.saver" type 0
+          python3 scripts/ci_pick_saver.py "$HOME/Library/Screen Savers/Clairlune.saver"
+          killall WallpaperAgent 2>/dev/null
+          sleep 3
           open -a /System/Library/CoreServices/ScreenSaverEngine.app
           sleep 8
           screencapture -x out/host.png
           sleep 2
           screencapture -x out/host-later.png
+          cmp -s out/host.png out/host-later.png && echo "host screenshots: the same" || echo "host screenshots: they differ"
           ps -axo pid,rss,%cpu,command | grep -iE "screensaver|legacyScreenSaver" | grep -v grep
+          log show --last 2m --style compact --predicate 'process CONTAINS "ScreenSaver" OR process CONTAINS "legacyScreenSaver"' 2>/dev/null | grep -iE "clairlune|error|fail|module" | tail -30
+          # Ended like a key press ends it; the host should go too.
+          osascript -e 'tell application "System Events" to key code 56' 2>/dev/null
+          sleep 4
+          ps -axo pid,command | grep -iE "ScreenSaverEngine|legacyScreenSaver" | grep -v grep
           killall ScreenSaverEngine legacyScreenSaver 2>/dev/null
           sleep 2
           ps -axo pid,command | grep -iE "legacyScreenSaver" | grep -v grep && echo "the host is still running after the saver stopped"
