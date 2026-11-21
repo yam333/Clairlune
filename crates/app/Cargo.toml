@@ -78,6 +78,8 @@ formats = ["nsis", "dmg"]
 
 [package.metadata.packager.nsis]
 installer-mode = "currentUser"
+# The moon on setup.exe and in the installer's header, not NSIS's own icon.
+installer-icon = "packaging/icons/clairlune.ico"
 
 # Linux: the rest (X11, Wayland, GL or Vulkan) is opened at run time and is
 # on every desktop; the keyboard map library isn't on minimal installs.
