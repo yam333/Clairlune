@@ -258,7 +258,10 @@ fn keyboard(ui: &Ui, st: &mut TimelineState, tl: &mut Timeline, actions: &mut Ve
     if ctx.input_mut(|i| i.consume_key(Modifiers::COMMAND, Key::Z)) {
         undo(st, tl, actions);
     }
+    // Not while a slot edge is being dragged: the drag holds the slot's
+    // index, and deleting under it would move the drag onto the next slot.
     if let Some((d, i)) = st.selected
+        && st.drag.is_none()
         && ctx.input_mut(|inp| {
             inp.consume_key(Modifiers::NONE, Key::Delete)
                 || inp.consume_key(Modifiers::NONE, Key::Backspace)
@@ -1461,6 +1464,44 @@ mod tests {
         let to = h.at(0, 100);
         h.drag(from, to);
         assert_eq!(h.starts(0), [420, 421]);
+    }
+
+    #[test]
+    fn delete_while_dragging_an_edge_neither_crashes_nor_moves_another_slot() {
+        let mut h = Harness::new();
+        // Select the last slot, start dragging its edge, press Delete.
+        let from = h.at(0, 1170);
+        h.click(from);
+        h.button(from, true);
+        for k in 1..=4 {
+            h.frame(
+                vec![Event::PointerMoved(from + vec2(k as f32 * 3.0, 0.0))],
+                Modifiers::NONE,
+            );
+        }
+        h.key(Key::Delete, Modifiers::NONE);
+        h.frame(
+            vec![Event::PointerMoved(from + vec2(20.0, 0.0))],
+            Modifiers::NONE,
+        );
+        h.button(from + vec2(20.0, 0.0), false);
+        h.idle(2);
+        assert_eq!(h.starts(0).len(), 2, "Delete waits until the drag ends");
+        // And the first slot's drag doesn't jump to the second one.
+        let second = h.starts(0)[1];
+        let a = h.at(0, 420);
+        h.click(a);
+        h.button(a, true);
+        for k in 1..=4 {
+            h.frame(
+                vec![Event::PointerMoved(a + vec2(k as f32 * 3.0, 0.0))],
+                Modifiers::NONE,
+            );
+        }
+        h.key(Key::Delete, Modifiers::NONE);
+        h.button(h.at(0, 600), false);
+        h.idle(2);
+        assert_eq!(h.starts(0)[1], second, "the other slot stays where it was");
     }
 
     #[test]

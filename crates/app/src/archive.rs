@@ -15,6 +15,11 @@
 //! hour): first unpinned entries older than the retention period, then the
 //! oldest unpinned ones while over the size cap. The newest entry (the
 //! wallpaper on screen) and pinned entries are never swept.
+//!
+//! Changes to `index.json` hold a lock (`index.lock`), since the worker, the
+//! windows and the CLI may each change it at once. An index that is missing
+//! or damaged is rebuilt from the entry folders, all of them pinned: which
+//! ones the user pinned is lost, and retention mustn't delete those.
 
 use clairlune_scene::SceneRecipe;
 use serde::{Deserialize, Serialize};
@@ -100,16 +105,80 @@ impl Archive {
     }
 
     fn load_index(&self) -> Index {
-        fs::read_to_string(self.index_path())
-            .ok()
-            .and_then(|t| serde_json::from_str(&t).ok())
-            .unwrap_or_default()
+        match fs::read_to_string(self.index_path()) {
+            Ok(t) => match serde_json::from_str(&t) {
+                Ok(index) => index,
+                Err(e) => {
+                    tracing::warn!(target: "clairlune", error = %e, "archive index damaged; rebuilding it from the folders");
+                    let _ = fs::write(self.dir.join("index.json.bad"), &t);
+                    self.rebuild()
+                }
+            },
+            Err(e) if e.kind() == io::ErrorKind::NotFound => self.rebuild(),
+            Err(_) => Index::default(),
+        }
+    }
+
+    /// The index from the entry folders (those with a `recipe.json`), for
+    /// when `index.json` is gone or damaged.
+    fn rebuild(&self) -> Index {
+        let mut entries: Vec<Entry> = fs::read_dir(&self.dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter_map(|d| {
+                let dir = d.path();
+                let name = d.file_name().to_str()?.to_string();
+                let text = fs::read_to_string(dir.join("recipe.json")).ok()?;
+                let recipes: EntryRecipes = serde_json::from_str(&text).ok()?;
+                let created = d
+                    .metadata()
+                    .and_then(|m| m.modified())
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map_or(0, |d| d.as_secs());
+                let primary = recipes.monitors.first();
+                Some(Entry {
+                    created,
+                    seed: recipes.base_seed,
+                    theme: recipes.theme.clone(),
+                    archetype: primary
+                        .map(|m| m.recipe.archetype.clone())
+                        .unwrap_or_default(),
+                    activity: primary.and_then(|m| m.recipe.activity.clone()),
+                    pinned: true,
+                    bytes: dir_size(&dir),
+                    name,
+                })
+            })
+            .collect();
+        // Names start with the UTC time they were made: they sort in order.
+        entries.sort_by(|a, b| a.name.cmp(&b.name));
+        Index { entries }
     }
 
     fn save_index(&self, index: &Index) -> io::Result<()> {
-        let tmp = self.dir.join("index.json.part");
+        // A name of its own, so two writers never share a half-written file.
+        static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let tmp = self
+            .dir
+            .join(format!("index.json.{}-{n}.part", std::process::id()));
         fs::write(&tmp, serde_json::to_string_pretty(index)?)?;
-        fs::rename(tmp, self.index_path())
+        fs::rename(&tmp, self.index_path()).inspect_err(|_| {
+            let _ = fs::remove_file(&tmp);
+        })
+    }
+
+    /// Holds the index for a read-change-write (released when dropped).
+    fn lock(&self) -> io::Result<fs::File> {
+        let file = fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(self.dir.join("index.lock"))?;
+        file.lock()?;
+        Ok(file)
     }
 
     /// Entries, oldest first.
@@ -131,6 +200,8 @@ impl Archive {
 
     /// Writes an entry and lists it.
     pub fn add(&self, new: &NewEntry) -> io::Result<Entry> {
+        // Held from picking the name on, so two adds can't pick the same.
+        let _lock = self.lock()?;
         let base = format!(
             "{}_seed-{}",
             crate::timefmt::stamp(new.created),
@@ -170,6 +241,8 @@ impl Archive {
             bytes: dir_size(&dir),
         };
         let mut index = self.load_index();
+        // Rebuilt from the folders just now, it's listed already (roughly).
+        index.entries.retain(|e| e.name != entry.name);
         index.entries.push(entry.clone());
         self.save_index(&index)?;
         Ok(entry)
@@ -182,6 +255,7 @@ impl Archive {
 
     /// Pins an entry (retention never removes it) or unpins it.
     pub fn set_pinned(&self, name: &str, pinned: bool) -> io::Result<()> {
+        let _lock = self.lock()?;
         let mut index = self.load_index();
         let e = index
             .entries
@@ -194,6 +268,7 @@ impl Archive {
 
     /// Deletes an entry for good.
     pub fn delete(&self, name: &str) -> io::Result<()> {
+        let _lock = self.lock()?;
         let mut index = self.load_index();
         match fs::remove_dir_all(self.dir.join(name)) {
             Ok(()) => {}
@@ -214,6 +289,9 @@ impl Archive {
     /// Applies retention: unpinned entries older than `keep_days` (0 keeps
     /// forever), then the oldest unpinned while their total exceeds `max_bytes`.
     pub fn sweep(&self, now: u64, keep_days: u32, max_bytes: u64) -> Sweep {
+        let Ok(_lock) = self.lock() else {
+            return Sweep::default();
+        };
         let mut index = self.load_index();
         let newest = index.entries.last().map(|e| e.name.clone());
         let sweepable = |e: &Entry| !e.pinned && Some(&e.name) != newest.as_ref();
@@ -364,6 +442,43 @@ mod tests {
         assert_eq!(names, vec![pinned.name, newest.name]);
         assert!(!a.dir().join(&old.name).exists());
         fs::remove_dir_all(a.dir()).unwrap();
+    }
+
+    #[test]
+    fn a_damaged_index_is_rebuilt_from_the_folders() {
+        let a = temp("rebuild");
+        let first = a.add(&entry(1, 1_000, 10)).unwrap();
+        let second = a.add(&entry(2, 2_000, 10)).unwrap();
+        std::fs::write(a.dir().join("index.json"), "{ not json").unwrap();
+        let names: Vec<String> = a.entries().into_iter().map(|e| e.name).collect();
+        assert_eq!(names, [first.name.clone(), second.name.clone()]);
+        assert_eq!(a.latest().unwrap().seed, 2);
+        // Which were pinned is unknown: none are swept away.
+        assert!(a.entries().iter().all(|e| e.pinned));
+        assert_eq!(a.sweep(100 * DAY, 1, 0).removed, 0);
+        // Adding goes on from there, without listing anything twice.
+        let third = a.add(&entry(3, 3_000, 10)).unwrap();
+        let names: Vec<String> = a.entries().into_iter().map(|e| e.name).collect();
+        assert_eq!(names, [first.name, second.name, third.name]);
+        std::fs::remove_dir_all(a.dir()).unwrap();
+    }
+
+    #[test]
+    fn writers_at_once_lose_no_entries() {
+        let a = std::sync::Arc::new(temp("race"));
+        let threads: Vec<_> = (0..8)
+            .map(|i| {
+                let a = a.clone();
+                std::thread::spawn(move || {
+                    a.add(&entry(100 + i, 10_000 + i, 10)).unwrap();
+                })
+            })
+            .collect();
+        for t in threads {
+            t.join().unwrap();
+        }
+        assert_eq!(a.entries().len(), 8);
+        std::fs::remove_dir_all(a.dir()).unwrap();
     }
 
     #[test]

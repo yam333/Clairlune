@@ -523,12 +523,15 @@ fn theme_schedule(ui: &mut Ui, theme: Theme, s: &mut Settings) {
     );
     if s.theme.follow_sun {
         ui.label(RichText::new("Location").font(style::body_strong()));
-        ui.add(
-            egui::TextEdit::singleline(&mut s.theme.location)
-                .hint_text("40.71, -74.01")
-                .desired_width(220.0),
+        let location = settled_text(
+            ui,
+            "theme-location",
+            &mut s.theme.location,
+            "40.71, -74.01",
+            220.0,
+            |t| t.trim().is_empty() || crate::sun::parse_location(t).is_some(),
         );
-        match crate::sun::parse_location(&s.theme.location) {
+        match crate::sun::parse_location(&location) {
             Some((lat, lon)) => {
                 let today = jiff::ZonedDateTime::now().date();
                 let text = match crate::sun::daylight(today, lat, lon) {
@@ -549,21 +552,63 @@ fn theme_schedule(ui: &mut Ui, theme: Theme, s: &mut Settings) {
         }
         return;
     }
+    let mut valid = true;
     row(
         ui,
         theme,
         "Dark between",
         "Light the rest of the day. 24-hour times.",
         |ui| {
-            ui.add(egui::TextEdit::singleline(&mut s.theme.dark_from).desired_width(56.0));
+            let ok = |text: &str| crate::settings::parse_clock(text).is_some();
+            // Right to left: the second time first.
+            let light = settled_text(
+                ui,
+                "theme-light-from",
+                &mut s.theme.light_from,
+                "",
+                56.0,
+                ok,
+            );
             ui.label("and");
-            ui.add(egui::TextEdit::singleline(&mut s.theme.light_from).desired_width(56.0));
+            let dark = settled_text(ui, "theme-dark-from", &mut s.theme.dark_from, "", 56.0, ok);
+            valid = ok(&dark) && ok(&light);
         },
     );
-    let ok = |text: &str| crate::settings::parse_clock(text).is_some();
-    if !ok(&s.theme.dark_from) || !ok(&s.theme.light_from) {
+    if !valid {
         note(ui, "Use 24-hour times like 19:00 and 07:00.");
     }
+}
+
+/// A text field whose text reaches the settings once it's done (focus
+/// leaves, or Enter) and `valid` takes it: a half-typed value doesn't
+/// change the settings, and the wallpaper, on every key. Returns the text
+/// shown, which may still be wrong.
+fn settled_text(
+    ui: &mut Ui,
+    name: &str,
+    value: &mut String,
+    hint: &str,
+    width: f32,
+    valid: impl Fn(&str) -> bool,
+) -> String {
+    let id = egui::Id::unique(("settled-text", name));
+    let mut text = ui
+        .data(|d| d.get_temp::<String>(id))
+        .unwrap_or_else(|| value.clone());
+    let r = ui.add(
+        egui::TextEdit::singleline(&mut text)
+            .id(id.with("edit"))
+            .hint_text(hint)
+            .desired_width(width),
+    );
+    if r.lost_focus() && valid(&text) {
+        value.clone_from(&text);
+        ui.data_mut(|d| d.remove::<String>(id));
+    } else if r.has_focus() || r.lost_focus() {
+        // Being typed, or left wrong: kept here until it's right.
+        ui.data_mut(|d| d.insert_temp(id, text.clone()));
+    }
+    text
 }
 
 fn row(ui: &mut Ui, theme: Theme, name: &str, description: &str, control: impl FnOnce(&mut Ui)) {
@@ -1327,6 +1372,44 @@ fn page(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_half_typed_time_reaches_the_settings_only_when_done() {
+        use egui::{Event, Key, Modifiers, RawInput};
+        let ctx = egui::Context::default();
+        let mut value = String::new();
+        let frame = |events: Vec<Event>, value: &mut String| {
+            let input = RawInput {
+                events,
+                ..Default::default()
+            };
+            ctx.run_ui(input, |ui| {
+                settled_text(ui, "test-clock", value, "", 56.0, |t| {
+                    crate::settings::parse_clock(t).is_some()
+                });
+            })
+            .drop_without_applying_deltas();
+        };
+        frame(Vec::new(), &mut value);
+        ctx.memory_mut(|m| {
+            m.request_focus(egui::Id::unique(("settled-text", "test-clock")).with("edit"))
+        });
+        frame(Vec::new(), &mut value);
+        for key in ["2", "0", ":", "0", "0"] {
+            frame(vec![Event::Text(key.into())], &mut value);
+            assert_eq!(value, "", "changed while typing");
+        }
+        let enter = |pressed| Event::Key {
+            key: Key::Enter,
+            physical_key: None,
+            pressed,
+            repeat: false,
+            modifiers: Modifiers::NONE,
+        };
+        frame(vec![enter(true), enter(false)], &mut value);
+        frame(Vec::new(), &mut value);
+        assert_eq!(value, "20:00");
+    }
 
     #[test]
     fn content_lists_cover_the_real_ids() {
