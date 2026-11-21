@@ -3,8 +3,9 @@ name: Publish
 # When a release is published (the Release workflow makes it as a draft),
 # the package managers get it (docs/distribution.md):
 # - the manifests are made from the release's own files (an artifact);
-# - with a TAP_TOKEN secret (write access to yam333/homebrew-clairlune), the
-#   Homebrew cask and the Scoop manifest are pushed to the tap;
+# - with a TAP_DEPLOY_KEY secret (the private half of a deploy key that can
+#   write to yam333/homebrew-clairlune and nothing else), the Homebrew cask,
+#   the Scoop manifest and the AUR files are pushed to the tap;
 # - with a WINGET_TOKEN secret (a classic token with public_repo), komac
 #   opens the winget-pkgs pull request for the new version.
 # Without the secrets, publish the artifact's files by hand.
@@ -26,7 +27,7 @@ jobs:
     env:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
       GH_TOKEN: ${{ github.token }}
-      TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+      TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
       WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
     steps:
       - uses: actions/checkout@v5
@@ -43,19 +44,25 @@ jobs:
           path: manifests
           include-hidden-files: true
 
-      - name: Homebrew cask and Scoop manifest to the tap
-        if: env.TAP_TOKEN != ''
+      - name: Homebrew cask, Scoop manifest and AUR files to the tap
+        if: env.TAP_DEPLOY_KEY != ''
         run: |
-          git clone "https://x-access-token:${TAP_TOKEN}@github.com/yam333/homebrew-clairlune.git" tap
-          mkdir -p tap/Casks tap/bucket
+          key="$RUNNER_TEMP/tap_key"
+          printf '%s\n' "$TAP_DEPLOY_KEY" > "$key"
+          chmod 600 "$key"
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          git clone git@github.com:yam333/homebrew-clairlune.git tap
+          mkdir -p tap/Casks tap/bucket tap/aur/clairlune-bin
           cp manifests/homebrew/Casks/clairlune.rb tap/Casks/
           cp manifests/scoop/clairlune.json tap/bucket/
+          cp manifests/aur/clairlune-bin/PKGBUILD manifests/aur/clairlune-bin/.SRCINFO tap/aur/clairlune-bin/
           cd tap
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --quiet || git commit -m "Clairlune ${TAG#v}"
           git push
+          rm -f "$key"
 
       - name: winget pull request
         if: env.WINGET_TOKEN != ''

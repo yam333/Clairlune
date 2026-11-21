@@ -33,7 +33,7 @@ python scripts/package_manifests.py --artifacts <folder> --version 1.2.3
 | winget | 0.10.0 submitted: https://github.com/microsoft/winget-pkgs/pull/485182 (waits for Microsoft's checks and the maintainer's CLA); 0.11.0's manifests are in the release's `clairlune-manifests` artifact for the next pull request |
 | AUR | files ready in the tap (`aur/clairlune-bin/`); needs the maintainer's AUR account |
 
-For the next releases, publishing the GitHub release runs `.github/workflows/publish.yml`. It updates the tap when the `TAP_TOKEN` secret exists (a fine-grained token with Contents read and write on yam333/homebrew-clairlune), and opens the winget update when `WINGET_TOKEN` exists (a classic token with `public_repo`). Without them, it leaves the manifests as an artifact to commit by hand.
+For the next releases, publishing the GitHub release runs `.github/workflows/publish.yml`. It updates the tap through the `TAP_DEPLOY_KEY` secret (set 2026-11-21): the private half of a deploy key on yam333/homebrew-clairlune with write access to that repository and nothing else. It could open the winget update with a `WINGET_TOKEN` secret, but that would have to be a classic token with `public_repo` (write access to every public repository of the account), so it is left unset: each release's winget pull request is opened by hand from the fork yam333/winget-pkgs, from the `clairlune-manifests` artifact.
 
 ## Channels
 
