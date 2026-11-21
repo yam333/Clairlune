@@ -37,6 +37,12 @@ pub fn compose_with(
         .activities
         .iter()
         .filter(|a| ctx.enabled_activities.contains(&a.id))
+        // Shown in a known theme: only activities that happen in it.
+        .filter(|a| match ctx.theme {
+            Some(Theme::Light) => !a.times_in(&TimeOfDay::LIGHT).is_empty(),
+            Some(Theme::Dark) => !a.times_in(&TimeOfDay::DARK).is_empty(),
+            None => true,
+        })
         .filter_map(|a| {
             let fits: Vec<_> = archetypes
                 .iter()
@@ -303,6 +309,29 @@ fn pick_archetype(
 mod tests {
     use super::*;
     use crate::recipe::HistoryEntry;
+
+    #[test]
+    fn a_known_theme_only_gets_scenes_that_have_it() {
+        for theme in [Theme::Light, Theme::Dark] {
+            let ctx = ContentContext {
+                theme: Some(theme),
+                ..ContentContext::default()
+            };
+            for seed in 0..300 {
+                let r = compose(seed, Aspect::from_size(1920, 1080), &ctx);
+                assert!(
+                    r.tod_for(theme).is_some(),
+                    "seed {seed}: {:?} has no {theme:?} variant",
+                    r.activity
+                );
+            }
+        }
+        // Without one, theme-locked activities still come up.
+        let any = ContentContext::default();
+        assert!(
+            (0..300).any(|s| compose(s, Aspect::from_size(1920, 1080), &any).is_theme_locked())
+        );
+    }
 
     #[test]
     fn compose_is_deterministic() {

@@ -39,6 +39,9 @@ pub enum Job {
         archive: bool,
         /// Made now, shown then (a timeline slot prepared ahead of its start).
         at: Option<Instant>,
+        /// A new scene for this one monitor (its id), from this seed; the
+        /// others keep theirs.
+        renew: Option<(String, u64)>,
     },
     /// Copy the current wallpaper's primary image to the export folder.
     /// From `source` (an archive entry or library item folder), or the newest
@@ -234,15 +237,15 @@ fn packages(
     monitors: &[Monitor],
     settings: &Settings,
     recent: &mut Recent,
-    focus_pm: Option<u32>,
-) -> Result<(u64, Vec<ScenePackage>, usize), String> {
-    let (base_seed, recipes) = scenes(
+    want: &Want,
+) -> Result<(u64, Vec<ScenePackage>, usize, bool), String> {
+    let (base_seed, recipes, changed) = scenes(
         saved.map(|s| s.recipes),
         seed,
         monitors,
         settings,
         recent,
-        focus_pm,
+        want,
     );
     let mut out = Vec::new();
     let mut replayed = 0;
@@ -253,7 +256,9 @@ fn packages(
                 .recipes
                 .monitors
                 .iter()
-                .position(|s| s.monitor == m.id && (s.width, s.height) == (m.width, m.height))?;
+                .position(|s| {
+                    s.monitor == m.id && (s.width, s.height) == (m.width, m.height) && s.recipe == *recipe
+                })?;
             match ScenePackage::load(&dir.join("scene").join(j.to_string())) {
                 Ok(p) => Some(p),
                 Err(e) => {
@@ -271,7 +276,20 @@ fn packages(
         };
         out.push(pkg);
     }
-    Ok((base_seed, out, replayed))
+    Ok((base_seed, out, replayed, changed))
+}
+
+/// What the new scenes must fit.
+struct Want {
+    /// The theme they will be shown in.
+    theme: Theme,
+    /// Re-showing what's on screen (a theme change): a saved scene with
+    /// nothing for this theme gives way to a new one.
+    refresh: bool,
+    /// One monitor (its id) to give a new scene, from this seed.
+    renew: Option<(String, u64)>,
+    /// Span mode: the focal group's place on the virtual monitor.
+    focus_pm: Option<u32>,
 }
 
 fn scenes(
@@ -280,16 +298,19 @@ fn scenes(
     monitors: &[Monitor],
     settings: &Settings,
     recent: &mut Recent,
-    focus_pm: Option<u32>,
-) -> (u64, Vec<SceneRecipe>) {
+    want: &Want,
+) -> (u64, Vec<SceneRecipe>, bool) {
     let mut ctx = settings.content_context();
+    // Only scenes that happen in the theme they'll be shown in: no daytime
+    // scene on a dark desktop.
+    ctx.theme = Some(want.theme);
     // Composes a new scene with the recent picks, then remembers it, so the
     // next monitor (and the next wallpaper) avoids it. A span scene puts its
     // focal group on the primary monitor (`focus_pm`), never across a seam.
     let mut new_scene = |seed: u64, m: &Monitor| {
         ctx.recent = recent.entries().to_vec();
         let mut r = compose(seed, Aspect::from_size(m.width, m.height), &ctx);
-        if let Some(f) = focus_pm {
+        if let Some(f) = want.focus_pm {
             r.composition.focus_x_pm = f;
         }
         recent.push(&r);
@@ -302,17 +323,37 @@ fn scenes(
                 .iter()
                 .map(|m| new_scene(monitor_seed(seed, m), m))
                 .collect(),
+            false,
         ),
-        Some(r) => (
-            r.base_seed,
-            monitors
+        Some(r) => {
+            let mut changed = false;
+            let recipes = monitors
                 .iter()
-                .map(|m| match r.monitors.iter().find(|s| s.monitor == m.id) {
-                    Some(s) => s.recipe.clone(),
-                    None => new_scene(monitor_seed(r.base_seed, m), m),
+                .map(|m| {
+                    if let Some((id, s)) = &want.renew
+                        && *id == m.id
+                    {
+                        changed = true;
+                        return new_scene(monitor_seed(*s, m), m);
+                    }
+                    match r.monitors.iter().find(|s| s.monitor == m.id) {
+                        Some(s) if !want.refresh || s.recipe.tod_for(want.theme).is_some() => {
+                            s.recipe.clone()
+                        }
+                        // The theme changed and this scene has nothing for
+                        // it: a new one, the same each time for this
+                        // wallpaper and theme.
+                        Some(_) => {
+                            changed = true;
+                            let salt = hash_label(r.base_seed, want.theme.as_str());
+                            new_scene(monitor_seed(salt, m), m)
+                        }
+                        None => new_scene(monitor_seed(r.base_seed, m), m),
+                    }
                 })
-                .collect(),
-        ),
+                .collect();
+            (r.base_seed, recipes, changed)
+        }
     }
 }
 
@@ -445,12 +486,14 @@ fn run(
             settings,
             archive: add,
             at,
+            renew,
         } => apply(
             Some(Source {
                 recipes: &recipes,
                 dir: source.as_deref(),
                 theme,
                 buddy,
+                renew: renew.as_ref().map(|(id, s)| (id.as_str(), *s)),
             }),
             0,
             &settings,
@@ -473,6 +516,8 @@ struct Source<'a> {
     dir: Option<&'a Path>,
     theme: Option<Theme>,
     buddy: Option<bool>,
+    /// One monitor to give a new scene (its id, and the seed).
+    renew: Option<(&'a str, u64)>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -519,8 +564,21 @@ fn apply(
         .and_then(|s| s.theme)
         .unwrap_or_else(|| resolve_theme(&settings.theme));
     let buddy = saved.and_then(|s| s.buddy).unwrap_or(settings.buddy.show);
-    let (base_seed, packages, replayed) =
-        packages(saved, seed, &monitors, settings, recent, focus_pm)?;
+    let want = Want {
+        theme: wanted,
+        // Showing what's there again in the current theme (not a previous
+        // wallpaper, nor a library item with a theme of its own).
+        refresh: saved.is_some_and(|s| s.theme.is_none()) && !add_to_archive,
+        renew: saved
+            .and_then(|s| s.renew)
+            .map(|(id, s)| (id.to_string(), s)),
+        focus_pm,
+    };
+    let (base_seed, packages, replayed, changed) =
+        packages(saved, seed, &monitors, settings, recent, &want)?;
+    // A monitor got a new scene: that's a new wallpaper, so Previous can go
+    // back to the one before.
+    let add_to_archive = add_to_archive || changed;
     let packages: Vec<Arc<ScenePackage>> = packages.into_iter().map(Arc::new).collect();
     let recipes: Vec<SceneRecipe> = packages.iter().map(|p| p.recipe.clone()).collect();
     let mut pngs = Vec::new();
@@ -741,6 +799,147 @@ mod tests {
         }
     }
 
+    fn want(theme: Theme) -> Want {
+        Want {
+            theme,
+            refresh: false,
+            renew: None,
+            focus_pm: None,
+        }
+    }
+
+    fn two_monitors() -> [Monitor; 2] {
+        [
+            monitor(640, 360),
+            Monitor {
+                id: "second".into(),
+                x: 640,
+                primary: false,
+                ..monitor(640, 360)
+            },
+        ]
+    }
+
+    /// Saved recipes for these monitors, one per monitor.
+    fn saved(monitors: &[Monitor], recipes: &[SceneRecipe]) -> EntryRecipes {
+        EntryRecipes {
+            base_seed: 5,
+            theme: "dark".into(),
+            monitors: monitors
+                .iter()
+                .zip(recipes)
+                .map(|(m, r)| MonitorScene {
+                    monitor: m.id.clone(),
+                    width: m.width,
+                    height: m.height,
+                    recipe: r.clone(),
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn new_scenes_happen_in_the_theme_they_are_shown_in() {
+        let settings = Settings::default();
+        let mut recent = Recent::default();
+        for theme in [Theme::Dark, Theme::Light] {
+            for seed in 0..40u64 {
+                let (_, recipes, _) = scenes(
+                    None,
+                    seed,
+                    &two_monitors(),
+                    &settings,
+                    &mut recent,
+                    &want(theme),
+                );
+                for r in &recipes {
+                    assert!(r.tod_for(theme).is_some(), "seed {seed}: {:?}", r.activity);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_theme_change_replaces_a_scene_without_that_theme() {
+        let settings = Settings::default();
+        let screens = two_monitors();
+        let day_only = |seed| {
+            let ctx = clairlune_scene::ContentContext {
+                enabled_activities: vec!["tennis".into()],
+                ..clairlune_scene::ContentContext::default()
+            };
+            compose(seed, Aspect::from_size(640, 360), &ctx)
+        };
+        let both = compose(9, Aspect::from_size(640, 360), &settings.content_context());
+        let both = if both.is_theme_locked() {
+            day_only(1)
+        } else {
+            both
+        };
+        let day = day_only(2);
+        assert!(day.tod_for(Theme::Dark).is_none());
+        let entry = saved(&screens, &[both.clone(), day.clone()]);
+        // Shown again in dark after the system went dark: the day-only
+        // scene gives way, the other stays.
+        let mut w = want(Theme::Dark);
+        w.refresh = true;
+        let (_, recipes, changed) = scenes(
+            Some(&entry),
+            0,
+            &screens,
+            &settings,
+            &mut Recent::default(),
+            &w,
+        );
+        assert!(changed);
+        assert_eq!(recipes[0], both);
+        assert!(recipes[1].tod_for(Theme::Dark).is_some());
+        // The same replacement each time (no flicker between re-renders).
+        let (_, again, _) = scenes(
+            Some(&entry),
+            0,
+            &screens,
+            &settings,
+            &mut Recent::default(),
+            &w,
+        );
+        assert_eq!(again[1].activity, recipes[1].activity);
+        // Not a re-render (Previous): the saved scenes as they were.
+        let (_, kept, changed) = scenes(
+            Some(&entry),
+            0,
+            &screens,
+            &settings,
+            &mut Recent::default(),
+            &want(Theme::Dark),
+        );
+        assert!(!changed);
+        assert_eq!(kept, vec![both, day]);
+    }
+
+    #[test]
+    fn one_monitor_gets_a_new_scene_and_the_other_keeps_its_own() {
+        let settings = Settings::default();
+        let screens = two_monitors();
+        let mut recent = Recent::default();
+        let (_, first, _) = scenes(
+            None,
+            3,
+            &screens,
+            &settings,
+            &mut recent,
+            &want(Theme::Dark),
+        );
+        let entry = saved(&screens, &first);
+        let mut w = want(Theme::Dark);
+        w.renew = Some(("second".into(), 1234));
+        let (_, next, changed) = scenes(Some(&entry), 0, &screens, &settings, &mut recent, &w);
+        assert!(changed);
+        assert_eq!(next[0], first[0]);
+        assert_ne!(next[1], first[1]);
+        assert!(next[1].tod_for(Theme::Dark).is_some());
+    }
+
     #[test]
     fn saved_scenes_replay_when_the_monitor_matches() {
         let dir = std::env::temp_dir().join(format!("clairlune-apply-{}", std::process::id()));
@@ -749,13 +948,13 @@ mod tests {
         let settings = Settings::default();
         let m = monitor(640, 360);
         // A new wallpaper: composed and captured.
-        let (seed, pkgs, replayed) = packages(
+        let (seed, pkgs, replayed, _) = packages(
             None,
             77,
             std::slice::from_ref(&m),
             &settings,
             &mut Recent::default(),
-            None,
+            &want(Theme::Dark),
         )
         .unwrap();
         assert_eq!((seed, replayed), (77, 0));
@@ -784,27 +983,28 @@ mod tests {
             dir: Some(&entry_dir),
             theme: None,
             buddy: None,
+            renew: None,
         };
         // Same monitor: replayed from the package.
-        let (_, again, replayed) = packages(
+        let (_, again, replayed, _) = packages(
             Some(src),
             0,
             std::slice::from_ref(&m),
             &settings,
             &mut Recent::default(),
-            None,
+            &want(Theme::Dark),
         )
         .unwrap();
         assert_eq!(replayed, 1);
         assert_eq!(again[0].recipe, recipes.monitors[0].recipe);
         // A different size: rendered again from the recipe.
-        let (_, resized, replayed) = packages(
+        let (_, resized, replayed, _) = packages(
             Some(src),
             0,
             &[monitor(800, 450)],
             &settings,
             &mut Recent::default(),
-            None,
+            &want(Theme::Dark),
         )
         .unwrap();
         assert_eq!(replayed, 0);
@@ -830,7 +1030,8 @@ mod tests {
         ];
         let mut last: Option<String> = None;
         for seed in 0..20u64 {
-            let (_, recipes) = scenes(None, seed, &two, &settings, &mut recent, None);
+            let (_, recipes, _) =
+                scenes(None, seed, &two, &settings, &mut recent, &want(Theme::Dark));
             let acts: Vec<_> = recipes.iter().map(|r| r.activity.clone()).collect();
             // The two monitors of one wallpaper differ...
             assert_ne!(acts[0], acts[1], "seed {seed}");
