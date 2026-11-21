@@ -37,7 +37,7 @@ pub(crate) struct Anchor<'a> {
 
 /// A sine of period `period_ms` (which divides the loop length).
 fn wave(t_ms: u64, period_ms: u64, phase: f64) -> f64 {
-    (TAU * (t_ms % period_ms) as f64 / period_ms as f64 + phase).sin()
+    clairlune_scene::math::sin(TAU * (t_ms % period_ms) as f64 / period_ms as f64 + phase)
 }
 
 /// Draws a tether preset; unknown presets and scenes without what the preset
@@ -228,7 +228,8 @@ fn line(
     th: i32,
     level: u8,
 ) {
-    let len = (b.0 - a.0).hypot(b.1 - a.1);
+    // Not `hypot`: the platform's differs from machine to machine.
+    let len = ((b.0 - a.0) * (b.0 - a.0) + (b.1 - a.1) * (b.1 - a.1)).sqrt();
     let ctrl = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0 + sag * len);
     let steps = (len / f64::from(th)).ceil().max(1.0) as usize;
     let width = img.width as usize;

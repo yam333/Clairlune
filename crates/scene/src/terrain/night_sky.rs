@@ -105,7 +105,7 @@ fn aurora(ctx: &Ctx, cells: &mut [Cell], seed: u64) {
                 }
                 let t = (edge - ny) / ray; // 0 at the lower edge, 1 at the ray tip
                 let flicker = fbm2(s ^ 13, nx * 30.0, ny * 4.0, 2);
-                let d = strength * (1.0 - t).powf(1.4) * (0.7 + 0.6 * flicker);
+                let d = strength * crate::math::pow(1.0 - t, 1.4) * (0.7 + 0.6 * flicker);
                 if d < 0.2 {
                     continue;
                 }
@@ -205,7 +205,8 @@ pub(crate) fn island(ctx: &Ctx, cells: &mut [Cell]) {
     let mut tips = Vec::new();
     for k in 0..=depth.ceil() as i64 {
         let t = k as f64 / depth;
-        let w = half * (1.0 - t.powf(1.6)) + (fbm1(seed, k as f64 * 0.4, 2) - 0.5) * 3.0 * t;
+        let w = half * (1.0 - crate::math::pow(t, 1.6))
+            + (fbm1(seed, k as f64 * 0.4, 2) - 0.5) * 3.0 * t;
         if w < 0.5 {
             break;
         }

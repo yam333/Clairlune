@@ -351,7 +351,7 @@ pub(crate) fn shore_life(ctx: &Ctx, cells: &mut [Cell], sky: &mut [f64], sea_top
         if d > reach || !clear_of_group(ctx, i64::from(col), 0) {
             continue;
         }
-        let rise = (1.0 - d / reach).powf(0.5);
+        let rise = crate::math::pow(1.0 - d / reach, 0.5);
         let rough = 0.025 * (fbm1(seed, nx * 20.0, 3) - 0.5);
         let top = sea_top - height * rise + rough;
         let r0 = row_at(ctx, top).min(sea_row);

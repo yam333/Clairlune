@@ -418,7 +418,8 @@ impl ScenePackage {
                 .props
                 .into_iter()
                 .map(|p| {
-                    if p.pixels.len() != (p.width * p.height) as usize {
+                    let len = (p.width as usize).checked_mul(p.height as usize);
+                    if len != Some(p.pixels.len()) || p.width == 0 || p.height == 0 {
                         return Err(PackageError::Invalid(format!("prop {:?} size", p.kind)));
                     }
                     Ok((
@@ -432,6 +433,11 @@ impl ScenePackage {
                 })
                 .collect::<Result<_, _>>()?,
         };
+        if art.activity.as_ref().is_some_and(|a| !a.playable()) {
+            return Err(PackageError::Invalid(
+                "activity has a state with no way on".into(),
+            ));
+        }
         let mut themes = Vec::new();
         for t in file.themes {
             let (background, colors) =
@@ -445,6 +451,8 @@ impl ScenePackage {
                     t.theme.as_str()
                 )));
             }
+            check_graph(&t.graph, &t.atlas, file.width, file.height)?;
+            check_colors(&art, &palette)?;
             let mut graph = t.graph;
             if let Some(j) = &mut graph.journey {
                 let rows = graph.grid.rows;
@@ -481,6 +489,60 @@ impl ScenePackage {
             art,
             themes,
         })
+    }
+}
+
+/// A loaded theme's graph and atlas agree with each other and the image,
+/// so playback can index without checks (a damaged file is an error, not a
+/// crash).
+fn check_graph(
+    graph: &SceneGraph,
+    atlas: &GlyphAtlas,
+    width: u32,
+    height: u32,
+) -> Result<(), PackageError> {
+    let bad = |what: &str| {
+        Err(PackageError::Invalid(format!(
+            "{} {what}",
+            graph.theme.as_str()
+        )))
+    };
+    if (graph.width, graph.height) != (width, height) {
+        return bad("scene size differs from the package's");
+    }
+    let g = &graph.grid;
+    let fits = |origin: u32, n: u32, cell: u32, room: u32| {
+        cell > 0 && u64::from(origin) + u64::from(n) * u64::from(cell) <= u64::from(room)
+    };
+    if !fits(g.origin_x, g.cols, g.cell_w, width) || !fits(g.origin_y, g.rows, g.cell_h, height) {
+        return bad("grid doesn't fit the image");
+    }
+    if !atlas.fits(g.cell_w, g.cell_h) {
+        return bad("glyph atlas doesn't fit the grid");
+    }
+    if !graph.emitters.iter().all(|e| e.is_sound()) {
+        return bad("particles");
+    }
+    Ok(())
+}
+
+/// Every colour of the packaged art is in a theme's palette.
+fn check_colors(art: &PackageArt, palette: &IndexedPalette) -> Result<(), PackageError> {
+    let known = |rgb: &Rgb| palette.sprite_index(*rgb).is_some();
+    let props = art
+        .props
+        .iter()
+        .flat_map(|(_, p)| p.pixels.iter().flatten());
+    let character = art
+        .character
+        .iter()
+        .flat_map(|(_, a)| a.frames.iter().flat_map(|f| f.pixels.iter().flatten()));
+    if props.chain(character).all(known) {
+        Ok(())
+    } else {
+        Err(PackageError::Invalid(
+            "art colour missing from the palette".into(),
+        ))
     }
 }
 
@@ -733,7 +795,11 @@ impl SpriteSheetReader {
     }
 
     fn frame(&self, f: &FrameFile) -> Result<Frame, PackageError> {
-        if f.width > self.width || f.y + f.height > self.height {
+        if f.width > self.width
+            || f.y
+                .checked_add(f.height)
+                .is_none_or(|end| end > self.height)
+        {
             return Err(PackageError::Invalid(
                 "a frame lies outside sprites.png".into(),
             ));

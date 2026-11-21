@@ -263,7 +263,7 @@ fn pick_activity<'a, 'b>(
                 .iter()
                 .filter(|h| h.activity.as_deref() == Some(a.id.as_str()))
                 .count() as u32;
-            (int_weight(a.weight) * 4 / (4 + uses)).max(1)
+            (int_weight(a.weight).saturating_mul(4) / (4 + uses)).max(1)
         })
         .collect();
     let mut rng = Rng::stream(seed, "activity");
