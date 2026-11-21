@@ -45,10 +45,12 @@ pub struct Canvas {
     bind: wgpu::BindGroup,
     width: u32,
     height: u32,
-    /// The changed rectangles of a frame, packed with 256-byte rows, and the
-    /// GPU buffer they are copied from (grown as needed).
-    packed: Vec<u8>,
-    staging: Option<wgpu::Buffer>,
+    /// Two upload buffers used in turn, written in place while mapped: a
+    /// frame's changed rectangles are packed straight into one, with no
+    /// copy in between and no buffer made for every frame (each grown as
+    /// needed).
+    staging: [Option<wgpu::Buffer>; 2],
+    next: usize,
 }
 
 /// Joins rectangles that sit side by side on the same rows (particles in
@@ -262,8 +264,8 @@ impl Gpu {
             bind,
             width,
             height,
-            packed: Vec::new(),
-            staging: None,
+            staging: [None, None],
+            next: 0,
         };
         self.upload(
             &mut canvas,
@@ -279,7 +281,7 @@ impl Gpu {
     }
 
     /// Copies those rectangles of the player's frame to the canvas: one
-    /// buffer write and one command buffer, however many rectangles.
+    /// upload buffer and one command buffer, however many rectangles.
     pub fn upload(&self, canvas: &mut Canvas, player: &Player, rects: &[PixelRect]) {
         if rects.is_empty() {
             return;
@@ -287,31 +289,49 @@ impl Gpu {
         debug_assert_eq!(player.size(), (canvas.width, canvas.height));
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
         let spans = merge_spans(rects);
-        canvas.packed.clear();
         let mut copies = Vec::with_capacity(spans.len());
+        let mut needed = 0u64;
         for r in &spans {
             let pitch = (r.w as usize).div_ceil(align) * align;
-            let offset = canvas.packed.len() as u64;
-            for y in r.y..r.y + r.h {
-                canvas
-                    .packed
-                    .extend_from_slice(player.index_row(r.x, y, r.w));
-                let len = canvas.packed.len();
-                canvas.packed.resize(len + pitch - r.w as usize, 0);
-            }
-            copies.push((*r, offset, pitch as u32));
+            copies.push((*r, needed, pitch as u32));
+            needed += (pitch * r.h as usize) as u64;
         }
-        let needed = canvas.packed.len() as u64;
-        if canvas.staging.as_ref().is_none_or(|b| b.size() < needed) {
-            canvas.staging = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
+        let slot = canvas.next;
+        canvas.next ^= 1;
+        let fits = canvas.staging[slot]
+            .as_ref()
+            .is_some_and(|b| b.size() >= needed);
+        if fits {
+            // Used two frames ago, long done: mapped again at once.
+            let buffer = canvas.staging[slot].as_ref().expect("fits");
+            buffer.map_async(wgpu::MapMode::Write, .., |r| {
+                if let Err(e) = r {
+                    tracing::warn!(target: "clairlune", error = %e, "live upload buffer didn't map");
+                }
+            });
+            let _ = self.device.poll(wgpu::PollType::wait_indefinitely());
+        } else {
+            canvas.staging[slot] = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("live upload"),
-                size: needed.next_power_of_two(),
-                usage: wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
+                size: needed.next_power_of_two().max(wgpu::COPY_BUFFER_ALIGNMENT),
+                usage: wgpu::BufferUsages::MAP_WRITE | wgpu::BufferUsages::COPY_SRC,
+                mapped_at_creation: true,
             }));
         }
-        let staging = canvas.staging.as_ref().expect("just made");
-        self.queue.write_buffer(staging, 0, &canvas.packed);
+        let staging = canvas.staging[slot].as_ref().expect("just made");
+        {
+            let Ok(mut view) = staging.get_mapped_range_mut(..) else {
+                return;
+            };
+            for (r, offset, pitch) in &copies {
+                for (i, y) in (r.y..r.y + r.h).enumerate() {
+                    let at = *offset as usize + i * *pitch as usize;
+                    view.slice(at..at + r.w as usize)
+                        .copy_from_slice(player.index_row(r.x, y, r.w));
+                }
+            }
+        }
+        staging.unmap();
         let mut enc = self.device.create_command_encoder(&Default::default());
         for (r, offset, pitch) in copies {
             enc.copy_buffer_to_texture(

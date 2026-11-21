@@ -184,7 +184,23 @@ impl IncrementalFrame {
         clock: Clock,
         art: &dyn SceneArt,
     ) -> Vec<PixelRect> {
-        journey.draw(graph, still, t_ms, &mut self.image);
+        // Only the rows the land moves through change on their own; above
+        // them, what the last frame drew (the character, particles) goes
+        // back to the still background.
+        let w = self.image.width as usize;
+        let top = journey.band_top().min(self.image.height);
+        let above = |r: &PixelRect| -> Option<PixelRect> {
+            let y1 = (r.y + r.h).min(top);
+            (r.y < y1).then(|| PixelRect { h: y1 - r.y, ..*r })
+        };
+        for r in self.drawn.iter().filter_map(above) {
+            for y in r.y..r.y + r.h {
+                let a = y as usize * w + r.x as usize;
+                let b = a + r.w as usize;
+                self.image.pixels[a..b].copy_from_slice(&still.pixels[a..b]);
+            }
+        }
+        journey.draw_band(graph, still, t_ms, &mut self.image);
         let mut drawn = Vec::with_capacity(self.drawn.len());
         compose(
             &mut self.image,
@@ -196,13 +212,20 @@ impl IncrementalFrame {
             clock,
             art,
         );
+        let mut changed: Vec<PixelRect> =
+            self.drawn.iter().chain(&drawn).filter_map(above).collect();
+        if top < self.image.height {
+            changed.push(PixelRect {
+                x: 0,
+                y: top,
+                w: self.image.width,
+                h: self.image.height - top,
+            });
+        }
+        changed.sort_unstable();
+        changed.dedup();
         self.drawn = drawn;
-        vec![PixelRect {
-            x: 0,
-            y: 0,
-            w: self.image.width,
-            h: self.image.height,
-        }]
+        changed
     }
 }
 

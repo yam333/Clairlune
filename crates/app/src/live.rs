@@ -46,6 +46,20 @@ pub struct Live {
     checked: Option<Instant>,
     /// For Settings: what plays, or why live isn't available.
     pub status: Option<String>,
+    /// Frames drawn since the last usage line, their total and worst time.
+    frames: u64,
+    busy: Duration,
+    worst: Duration,
+}
+
+/// What live playback did since it was last asked, for the usage line.
+pub struct FrameUse {
+    pub frames: u64,
+    pub busy: Duration,
+    pub worst: Duration,
+    /// Monitors playing, and the frame rate now (0: not playing).
+    pub monitors: usize,
+    pub fps: u32,
 }
 
 /// Whether this build can play live wallpapers here, with the reason if not.
@@ -89,7 +103,36 @@ impl Live {
             next: None,
             checked: None,
             status: None,
+            frames: 0,
+            busy: Duration::ZERO,
+            worst: Duration::ZERO,
         }
+    }
+
+    /// What was drawn since the last call (and resets the count).
+    pub fn take_use(&mut self) -> FrameUse {
+        #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
+        let playing = self.desktop.is_some();
+        #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+        let playing = false;
+        let out = FrameUse {
+            frames: self.frames,
+            busy: self.busy,
+            worst: self.worst,
+            monitors: if playing { self.scenes.len() } else { 0 },
+            fps: if playing { self.effective_fps() } else { 0 },
+        };
+        self.frames = 0;
+        self.busy = Duration::ZERO;
+        self.worst = Duration::ZERO;
+        out
+    }
+
+    #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
+    fn count(&mut self, busy: Duration) {
+        self.frames += 1;
+        self.busy += busy;
+        self.worst = self.worst.max(busy);
     }
 
     /// Sets each monitor's still again (macOS: after a Space change, the
@@ -287,7 +330,12 @@ impl Live {
                 return self.checked.map(|t| t + HEALTH_CHECK);
             }
             if now >= next {
-                if let Err(e) = desktop.tick() {
+                let drawn = desktop.tick();
+                if let Ok(stats) = &drawn {
+                    let busy = stats.busy;
+                    self.count(busy);
+                }
+                if let Err(e) = drawn {
                     tracing::warn!(target: "clairlune", error = %e, "live frame failed; stopping");
                     self.stop();
                     self.status = Some(format!(
@@ -317,7 +365,12 @@ impl Live {
                 return self.checked.map(|t| t + HEALTH_CHECK);
             }
             if now >= next {
-                if let Err(e) = desktop.tick() {
+                let drawn = desktop.tick();
+                if let Ok(stats) = &drawn {
+                    let busy = stats.busy;
+                    self.count(busy);
+                }
+                if let Err(e) = drawn {
                     tracing::warn!(target: "clairlune", error = %e, "live frame failed; stopping");
                     self.stop();
                     self.status = Some(format!(
