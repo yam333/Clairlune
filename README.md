@@ -2,7 +2,7 @@
 
 Procedural, animated ASCII-art desktop wallpapers, written in Rust.
 
-Every wallpaper is generated locally from a seed: a landscape built from text glyphs, a small pixel-art buddy doing something in it, and a few animated details such as embers, snow or stars. Generation is deterministic, so the same seed gives the same picture on every computer. There is no AI and no network access at runtime.
+Each wallpaper is a landscape made of text characters, with a small pixel-art Clawd doing something in it and a few things moving: embers, snow, stars. Everything is generated on your computer from a seed, and the same seed gives the same picture everywhere. There's no AI and nothing goes online.
 
 ![Nine generated wallpapers, one per landscape, in dark and light themes](docs/img/showcase.png)
 
@@ -10,56 +10,66 @@ Every wallpaper is generated locally from a seed: a landscape built from text gl
 
 ## Status
 
-Early development. The generator and a developer CLI work today: ten landscapes (canyon, mountains, forest, desert, snowfield, shore, city rooftops, night sky, cave, and a room with a window) drawn as line art or dithered into light and dark masses, twenty activities for Clawd (from coffee and chess to fishing, kites, a balloon ride, rowing, skiing and a hike along a ridge as the mountains scroll past), weather, stills and seamless looping GIFs. On Windows the tray app already runs: a new wallpaper on a schedule, one scene per monitor, playing live behind the desktop icons (or as a still frame), with an archive of past ones, a library of the ones you keep and a daily timeline. Other systems come in later milestones; see [PLAN.md](PLAN.md).
+Early, but usable. On Windows the tray app is the main way to use it. macOS and Linux builds exist but haven't been tried on real machines yet, so reports are welcome. There are ten landscapes, twenty things Clawd can be doing (including a ridge hike where the mountains scroll past), weather, and two looks: line art, or a dithered version built from dots and bars. The roadmap is in [PLAN.md](PLAN.md).
 
 ## Install
 
-Download the installer for your system from the repository's **Releases** page:
+Get the installer for your system from the [Releases](https://github.com/yam333/Clairlune/releases) page:
 
-- **Windows:** `clairlune_<version>_x64-setup.exe`. Run it; it installs for your account only, so it needs no administrator rights. Clairlune then appears in the Start menu, and Settings > Apps uninstalls it.
-- **macOS (Apple Silicon or Intel):** `clairlune_<version>_aarch64.dmg` or `clairlune_<version>_x64.dmg`. Open it and drag Clairlune to Applications. The app isn't notarized by Apple yet, so the first time macOS refuses to open it: open System Settings > Privacy & Security, scroll down to the message about Clairlune, and click Open Anyway.
+- Windows: `clairlune_<version>_x64-setup.exe`. It installs for your account only, so it doesn't need administrator rights. Uninstall it from Settings > Apps.
+- macOS: `Clairlune_<version>_aarch64.dmg` (Apple Silicon) or `Clairlune_<version>_x64.dmg` (Intel). Drag Clairlune to Applications. The app isn't notarized, so macOS refuses to open it the first time; go to System Settings > Privacy & Security and click Open Anyway.
+- Linux: the `.deb` (`sudo apt install ./clairlune_<version>_amd64.deb`) or the AppImage. An AUR package is on the way.
 
-Clairlune runs in the notification area (Windows) or the menu bar (macOS), with a moon icon.
+Or use a package manager:
 
-From source, with Rust installed: `cargo install --path crates/app`.
+- Homebrew: `brew install --cask yam333/clairlune/clairlune`
+- Scoop: `scoop bucket add clairlune https://github.com/yam333/homebrew-clairlune`, then `scoop install clairlune`
+- winget: `winget install Clairlune.Clairlune` (once Microsoft accepts the package)
+- Cargo: `cargo install clairlune`, or `cargo install --path crates/app` from a checkout
 
-Or with a package manager:
+Clairlune lives in the notification area (Windows) or the menu bar (macOS) as a moon icon.
 
-- **macOS, Homebrew:** `brew install --cask yam333/clairlune/clairlune`
-- **Windows, Scoop:** `scoop bucket add clairlune https://github.com/yam333/homebrew-clairlune`, then `scoop install clairlune`
-- **Windows, winget:** `winget install Clairlune.Clairlune` (once Microsoft accepts the package)
-- **Linux:** the `.deb` (`sudo apt install ./clairlune_<version>_amd64.deb`) or the AppImage from the Releases page; an AUR package is on the way.
-- **Rust:** `cargo install clairlune`
+## Using the app
 
-## Try the generator
+It sets a new wallpaper when it starts and then every hour, with a separate scene on each monitor. By default the scene plays live behind your desktop icons, and it pauses on a monitor while a maximized or full-screen app covers it. Settings > Display switches to a still frame; Settings > Live sets the frame rate (6 to 60 a second, 12 by default).
+
+On Windows, double-click the moon to open Settings and right-click it for the menu. From the menu you can get a new wallpaper (on every monitor, or just one), go back to the previous one, switch theme, pause the changes, save the current wallpaper as a PNG or GIF, and open the Archive, Library and Timeline windows.
+
+The Archive keeps the last week of wallpapers so you can reuse, pin or export them. Save to library keeps one for good; it's stored as a frozen scene, so it looks the same after updates. With Settings > Rotation set to Timeline, the app follows a daily plan instead of the hourly change: drag saved wallpapers or random scenes onto a 24-hour bar for each day, and pick each slot's theme.
+
+Settings also covers which landscapes, activities and weather to use, the look and contrast, Clawd on or off, start at login, and Restore my wallpaper, which puts back the wallpaper you had before Clairlune. Settings live in `%APPDATA%\clairlune\settings.toml` and logs in `%LOCALAPPDATA%\clairlune\logs`.
+
+On Linux the app sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway, and on other Wayland compositors with the wlr layer shell (Hyprland, river, Wayfire, labwc) it shows the wallpaper itself while it runs. Live wallpapers work there and on X11 window managers without a desktop of their own (i3, Openbox, bspwm). GNOME, KDE, XFCE, Cinnamon, MATE and LXQt draw their own desktop icons, so they get the still frame. On macOS it sets a scene on each screen. Off Windows, Live is off by default; turn it on in Settings.
+
+## The command-line tool
+
+`clairlune-cli` renders wallpapers without the app:
 
 ```sh
 cargo run --release -p clairlune-cli -- generate --seed 7 --theme dark --size 3840x2160 --out wallpaper.png
 ```
 
-Options:
-
 | Flag | Meaning |
 |---|---|
-| `--seed <u64>` | Scene seed. Omit it to get a random one (printed). |
+| `--seed <u64>` | Scene seed. Leave it out for a random one (printed). |
 | `--theme light\|dark` | Palette and time of day. |
 | `--size <W>x<H>` | Output size in pixels. |
 | `--out <path>` | Output PNG (indexed, at most 255 colours). |
-| `--activity <id>` | Force an activity: `warm_hands`, `stroll`, `stargaze` (night only), `wizard_magic`, `make_coffee`, `read_lantern`, `play_guitar`, `fishing` (shore only), `fly_kite` (daytime), `skip_stones` (shore only), `broom_flight` (evening and night), `paint_easel` (daytime), `snowballs` (snow only), `balloon_ride` (daytime), `picnic` (daytime), `chess`, `tennis` (daytime), `rowing` (shore only), `skiing` (snow only), `hike_ridge` (a journey: the land scrolls past). |
+| `--activity <id>` | Force an activity, such as `stroll` or `hike_ridge`. An unknown id lists them all. |
 | `--archetype <id>` | Force a landscape: `canyon`, `mountains`, `forest`, `desert`, `snowfield`, `shore`, `city_rooftops`, `night_sky`, `cave`, `interior`. |
-| `--look <look>` | Force a look: `line` (line art in strokes of text) or `dither` (light and dark masses, every character a dot or a bar sized by how bright it is there). |
-| `--contrast <c>` | Ink contrast: `soft`, `normal`, `high`, or `vary` (one per seed). |
-| `--no-buddy` | Render the same scene without the character. |
+| `--look <look>` | `line` or `dither`. |
+| `--contrast <c>` | `soft`, `normal`, `high`, or `vary` (one per seed). |
+| `--no-buddy` | The same scene without Clawd. |
 | `--recipe-out <path>` | Also write the scene recipe as JSON. |
-| `--time-ms <t>` | Render a specific animation time instead of the hero frame. |
+| `--time-ms <t>` | Render a given moment instead of the default frame. |
 
-To share an animated version, export a seamless looping GIF (6 s or 12 s; `--smoothness battery-saver|balanced|smooth|very-smooth|ultra-smooth`):
+A looping GIF, 6 or 12 seconds long (`--smoothness battery-saver|balanced|smooth|very-smooth|ultra-smooth`):
 
 ```sh
 clairlune-cli gif --seed 7 --activity warm_hands --size 960x540 --out campfire.gif
 ```
 
-Saved wallpapers are kept as frozen scene packages: the generator's output (backgrounds, palettes, the scene's layout and animation data, only the sprite frames it uses), so they play the same after later versions change the generator. About 0.5-1 MB for both themes at 4K.
+A frozen scene package holds everything a scene needs to play, about 0.5-1 MB at 4K, and it plays the same after the generator changes:
 
 ```sh
 clairlune-cli package --seed 7 --size 1920x1080 --out scene7       # freeze a scene
@@ -67,7 +77,7 @@ clairlune-cli generate --package scene7 --theme light --out still.png
 clairlune-cli gif --package scene7 --out scene7.gif
 ```
 
-To check variety, render many seeds into one grid:
+Many seeds in one grid, to check variety:
 
 ```sh
 clairlune-cli contact-sheet --count 12 --theme dark --out sheet.png
@@ -75,32 +85,7 @@ clairlune-cli contact-sheet --activity stroll --count 8 --out strolls.png
 clairlune-cli contact-sheet --archetype shore --count 6 --theme light --out shores.png
 ```
 
-## The tray app (Windows)
-
-```sh
-cargo install clairlune      # or, from a checkout: cargo run --release -p clairlune
-clairlune
-```
-
-A moon appears in the notification area. The app sets a new wallpaper at start and then every hour, one scene per monitor at each monitor's resolution, and keeps the last week in an archive. By default the scene plays live behind your desktop icons: Clawd moves, fires flicker, snow falls. Settings > Display switches to a still frame, and Settings > Live sets the smoothness (6 to 60 frames a second, 12 by default). A monitor covered by a maximized or full-screen app pauses until it shows again. Every scene fits the theme it is shown in: with a dark desktop no monitor gets a daytime-only scene, and when the theme changes a scene that only happens in the other one is replaced. The menu has New wallpaper, New wallpaper on (with two or more monitors: a new scene on just one of them), Previous wallpaper, Theme (Follow system / Light / Dark / Schedule), Live wallpaper, Pause changes, Save current as PNG or GIF (to `Pictures\Clairlune`), Save to library, Library, Timeline, Archive, Settings and Quit. The Archive window lists the recent wallpapers by day, to use one again, pin it (kept however old), save it to the library, export or delete it. Launching it again opens Settings.
-
-**Library and timeline.** Save to library keeps a wallpaper for good, as a frozen scene that plays the same after updates. The Library window lists them to use, rename, export or delete. With Settings > Rotation set to Timeline, the app follows a daily plan instead of the hourly schedule: the Timeline window shows a 24-hour bar for every day (or one per weekday) where you drag saved wallpapers or random scenes in, drag a slot's edge to move its start, double-click to split, and pick each slot's theme and Clawd. It is stored in `%APPDATA%\clairlune\timeline.toml` and follows daylight saving changes without skipping or repeating a slot.
-
-Settings shows the wallpaper on screen and covers the schedule, theme, the look (line art, dithered, or both) and contrast, which landscapes, activities and weather to use, Clawd on or off, the archive, exports, start at login, and **Restore my wallpaper**: before its first change the app remembers your own wallpaper, and this puts it back (so does `clairlune-cli restore`). Settings are stored in `%APPDATA%\clairlune\settings.toml`, logs in `%LOCALAPPDATA%\clairlune\logs`.
-
-On Linux the app uses a StatusNotifier tray icon and sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway; on other Wayland compositors with the wlr layer shell (Hyprland, river, Wayfire, labwc and others) it shows the still in a background surface of its own while it runs. One image for all monitors; not yet tried on real desktops, reports welcome. On macOS it runs in the menu bar and sets a scene on each screen (it needs no permission for that; new, reports welcome).
-
-Live wallpapers play on Windows, on macOS (new, untried), and on Linux where a surface of Clairlune's own can sit under everything without hiding the desktop's icons: Wayland compositors with the wlr layer shell, and X11 window managers without a desktop of their own (i3, Openbox, bspwm...). GNOME, KDE Plasma, XFCE, Cinnamon, MATE and LXQt draw their own desktop and icons, so there the still frame is the wallpaper. Off Windows, Live is one switch away in Settings.
-
-## Live wallpapers from the CLI (Windows, Linux)
-
-```sh
-clairlune-cli live --seconds 30 --fps 12
-```
-
-plays a scene on each monitor behind the desktop icons for the given time and prints what it cost. On Windows it then leaves its still frame as the wallpaper (`clairlune-cli restore` puts your own back), frames are drawn on the graphics card the monitors are plugged into, and a monitor covered by a maximized or full-screen app pauses. On Linux (wlr layer-shell compositors, or X11 without a desktop of its own) it plays on surfaces of its own and never touches the wallpaper.
-
-## Set it as your wallpaper from the CLI (Windows)
+Set wallpapers directly (Windows):
 
 ```sh
 clairlune-cli monitors                 # ids, physical sizes, current wallpapers
@@ -109,7 +94,15 @@ clairlune-cli set --archetype shore --theme light
 clairlune-cli restore                  # put back the wallpaper you had before
 ```
 
-The primary monitor gets the seed you give; the others get seeds derived from it and their monitor id, so each screen has its own scene and the same seed always gives the same set. The first `set` remembers your current wallpaper (per monitor, and the fit mode) so `restore` can put it back. Stills are kept in `%LOCALAPPDATA%\clairlune\current`, each under a new file name. macOS and Linux follow in this milestone.
+The main monitor gets the seed you give and the others get seeds derived from it, so the same seed always gives the same set. The first `set` remembers your wallpaper so `restore` can bring it back.
+
+Play live wallpapers for a while and see what they cost (Windows, Linux):
+
+```sh
+clairlune-cli live --seconds 30 --fps 12
+```
+
+On Windows this leaves the still frame as your wallpaper when it ends; `clairlune-cli restore` undoes that. On Linux it never touches the wallpaper.
 
 ## Workspace
 
@@ -119,13 +112,13 @@ The primary monitor gets the seed you give; the others get seeds derived from it
 | `clairlune-sprites` (`crates/sprites`) | Aseprite sheet loader, anchors, the `Character` trait. |
 | `clairlune-render` (`crates/render`) | Glyph atlas, palette-index compositor, PNG export. |
 | `clairlune-cli` (`crates/cli`) | Developer tool. |
-| `clairlune-platform` (`crates/platform`) | Monitors, setting the wallpaper, login items (Windows today). |
+| `clairlune-platform` (`crates/platform`) | Monitors, setting the wallpaper, login items. |
 | `clairlune-live` (`crates/live`) | Live wallpapers: plays a scene behind the desktop icons, uploading only what changed. |
 | `clairlune` (`crates/app`) | The tray app and Settings window (egui). |
 
 ## Generated images
 
-With the buddy turned on, wallpapers contain a drawing of Clawd, which is Anthropic's character. If you publish or sell generated images, that is fan art and the same caution applies. With `--no-buddy`, images contain only this project's own content.
+With Clawd turned on, wallpapers contain fan art of Anthropic's character, so be careful if you publish or sell them. Images made with `--no-buddy` contain only this project's own work.
 
 ## License
 
