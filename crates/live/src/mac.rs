@@ -1,10 +1,10 @@
 //! The live wallpaper on macOS: one borderless window per screen at the
 //! desktop picture's window level (above the wallpaper, below the desktop
-//! icons), on every Space, ignoring the mouse. Its view draws the frame
-//! with Core Graphics ([`crate::cg`]): only the rectangles that changed are
-//! drawn, into the view's own backing store, with no GPU device or
-//! swapchain to keep (they cost far more memory and threads than a
-//! wallpaper needs).
+//! icons), on every Space, ignoring the mouse. Its view shows the frame
+//! through two IOSurfaces ([`crate::surface`]): only the rectangles that
+//! changed are written, and the window server composites the surface as
+//! it is, with no GPU device or swapchain in the app (they cost far more
+//! memory and threads than a wallpaper needs).
 //!
 //! A screen whose window is fully covered (a zoomed app, the lock screen, a
 //! sleeping display) reports itself occluded, and isn't drawn until it shows
@@ -13,7 +13,7 @@
 //! Everything here runs on the main thread (AppKit's rule), which is where
 //! the app ticks it.
 
-use crate::cg::FrameView;
+use crate::surface::SurfaceView;
 use crate::{CoverPolicy, FrameStats, Player};
 use clairlune_platform::Monitor;
 use clairlune_platform::macos::find_screen;
@@ -27,10 +27,11 @@ use objc2_core_graphics::{CGWindowLevelForKey, CGWindowLevelKey};
 use objc2_foundation::{NSPoint, NSRect};
 use std::time::{Duration, Instant};
 
-/// One screen's window and the view that draws into it.
+/// One screen's window and the view that shows it. The view goes before
+/// the window (field order).
 struct Output {
     monitor: Monitor,
-    view: Retained<FrameView>,
+    view: SurfaceView,
     covered: bool,
     window: Retained<NSWindow>,
 }
@@ -94,9 +95,9 @@ impl MacDesktop {
             let t = player.now_ms();
             player.advance(t);
             let size = window.frame().size;
-            let view = FrameView::new(mtm, NSRect::new(NSPoint::new(0.0, 0.0), size), player)
-                .ok_or("the scene's palette didn't make a colour space")?;
-            window.setContentView(Some(&view));
+            let view = SurfaceView::new(mtm, NSRect::new(NSPoint::new(0.0, 0.0), size), player)
+                .ok_or("no IOSurface for the screen")?;
+            window.setContentView(Some(view.view()));
             window.orderFrontRegardless();
             outputs.push(Output {
                 monitor,
@@ -108,22 +109,22 @@ impl MacDesktop {
         if outputs.is_empty() {
             return Err("no screens to play on".into());
         }
-        tracing::info!(target: "clairlune", screens = outputs.len(), "live: drawing with Core Graphics");
+        tracing::info!(target: "clairlune", screens = outputs.len(), "live: showing IOSurfaces");
         Ok(MacDesktop {
             outputs,
             cover_policy: CoverPolicy::default(),
         })
     }
 
-    /// "coregraphics".
+    /// "iosurface".
     pub fn presenter(&self) -> String {
-        "coregraphics".into()
+        "iosurface".into()
     }
 
     /// The highest frame rate worth asking for (a journey redraws the
     /// whole screen: at most Very smooth).
     pub fn max_fps(&self) -> u32 {
-        if self.outputs.iter().any(|o| o.view.is_journey()) {
+        if self.outputs.iter().any(|o| o.view.player().is_journey()) {
             crate::JOURNEY_MAX_FPS
         } else {
             60
@@ -135,9 +136,7 @@ impl MacDesktop {
         self.outputs.iter().map(|o| &o.monitor)
     }
 
-    /// Draws the current time on every screen that shows. The drawing
-    /// itself happens when AppKit next redraws (right after this, as the
-    /// run loop turns).
+    /// Draws the current time on every screen that shows.
     pub fn tick(&mut self) -> Result<FrameStats, String> {
         let started = Instant::now();
         let shown: Vec<bool> = self
@@ -158,10 +157,7 @@ impl MacDesktop {
             };
         }
         let (mut pixels, mut count) = (0u64, 0usize);
-        // The last tick's drawing (AppKit drew it after that tick returned).
-        let mut drawing = Duration::ZERO;
-        for o in &self.outputs {
-            drawing += o.view.take_drawing_time();
+        for o in &mut self.outputs {
             if o.covered {
                 continue; // nobody sees it; resumes at the time it is then
             }
@@ -169,16 +165,16 @@ impl MacDesktop {
             pixels += p;
             count += n;
         }
-        let compose = started.elapsed();
+        let busy = started.elapsed();
         Ok(FrameStats {
             pixels,
             rects: count,
             covered: self.outputs.iter().filter(|o| o.covered).count(),
             away: false,
             stalls: 0,
-            busy: compose + drawing,
-            upload: compose,
-            present: drawing,
+            busy,
+            upload: busy,
+            present: Duration::ZERO,
         })
     }
 }
