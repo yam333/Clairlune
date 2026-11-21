@@ -95,7 +95,7 @@ pub(crate) fn path_from_uri(value: &str) -> Option<PathBuf> {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%'
-            && i + 2 < bytes.len()
+            && i + 3 <= bytes.len()
             && let Some(b) = std::str::from_utf8(&bytes[i + 1..i + 3])
                 .ok()
                 .and_then(|h| u8::from_str_radix(h, 16).ok())
@@ -108,6 +108,64 @@ pub(crate) fn path_from_uri(value: &str) -> Option<PathBuf> {
         i += 1;
     }
     Some(PathBuf::from(String::from_utf8_lossy(&out).into_owned()))
+}
+
+/// A plain path as `gsettings get` (quoted) or `xfconf-query` prints it:
+/// not a URI, so nothing is decoded.
+pub(crate) fn plain_path(value: &str) -> Option<PathBuf> {
+    let v = value.trim();
+    let v = v
+        .strip_prefix('\'')
+        .and_then(|v| v.strip_suffix('\''))
+        .unwrap_or(v);
+    (!v.is_empty()).then(|| PathBuf::from(v))
+}
+
+/// The `gsettings` keys that make up the wallpaper on a desktop, saved and
+/// put back word for word.
+pub(crate) fn gsettings_keys(desktop: Desktop) -> &'static [(&'static str, &'static str)] {
+    match desktop {
+        Desktop::Gnome => &[
+            ("org.gnome.desktop.background", "picture-uri"),
+            ("org.gnome.desktop.background", "picture-uri-dark"),
+            ("org.gnome.desktop.background", "picture-options"),
+        ],
+        Desktop::Cinnamon => &[
+            ("org.cinnamon.desktop.background", "picture-uri"),
+            ("org.cinnamon.desktop.background", "picture-options"),
+        ],
+        Desktop::Mate => &[
+            ("org.mate.background", "picture-filename"),
+            ("org.mate.background", "picture-options"),
+        ],
+        _ => &[],
+    }
+}
+
+/// The commands that put saved `gsettings` values back.
+pub(crate) fn restore_commands(settings: &[(String, String)]) -> Vec<Vec<String>> {
+    settings
+        .iter()
+        .filter_map(|(key, value)| {
+            let (schema, key) = key.split_once(' ')?;
+            Some(argv(&["gsettings", "set", schema, key, value]))
+        })
+        .collect()
+}
+
+/// Plasma's desktop image from its applet config: the `Image=` of the first
+/// `[Containments][N][Wallpaper][org.kde.image][General]` group.
+pub(crate) fn plasma_image(appletsrc: &str) -> Option<PathBuf> {
+    let mut in_group = false;
+    for line in appletsrc.lines().map(str::trim) {
+        if line.starts_with('[') {
+            in_group = line.starts_with("[Containments]")
+                && line.ends_with("[Wallpaper][org.kde.image][General]");
+        } else if in_group && let Some(v) = line.strip_prefix("Image=") {
+            return path_from_uri(v);
+        }
+    }
+    None
 }
 
 fn argv(parts: &[&str]) -> Vec<String> {
@@ -296,6 +354,30 @@ impl LinuxHost {
     }
 }
 
+/// The whole desktop as one monitor, at the size of its largest output: the
+/// compositor's own sizes on Wayland (XWayland's `xrandr` may report scaled
+/// ones, or be missing), else `xrandr`, else 1920x1080.
+pub(crate) fn desktop_monitor() -> Monitor {
+    let wayland = std::env::var_os("WAYLAND_DISPLAY")
+        .and_then(|_| crate::wlr::output_sizes().ok())
+        .and_then(|sizes| sizes.first().copied());
+    let (width, height) = wayland
+        .or_else(|| {
+            run(&argv(&["xrandr", "--current"]))
+                .ok()
+                .and_then(|o| screen_size(&o))
+        })
+        .unwrap_or((1920, 1080));
+    Monitor {
+        id: DESKTOP_ID.into(),
+        x: 0,
+        y: 0,
+        width,
+        height,
+        primary: true,
+    }
+}
+
 impl WallpaperHost for LinuxHost {
     fn name(&self) -> &'static str {
         self.desktop.name()
@@ -309,18 +391,7 @@ impl WallpaperHost for LinuxHost {
     }
 
     fn monitors(&self) -> Result<Vec<Monitor>, PlatformError> {
-        let (width, height) = run(&argv(&["xrandr", "--current"]))
-            .ok()
-            .and_then(|o| screen_size(&o))
-            .unwrap_or((1920, 1080));
-        Ok(vec![Monitor {
-            id: DESKTOP_ID.into(),
-            x: 0,
-            y: 0,
-            width,
-            height,
-            primary: true,
-        }])
+        Ok(vec![desktop_monitor()])
     }
 
     fn current(&self, _monitor: &Monitor) -> Result<Option<PathBuf>, PlatformError> {
@@ -330,15 +401,27 @@ impl WallpaperHost for LinuxHost {
         match self.desktop {
             Desktop::Gnome => get("org.gnome.desktop.background", "picture-uri"),
             Desktop::Cinnamon => get("org.cinnamon.desktop.background", "picture-uri"),
-            Desktop::Mate => get("org.mate.background", "picture-filename"),
+            // Plain paths, not URIs: nothing to decode.
+            Desktop::Mate => run(&argv(&[
+                "gsettings",
+                "get",
+                "org.mate.background",
+                "picture-filename",
+            ]))
+            .map(|v| plain_path(&v)),
             Desktop::Xfce => match self.xfce_props().first() {
                 Some(p) => run(&argv(&["xfconf-query", "-c", "xfce4-desktop", "-p", p]))
-                    .map(|v| path_from_uri(&v)),
+                    .map(|v| plain_path(&v)),
                 None => Ok(None),
             },
-            // Plasma and Sway don't report it simply; restore can't bring
-            // back what it never saw. Our own surface hides what is under it.
-            Desktop::Kde | Desktop::Sway | Desktop::Wlroots => Ok(None),
+            Desktop::Kde => Ok(crate::config_dir()
+                .and_then(|d| {
+                    std::fs::read_to_string(d.join("plasma-org.kde.plasma.desktop-appletsrc")).ok()
+                })
+                .and_then(|t| plasma_image(&t))),
+            // Sway doesn't report it; restore can't bring back what it never
+            // saw. Our own surface hides what is under it.
+            Desktop::Sway | Desktop::Wlroots => Ok(None),
         }
     }
 
@@ -358,6 +441,12 @@ impl WallpaperHost for LinuxHost {
         } else {
             Vec::new()
         };
+        if self.desktop == Desktop::Xfce && props.is_empty() {
+            return Err(PlatformError::Os(
+                "XFCE lists no wallpaper setting yet: pick any wallpaper once in Desktop settings"
+                    .into(),
+            ));
+        }
         for cmd in set_commands(self.desktop, path, &props) {
             run(&cmd)?;
         }
@@ -366,23 +455,70 @@ impl WallpaperHost for LinuxHost {
 
     fn snapshot(&self) -> Result<Snapshot, PlatformError> {
         let m = &self.monitors()?[0];
+        // Every key as it is (GNOME's dark-mode picture, the picture
+        // options), so restore puts back all of it, not one image for both.
+        let settings = gsettings_keys(self.desktop)
+            .iter()
+            .filter_map(|(schema, key)| {
+                run(&argv(&["gsettings", "get", schema, key]))
+                    .ok()
+                    .map(|v| (format!("{schema} {key}"), v.trim().to_string()))
+            })
+            .collect();
         Ok(Snapshot {
             monitors: vec![(m.id.clone(), self.current(m)?)],
             position: None,
+            settings,
         })
     }
 
     fn restore(&self, snapshot: &Snapshot) -> Result<(), PlatformError> {
         let m = &self.monitors()?[0];
+        if !snapshot.settings.is_empty() && !gsettings_keys(self.desktop).is_empty() {
+            for cmd in restore_commands(&snapshot.settings) {
+                run(&cmd)?;
+            }
+            // Saved by a version that kept only the light picture.
+            let has = |k: &str| snapshot.settings.iter().any(|(key, _)| key.ends_with(k));
+            if self.desktop == Desktop::Gnome
+                && !has(" picture-uri-dark")
+                && let Some((_, v)) = snapshot
+                    .settings
+                    .iter()
+                    .find(|(k, _)| k.ends_with(" picture-uri"))
+            {
+                run(&argv(&[
+                    "gsettings",
+                    "set",
+                    "org.gnome.desktop.background",
+                    "picture-uri-dark",
+                    v,
+                ]))?;
+            }
+            return Ok(());
+        }
         match snapshot.monitors.first().and_then(|(_, p)| p.as_deref()) {
             Some(path) => self.set_static(m, path),
-            None => {
-                // Take our surface away: the compositor's own background shows.
-                if self.desktop == Desktop::Wlroots {
-                    crate::wlr::hide_still();
-                }
+            // Take our surface away: the compositor's own background shows.
+            None if self.desktop == Desktop::Wlroots => {
+                crate::wlr::hide_still();
                 Ok(())
             }
+            // Nothing was seen to put back (Sway doesn't tell, and Plasma's
+            // config had no image): say so, and leave Clairlune's still
+            // there rather than a desktop pointing at a deleted file.
+            None if matches!(self.desktop, Desktop::Sway | Desktop::Kde) => {
+                Err(PlatformError::Unsupported(format!(
+                    "{} didn't say what the wallpaper was before Clairlune, so it can't be put back; set yours again in the desktop's settings",
+                    if self.desktop == Desktop::Sway {
+                        "Sway"
+                    } else {
+                        "Plasma"
+                    }
+                )))
+            }
+            // A solid colour: no image to set.
+            None => Ok(()),
         }
     }
 }
@@ -390,6 +526,69 @@ impl WallpaperHost for LinuxHost {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn plain_paths_are_not_decoded() {
+        assert_eq!(
+            plain_path("'/home/me/a%41b.png'\n").as_deref(),
+            Some(Path::new("/home/me/a%41b.png"))
+        );
+        assert_eq!(
+            plain_path("/home/me/it's.png").as_deref(),
+            Some(Path::new("/home/me/it's.png"))
+        );
+        assert_eq!(plain_path("''"), None);
+        // A URI's escape at the very end decodes too.
+        assert_eq!(
+            path_from_uri("'file:///tmp/a%41'").as_deref(),
+            Some(Path::new("/tmp/aA"))
+        );
+    }
+
+    #[test]
+    fn saved_gsettings_go_back_word_for_word() {
+        let saved = vec![
+            (
+                "org.gnome.desktop.background picture-uri".to_string(),
+                "'file:///usr/share/backgrounds/light.jpg'".to_string(),
+            ),
+            (
+                "org.gnome.desktop.background picture-uri-dark".to_string(),
+                "'file:///usr/share/backgrounds/dark.jpg'".to_string(),
+            ),
+            (
+                "org.gnome.desktop.background picture-options".to_string(),
+                "'centered'".to_string(),
+            ),
+        ];
+        let cmds = restore_commands(&saved);
+        assert_eq!(cmds.len(), 3);
+        assert_eq!(
+            cmds[1],
+            argv(&[
+                "gsettings",
+                "set",
+                "org.gnome.desktop.background",
+                "picture-uri-dark",
+                "'file:///usr/share/backgrounds/dark.jpg'"
+            ])
+        );
+        assert_eq!(cmds[2][4], "'centered'");
+        assert_eq!(gsettings_keys(Desktop::Gnome).len(), 3);
+        assert!(gsettings_keys(Desktop::Kde).is_empty());
+    }
+
+    #[test]
+    fn plasma_image_from_its_config() {
+        let rc = "[Containments][1][General]\nImage=nope\n\n\
+                  [Containments][1][Wallpaper][org.kde.image][General]\n\
+                  Image=file:///usr/share/wallpapers/Next/\nSlidePaths=/x\n";
+        assert_eq!(
+            plasma_image(rc).as_deref(),
+            Some(Path::new("/usr/share/wallpapers/Next/"))
+        );
+        assert_eq!(plasma_image("[Containments][1][General]\nImage=a\n"), None);
+    }
 
     #[test]
     fn desktops_from_the_environment() {

@@ -13,7 +13,7 @@ use std::path::PathBuf;
 #[derive(Args)]
 pub struct ContactArgs {
     /// Number of seeds.
-    #[arg(long, default_value_t = 12)]
+    #[arg(long, default_value_t = 12, value_parser = clap::value_parser!(u32).range(1..=10_000))]
     count: u32,
     /// First seed; the sheet shows seeds from..from+count.
     #[arg(long, default_value_t = 1)]
@@ -48,14 +48,26 @@ pub struct ContactArgs {
 }
 
 const GAP: u32 = 6;
+/// About 32K by 16K: a sheet bigger than this is a mistake, not a check.
+const MAX_SHEET_PIXELS: u64 = 512 * 1024 * 1024;
 const GAP_RGB: [u8; 3] = [0x80, 0x80, 0x80];
 
 pub fn contact_sheet(args: ContactArgs) -> Result<(), String> {
     let (tw, th) = args.tile;
     let cols = args.columns.clamp(1, args.count.max(1));
     let rows = args.count.div_ceil(cols);
-    let (w, h) = (cols * tw + (cols + 1) * GAP, rows * th + (rows + 1) * GAP);
-    let mut rgb = vec![0u8; (w * h * 3) as usize];
+    let side = |n: u32, t: u32| u64::from(n) * u64::from(t) + u64::from(n + 1) * u64::from(GAP);
+    let (w, h) = (side(cols, tw), side(rows, th));
+    if w > u64::from(u32::MAX) || h > u64::from(u32::MAX) || w * h > MAX_SHEET_PIXELS {
+        return Err(format!(
+            "a {w}x{h} sheet is too big; use fewer seeds, fewer columns or smaller tiles"
+        ));
+    }
+    let (w, h) = (w as u32, h as u32);
+    if args.from.checked_add(u64::from(args.count)).is_none() {
+        return Err("--from plus --count goes past the last seed".into());
+    }
+    let mut rgb = vec![0u8; w as usize * h as usize * 3];
     for px in rgb.as_chunks_mut::<3>().0 {
         *px = GAP_RGB;
     }
@@ -98,7 +110,7 @@ pub fn contact_sheet(args: ContactArgs) -> Result<(), String> {
         for y in 0..th {
             for x in 0..tw {
                 let s = ((y * tw + x) * 4) as usize;
-                let d = (((y0 + y) * w + x0 + x) * 3) as usize;
+                let d = ((y0 + y) as usize * w as usize + (x0 + x) as usize) * 3;
                 rgb[d..d + 3].copy_from_slice(&tile[s..s + 3]);
             }
         }

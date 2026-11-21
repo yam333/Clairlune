@@ -71,6 +71,16 @@ pub fn fill_crop(image: (u32, u32), output: (u32, u32)) -> (f64, f64, f64, f64) 
     ((iw - w) / 2.0, (ih - h) / 2.0, w, h)
 }
 
+/// Adds `more` to `list`, keeping it to at most [`MAX_RECTS`] (and the
+/// size of `more`): a surface the compositor isn't asking frames for (an
+/// output that's off) gathers damage for a long time.
+fn add_damage(list: &mut Vec<Rect>, more: &[Rect]) {
+    list.extend_from_slice(more);
+    if list.len() > MAX_RECTS {
+        *list = bounded(std::mem::take(list));
+    }
+}
+
 /// `rects` as at most [`MAX_RECTS`] rectangles: themselves, or the one
 /// around them all.
 fn bounded(rects: Vec<Rect>) -> Vec<Rect> {
@@ -87,6 +97,30 @@ fn bounded(rects: Vec<Rect>) -> Vec<Rect> {
         w: x1 - x0,
         h: y1 - y0,
     }]
+}
+
+/// Each output's size in pixels, largest first, from the compositor (for
+/// the size to render at).
+pub fn output_sizes() -> Result<Vec<(u32, u32)>, String> {
+    let conn = Connection::connect_to_env().map_err(|e| format!("Wayland: {e}"))?;
+    let (globals, mut queue) =
+        registry_queue_init::<State>(&conn).map_err(|e| format!("Wayland: {e}"))?;
+    let qh = queue.handle();
+    let mut state = bind(&globals, &qh, (0, 0))?;
+    for _ in 0..2 {
+        queue
+            .roundtrip(&mut state)
+            .map_err(|e| format!("Wayland: {e}"))?;
+    }
+    let mut sizes: Vec<(u32, u32)> = state
+        .outputs
+        .outputs()
+        .filter(|o| state.outputs.info(o).is_some())
+        .map(|o| state.physical(&o))
+        .filter(|&(w, h)| w > 1 && h > 1)
+        .collect();
+    sizes.sort_by_key(|&(w, h)| std::cmp::Reverse(u64::from(w) * u64::from(h)));
+    Ok(sizes)
 }
 
 /// Whether this session can show our background surfaces: Wayland, with
@@ -152,6 +186,13 @@ struct Entry {
     buffers: Vec<Slotted>,
 }
 
+impl Drop for Entry {
+    /// The viewport isn't the surface's: it goes away only when asked.
+    fn drop(&mut self) {
+        self.viewport.destroy();
+    }
+}
+
 struct State {
     registry: RegistryState,
     outputs: OutputState,
@@ -161,6 +202,9 @@ struct State {
     viewporter: SimpleGlobal<wp_viewporter::WpViewporter, 1>,
     entries: Vec<Entry>,
     image: (u32, u32),
+    /// The first outputs have their surfaces: one that comes later (plugged
+    /// in, or back after every screen went away) gets its own.
+    started: bool,
 }
 
 impl State {
@@ -262,6 +306,7 @@ impl Surfaces {
         for o in outputs {
             s.state.add(&qh, o);
         }
+        s.state.started = true;
         s.queue
             .roundtrip(&mut s.state)
             .map_err(|e| format!("Wayland: {e}"))?;
@@ -344,9 +389,9 @@ impl Surfaces {
         let stride = iw as usize * 4;
         let mut drawn = 0;
         for e in &mut self.state.entries {
-            e.damage.extend_from_slice(changed);
+            add_damage(&mut e.damage, changed);
             for b in &mut e.buffers {
-                b.stale.extend_from_slice(changed);
+                add_damage(&mut b.stale, changed);
             }
             let Some((lw, lh)) = e.size else { continue };
             if e.waiting || (e.damage.is_empty() && !e.fresh) {
@@ -424,6 +469,7 @@ fn bind(globals: &GlobalList, qh: &QueueHandle<State>, image: (u32, u32)) -> Res
         viewporter: SimpleGlobal::bind(globals, qh).map_err(|e| format!("wp_viewporter: {e}"))?,
         entries: Vec::new(),
         image,
+        started: false,
     })
 }
 
@@ -488,7 +534,7 @@ impl OutputHandler for State {
 
     /// A screen plugged in after the start gets its surface too.
     fn new_output(&mut self, _: &Connection, qh: &QueueHandle<Self>, output: wl_output::WlOutput) {
-        if !self.entries.is_empty() {
+        if self.started {
             self.add(qh, output);
         }
     }
@@ -529,9 +575,18 @@ impl LayerShellHandler for State {
         configure: LayerSurfaceConfigure,
         _: u32,
     ) {
+        // 0 means "pick one": the output's own size.
+        let logical = self
+            .entries
+            .iter()
+            .find(|e| &e.layer == layer)
+            .and_then(|e| self.outputs.info(&e.output))
+            .and_then(|i| i.logical_size)
+            .map(|(w, h)| (w.max(1) as u32, h.max(1) as u32));
         if let Some(e) = self.entries.iter_mut().find(|e| &e.layer == layer) {
             let (w, h) = configure.new_size;
-            let size = (w.max(1), h.max(1));
+            let (lw, lh) = logical.unwrap_or(e.physical);
+            let size = (if w == 0 { lw } else { w }, if h == 0 { lh } else { h });
             if e.size != Some(size) {
                 e.size = Some(size);
                 e.fresh = true;
@@ -755,6 +810,24 @@ mod tests {
         let (x, _, w, h) = fill_crop((1920, 1080), (1080, 1920));
         assert_eq!(h, 1080.0);
         assert!((w - 607.5).abs() < 1e-9 && (x - 656.25).abs() < 1e-9);
+    }
+
+    #[test]
+    fn damage_waiting_for_a_frame_stays_bounded() {
+        let r = |x| Rect {
+            x,
+            y: 0,
+            w: 1,
+            h: 1,
+        };
+        let mut list = Vec::new();
+        for i in 0..10_000 {
+            add_damage(&mut list, &[r(i), r(i + 1)]);
+            assert!(list.len() <= MAX_RECTS + 2);
+        }
+        let all = bounded(list);
+        assert_eq!(all.len(), 1);
+        assert_eq!((all[0].x, all[0].w), (0, 10_001));
     }
 
     #[test]

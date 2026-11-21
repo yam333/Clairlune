@@ -26,7 +26,7 @@ pub struct GifArgs {
     #[arg(long, default_value = "960x540", value_parser = parse_size)]
     size: (u32, u32),
     /// Loop length in seconds: a multiple of 6 (the particle period).
-    #[arg(long, default_value_t = 6)]
+    #[arg(long, default_value_t = 6, value_parser = clap::value_parser!(u64).range(1..=600))]
     loop_s: u64,
     #[arg(long, value_enum, default_value_t = SmoothnessArg::Balanced)]
     smoothness: SmoothnessArg,
@@ -62,6 +62,22 @@ impl From<SmoothnessArg> for Smoothness {
     }
 }
 
+/// The output file, its folder made first.
+fn create(out: &std::path::Path) -> Result<BufWriter<File>, String> {
+    if let Some(parent) = out.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
+    }
+    File::create(out)
+        .map(BufWriter::new)
+        .map_err(|e| format!("writing {}: {e}", out.display()))
+}
+
+/// An encoding error, with the half-written file taken away.
+fn failed(out: &std::path::Path, e: impl std::fmt::Display) -> String {
+    let _ = std::fs::remove_file(out);
+    e.to_string()
+}
+
 pub fn gif(args: GifArgs) -> Result<(), String> {
     if let Some(dir) = &args.package {
         let pkg = ScenePackage::load(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
@@ -71,9 +87,7 @@ pub fn gif(args: GifArgs) -> Result<(), String> {
         } else {
             pkg.themes()[0]
         };
-        let file = BufWriter::new(
-            File::create(&args.out).map_err(|e| format!("writing {}: {e}", args.out.display()))?,
-        );
+        let file = create(&args.out)?;
         let stats = encode_package_gif(
             &pkg,
             theme,
@@ -82,7 +96,7 @@ pub fn gif(args: GifArgs) -> Result<(), String> {
             args.smoothness.into(),
             file,
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| failed(&args.out, e))?;
         let bytes = std::fs::metadata(&args.out).map(|m| m.len()).unwrap_or(0);
         println!(
             "exported {} as {}x{}, {} s loop, {} frames written, {:.1} MB: {}",
@@ -118,18 +132,19 @@ pub fn gif(args: GifArgs) -> Result<(), String> {
             )
         }
     };
+    let wanted: clairlune_scene::Theme = args.theme.into();
     let opts = BuildOptions {
         width,
         height,
-        theme: args.theme.into(),
+        // A scene that only happens in the other theme is shown in that one.
+        theme: match (recipe.tod_for(wanted), wanted) {
+            (Some(_), t) => t,
+            (None, clairlune_scene::Theme::Light) => clairlune_scene::Theme::Dark,
+            (None, clairlune_scene::Theme::Dark) => clairlune_scene::Theme::Light,
+        },
         buddy: !args.no_buddy,
     };
-    if let Some(parent) = args.out.parent().filter(|p| !p.as_os_str().is_empty()) {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    let file = BufWriter::new(
-        File::create(&args.out).map_err(|e| format!("writing {}: {e}", args.out.display()))?,
-    );
+    let file = create(&args.out)?;
     let stats = encode_gif(
         &recipe,
         &opts,
@@ -137,7 +152,7 @@ pub fn gif(args: GifArgs) -> Result<(), String> {
         args.smoothness.into(),
         file,
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| failed(&args.out, e))?;
     let bytes = std::fs::metadata(&args.out).map(|m| m.len()).unwrap_or(0);
     println!("Clairlune GIF");
     println!(

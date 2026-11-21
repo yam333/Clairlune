@@ -6,8 +6,8 @@ use clap::Args;
 
 #[derive(Args)]
 pub struct LiveArgs {
-    /// How long to play, in seconds.
-    #[arg(long, default_value_t = 30)]
+    /// How long to play, in seconds (up to a week).
+    #[arg(long, default_value_t = 30, value_parser = clap::value_parser!(u64).range(1..=604_800))]
     seconds: u64,
     /// Frames per second (6, 12, 24, 30 or 60 in the app).
     #[arg(long, default_value_t = 12)]
@@ -47,13 +47,9 @@ pub fn live(args: LiveArgs) -> Result<(), String> {
     use std::time::{Duration, Instant};
 
     clairlune_live::linux::available()?;
-    let host = clairlune_platform::detect().map_err(|e| e.to_string())?;
-    let m = host
-        .monitors()
-        .map_err(|e| e.to_string())?
-        .into_iter()
-        .next()
-        .ok_or("no monitors found")?;
+    // The size only: window managers with no wallpaper host (i3, Openbox)
+    // play live too.
+    let m = clairlune_platform::linux_desktop_monitor();
     let mut ctx = ContentContext::default();
     if let Some(id) = &args.archetype {
         restrict_archetype(&mut ctx, id)?;
@@ -193,13 +189,14 @@ pub fn live(args: LiveArgs) -> Result<(), String> {
 
     let mem_before = process_memory();
     let mut desktop = Desktop::start(scenes)?;
+    // The host's own cap (GDI, or a scrolling scene) as the app has it.
+    let fps = args.fps.clamp(1, desktop.max_fps());
     println!(
-        "live: playing behind the icons for {} s at {} fps, presenting with {}",
+        "live: playing behind the icons for {} s at {fps} fps, presenting with {}",
         args.seconds,
-        args.fps,
         desktop.presenter()
     );
-    let frame = Duration::from_secs_f64(1.0 / f64::from(args.fps.clamp(1, 60)));
+    let frame = Duration::from_secs_f64(1.0 / f64::from(fps));
     let started = Instant::now();
     let cpu_start = process_cpu_time();
     let end = started + Duration::from_secs(args.seconds);
