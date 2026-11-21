@@ -64,4 +64,7 @@ Later, each with its own work first:
 
 Code signing (an Apple Developer ID with notarization, a Windows code-signing
 certificate) makes each of these smoother but isn't required for the tap,
-the bucket, winget or the AUR.
+the bucket, winget or the AUR. There is none (the maintainer's decision), but
+the Mac app is still signed ad hoc in the Release workflow: that seals the
+bundle, without which an Apple silicon Mac reports a downloaded app as
+damaged instead of offering Open Anyway (0.13.0's first DMGs had this).
