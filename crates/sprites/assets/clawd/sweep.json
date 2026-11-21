@@ -1,0 +1,424 @@
+{
+ "frames": [
+  {
+   "filename": "sweep#0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 24
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 24
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 24
+   },
+   "duration": 260
+  },
+  {
+   "filename": "sweep#1",
+   "frame": {
+    "x": 38,
+    "y": 0,
+    "w": 38,
+    "h": 24
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 24
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 24
+   },
+   "duration": 260
+  },
+  {
+   "filename": "sweep#2",
+   "frame": {
+    "x": 76,
+    "y": 0,
+    "w": 38,
+    "h": 24
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 24
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 24
+   },
+   "duration": 260
+  },
+  {
+   "filename": "sweep#3",
+   "frame": {
+    "x": 0,
+    "y": 24,
+    "w": 38,
+    "h": 24
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 24
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 24
+   },
+   "duration": 260
+  },
+  {
+   "filename": "rest#0",
+   "frame": {
+    "x": 38,
+    "y": 24,
+    "w": 38,
+    "h": 24
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 24
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 24
+   },
+   "duration": 800
+  },
+  {
+   "filename": "rest#1",
+   "frame": {
+    "x": 76,
+    "y": 24,
+    "w": 38,
+    "h": 24
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 24
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 24
+   },
+   "duration": 800
+  }
+ ],
+ "meta": {
+  "image": "sweep.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 114,
+   "h": 48
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "sweep",
+    "from": 0,
+    "to": 3,
+    "direction": "forward",
+    "color": "#000000ff"
+   },
+   {
+    "name": "rest",
+    "from": 4,
+    "to": 5,
+    "direction": "forward",
+    "color": "#000000ff"
+   }
+  ],
+  "slices": [
+   {
+    "name": "origin",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 11,
+       "y": 23,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 11,
+       "y": 23,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 11,
+       "y": 23,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 11,
+       "y": 23,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 11,
+       "y": 23,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 5,
+      "bounds": {
+       "x": 11,
+       "y": 23,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "head",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 12,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 12,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 12,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 12,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 12,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 5,
+      "bounds": {
+       "x": 12,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "hand_l",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 10,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 10,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 10,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 10,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 10,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 5,
+      "bounds": {
+       "x": 10,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "hand_r",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 15,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 16,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 15,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 16,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 14,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 5,
+      "bounds": {
+       "x": 14,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "item_tip",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 35,
+       "y": 22,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 35,
+       "y": 22,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   }
+  ],
+  "source": "assets/clawd/src/sweep.aseprite",
+  "source_sha256": "05dfafb1d9644f96c2de9cfdbb80922a64da4282933a9481717a375258bdc26a"
+ }
+}

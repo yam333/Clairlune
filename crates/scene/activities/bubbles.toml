@@ -1,0 +1,35 @@
+# Blowing bubbles: they drift off on the breeze, wobbling, growing, and pop.
+id = "bubbles"
+weight = 1.0
+
+[requires]
+terrain = ["flat", "ledge", "shore", "rooftop"]
+time_of_day = ["morning", "noon", "golden_hour"]
+weather = ["none", "petals", "leaves", "dust"]
+
+[motion]
+type = "stationary"
+
+[animation]
+start = "blow"
+
+[animation.states.blow]
+loop = true
+dwell_s = [4, 8]
+next = { wave = 0.5, blow = 0.5 }
+
+[animation.states.wave]
+loop = true
+dwell_s = [1.5, 3]
+next = { blow = 1.0 }
+
+[[effects]]
+type = "particles"
+preset = "bubbles"
+at = "item_tip"
+
+[gif]
+loop_script = ["blow", "wave"]
+
+[unattended]
+props = ["basket"]

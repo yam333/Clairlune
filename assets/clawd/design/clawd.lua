@@ -74,7 +74,7 @@ M.along = along
 --   eyes     "open" | "closed" | "left" | "right" | "up" | "happy" | "focus"
 --   arm_l, arm_r   "rest" | "out" | "up" | { dx, dy } hand position from the shoulder
 --   reach, wiggle  extra length / 1 px raise for "out" and "up" arms
---   hold     { item, angle, hand = "r" }  item: wand, racket, ski_pole, walking_stick, mug, chess_piece, rod, stone, broom, brush, snowball, apple
+--   hold     { item, angle, hand = "r" }  item: wand, racket, ski_pole, walking_stick, mug, chess_piece, rod, stone, broom, brush, snowball, apple, bubble_wand
 --   costume  { "wizard_hat", "beanie", "goggles", "backpack", "scarf" }
 --   legs     "stand" | "walk_a" | "walk_b" | "ski"
 function M.pose(o)
@@ -204,6 +204,16 @@ function ITEMS.brush(c, x, y, deg)
   local fx, fy = along(x, y, deg, 5)
   c.px(fx, fy, P.metal_dark)
   return { tx, ty }
+end
+function ITEMS.bubble_wand(c, x, y, deg)
+  -- A thin stick with a ring at the end; the ring is the item tip, where
+  -- the bubbles come from.
+  local sx, sy = along(x, y, deg, 4)
+  line(c, x, y, sx, sy, P.wood)
+  local rx, ry = along(x, y, deg, 6)
+  c.px(rx - 1, ry, P.white); c.px(rx + 1, ry, P.white)
+  c.px(rx, ry - 1, P.white); c.px(rx, ry + 1, P.white)
+  return { rx, ry }
 end
 function ITEMS.snowball(c, x, y)
   c.rect(x - 1, y - 2, 2, 2, P.white)

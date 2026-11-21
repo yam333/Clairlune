@@ -38,7 +38,7 @@ pub const PROPS: [&str; 20] = [
 /// Effect ids the engine can draw.
 pub const EFFECTS: [&str; 1] = ["embers"];
 /// Particle presets an `[[effects]]` entry can attach to an anchor.
-pub const PARTICLE_PRESETS: [&str; 4] = ["sparkles", "steam", "notes", "snow_spray"];
+pub const PARTICLE_PRESETS: [&str; 5] = ["sparkles", "steam", "notes", "snow_spray", "bubbles"];
 /// Tether presets: a line from an anchor to a moving end (a float on the
 /// water, a kite in the sky).
 pub const TETHER_PRESETS: [&str; 2] = ["fishing_line", "kite_string"];
@@ -55,7 +55,7 @@ pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "i
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 26] = [
+const SOURCES: [(&str, &str); 32] = [
     (
         "balloon_journey.toml",
         include_str!("../activities/balloon_journey.toml"),
@@ -72,7 +72,13 @@ const SOURCES: [(&str, &str); 26] = [
         "broom_journey.toml",
         include_str!("../activities/broom_journey.toml"),
     ),
+    ("bubbles.toml", include_str!("../activities/bubbles.toml")),
+    (
+        "catch_snowflakes.toml",
+        include_str!("../activities/catch_snowflakes.toml"),
+    ),
     ("chess.toml", include_str!("../activities/chess.toml")),
+    ("dance.toml", include_str!("../activities/dance.toml")),
     (
         "desert_trek.toml",
         include_str!("../activities/desert_trek.toml"),
@@ -88,9 +94,14 @@ const SOURCES: [(&str, &str); 26] = [
         include_str!("../activities/hike_ridge.toml"),
     ),
     (
+        "hot_cocoa.toml",
+        include_str!("../activities/hot_cocoa.toml"),
+    ),
+    (
         "make_coffee.toml",
         include_str!("../activities/make_coffee.toml"),
     ),
+    ("meditate.toml", include_str!("../activities/meditate.toml")),
     (
         "paint_easel.toml",
         include_str!("../activities/paint_easel.toml"),
@@ -118,6 +129,7 @@ const SOURCES: [(&str, &str); 26] = [
     ),
     ("stargaze.toml", include_str!("../activities/stargaze.toml")),
     ("stroll.toml", include_str!("../activities/stroll.toml")),
+    ("sweep.toml", include_str!("../activities/sweep.toml")),
     ("tennis.toml", include_str!("../activities/tennis.toml")),
     (
         "warm_hands.toml",

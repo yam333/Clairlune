@@ -1,0 +1,39 @@
+# Hot cocoa in the cold, by a lantern: a steaming mug and slow sips.
+id = "hot_cocoa"
+weight = 0.9
+
+[requires]
+terrain = ["flat", "ledge", "indoor"]
+surface = ["snow", "ice", "rock", "wood", "grass"]
+time_of_day = ["morning", "golden_hour", "dusk", "deep_dusk", "night"]
+weather = ["none", "snow", "blizzard", "sparkle", "stars"]
+
+[motion]
+type = "stationary"
+
+[props.lantern]
+attach = "either_side"
+
+[animation]
+start = "hold"
+
+[animation.states.hold]
+loop = true
+dwell_s = [4, 8]
+next = { sip = 1.0 }
+
+[animation.states.sip]
+loop = true
+dwell_s = [1.5, 2.5]
+next = { hold = 1.0 }
+
+[[effects]]
+type = "particles"
+preset = "steam"
+at = "item_tip"
+
+[gif]
+loop_script = ["hold", "sip"]
+
+[unattended]
+props = ["coffee_mug"]

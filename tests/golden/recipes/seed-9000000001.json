@@ -5,16 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "36af6299a8a6ecbd",
-  "activity": "snowballs",
-  "archetype": "snowfield",
+  "content_ctx_hash": "ff7a56b1aefb8046",
+  "activity": "balloon_journey",
+  "archetype": "forest",
   "light_tod": "golden_hour",
-  "dark_tod": "dusk",
-  "platform": "ice_shelf",
-  "props": [
-    "snowman"
-  ],
-  "weather": "snow",
+  "dark_tod": null,
+  "platform": "log",
+  "props": [],
+  "weather": "leaves",
   "composition": {
     "horizon_pm": 624,
     "focus_x_pm": 348,
@@ -24,7 +22,9 @@
     "cliff_layers": 3,
     "prop_left": false,
     "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "pace_half_pm": 0,
+    "journey_pace_c": 261,
+    "landmark": "dome"
   },
   "palette": {
     "light": "sand_day",

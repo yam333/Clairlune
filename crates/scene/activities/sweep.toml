@@ -1,0 +1,39 @@
+# Sweeping up with the broom, a little dust rising, a bucket by.
+id = "sweep"
+weight = 0.8
+
+[requires]
+terrain = ["rooftop", "indoor", "flat", "ledge"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk"]
+weather = ["none", "leaves", "dust", "petals"]
+
+[motion]
+type = "stationary"
+
+[props.bucket]
+attach = "either_side"
+
+[animation]
+start = "sweep"
+
+[animation.states.sweep]
+loop = true
+dwell_s = [4, 8]
+next = { rest = 0.3, sweep = 0.7 }
+
+[animation.states.rest]
+loop = true
+dwell_s = [1.5, 3]
+next = { sweep = 1.0 }
+
+[[effects]]
+type = "particles"
+preset = "steam"
+at = "item_tip"
+states = ["sweep"]
+
+[gif]
+loop_script = ["sweep", "rest"]
+
+[unattended]
+props = ["bucket"]

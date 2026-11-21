@@ -247,6 +247,18 @@ pub enum WeatherKind {
     Fireflies,
     Leaves,
     Dust,
+    /// Blossom petals drifting down and across.
+    Petals,
+    /// Low mist drifting along the ground.
+    Fog,
+    /// Snow driven sideways by the wind, thick.
+    Blizzard,
+    /// Ash falling slowly (a volcano's).
+    Ash,
+    /// Ice crystals glinting in cold, still air.
+    Sparkle,
+    /// Confetti tumbling down.
+    Confetti,
 }
 
 impl WeatherKind {
@@ -258,6 +270,12 @@ impl WeatherKind {
             "fireflies" => Some(WeatherKind::Fireflies),
             "leaves" => Some(WeatherKind::Leaves),
             "dust" => Some(WeatherKind::Dust),
+            "petals" => Some(WeatherKind::Petals),
+            "fog" => Some(WeatherKind::Fog),
+            "blizzard" => Some(WeatherKind::Blizzard),
+            "ash" => Some(WeatherKind::Ash),
+            "sparkle" => Some(WeatherKind::Sparkle),
+            "confetti" => Some(WeatherKind::Confetti),
             _ => None,
         }
     }
@@ -266,7 +284,13 @@ impl WeatherKind {
     pub fn ink(self) -> bool {
         matches!(
             self,
-            WeatherKind::Snow | WeatherKind::Rain | WeatherKind::Dust
+            WeatherKind::Snow
+                | WeatherKind::Rain
+                | WeatherKind::Dust
+                | WeatherKind::Fog
+                | WeatherKind::Blizzard
+                | WeatherKind::Ash
+                | WeatherKind::Sparkle
         )
     }
 }
@@ -310,7 +334,12 @@ pub fn weather_set(kind: WeatherKind, seed: u64, aspect: f64, pace: u8) -> Vec<D
                 WeatherKind::Rain => rng.range_f64(0.18, 0.30),
                 WeatherKind::Leaves => rng.range_f64(0.12, 0.24),
                 WeatherKind::Dust => rng.range_f64(0.06, 0.12),
-                WeatherKind::Fireflies => 0.0,
+                WeatherKind::Petals => rng.range_f64(0.14, 0.26),
+                WeatherKind::Fog => rng.range_f64(0.03, 0.07),
+                WeatherKind::Blizzard => rng.range_f64(0.25, 0.4),
+                WeatherKind::Ash => rng.range_f64(0.06, 0.14),
+                WeatherKind::Confetti => rng.range_f64(0.16, 0.28),
+                WeatherKind::Fireflies | WeatherKind::Sparkle => 0.0,
             };
         }
     }
@@ -326,6 +355,12 @@ fn old_weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
         WeatherKind::Fireflies => 14.0,
         WeatherKind::Leaves => 22.0,
         WeatherKind::Dust => 40.0,
+        WeatherKind::Petals => 34.0,
+        WeatherKind::Fog => 26.0,
+        WeatherKind::Blizzard => 150.0,
+        WeatherKind::Ash => 55.0,
+        WeatherKind::Sparkle => 30.0,
+        WeatherKind::Confetti => 45.0,
     };
     let count = (per * aspect).round() as u32;
     (0..count)
@@ -395,6 +430,78 @@ fn old_weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
                     level: rng.range_u32(1, 2) as u8,
                     fall: 0.0,
                 },
+                WeatherKind::Petals => Drop {
+                    x0,
+                    y0,
+                    wraps: 1,
+                    sway: rng.range_f64(0.01, 0.025),
+                    cycles: rng.range_u32(2, 3),
+                    phase,
+                    glyph: *rng.choose(&[id('\''), id('`'), id(','), id('*')]),
+                    level: rng.range_u32(3, 5) as u8,
+                    fall: 0.0,
+                },
+                WeatherKind::Fog => Drop {
+                    x0,
+                    // Low, along the land.
+                    y0: 0.55 + 0.4 * y0,
+                    wraps: 1,
+                    sway: rng.range_f64(0.002, 0.006),
+                    cycles: 1,
+                    phase,
+                    glyph: *rng.choose(&[id('~'), id('-'), id('='), id('~')]),
+                    level: rng.range_u32(1, 2) as u8,
+                    fall: 0.0,
+                },
+                WeatherKind::Blizzard => Drop {
+                    x0,
+                    y0,
+                    wraps: rng.range_u32(2, 4),
+                    sway: rng.range_f64(0.002, 0.006),
+                    cycles: 1,
+                    phase,
+                    glyph: if big {
+                        id('*')
+                    } else {
+                        *rng.choose(&[id('.'), id('\''), id('-'), id('`')])
+                    },
+                    level: if big { 5 } else { rng.range_u32(2, 4) as u8 },
+                    fall: 0.0,
+                },
+                WeatherKind::Ash => Drop {
+                    x0,
+                    y0,
+                    wraps: 1,
+                    sway: rng.range_f64(0.004, 0.012),
+                    cycles: rng.range_u32(1, 2),
+                    phase,
+                    glyph: *rng.choose(&[id('.'), id('`'), id(','), id('.')]),
+                    level: rng.range_u32(1, 3) as u8,
+                    fall: 0.0,
+                },
+                WeatherKind::Sparkle => Drop {
+                    x0,
+                    // The air over the land, not the top of the sky.
+                    y0: 0.15 + 0.8 * y0,
+                    wraps: rng.range_u32(1, 3),
+                    sway: 0.0,
+                    cycles: 1,
+                    phase,
+                    glyph: id('.'),
+                    level: 0,
+                    fall: 0.0,
+                },
+                WeatherKind::Confetti => Drop {
+                    x0,
+                    y0,
+                    wraps: 1,
+                    sway: rng.range_f64(0.008, 0.02),
+                    cycles: rng.range_u32(2, 4),
+                    phase,
+                    glyph: *rng.choose(&[id('-'), id('|'), id('/'), id('\\')]),
+                    level: rng.range_u32(3, 5) as u8,
+                    fall: 0.0,
+                },
             }
         })
         .collect()
@@ -428,12 +535,36 @@ fn drop_state(kind: WeatherKind, d: &Drop, t_ms: u64) -> (f64, f64, u8, u8) {
                 level,
             )
         }
-        WeatherKind::Dust => (
+        WeatherKind::Dust | WeatherKind::Fog => (
             frac(d.x0 + f64::from(d.wraps) * u),
             d.y0 + d.sway * wave(d.cycles, d.phase),
             d.glyph,
             d.level,
         ),
+        WeatherKind::Petals | WeatherKind::Ash | WeatherKind::Confetti => (
+            frac(d.x0 + 0.3 * u + d.sway * wave(d.cycles, d.phase)),
+            frac(d.y0 + f64::from(d.wraps) * u),
+            d.glyph,
+            d.level,
+        ),
+        WeatherKind::Blizzard => (
+            frac(d.x0 + 0.8 * f64::from(d.wraps) * u),
+            frac(d.y0 + f64::from(d.wraps) * u),
+            d.glyph,
+            d.level,
+        ),
+        WeatherKind::Sparkle => {
+            // Still; each crystal catches the light now and then.
+            let glint = sin(TAU * (f64::from(d.wraps) * u + d.phase)).max(0.0);
+            let glint = glint * glint * glint * glint;
+            let level = (5.0 * glint).round() as u8;
+            let glyph = match level {
+                5 => id('*'),
+                3 | 4 => id('+'),
+                _ => d.glyph,
+            };
+            (d.x0, d.y0, glyph, level)
+        }
     }
 }
 
@@ -441,8 +572,9 @@ fn drop_state(kind: WeatherKind, d: &Drop, t_ms: u64) -> (f64, f64, u8, u8) {
 /// life while swaying, and fades out, then starts again. `None` while fully
 /// faded. Fireflies keep their wandering (already slow).
 fn calm_drop_state(kind: WeatherKind, d: &Drop, t_ms: u64) -> Option<(f64, f64, u8, u8)> {
-    if kind == WeatherKind::Fireflies {
-        return Some(drop_state(kind, d, t_ms));
+    if matches!(kind, WeatherKind::Fireflies | WeatherKind::Sparkle) {
+        let s = drop_state(kind, d, t_ms);
+        return (s.3 > 0).then_some(s);
     }
     let life = calm_life_ms(kind);
     let p = frac((t_ms % life) as f64 / life as f64 + d.phase);
@@ -455,8 +587,31 @@ fn calm_drop_state(kind: WeatherKind, d: &Drop, t_ms: u64) -> Option<(f64, f64, 
     // One slow sway per life.
     let sway = d.sway * sin(TAU * (p + d.phase));
     Some(match kind {
-        WeatherKind::Dust => (frac(d.x0 + d.fall * p), d.y0 + sway, d.glyph, level),
+        WeatherKind::Dust | WeatherKind::Fog => {
+            (frac(d.x0 + d.fall * p), d.y0 + sway, d.glyph, level)
+        }
         WeatherKind::Rain => (d.x0, frac(d.y0 + d.fall * p), d.glyph, level),
+        // Carried across as they fall: petals, ash and confetti by a breeze,
+        // a blizzard by a gale.
+        WeatherKind::Petals | WeatherKind::Ash => (
+            frac(d.x0 + 0.5 * d.fall * p + sway),
+            frac(d.y0 + d.fall * p),
+            d.glyph,
+            level,
+        ),
+        WeatherKind::Blizzard => (
+            frac(d.x0 + 0.9 * d.fall * p + sway),
+            frac(d.y0 + d.fall * p),
+            d.glyph,
+            level,
+        ),
+        WeatherKind::Confetti => {
+            // Tumbling: the bit turns as it falls.
+            use crate::glyphs::id;
+            const TURN: [u8; 4] = [id('-'), id('\\'), id('|'), id('/')];
+            let turn = TURN[((p * 8.0 + d.phase * 4.0) as usize) % 4];
+            (frac(d.x0 + sway), frac(d.y0 + d.fall * p), turn, level)
+        }
         _ => (frac(d.x0 + sway), frac(d.y0 + d.fall * p), d.glyph, level),
     })
 }
@@ -472,6 +627,8 @@ pub enum Preset {
     Notes,
     /// Snow kicked up behind skis: short arcs backwards, quick.
     SnowSpray,
+    /// Soap bubbles from a wand: drifting up and away, growing, then popping.
+    Bubbles,
 }
 
 impl Preset {
@@ -481,6 +638,7 @@ impl Preset {
             "steam" => Some(Preset::Steam),
             "notes" => Some(Preset::Notes),
             "snow_spray" => Some(Preset::SnowSpray),
+            "bubbles" => Some(Preset::Bubbles),
             _ => None,
         }
     }
@@ -511,6 +669,8 @@ pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64, pace: u8) -> Vec<P
         // Spray is quick even at the calm pace: it's thrown, not drifting.
         (Preset::SnowSpray, false) => ("fx_snow_spray", 8, &[600, 1000]),
         (Preset::SnowSpray, true) => ("fx_snow_spray", 8, &[1000, 1500]),
+        (Preset::Bubbles, false) => ("fx_bubbles", 7, &[2000, 3000]),
+        (Preset::Bubbles, true) => ("fx_bubbles", 7, &[3000, 6000]),
     };
     let mut rng = Rng::stream(seed, label);
     let mut out = Vec::new();
@@ -570,6 +730,28 @@ pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64, pace: u8) -> Vec<P
                     level,
                 });
             }
+            Preset::Bubbles => {
+                // Off downwind and up, bobbing; bigger as they go, popping
+                // into a star at the end.
+                let drift = (3.0 + 7.0 * b) * p;
+                let rise = (5.0 + 6.0 * a) * p;
+                let bob = 0.8 * sin(TAU * (1.5 * p + c));
+                let glyph = if p > 0.92 {
+                    id('*')
+                } else if p > 0.45 {
+                    id('O')
+                } else if p > 0.12 {
+                    id('o')
+                } else {
+                    id('.')
+                };
+                out.push(PresetParticle {
+                    dx: 1.0 + drift + bob * 0.5,
+                    dy: -rise - 1.0 + bob,
+                    glyph,
+                    level: if p > 0.92 { 3 } else { 5 },
+                });
+            }
             Preset::Notes => {
                 // Up and out to one side, swaying, fading.
                 let side = if a < 0.5 { -1.0 } else { 1.0 };
@@ -594,12 +776,18 @@ pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64, pace: u8) -> Vec<P
 mod weather_tests {
     use super::*;
 
-    const KINDS: [WeatherKind; 5] = [
+    const KINDS: [WeatherKind; 11] = [
         WeatherKind::Snow,
         WeatherKind::Rain,
         WeatherKind::Fireflies,
         WeatherKind::Leaves,
         WeatherKind::Dust,
+        WeatherKind::Petals,
+        WeatherKind::Fog,
+        WeatherKind::Blizzard,
+        WeatherKind::Ash,
+        WeatherKind::Sparkle,
+        WeatherKind::Confetti,
     ];
 
     fn emitter(kind: WeatherKind, pace: u8) -> Emitter {
@@ -665,9 +853,14 @@ mod weather_tests {
     fn the_calm_pace_is_calm() {
         for kind in KINDS {
             let (old, calm) = (mean_speed(kind, 0), mean_speed(kind, CALM_PACE));
-            let cap = if kind == WeatherKind::Rain { 0.2 } else { 0.06 };
+            // Rain and a blizzard are meant to be quick.
+            let cap = if matches!(kind, WeatherKind::Rain | WeatherKind::Blizzard) {
+                0.2
+            } else {
+                0.06
+            };
             assert!(calm <= cap, "{kind:?}: {calm:.3} screen heights a second");
-            if kind != WeatherKind::Fireflies {
+            if !matches!(kind, WeatherKind::Fireflies | WeatherKind::Sparkle) {
                 assert!(calm < old * 0.6, "{kind:?}: calm {calm:.3} vs {old:.3}");
             }
         }

@@ -581,7 +581,7 @@ content = { type = "random", archetypes = ["night_sky", "canyon"] }
         tl.single.push(Slot {
             start: 600,
             content: Content::Random {
-                archetypes: vec!["volcano".into()],
+                archetypes: vec!["atlantis".into()],
                 activities: vec!["juggling".into()],
                 weather: Vec::new(),
             },

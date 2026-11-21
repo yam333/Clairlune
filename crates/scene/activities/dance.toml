@@ -1,0 +1,38 @@
+# Dancing by lantern light in the evening, notes from a hummed tune.
+id = "dance"
+weight = 0.9
+
+[requires]
+terrain = ["flat", "ledge", "shore", "rooftop"]
+time_of_day = ["golden_hour", "dusk", "deep_dusk", "night"]
+weather = ["none", "stars", "fireflies", "confetti", "petals"]
+
+[motion]
+type = "stationary"
+
+[props.lantern]
+attach = "either_side"
+
+[animation]
+start = "dance"
+
+[animation.states.dance]
+loop = true
+dwell_s = [3, 7]
+next = { spin = 0.4, dance = 0.6 }
+
+[animation.states.spin]
+loop = true
+dwell_s = [1, 2]
+next = { dance = 1.0 }
+
+[[effects]]
+type = "particles"
+preset = "notes"
+at = "head"
+
+[gif]
+loop_script = ["dance", "spin"]
+
+[unattended]
+props = ["lantern"]

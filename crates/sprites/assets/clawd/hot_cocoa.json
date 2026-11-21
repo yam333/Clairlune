@@ -1,0 +1,393 @@
+{
+ "frames": [
+  {
+   "filename": "hold#0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 700
+  },
+  {
+   "filename": "hold#1",
+   "frame": {
+    "x": 24,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 700
+  },
+  {
+   "filename": "sip#0",
+   "frame": {
+    "x": 48,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 400
+  },
+  {
+   "filename": "sip#1",
+   "frame": {
+    "x": 0,
+    "y": 20,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 600
+  },
+  {
+   "filename": "sip#2",
+   "frame": {
+    "x": 24,
+    "y": 20,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 400
+  }
+ ],
+ "meta": {
+  "image": "hot_cocoa.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 72,
+   "h": 40
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "hold",
+    "from": 0,
+    "to": 1,
+    "direction": "forward",
+    "color": "#000000ff"
+   },
+   {
+    "name": "sip",
+    "from": 2,
+    "to": 4,
+    "direction": "forward",
+    "color": "#000000ff"
+   }
+  ],
+  "slices": [
+   {
+    "name": "origin",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "head",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 11,
+       "y": 9,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 11,
+       "y": 9,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 11,
+       "y": 9,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 11,
+       "y": 9,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 11,
+       "y": 9,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "hand_l",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 2,
+       "y": 13,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 2,
+       "y": 13,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 2,
+       "y": 13,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 2,
+       "y": 13,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 2,
+       "y": 13,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "hand_r",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 16,
+       "y": 16,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 16,
+       "y": 16,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 16,
+       "y": 14,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 16,
+       "y": 13,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 16,
+       "y": 15,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "item_tip",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 16,
+       "y": 13,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 16,
+       "y": 13,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 16,
+       "y": 11,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 16,
+       "y": 10,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 16,
+       "y": 12,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   }
+  ],
+  "source": "assets/clawd/src/hot_cocoa.aseprite",
+  "source_sha256": "a9e64079a7fef08ed57b829900a34f6dbc859cbb547c2053ec9ee1ec66dff458"
+ }
+}

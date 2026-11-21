@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "36af6299a8a6ecbd",
-  "activity": "make_coffee",
-  "archetype": "canyon",
+  "content_ctx_hash": "ff7a56b1aefb8046",
+  "activity": "paint_easel",
+  "archetype": "meadow",
   "light_tod": "morning",
   "dark_tod": "dusk",
-  "platform": "rock_ledge",
+  "platform": "grassy_knoll",
   "props": [
-    "camp_stove"
+    "easel"
   ],
   "weather": "none",
   "composition": {

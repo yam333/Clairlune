@@ -1,0 +1,33 @@
+# Meditating by a cairn: still, eyes closed, slow breaths.
+id = "meditate"
+weight = 0.9
+
+[requires]
+terrain = ["ledge", "flat", "shore", "cave_floor"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
+weather = ["none", "petals", "fog", "stars", "fireflies", "leaves", "snow"]
+
+[motion]
+type = "stationary"
+
+[props.stone_pile]
+attach = "either_side"
+
+[animation]
+start = "breathe"
+
+[animation.states.breathe]
+loop = true
+dwell_s = [6, 12]
+next = { breathe = 0.6, peek = 0.4 }
+
+[animation.states.peek]
+loop = true
+dwell_s = [1.5, 3]
+next = { breathe = 1.0 }
+
+[gif]
+loop_script = ["breathe"]
+
+[unattended]
+props = ["stone_pile"]
