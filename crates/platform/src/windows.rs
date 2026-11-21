@@ -147,6 +147,25 @@ pub(crate) fn apps_use_dark_theme() -> Option<bool> {
     status.is_ok().then_some(value == 0)
 }
 
+/// `SystemUsesLightTheme` = 1 means a light taskbar (the notification area
+/// is light). Missing means unknown.
+pub(crate) fn taskbar_is_light() -> Option<bool> {
+    let mut value: u32 = 0;
+    let mut size = std::mem::size_of::<u32>() as u32;
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
+            w!("SystemUsesLightTheme"),
+            RRF_RT_REG_DWORD,
+            None,
+            Some(&mut value as *mut u32 as *mut core::ffi::c_void),
+            Some(&mut size),
+        )
+    };
+    status.is_ok().then_some(value == 1)
+}
+
 pub(crate) struct WindowsHost {
     dw: IDesktopWallpaper,
 }

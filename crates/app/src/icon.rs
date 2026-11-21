@@ -28,9 +28,62 @@ pub fn moon_rgba(size: u32) -> Vec<u8> {
     px
 }
 
+/// The running-in-the-background mark (tray, menu bar): the crescent alone,
+/// one colour, smooth edges (each pixel's alpha is how much of it the shape
+/// covers, from 16 samples), like a vector icon drawn at `size`.
+pub fn tray_rgba(size: u32, rgb: [u8; 3]) -> Vec<u8> {
+    let s = f64::from(size);
+    let (cx, cy, r) = (s * 0.5, s * 0.5, s * 0.44);
+    let (sx, sy, sr) = (s * 0.7, s * 0.34, s * 0.37);
+    const N: u32 = 4;
+    let mut px = vec![0u8; (size * size * 4) as usize];
+    for y in 0..size {
+        for x in 0..size {
+            let mut inside = 0u32;
+            for j in 0..N {
+                for i in 0..N {
+                    let fx = f64::from(x) + (f64::from(i) + 0.5) / f64::from(N);
+                    let fy = f64::from(y) + (f64::from(j) + 0.5) / f64::from(N);
+                    let d = (fx - cx).powi(2) + (fy - cy).powi(2);
+                    let ds = (fx - sx).powi(2) + (fy - sy).powi(2);
+                    if d <= r * r && ds >= sr * sr {
+                        inside += 1;
+                    }
+                }
+            }
+            if inside == 0 {
+                continue;
+            }
+            let k = ((y * size + x) * 4) as usize;
+            px[k..k + 3].copy_from_slice(&rgb);
+            px[k + 3] = ((inside * 255 + N * N / 2) / (N * N)) as u8;
+        }
+    }
+    px
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_tray_mark_is_one_colour_with_smooth_edges() {
+        let px = tray_rgba(32, [255, 255, 255]);
+        let pixels: Vec<&[u8]> = px.chunks(4).collect();
+        // One colour wherever anything shows.
+        assert!(
+            pixels
+                .iter()
+                .filter(|p| p[3] > 0)
+                .all(|p| p[..3] == [255, 255, 255])
+        );
+        // Edges are partly covered, the body fully, the bite and corners not.
+        assert!(pixels.iter().any(|p| (1..255).contains(&p[3])));
+        let alpha = |x: u32, y: u32| px[((y * 32 + x) * 4 + 3) as usize];
+        assert_eq!(alpha(0, 0), 0);
+        assert_eq!(alpha(7, 20), 255, "the lit limb");
+        assert_eq!(alpha(22, 10), 0, "the bite out of the moon");
+    }
 
     fn png_of(size: u32) -> Vec<u8> {
         let mut out = Vec::new();
