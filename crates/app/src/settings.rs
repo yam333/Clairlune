@@ -32,6 +32,9 @@ pub struct General {
     pub show_tray_icon: bool,
     /// The first-run question, start quietly at sign-in, was answered.
     pub asked_start_at_login: bool,
+    /// macOS: the scene on screen is the screen saver too (Clairlune's
+    /// saver installed in ~/Library/Screen Savers).
+    pub screen_saver: bool,
 }
 
 impl Default for General {
@@ -40,6 +43,7 @@ impl Default for General {
             detailed_logging_until: 0,
             show_tray_icon: true,
             asked_start_at_login: false,
+            screen_saver: false,
         }
     }
 }

@@ -1,0 +1,29 @@
+[package]
+name = "clairlune-saver"
+description = "Clairlune's macOS screen saver: plays the scene on the desktop when the Mac idles"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+# Built into the Mac app's Clairlune.saver by the Release workflow; not a
+# library for crates.io.
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[target.'cfg(target_os = "macos")'.dependencies]
+clairlune-scene.workspace = true
+clairlune-render.workspace = true
+clairlune-live.workspace = true
+wgpu.workspace = true
+raw-window-handle.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+libc.workspace = true
+objc2.workspace = true
+objc2-foundation = { workspace = true, features = ["NSGeometry"] }
+objc2-app-kit = { workspace = true, features = ["NSView", "NSResponder", "NSWindow", "NSGraphics"] }
+objc2-screen-saver = { version = "0.3.2", default-features = false, features = ["std", "ScreenSaverView", "objc2-app-kit"] }
