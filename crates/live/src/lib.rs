@@ -99,7 +99,12 @@ impl Player {
         buddy: bool,
         view: PixelRect,
     ) -> Option<Player> {
-        if view.w == 0 || view.h == 0 || view.x + view.w > pkg.width || view.y + view.h > pkg.height
+        let inside =
+            |at: u32, len: u32, room: u32| at.checked_add(len).is_some_and(|end| end <= room);
+        if view.w == 0
+            || view.h == 0
+            || !inside(view.x, view.w, pkg.width)
+            || !inside(view.y, view.h, pkg.height)
         {
             return None;
         }

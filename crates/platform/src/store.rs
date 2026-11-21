@@ -19,6 +19,11 @@ pub struct Snapshot {
     pub monitors: Vec<(String, Option<PathBuf>)>,
     /// The OS fit mode (on Windows a `DESKTOP_WALLPAPER_POSITION` value).
     pub position: Option<i32>,
+    /// The desktop's own wallpaper settings, word for word (Linux: each
+    /// `gsettings` key and its value, such as GNOME's separate dark-mode
+    /// picture and the picture options), put back as they were.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub settings: Vec<(String, String)>,
 }
 
 const SNAPSHOT_FILE: &str = "previous-wallpaper.json";
@@ -33,7 +38,8 @@ pub struct StillStore {
 impl StillStore {
     /// A store in `dir` (created when missing).
     pub fn new(dir: impl Into<PathBuf>) -> std::io::Result<Self> {
-        let dir = dir.into();
+        // Absolute, like the paths `write` returns, so "is it ours" holds.
+        let dir = std::path::absolute(dir.into())?;
         fs::create_dir_all(&dir)?;
         Ok(StillStore { dir })
     }
@@ -67,20 +73,52 @@ impl StillStore {
         std::path::absolute(&path)
     }
 
-    /// Saves the wallpaper `restore` returns to, unless it is Clairlune's own
-    /// (every monitor showing a still from this store). So the user's wallpaper
-    /// is remembered on the first takeover, and a wallpaper they pick later
-    /// replaces it, but Clairlune never remembers itself.
+    /// Saves the wallpaper `restore` returns to, monitor by monitor: a
+    /// monitor showing the user's own image is remembered (a wallpaper they
+    /// pick later replaces the one saved), one showing a still of Clairlune's
+    /// keeps what was saved for it. So Clairlune never remembers itself, and
+    /// a monitor plugged in while it runs doesn't lose the others' originals.
+    /// Returns whether anything changed.
     pub fn remember_if_users(&self, snapshot: &Snapshot) -> std::io::Result<bool> {
-        let ours = !snapshot.monitors.is_empty()
-            && snapshot
-                .monitors
-                .iter()
-                .all(|(_, p)| p.as_deref().is_some_and(|p| p.starts_with(&self.dir)));
-        if ours {
+        let ours = |p: &Option<PathBuf>| p.as_deref().is_some_and(|p| p.starts_with(&self.dir));
+        let users: Vec<_> = snapshot.monitors.iter().filter(|(_, p)| !ours(p)).collect();
+        if users.is_empty() {
+            // Clairlune's own on every monitor, or no monitors at all (all
+            // asleep): nothing of the user's to save.
             return Ok(false);
         }
-        let json = serde_json::to_string_pretty(snapshot).map_err(std::io::Error::other)?;
+        let saved = self.original().ok().flatten();
+        let mut merged = saved.clone().unwrap_or_default();
+        for (id, path) in users {
+            match merged.monitors.iter_mut().find(|(m, _)| m == id) {
+                Some(entry) => entry.1.clone_from(path),
+                None => merged.monitors.push((id.clone(), path.clone())),
+            }
+        }
+        merged.monitors.retain(|(_, p)| !ours(p));
+        // The desktop's settings, but none naming one of Clairlune's stills.
+        let dir = self.dir.to_string_lossy();
+        let theirs: Vec<_> = snapshot
+            .settings
+            .iter()
+            .filter(|(_, v)| !v.contains(dir.as_ref()))
+            .cloned()
+            .collect();
+        for (k, v) in theirs {
+            match merged.settings.iter_mut().find(|(m, _)| *m == k) {
+                Some(entry) => entry.1 = v,
+                None => merged.settings.push((k, v)),
+            }
+        }
+        // The fit mode is the system's, for all monitors: it's the user's only
+        // when none shows Clairlune's (or nothing was saved yet).
+        if snapshot.monitors.iter().all(|(_, p)| !ours(p)) || merged.position.is_none() {
+            merged.position = snapshot.position;
+        }
+        if saved.as_ref() == Some(&merged) {
+            return Ok(false);
+        }
+        let json = serde_json::to_string_pretty(&merged).map_err(std::io::Error::other)?;
         let tmp = self.dir.join(format!("{SNAPSHOT_FILE}.part"));
         fs::write(&tmp, json)?;
         fs::rename(tmp, self.dir.join(SNAPSHOT_FILE))?;
@@ -184,6 +222,7 @@ mod tests {
                 ("m2".into(), None),
             ],
             position: Some(4),
+            settings: Vec::new(),
         };
         let ours = Snapshot {
             monitors: vec![
@@ -191,18 +230,65 @@ mod tests {
                 ("m2".into(), Some(s.dir().join("b.png"))),
             ],
             position: Some(4),
+            settings: Vec::new(),
         };
         let later = Snapshot {
             monitors: vec![("m1".into(), Some(PathBuf::from(r"C:\pics\new.jpg")))],
             position: Some(2),
+            settings: Vec::new(),
         };
         assert!(s.remember_if_users(&original).unwrap());
         assert!(!s.remember_if_users(&ours).unwrap());
         assert_eq!(s.original().unwrap(), Some(original));
         assert!(s.remember_if_users(&later).unwrap());
-        assert_eq!(s.original().unwrap(), Some(later));
+        // m2 wasn't there (unplugged): what was saved for it stays.
+        let both = Snapshot {
+            monitors: vec![
+                ("m1".into(), Some(PathBuf::from(r"C:\pics\new.jpg"))),
+                ("m2".into(), None),
+            ],
+            position: Some(2),
+            settings: Vec::new(),
+        };
+        assert_eq!(s.original().unwrap(), Some(both.clone()));
+        // Nothing to save from no monitors.
+        assert!(!s.remember_if_users(&Snapshot::default()).unwrap());
+        assert_eq!(s.original().unwrap(), Some(both));
         s.forget_original().unwrap();
         assert_eq!(s.original().unwrap(), None);
+        fs::remove_dir_all(s.dir()).unwrap();
+    }
+
+    #[test]
+    fn a_monitor_showing_clairlune_keeps_its_saved_original() {
+        let s = temp_store("mixed");
+        let a = PathBuf::from(r"C:\pics\a.jpg");
+        let b = PathBuf::from(r"C:\pics\b.jpg");
+        let first = Snapshot {
+            monitors: vec![("A".into(), Some(a.clone())), ("B".into(), Some(b.clone()))],
+            position: Some(4),
+            settings: Vec::new(),
+        };
+        assert!(s.remember_if_users(&first).unwrap());
+        // Clairlune on A only (`set --monitor A`), then remembered again.
+        let still = s.write("A", b"png").unwrap();
+        let mixed = Snapshot {
+            monitors: vec![("A".into(), Some(still)), ("B".into(), Some(b.clone()))],
+            position: Some(10),
+            settings: Vec::new(),
+        };
+        assert!(!s.remember_if_users(&mixed).unwrap());
+        assert_eq!(s.original().unwrap(), Some(first));
+        // A store made from a relative path still knows its own stills.
+        let rel = StillStore::new(std::path::Path::new("target").join("store-rel-test")).unwrap();
+        let mine = rel.write("A", b"png").unwrap();
+        let only_ours = Snapshot {
+            monitors: vec![("A".into(), Some(mine))],
+            position: None,
+            settings: Vec::new(),
+        };
+        assert!(!rel.remember_if_users(&only_ours).unwrap());
+        fs::remove_dir_all(rel.dir()).unwrap();
         fs::remove_dir_all(s.dir()).unwrap();
     }
 

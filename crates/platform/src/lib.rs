@@ -26,6 +26,14 @@ pub mod wlr;
 
 pub use store::{Snapshot, StillStore};
 
+/// Linux: the whole desktop as the one monitor wallpapers are made for (its
+/// largest output's size), without a wallpaper host (window managers with
+/// none can still play live).
+#[cfg(target_os = "linux")]
+pub fn linux_desktop_monitor() -> Monitor {
+    linux::desktop_monitor()
+}
+
 use std::fmt;
 use std::path::{Path, PathBuf};
 

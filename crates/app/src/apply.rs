@@ -1260,6 +1260,7 @@ mod tests {
             Ok(clairlune_platform::Snapshot {
                 monitors: Vec::new(),
                 position: None,
+                settings: Vec::new(),
             })
         }
         fn restore(
