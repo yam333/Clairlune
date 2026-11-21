@@ -17,6 +17,8 @@ mod login;
 pub mod macos;
 mod power;
 mod store;
+/// What this process uses (CPU time, memory), for the log.
+pub mod usage;
 #[cfg(windows)]
 mod windows;
 /// Live wallpaper windows in the desktop layer (Windows).

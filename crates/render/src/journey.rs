@@ -94,6 +94,12 @@ impl JourneyBake {
         Some(JourneyBake { strips, bands, y0 })
     }
 
+    /// The first row the moving layers reach: above it the frame is the
+    /// still background's.
+    pub fn band_top(&self) -> u32 {
+        self.y0 as u32
+    }
+
     /// The background at `t_ms` into `out`: the still background, then each
     /// strip from its offset, back to front.
     pub fn draw(
@@ -104,6 +110,24 @@ impl JourneyBake {
         out: &mut IndexedImage,
     ) {
         out.pixels.copy_from_slice(&still.pixels);
+        self.lay_strips(graph, t_ms, out);
+    }
+
+    /// [`JourneyBake::draw`] from [`JourneyBake::band_top`] down only: the
+    /// rows above are left as they are in `out`.
+    pub fn draw_band(
+        &self,
+        graph: &SceneGraph,
+        still: &IndexedImage,
+        t_ms: u64,
+        out: &mut IndexedImage,
+    ) {
+        let from = self.y0.min(out.height as usize) * out.width as usize;
+        out.pixels[from..].copy_from_slice(&still.pixels[from..]);
+        self.lay_strips(graph, t_ms, out);
+    }
+
+    fn lay_strips(&self, graph: &SceneGraph, t_ms: u64, out: &mut IndexedImage) {
         let Some(journey) = graph.journey.as_ref() else {
             return;
         };

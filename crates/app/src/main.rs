@@ -94,6 +94,9 @@ struct App {
     /// When the schedule next changes the wallpaper (None: only on demand).
     next_change: Option<Instant>,
     next_check: Instant,
+    /// When the last usage line was logged, and the CPU time then.
+    usage_at: Instant,
+    usage_cpu: Duration,
     /// The theme the current wallpaper was rendered for.
     shown_theme: Option<Theme>,
     /// The theme the wallpaper on screen was made for: a theme change is a
@@ -1548,6 +1551,54 @@ impl App {
         }
     }
 
+    /// Once a minute while something runs (live, or a window open), else
+    /// every quarter hour: CPU, memory and what live drew, in the log, so a
+    /// report of a busy app says where it goes.
+    fn log_usage(&mut self, now: Instant) {
+        let windows = [
+            &self.settings_window,
+            &self.library_window,
+            &self.timeline_window,
+            &self.archive_window,
+        ]
+        .iter()
+        .filter(|w| w.is_some())
+        .count();
+        let busy = windows > 0 || self.live.frame_interval() < Duration::from_secs(1);
+        let every = if busy {
+            Duration::from_secs(60)
+        } else {
+            Duration::from_secs(15 * 60)
+        };
+        if now < self.usage_at + every {
+            return;
+        }
+        let cpu = clairlune_platform::usage::process_cpu_time();
+        let wall = now - self.usage_at;
+        let pct = (cpu.saturating_sub(self.usage_cpu)).as_secs_f64() / wall.as_secs_f64().max(1e-3)
+            * 100.0;
+        let f = self.live.take_use();
+        let avg_ms = if f.frames > 0 {
+            f.busy.as_secs_f64() * 1e3 / f.frames as f64
+        } else {
+            0.0
+        };
+        tracing::info!(
+            target: "clairlune",
+            cpu_pct = format!("{pct:.1}"),
+            memory_mb = memory_mb(),
+            live_monitors = f.monitors,
+            live_fps = f.fps,
+            frames = f.frames,
+            frame_ms_avg = format!("{avg_ms:.2}"),
+            frame_ms_worst = format!("{:.2}", f.worst.as_secs_f64() * 1e3),
+            windows,
+            "usage"
+        );
+        self.usage_at = now;
+        self.usage_cpu = cpu;
+    }
+
     /// The tray icon is wanted but isn't up (no tray on this desktop, or it
     /// failed): Settings is the only way in, and closing it quits.
     fn tray_missing(&self) -> bool {
@@ -1909,6 +1960,7 @@ impl ApplicationHandler<AppEvent> for App {
             self.check();
             self.next_check = now + CHECK_EVERY;
         }
+        self.log_usage(now);
         let live_next = self.live.tick(Instant::now());
         self.set_metronome(live_next.is_some());
         let mut wake = match self.next_change {
@@ -1947,14 +1999,7 @@ impl ApplicationHandler<AppEvent> for App {
 
 /// Resident memory in MB, for the log (Windows; 0 elsewhere).
 pub(crate) fn memory_mb() -> u64 {
-    #[cfg(windows)]
-    {
-        clairlune_platform::windows_live::process_memory() >> 20
-    }
-    #[cfg(not(windows))]
-    {
-        0
-    }
+    clairlune_platform::usage::process_memory() >> 20
 }
 
 /// Logs to a daily file in `<data>/logs/` (seven kept), and to stderr in debug
@@ -2332,6 +2377,8 @@ fn main() {
         busy: false,
         next_change: None,
         next_check: Instant::now() + CHECK_EVERY,
+        usage_at: Instant::now(),
+        usage_cpu: clairlune_platform::usage::process_cpu_time(),
         shown_theme: None,
         asked_theme: None,
         chosen: false,
