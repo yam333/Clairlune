@@ -6,9 +6,6 @@
 //! accent, the ember orange of the wallpapers' campfires. Tests check every
 //! text and control pair against WCAG 2.2 AA contrast.
 
-// Used by the UI windows from milestone 14d on; the tests use them now.
-#![allow(dead_code)]
-
 /// An sRGB colour.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Rgb(pub u8, pub u8, pub u8);
@@ -18,7 +15,8 @@ impl Rgb {
         Rgb((v >> 16) as u8, (v >> 8) as u8, v as u8)
     }
 
-    /// WCAG relative luminance.
+    /// WCAG relative luminance (the contrast tests).
+    #[cfg(test)]
     pub fn luminance(self) -> f64 {
         let lin = |c: u8| {
             let c = f64::from(c) / 255.0;
@@ -32,6 +30,7 @@ impl Rgb {
     }
 
     /// WCAG contrast ratio, 1 to 21.
+    #[cfg(test)]
     pub fn contrast(self, other: Rgb) -> f64 {
         let (a, b) = (self.luminance(), other.luminance());
         (a.max(b) + 0.05) / (a.min(b) + 0.05)
@@ -92,7 +91,6 @@ pub const DARK: Colors = Colors {
 
 /// Spacing scale in px (4 px base, 8 px rhythm). Use the named steps.
 pub mod space {
-    pub const S0: f32 = 0.0;
     pub const S1: f32 = 4.0;
     pub const S2: f32 = 8.0;
     pub const S3: f32 = 12.0;
@@ -100,7 +98,6 @@ pub mod space {
     pub const S5: f32 = 24.0;
     pub const S6: f32 = 32.0;
     pub const S7: f32 = 48.0;
-    pub const S8: f32 = 64.0;
 }
 
 /// Corner radii in px: nothing rounder than a panel.
@@ -116,7 +113,7 @@ pub struct TypeSize {
     pub line: f32,
 }
 
-/// The five sizes (no others on any screen).
+/// The four sizes (no others on any screen).
 pub mod text {
     use super::TypeSize;
     /// Captions, mono labels.
@@ -139,15 +136,6 @@ pub mod text {
         size: 20.0,
         line: 26.0,
     };
-    /// The one display line (first run, empty states).
-    pub const DISPLAY: TypeSize = TypeSize {
-        size: 26.0,
-        line: 32.0,
-    };
-    pub const WEIGHT_REGULAR: u16 = 400;
-    /// Selected sidebar item only.
-    pub const WEIGHT_MEDIUM: u16 = 500;
-    pub const WEIGHT_SEMIBOLD: u16 = 600;
 }
 
 /// Sizes of things.
@@ -159,22 +147,15 @@ pub mod size {
     pub const SIDEBAR: f32 = 200.0;
     /// Settings page content.
     pub const PAGE_MAX: f32 = 640.0;
-    pub const ICON: f32 = 16.0;
-    pub const ICON_STROKE: f32 = 1.5;
     pub const HAIRLINE: f32 = 1.0;
     pub const FOCUS_RING: f32 = 2.0;
     pub const FOCUS_OFFSET: f32 = 2.0;
-    pub const THUMB_WIDTH: f32 = 160.0;
 }
 
 /// Motion durations in ms; ease-out only. Zero when the system asks for
 /// reduced motion.
 pub mod motion {
-    pub const FAST: u32 = 120;
     pub const BASE: u32 = 160;
-    pub const SLOW: u32 = 200;
-    /// cubic-bezier(0.2, 0, 0, 1)
-    pub const EASE_OUT: [f32; 4] = [0.2, 0.0, 0.0, 1.0];
 }
 
 #[cfg(test)]
@@ -237,17 +218,10 @@ mod tests {
             space::S5,
             space::S6,
             space::S7,
-            space::S8,
         ] {
             assert_eq!(s % 4.0, 0.0);
         }
-        for t in [
-            text::SMALL,
-            text::BODY,
-            text::LARGE,
-            text::TITLE,
-            text::DISPLAY,
-        ] {
+        for t in [text::SMALL, text::BODY, text::LARGE, text::TITLE] {
             assert_eq!(t.line % 2.0, 0.0);
             assert!(t.line / t.size >= 1.2 && t.line / t.size <= 1.45, "{t:?}");
         }

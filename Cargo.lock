@@ -722,7 +722,6 @@ dependencies = [
  "clairlune-sprites",
  "clap",
  "png",
- "serde_json",
  "softbuffer",
  "tracing",
  "tracing-subscriber",

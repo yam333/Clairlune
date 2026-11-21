@@ -67,14 +67,15 @@ pub enum Job {
 
 /// One monitor's scene as applied, for playing it live.
 #[derive(Clone, Debug)]
-#[cfg_attr(not(windows), allow(dead_code))] // live playback is Windows-only so far
 pub struct LiveScene {
     pub monitor: Monitor,
     pub package: Arc<ScenePackage>,
     pub theme: Theme,
     pub buddy: bool,
     /// The still set as this monitor's wallpaper (the live frame at the hero
-    /// time), set again when live playback stops.
+    /// time), set again when live playback stops (Windows) or the Space
+    /// changes (macOS). Linux's own surfaces never cover it, so it isn't read.
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     pub still: Option<PathBuf>,
     /// Span mode: the part of the scene this monitor shows. `None`: all of it.
     pub view: Option<PixelRect>,
@@ -661,7 +662,7 @@ fn apply(
         let entry = archive
             .add(&NewEntry {
                 created: crate::timefmt::now_unix(),
-                recipes: entry_recipes.clone(),
+                recipes: entry_recipes,
                 pngs: pngs.clone(),
                 thumb_png: png_of(&thumb, &palette)?,
                 packages: packages.clone(),
