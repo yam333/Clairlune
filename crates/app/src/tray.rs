@@ -26,6 +26,8 @@ pub enum Action {
     OpenTimeline,
     OpenArchive,
     OpenSettings,
+    /// The newer version's release page.
+    OpenUpdate,
     Quit,
 }
 
@@ -52,6 +54,9 @@ pub struct Tray {
     archive: MenuItem,
     settings: MenuItem,
     quit: MenuItem,
+    /// "Update available": at the top of the menu while there is one.
+    update: MenuItem,
+    update_shown: Cell<bool>,
 }
 
 /// The colour of the mark: macOS gets black, as a template it tints itself
@@ -102,6 +107,7 @@ impl Tray {
         let archive = MenuItem::new("Archive\u{2026}", true, None);
         let settings = MenuItem::new("Settings\u{2026}", true, None);
         let quit = MenuItem::new("Quit Clairlune", true, None);
+        let update = MenuItem::new("Update available\u{2026}", true, None);
         let menu = Menu::new();
         menu.append_items(&[
             &new,
@@ -156,6 +162,8 @@ impl Tray {
             archive,
             settings,
             quit,
+            update,
+            update_shown: Cell::new(false),
         })
     }
 
@@ -176,6 +184,7 @@ impl Tray {
             (self.timeline.id(), Action::OpenTimeline),
             (self.archive.id(), Action::OpenArchive),
             (self.settings.id(), Action::OpenSettings),
+            (self.update.id(), Action::OpenUpdate),
             (self.quit.id(), Action::Quit),
         ];
         if let Some(a) = pairs.into_iter().find(|(i, _)| *i == id).map(|(_, a)| a) {
@@ -219,6 +228,27 @@ impl Tray {
 
     /// Shows the theme mode as a radio group (check items toggle themselves on
     /// click, so the state is always set from the settings).
+    /// Shows "Update available: <version>" at the top of the menu, or takes
+    /// it away (`None`).
+    pub fn show_update(&self, version: Option<&str>) {
+        match version {
+            Some(v) => {
+                self.update
+                    .set_text(format!("Update available: {v}\u{2026}"));
+                if !self.update_shown.get() {
+                    let _ = self.menu.insert(&self.update, 0);
+                    self.update_shown.set(true);
+                }
+            }
+            None => {
+                if self.update_shown.get() {
+                    let _ = self.menu.remove(&self.update);
+                    self.update_shown.set(false);
+                }
+            }
+        }
+    }
+
     /// Draws the mark again for the taskbar's colour now (Windows: the
     /// taskbar turned light or dark).
     pub fn refresh_mark(&self) {
