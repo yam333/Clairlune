@@ -20,7 +20,13 @@ fn main() {
         })
         .unwrap_or((3024u32, 1964u32));
     let fps: u64 = args.next().and_then(|a| a.parse().ok()).unwrap_or(12);
-    for activity in ["warm_hands", "stroll", "stargaze", "hike_ridge", "broom_journey"] {
+    for activity in [
+        "warm_hands",
+        "stroll",
+        "stargaze",
+        "hike_ridge",
+        "broom_journey",
+    ] {
         let ctx = ContentContext {
             enabled_activities: vec![activity.into()],
             ..ContentContext::default()

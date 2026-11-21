@@ -15,6 +15,7 @@ mod login;
 /// macOS: the wallpaper per screen, and Space changes.
 #[cfg(target_os = "macos")]
 pub mod macos;
+mod power;
 mod store;
 #[cfg(windows)]
 mod windows;
@@ -26,6 +27,7 @@ pub mod windows_live;
 pub mod wlr;
 
 pub use login::BACKGROUND_ARG;
+pub use power::on_battery;
 pub use store::{Snapshot, StillStore};
 
 /// Linux: the whole desktop as the one monitor wallpapers are made for (its

@@ -208,10 +208,10 @@ pub struct Content {
 #[serde(rename_all = "snake_case")]
 pub enum Contrast {
     Soft,
-    #[default]
     Normal,
     High,
-    /// A different one for each scene.
+    /// A different one for each scene (the default).
+    #[default]
     Vary,
 }
 

@@ -273,11 +273,7 @@ impl Live {
             let desktop = self.desktop.as_mut()?;
             if self.checked.is_none_or(|t| now >= t + HEALTH_CHECK) {
                 self.checked = Some(now);
-                let battery = clairlune_platform::windows_live::on_battery();
-                if battery != self.on_battery {
-                    tracing::info!(target: "clairlune", on_battery = battery, "live: power source");
-                    self.on_battery = battery;
-                }
+                self.on_battery = power_source(self.on_battery);
                 if !desktop.healthy() {
                     tracing::info!(target: "clairlune", "the desktop layer changed (Explorer restarted?); starting live again");
                     self.restart();
@@ -310,7 +306,16 @@ impl Live {
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         {
             let desktop = self.desktop.as_mut()?;
+            if self.checked.is_none_or(|t| now >= t + HEALTH_CHECK) {
+                self.checked = Some(now);
+                self.on_battery = power_source(self.on_battery);
+            }
             let next = self.next?;
+            if self.on_battery && self.battery_pause {
+                // Paused on battery: the frame on screen stays; look again
+                // at the next check.
+                return self.checked.map(|t| t + HEALTH_CHECK);
+            }
             if now >= next {
                 if let Err(e) = desktop.tick() {
                     tracing::warn!(target: "clairlune", error = %e, "live frame failed; stopping");
@@ -330,6 +335,16 @@ impl Live {
             None
         }
     }
+}
+
+/// On battery now (logged when it changes from `was`).
+#[cfg(any(windows, target_os = "macos", target_os = "linux"))]
+fn power_source(was: bool) -> bool {
+    let now = clairlune_platform::on_battery();
+    if now != was {
+        tracing::info!(target: "clairlune", on_battery = now, "live: power source");
+    }
+    now
 }
 
 #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
