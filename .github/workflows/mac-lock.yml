@@ -36,6 +36,25 @@ jobs:
           killall WallpaperAgent 2>/dev/null || true
           sleep 3
           sw_vers
+      - name: Start the screen saver first (locking behind it)
+        run: |
+          set +e
+          log="$HOME/Library/Containers/com.apple.ScreenSaver.Engine.legacyScreenSaver/Data/Library/Logs/Clairlune Saver.log"
+          rm -f "$log"
+          echo "screen lock: $(sysadminctl -screenLock status 2>&1 | tail -1)"
+          defaults -currentHost read com.apple.screensaver 2>/dev/null | head -20
+          open -a /System/Library/CoreServices/ScreenSaverEngine.app
+          for t in 10 20 30 40; do
+            sleep 10
+            echo "== about $t s after starting it"
+            ioreg -n Root -d1 -a | grep -A1 CGSSessionScreenIsLocked | tr -d '
+	'; echo
+          done
+          ps -axo pid,%cpu,command | grep -iE "ScreenSaverEngine|legacyScreenSaver" | grep -v grep
+          echo "== the saver's log"
+          cat "$log" 2>/dev/null || echo "(no log)"
+          killall ScreenSaverEngine legacyScreenSaver 2>/dev/null
+          sleep 3
       - name: Lock the screen (as Apple menu > Lock Screen does)
         run: |
           set +e
