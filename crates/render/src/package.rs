@@ -227,6 +227,14 @@ impl ScenePackage {
         self.themes.iter().map(|t| t.theme).collect()
     }
 
+    /// Bytes a journey's baked layers take in a theme (baking them now), 0
+    /// for a scene that stays put.
+    pub fn journey_bytes(&self, theme: Theme) -> usize {
+        self.theme(theme)
+            .and_then(ThemeScene::journey)
+            .map_or(0, JourneyBake::bytes)
+    }
+
     /// Keeps only `theme` (when the scene has it): a wallpaper on screen
     /// plays one, and each theme carries a full-size background and its
     /// own layout. Saved after this, the package has only that theme.

@@ -205,8 +205,7 @@ impl MacDesktop {
         if outputs.is_empty() {
             return Err("no screens to play on".into());
         }
-        let surfaces: usize = outputs.iter().map(|o| o.view.surfaces()).sum();
-        tracing::info!(target: "clairlune", screens = outputs.len(), surfaces, "live: showing IOSurfaces");
+        tracing::info!(target: "clairlune", screens = outputs.len(), "live: showing IOSurfaces");
         let n = outputs.len();
         Ok(MacDesktop {
             outputs,
