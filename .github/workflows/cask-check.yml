@@ -1,0 +1,47 @@
+name: Cask check
+
+# The Homebrew cask as scripts/package_manifests.py writes it, for the latest
+# release: Homebrew's style check and audit, then a real install and uninstall
+# on a macOS runner (a throwaway machine).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["scripts/package_manifests.py", ".github/workflows/cask-check.yml"]
+
+permissions:
+  contents: read
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  cask:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: The cask for the latest release
+        run: |
+          set -euo pipefail
+          v=$(gh release view --repo yam333/Clairlune --json tagName --jq .tagName); v=${v#v}
+          gh release download "v$v" --repo yam333/Clairlune --dir packages
+          python3 scripts/package_manifests.py --artifacts packages --version "$v" --out manifests --strict
+          cat manifests/homebrew/Casks/clairlune.rb
+      - name: Style and audit
+        run: |
+          set -euo pipefail
+          brew tap-new --no-git local/check
+          tap="$(brew --repository)/Library/Taps/local/homebrew-check"
+          mkdir -p "$tap/Casks"
+          cp manifests/homebrew/Casks/clairlune.rb "$tap/Casks/"
+          brew style --cask local/check/clairlune
+          brew audit --cask --new local/check/clairlune 2>&1 | tee audit.txt || true
+          ! grep -i "deprecat" audit.txt
+      - name: Install and uninstall
+        run: |
+          set -euo pipefail
+          brew install --cask local/check/clairlune 2>&1 | tee install.txt
+          ! grep -i "warning" install.txt
+          ls -d /Applications/Clairlune.app
+          brew uninstall --cask local/check/clairlune
+          [ ! -e /Applications/Clairlune.app ]
