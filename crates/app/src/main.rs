@@ -924,13 +924,9 @@ impl App {
         if self.settings.general.check_updates && self.update.due(timefmt::now_unix()) {
             self.check_updates(false);
         }
-        // Login Items may have been switched on or off meanwhile.
+        // Permissions may have been given or taken away meanwhile.
         if self.settings_window.is_some() {
-            let was = self.status.login_needs_approval;
-            self.check_login_approval();
-            if was != self.status.login_needs_approval {
-                self.redraw_settings();
-            }
+            self.check_permissions();
         }
         let until = self.settings.general.detailed_logging_until;
         if until != 0 && until <= timefmt::now_unix() {
@@ -1086,9 +1082,8 @@ impl App {
         self.status.start_at_login = std::env::current_exe()
             .ok()
             .and_then(|exe| clairlune_platform::start_at_login(&exe));
-        self.check_login_approval();
         self.status.saver_available = saver::shipped().is_some();
-        self.check_saver_password();
+        self.check_permissions();
         self.status.ask_start_at_login = !self.settings.general.asked_start_at_login
             && self.status.start_at_login == Some(false)
             && self.ui_test.is_none();
@@ -1504,7 +1499,7 @@ impl App {
                 self.save_settings();
                 self.sync_tray();
                 self.sync_saver(true);
-                self.check_saver_password();
+                self.check_permissions();
                 if let Some(t) = &self.tray {
                     t.show_theme(self.settings.theme.mode);
                     t.show_paused(self.settings.schedule.paused);
@@ -1632,10 +1627,10 @@ impl App {
                 match result {
                     Ok(state) => {
                         self.status.start_at_login = state;
-                        self.check_login_approval();
+                        self.check_permissions();
                         // Switched off in Login Items: only the user can turn
                         // it on, there; take them to it.
-                        if on && self.status.login_needs_approval {
+                        if on && cfg!(target_os = "macos") && self.login_needs_approval() {
                             tracing::info!(target: "clairlune", "start at login needs approval in Login Items");
                             clairlune_platform::open_login_items_settings();
                             self.status.note = Some(
@@ -2053,30 +2048,68 @@ impl App {
         }
     }
 
-    /// macOS: whether the screen saver locks at once, for Settings.
-    fn check_saver_password(&mut self) {
-        self.status.saver_password_after = if self.settings.general.screen_saver {
-            match saver::password_after() {
-                Some(saver::PasswordAfter::Seconds(s)) if s >= 60 => Some(format!(
-                    "{} minute{}",
-                    s / 60,
-                    if s / 60 == 1 { "" } else { "s" }
-                )),
-                Some(saver::PasswordAfter::Seconds(s)) => Some(format!("{s} seconds")),
-                Some(saver::PasswordAfter::Never) => Some("never".into()),
-                _ => None,
+    /// What the features in use need the user to allow in the system's
+    /// settings (macOS, Windows), for Settings > General: start at login
+    /// switched on in Login Items or Startup apps; on the Mac with the
+    /// screen saver on, Clairlune picked as it and the password asked at
+    /// once (so it locks).
+    fn check_permissions(&mut self) {
+        use ui::view::{Permission, UiAction};
+        let mut list = Vec::new();
+        if cfg!(any(target_os = "macos", windows)) && self.status.start_at_login == Some(true) {
+            let off = std::env::current_exe()
+                .is_ok_and(|exe| clairlune_platform::start_at_login_needs_approval(&exe));
+            list.push(Permission {
+                name: "Start at login",
+                granted: !off,
+                open: UiAction::OpenLoginItems,
+            });
+        }
+        if cfg!(target_os = "macos")
+            && self.settings.general.screen_saver
+            && saver::shipped().is_some()
+        {
+            list.push(Permission {
+                name: "Screen saver",
+                granted: saver::picked() == Some(true),
+                open: UiAction::OpenSaverSettings,
+            });
+            if let Some(after) = saver::password_after() {
+                list.push(Permission {
+                    name: "Lock right away",
+                    granted: after == saver::PasswordAfter::Immediately,
+                    open: UiAction::OpenLockScreenSettings,
+                });
             }
-        } else {
-            None
-        };
+        }
+        // The UI test shows one of each.
+        if self.ui_test.is_some() {
+            list = vec![
+                Permission {
+                    name: "Start at login",
+                    granted: true,
+                    open: UiAction::OpenLoginItems,
+                },
+                Permission {
+                    name: "Screen saver",
+                    granted: false,
+                    open: UiAction::OpenSaverSettings,
+                },
+            ];
+        }
+        if list != self.status.permissions {
+            self.status.permissions = list;
+            self.redraw_settings();
+        }
     }
 
-    /// macOS: whether start at login is switched off in Login Items.
-    fn check_login_approval(&mut self) {
-        self.status.login_needs_approval = cfg!(target_os = "macos")
+    /// Whether start at login is switched off where only the user can
+    /// switch it on (Login Items, Startup apps).
+    fn login_needs_approval(&self) -> bool {
+        cfg!(any(target_os = "macos", windows))
             && self.status.start_at_login == Some(true)
             && std::env::current_exe()
-                .is_ok_and(|exe| clairlune_platform::start_at_login_needs_approval(&exe));
+                .is_ok_and(|exe| clairlune_platform::start_at_login_needs_approval(&exe))
     }
 
     fn redraw_settings(&self) {
@@ -2445,6 +2478,12 @@ impl ApplicationHandler<AppEvent> for App {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
+        // Back from the system's settings: see what's allowed now.
+        if matches!(event, WindowEvent::Focused(true))
+            && self.settings_window.as_ref().is_some_and(|w| w.id() == id)
+        {
+            self.check_permissions();
+        }
         let status = self.status();
         let mut actions = Vec::new();
         let before = self.settings.clone();

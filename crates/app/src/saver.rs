@@ -145,6 +145,100 @@ pub fn start_now() {
         .status();
 }
 
+/// Whether Clairlune is the screen saver picked in System Settings, or
+/// `None` when it can't tell. macOS 14 and later keep the choice in the
+/// wallpaper store (an Idle choice naming Clairlune.saver); macOS 13 in the
+/// screen saver's own defaults. Read only.
+pub fn picked() -> Option<bool> {
+    if !cfg!(target_os = "macos") {
+        return None;
+    }
+    let home = std::env::var_os("HOME").map(PathBuf::from)?;
+    let store = home
+        .join("Library")
+        .join("Application Support")
+        .join("com.apple.wallpaper")
+        .join("Store")
+        .join("Index.plist");
+    if store.exists() {
+        let out = std::process::Command::new("plutil")
+            .args(["-convert", "xml1", "-o", "-"])
+            .arg(&store)
+            .output()
+            .ok()?;
+        return out
+            .status
+            .success()
+            .then(|| idle_uses_clairlune(&String::from_utf8_lossy(&out.stdout)));
+    }
+    let out = std::process::Command::new("defaults")
+        .args([
+            "-currentHost",
+            "read",
+            "com.apple.screensaver",
+            "moduleDict",
+        ])
+        .output()
+        .ok()?;
+    Some(String::from_utf8_lossy(&out.stdout).contains(BUNDLE))
+}
+
+/// In the wallpaper store (as XML): whether an Idle (screen saver) choice
+/// names Clairlune.saver. Each choice's configuration is a small property
+/// list of its own, in base64 under <data>.
+fn idle_uses_clairlune(xml: &str) -> bool {
+    const IDLE: &str = "<key>Idle</key>";
+    const DESKTOP: &str = "<key>Desktop</key>";
+    const DATA: &str = "<data>";
+    let mut idle = false;
+    let mut i = 0;
+    loop {
+        let next = [IDLE, DESKTOP, DATA]
+            .into_iter()
+            .filter_map(|m| xml[i..].find(m).map(|p| (p + i, m)))
+            .min();
+        let Some((at, mark)) = next else {
+            return false;
+        };
+        i = at + mark.len();
+        match mark {
+            IDLE => idle = true,
+            DESKTOP => idle = false,
+            _ => {
+                let end = xml[i..].find("</data>").map_or(xml.len(), |e| i + e);
+                let bytes = base64(&xml[i..end]);
+                if idle && bytes.windows(BUNDLE.len()).any(|w| w == BUNDLE.as_bytes()) {
+                    return true;
+                }
+                i = end;
+            }
+        }
+    }
+}
+
+/// Standard base64, ignoring whitespace (as plutil writes <data>).
+fn base64(text: &str) -> Vec<u8> {
+    let mut out = Vec::new();
+    let (mut acc, mut bits) = (0u32, 0u32);
+    for c in text.bytes() {
+        let v = match c {
+            b'A'..=b'Z' => c - b'A',
+            b'a'..=b'z' => c - b'a' + 26,
+            b'0'..=b'9' => c - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            _ => continue,
+        };
+        acc = (acc << 6) | u32::from(v);
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((acc >> bits) as u8);
+        }
+    }
+    out
+}
+
 /// How soon after the screen saver starts macOS asks for the password
 /// (System Settings > Lock Screen).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -231,6 +325,34 @@ fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_picked_screen_saver_is_found_in_the_store() {
+        // base64 of a configuration naming the saver, and of another one.
+        let ours = "YnBsaXN0MDDRAQJWbW9kdWxl0QMEWHJlbGF0aXZlXxA4ZmlsZTovLy9Vc2Vycy9hL0xpYnJhcnkvU2NyZWVuJTIwU2F2ZXJzL0NsYWlybHVuZS5zYXZlci8ICxIVHgAAAAAAAAEBAAAAAAAAAAUAAAAAAAAAAAAAAAAAAABZ";
+        let other = "YnBsaXN0MDDRAQJWbW9kdWxl0QMEWHJlbGF0aXZlXxAzZmlsZTovLy9TeXN0ZW0vTGlicmFyeS9TY3JlZW4lMjBTYXZlcnMvSGVsbG8uc2F2ZXIvCAsSFR4AAAAAAAABAQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAVA==";
+        let xml = |desktop: &str, idle: &str| {
+            format!(
+                "<dict><key>AllSpacesAndDisplays</key><dict><key>Desktop</key><dict><key>Content</key><dict><key>Choices</key><array><dict><key>Configuration</key><data>{desktop}</data></dict></array></dict></dict><key>Idle</key><dict><key>Content</key><dict><key>Choices</key><array><dict><key>Configuration</key><data>\n\t{idle}\n\t</data></dict></array></dict></dict></dict></dict>"
+            )
+        };
+        assert!(idle_uses_clairlune(&xml(other, ours)));
+        assert!(!idle_uses_clairlune(&xml(ours, other)));
+        assert!(!idle_uses_clairlune("<dict></dict>"));
+        assert_eq!(base64("aGk="), b"hi");
+    }
+
+    /// On a Mac: what `picked` and `password_after` say here; with
+    /// CLAIRLUNE_EXPECT_PICKED=1 or 0 set, it must match (mac-lock.yml).
+    #[test]
+    #[ignore]
+    fn picked_here() {
+        let picked = picked();
+        eprintln!("picked: {picked:?}, password after: {:?}", password_after());
+        if let Ok(want) = std::env::var("CLAIRLUNE_EXPECT_PICKED") {
+            assert_eq!(picked, Some(want == "1"));
+        }
+    }
 
     #[test]
     fn the_password_delay_is_read() {

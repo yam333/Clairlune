@@ -49,6 +49,15 @@ impl Section {
     }
 }
 
+/// Something only the user can allow, in the system's settings.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Permission {
+    pub name: &'static str,
+    pub granted: bool,
+    /// Opens where it's allowed.
+    pub open: UiAction,
+}
+
 /// What the app shows about the wallpaper on screen and its own state.
 #[derive(Clone, Debug, Default)]
 pub struct Status {
@@ -61,16 +70,14 @@ pub struct Status {
     pub busy: bool,
     /// Registered to start at login; `None` where this build can't manage it.
     pub start_at_login: Option<bool>,
-    /// macOS: registered, but switched off in System Settings > General >
-    /// Login Items (only the user can switch it on there).
-    pub login_needs_approval: bool,
+    /// macOS and Windows: what the features in use need the user to allow
+    /// in the system's settings, and whether they have.
+    pub permissions: Vec<Permission>,
     /// Ask, once, whether to start quietly at sign-in (the first run).
     pub ask_start_at_login: bool,
     /// macOS: this copy carries the screen saver (from the DMG or Homebrew).
     pub saver_available: bool,
-    /// macOS: the screen saver doesn't lock at once: after how long it
-    /// asks for the password ("5 minutes"), or "never".
-    pub saver_password_after: Option<String>,
+
     /// The monitors the wallpaper is on: id and name ("Left (2560x1440,
     /// main)").
     pub monitors: Vec<(String, String)>,
@@ -1647,27 +1654,11 @@ fn page(
                 tray_name()
             );
             match status.start_at_login {
-                Some(mut on) => {
-                    row(ui, theme, "Start at login", &tray_desc, |ui| {
-                        if toggle(ui, theme, &mut on, "Start at login").changed() {
-                            actions.push(UiAction::SetStartAtLogin(on));
-                        }
-                    });
-                    if on && status.login_needs_approval {
-                        ui.horizontal_wrapped(|ui| {
-                            ui.label(
-                                RichText::new(
-                                    "macOS has Clairlune switched off in Login Items, so it won't start with your Mac until you switch it on there.",
-                                )
-                                .color(c(t.danger)),
-                            );
-                            if ui.button("Open Login Items").clicked() {
-                                actions.push(UiAction::OpenLoginItems);
-                            }
-                        });
-                        ui.add_space(space::S4);
+                Some(mut on) => row(ui, theme, "Start at login", &tray_desc, |ui| {
+                    if toggle(ui, theme, &mut on, "Start at login").changed() {
+                        actions.push(UiAction::SetStartAtLogin(on));
                     }
-                }
+                }),
                 None => row(
                     ui,
                     theme,
@@ -1699,6 +1690,30 @@ fn page(
                     toggle(ui, theme, &mut s.general.show_tray_icon, icon_name);
                 },
             );
+            if cfg!(any(target_os = "macos", windows)) {
+                group(ui, "Permissions");
+                if status.permissions.is_empty() {
+                    ui.label(
+                        RichText::new("Nothing to allow for what's on now.")
+                            .color(c(t.text_secondary)),
+                    );
+                    ui.add_space(space::S4);
+                }
+                for p in &status.permissions {
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new(p.name).font(style::body_strong()));
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            if p.granted {
+                                ui.label(RichText::new("Granted").color(c(t.accent)));
+                            } else if ui.button("Open Settings").clicked() {
+                                actions.push(p.open.clone());
+                            }
+                        });
+                    });
+                    ui.add_space(space::S3);
+                }
+                ui.add_space(space::S2);
+            }
             row(ui, theme, "Check for updates", "Once a day", |ui| {
                 toggle(ui, theme, &mut s.general.check_updates, "Check for updates");
             });
@@ -1780,19 +1795,6 @@ fn page(
                             )
                             .color(c(t.text_secondary)),
                         );
-                        if let Some(after) = &status.saver_password_after {
-                            ui.horizontal_wrapped(|ui| {
-                                ui.label(
-                                    RichText::new(format!(
-                                        "macOS asks for your password {after} after the screen saver starts, so it doesn't lock at once."
-                                    ))
-                                    .color(c(t.danger)),
-                                );
-                                if ui.button("Lock Screen settings").clicked() {
-                                    actions.push(UiAction::OpenLockScreenSettings);
-                                }
-                            });
-                        }
                         ui.add_space(space::S4);
                     }
                 } else {

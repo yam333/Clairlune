@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [".github/workflows/mac-lock.yml", "crates/saver/**"]
+    paths: [".github/workflows/mac-lock.yml", "crates/saver/**", "crates/app/src/saver.rs"]
 
 permissions:
   contents: read
@@ -33,9 +33,13 @@ jobs:
           sh scripts/make_saver.sh aarch64-apple-darwin out 0.0.0-check
           rm -rf "$HOME/Library/Screen Savers/Clairlune.saver"
           cp -R out/Clairlune.saver "$HOME/Library/Screen Savers/"
+          # Settings > General > Permissions reads the pick: not yet...
+          CLAIRLUNE_EXPECT_PICKED=0 cargo test --release -p clairlune picked_here -- --ignored --nocapture
           python3 scripts/ci_pick_saver.py "$HOME/Library/Screen Savers/Clairlune.saver"
           killall WallpaperAgent 2>/dev/null || true
           sleep 3
+          # ...and now.
+          CLAIRLUNE_EXPECT_PICKED=1 cargo test --release -p clairlune picked_here -- --ignored --nocapture
           sw_vers
       - name: Start the screen saver first (locking behind it)
         run: |
