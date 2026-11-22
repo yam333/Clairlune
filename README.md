@@ -16,7 +16,7 @@ Each wallpaper is a landscape made of text characters, with a small pixel-art Cl
 
 ## Status
 
-Usable every day on Windows and macOS, where the tray or menu bar app is the main way to use it. There's no Linux app; on Linux, `clairlune-cli` renders the same scenes as PNGs and GIFs. There are twenty-one landscapes (from canyons and snowfields to a volcano, palm islands, a bamboo grove, a waterfall, old ruins, a swamp and the Moon), thirty-eight things Clawd can be doing, fifteen kinds of weather (petals, fog, blizzards, falling ash, birds, butterflies and shooting stars among them), and two looks: line art, or a dithered version built from dots and bars. Seven of the activities are journeys, where the land in front scrolls past a big still landmark (a dome, a peak, a volcano, a mesa, a rising moon): a ridge hike, ski touring, sledding, a forest walk, a desert trek, and flights on the broom or in the balloon. The roadmap is in [PLAN.md](PLAN.md).
+Usable every day on Windows and macOS, where the tray or menu bar app is the main way to use it. There's no Linux app; on Linux, `clairlune-cli` renders the same scenes as PNGs and GIFs. There are twenty-seven landscapes (from canyons and snowfields to a volcano, palm islands, a waterfall, old ruins and the Moon, and magical ones: giant mushrooms, a crystal cave, a great tree hung with lanterns, a wizard's tower, a ring of standing stones and a lake of floating lanterns), thirty-eight things Clawd can be doing, fifteen kinds of weather (petals, fog, blizzards, falling ash, birds, butterflies and shooting stars among them), and two looks: line art, or a dithered version built from dots and bars. Seven of the activities are journeys, where the land in front scrolls past a big still landmark (a dome, a peak, a volcano, a mesa, a rising moon): a ridge hike, ski touring, sledding, a forest walk, a desert trek, and flights on the broom or in the balloon. The roadmap is in [PLAN.md](PLAN.md).
 
 ## Install
 
@@ -62,7 +62,7 @@ cargo run --release -p clairlune-cli -- generate --seed 7 --theme dark --size 38
 | `--size <W>x<H>` | Output size in pixels. |
 | `--out <path>` | Output PNG (indexed, at most 255 colours). |
 | `--activity <id>` | Force an activity, such as `stroll` or `hike_ridge`. An unknown id lists them all. |
-| `--archetype <id>` | Force a landscape: `canyon`, `mountains`, `forest`, `desert`, `snowfield`, `shore`, `city_rooftops`, `night_sky`, `cave`, `interior`, `meadow`, `lake`, `volcano`, `islands`, `lunar`, `bamboo`, `waterfall`, `countryside`, `ruins`, `savanna`, `swamp`. |
+| `--archetype <id>` | Force a landscape: `canyon`, `mountains`, `forest`, `desert`, `snowfield`, `shore`, `city_rooftops`, `night_sky`, `cave`, `interior`, `meadow`, `lake`, `volcano`, `islands`, `lunar`, `bamboo`, `waterfall`, `countryside`, `ruins`, `savanna`, `swamp`, `mushrooms`, `crystals`, `great_tree`, `wizard_tower`, `standing_stones`, `lantern_lake`. |
 | `--weather <id>` | Force the weather where the scene allows it, such as `rain`, `fog`, `birds`, `butterflies`, `seeds` or `shooting_stars`. An unknown id lists them all. |
 | `--look <look>` | `line` or `dither`. |
 | `--contrast <c>` | `soft`, `normal`, `high`, or `vary` (one per seed). |

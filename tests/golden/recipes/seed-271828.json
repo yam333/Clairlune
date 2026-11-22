@@ -5,15 +5,13 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "472e5683060b8a8d",
-  "activity": "chess",
-  "archetype": "canyon",
+  "content_ctx_hash": "da267a8eef87d9ad",
+  "activity": "balloon_journey",
+  "archetype": "forest",
   "light_tod": "morning",
-  "dark_tod": "dusk",
-  "platform": "rock_ledge",
-  "props": [
-    "chess_table"
-  ],
+  "dark_tod": null,
+  "platform": "log",
+  "props": [],
   "weather": "birds",
   "composition": {
     "horizon_pm": 641,
@@ -24,7 +22,9 @@
     "cliff_layers": 3,
     "prop_left": false,
     "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "pace_half_pm": 0,
+    "journey_pace_c": 255,
+    "landmark": "moon_rise"
   },
   "palette": {
     "light": "sand_day",

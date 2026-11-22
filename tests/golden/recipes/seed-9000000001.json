@@ -5,16 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "472e5683060b8a8d",
-  "activity": "meditate",
-  "archetype": "swamp",
+  "content_ctx_hash": "da267a8eef87d9ad",
+  "activity": "balloon_ride",
+  "archetype": "wizard_tower",
   "light_tod": "golden_hour",
-  "dark_tod": "night",
-  "platform": "mossy_bank",
-  "props": [
-    "stone_pile"
-  ],
-  "weather": "shooting_stars",
+  "dark_tod": null,
+  "platform": "rock_ledge",
+  "props": [],
+  "weather": "birds",
   "composition": {
     "horizon_pm": 624,
     "focus_x_pm": 348,
@@ -23,8 +21,9 @@
     "platform_margin_pm": 12,
     "cliff_layers": 3,
     "prop_left": false,
-    "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "motion_speed_cc": 127,
+    "pace_half_pm": 0,
+    "fly_lift_pm": 175
   },
   "palette": {
     "light": "sand_day",

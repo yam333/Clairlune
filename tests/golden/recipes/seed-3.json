@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "472e5683060b8a8d",
-  "activity": "play_flute",
-  "archetype": "lake",
-  "light_tod": "golden_hour",
+  "content_ctx_hash": "da267a8eef87d9ad",
+  "activity": "hot_cocoa",
+  "archetype": "crystals",
+  "light_tod": "morning",
   "dark_tod": "dusk",
-  "platform": "grassy_bank",
+  "platform": "rock_ledge",
   "props": [
-    "music_stand"
+    "lantern"
   ],
-  "weather": "stars",
+  "weather": "none",
   "composition": {
     "horizon_pm": 571,
     "focus_x_pm": 692,

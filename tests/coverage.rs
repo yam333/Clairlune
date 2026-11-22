@@ -126,3 +126,24 @@ fn no_landscape_dominates() {
         );
     }
 }
+
+/// How often each landscape and activity comes up over 1000 scenes with
+/// default settings, for tuning:
+/// `cargo test -p clairlune-tests --test coverage -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn print_the_mix() {
+    let mut lands: BTreeMap<String, u32> = BTreeMap::new();
+    let mut acts: BTreeMap<String, u32> = BTreeMap::new();
+    for seed in 0..1000 {
+        let r = recipe(seed, 1920, 1080);
+        *lands.entry(r.archetype).or_default() += 1;
+        *acts.entry(r.activity.unwrap_or_default()).or_default() += 1;
+    }
+    let mut lands: Vec<_> = lands.into_iter().collect();
+    lands.sort_by_key(|(_, n)| std::cmp::Reverse(*n));
+    let mut acts: Vec<_> = acts.into_iter().collect();
+    acts.sort_by_key(|(_, n)| std::cmp::Reverse(*n));
+    eprintln!("landscapes: {lands:?}");
+    eprintln!("activities: {acts:?}");
+}

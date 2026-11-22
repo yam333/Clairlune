@@ -101,7 +101,7 @@ pub(crate) fn background(ctx: &Ctx, cells: &mut [Cell]) -> Vec<f64> {
     let gap = 6 + (pick(2) * 3.0) as i64;
     let c0 = co.col_of(a * w);
     let c1 = co.col_of(b * w);
-    let tall = 12.0 + 6.0 * pick(3);
+    let tall = (12.0 + 6.0 * pick(3)) * ctx.row_scale();
     let vine = hash_label(seed, "vines");
     let mut columns: Vec<(i64, i64, i64)> = Vec::new(); // col, base row, top row
     let mut col = c0;

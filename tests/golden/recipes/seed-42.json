@@ -5,13 +5,15 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "472e5683060b8a8d",
-  "activity": "balloon_ride",
-  "archetype": "countryside",
+  "content_ctx_hash": "da267a8eef87d9ad",
+  "activity": "wizard_magic",
+  "archetype": "standing_stones",
   "light_tod": "golden_hour",
-  "dark_tod": null,
+  "dark_tod": "dusk",
   "platform": "grassy_bank",
-  "props": [],
+  "props": [
+    "spellbook"
+  ],
   "weather": "none",
   "composition": {
     "horizon_pm": 697,
@@ -21,9 +23,8 @@
     "platform_margin_pm": 15,
     "cliff_layers": 3,
     "prop_left": true,
-    "motion_speed_cc": 127,
-    "pace_half_pm": 0,
-    "fly_lift_pm": 232
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "sand_day",

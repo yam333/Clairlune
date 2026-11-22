@@ -278,9 +278,11 @@ fn pick_activity<'a, 'b>(
         return None;
     }
     let last = ctx.recent.last().and_then(|h| h.activity.as_deref());
+    let spread = spread(eligible);
     let weights: Vec<u32> = eligible
         .iter()
-        .map(|(a, _)| {
+        .zip(&spread)
+        .map(|((a, _), &s)| {
             if eligible.len() > 1 && Some(a.id.as_str()) == last {
                 return 0;
             }
@@ -289,11 +291,74 @@ fn pick_activity<'a, 'b>(
                 .iter()
                 .filter(|h| h.activity.as_deref() == Some(a.id.as_str()))
                 .count() as u32;
-            (int_weight(a.weight).saturating_mul(4) / (4 + uses)).max(1)
+            let w = int_weight(a.weight).saturating_mul(4) / (4 + uses);
+            ((f64::from(w) * s).round() as u32).max(1)
         })
         .collect();
     let mut rng = Rng::stream(seed, "activity");
     Some(&eligible[rng.weighted_index(&weights)])
+}
+
+/// For each eligible activity, how much to hold it back because the
+/// landscapes it fits are crowded by others: activities that only fit one
+/// or two landscapes (the journeys, the snow sports) would otherwise give
+/// those landscapes far more than their share. Each activity's scenes are
+/// split over its landscapes as [`pick_archetype`] splits them; a
+/// landscape's load is what all activities send it; an activity's factor is
+/// the fair share over the load, averaged over where its scenes go, square
+/// rooted so activities stay near their own weights, and never below a
+/// half, so none is starved. 1 where nothing is crowded. Plain f64 arithmetic in a fixed order: the same on every machine.
+fn spread(eligible: &[(&Activity, Vec<&'static ArchetypeInfo>)]) -> Vec<f64> {
+    let hosted = |id: &str| -> f64 {
+        eligible
+            .iter()
+            .filter(|(_, fits)| fits.iter().any(|f| f.id == id))
+            .map(|(a, _)| f64::from(int_weight(a.weight)))
+            .sum::<f64>()
+            .max(1.0)
+    };
+    // Where each activity's scenes go: (landscape id, share).
+    let splits: Vec<Vec<(&str, f64)>> = eligible
+        .iter()
+        .map(|(_, fits)| {
+            let inv: Vec<f64> = fits.iter().map(|f| 1.0 / hosted(f.id)).collect();
+            let total: f64 = inv.iter().sum();
+            fits.iter()
+                .zip(inv)
+                .map(|(f, i)| (f.id, i / total))
+                .collect()
+        })
+        .collect();
+    let mut load: Vec<(&str, f64)> = Vec::new();
+    for ((a, _), split) in eligible.iter().zip(&splits) {
+        let w = f64::from(int_weight(a.weight));
+        for &(id, share) in split {
+            match load.iter_mut().find(|(l, _)| *l == id) {
+                Some((_, v)) => *v += w * share,
+                None => load.push((id, w * share)),
+            }
+        }
+    }
+    if load.is_empty() {
+        return vec![1.0; eligible.len()];
+    }
+    let fair = load.iter().map(|(_, v)| v).sum::<f64>() / load.len() as f64;
+    splits
+        .iter()
+        .map(|split| {
+            let f: f64 = split
+                .iter()
+                .map(|&(id, share)| {
+                    let l = load
+                        .iter()
+                        .find(|(l, _)| *l == id)
+                        .map_or(fair, |(_, v)| *v);
+                    share * (fair / l).min(1.0)
+                })
+                .sum();
+            f.sqrt().max(0.5)
+        })
+        .collect()
 }
 
 /// Weighted pick with the most recent archetype down-weighted. Each
