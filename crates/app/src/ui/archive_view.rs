@@ -1,4 +1,4 @@
-//! The Archive window (docs/design.md section 4): every wallpaper the app set
+//! The Archive window (docs/dev/design.md section 4): every wallpaper the app set
 //! recently, newest first and grouped by day, with one action bar for the
 //! selection. Thumbnails are the content; there are no per-tile buttons.
 

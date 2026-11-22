@@ -1,6 +1,6 @@
 # Clairlune UI design
 
-Research, decisions and wireframes for the Settings, Archive, Library and Timeline windows (PLAN.md section 10a). Written before any UI code; the tokens at the end are implemented as one Rust module (`crates/app/src/tokens.rs`), and UI code may use no other colours, sizes or durations.
+Research, decisions and wireframes for the Settings, Archive, Library and Timeline windows. Written before any UI code; the tokens at the end are implemented as one Rust module (`crates/app/src/tokens.rs`), and UI code may use no other colours, sizes or durations.
 
 The product in one line: the wallpaper is the hero, and the app around it is a quiet, precise instrument for choosing what the wallpaper does.
 
@@ -46,7 +46,7 @@ The product in one line: the wallpaper is the hero, and the app around it is a q
 
 **WCAG 2.2** ([what's new](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/))
 - AA: 4.5:1 text contrast (3:1 for large text and UI component boundaries), 2.4.11 focus not obscured, 2.5.7 dragging alternatives, 2.5.8 targets at least 24x24 px. AAA 2.4.13 focus appearance: indicator area at least a 2 px perimeter and 3:1 change.
-- *Decision:* every text/background pair in the tokens is checked by a test (4.5:1, or 3:1 for borders and focus). Focus rings are 2 px in the accent, offset 2 px, which also satisfies the AAA focus appearance criterion. Controls are at least 28 px tall (PLAN.md) and the timeline offers keyboard and button alternatives to every drag.
+- *Decision:* every text/background pair in the tokens is checked by a test (4.5:1, or 3:1 for borders and focus). Focus rings are 2 px in the accent, offset 2 px, which also satisfies the AAA focus appearance criterion. Controls are at least 28 px tall and the timeline offers keyboard and button alternatives to every drag.
 
 ### Reference products
 
@@ -76,7 +76,7 @@ The product in one line: the wallpaper is the hero, and the app around it is a q
 
 ## 2. What generic UI looks like (to avoid)
 
-From current design critiques plus PLAN.md's list. The common thread: design with no author, made of defaults.
+From current design critiques. The common thread: design with no author, made of defaults.
 
 - Purple, violet or indigo gradients; cyan on dark; glowing accents; gradient text.
 - Inter everywhere at default settings; random serif/sans mixing; italic for no reason.
@@ -228,7 +228,7 @@ Spacing: 0, 4, 8, 12, 16, 24, 32, 48, 64 px. Radii: 10 (controls), 14 (panels). 
 
 ## 8. Toolkit: egui (spike, 2026-11-20)
 
-PLAN.md asked for an egui-vs-Slint spike against two bars: the design bar of section 10a, and the event-loop rule of PLAN.md section 3.4 (tray plus a window opened and closed three times on one loop).
+An egui-vs-Slint spike was judged against two bars: the design bar above, and one event loop for everything (tray plus a window opened and closed three times on one loop).
 
 **Slint is ruled out by its licence.** It is offered under GPL-3.0, a royalty-free licence with conditions, or a paid licence. None of them is permissive, and Clairlune ships under MIT OR Apache-2.0 with a permissive-only dependency policy (`deny.toml`).
 

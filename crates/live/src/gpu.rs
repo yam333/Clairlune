@@ -1,4 +1,4 @@
-//! The GPU presenter (PLAN.md section 5.3): each monitor's frame lives on the
+//! The GPU presenter: each monitor's frame lives on the
 //! GPU as an index texture (one byte per pixel) with its 256-entry palette,
 //! and one full-screen triangle looks each pixel up. Only the rectangles the
 //! compositor reports are uploaded per frame.

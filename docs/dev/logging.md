@@ -37,7 +37,7 @@ Log targets follow the crates: `clairlune_scene::compose`, `clairlune_scene::bui
 
 - A panic hook logs the panic message, the location, the current scene identity and a backtrace at `error`, before the process exits.
 - In the app (M6) the hook also writes `<data_dir>/crashes/<timestamp>.json`: version, OS and desktop environment, the last 200 log lines and the current recipes. The next launch offers to open the folder.
-- The static wallpaper is always set before live mode starts (PLAN.md section 2), so a crash never leaves a blank desktop.
+- The static wallpaper is always set before live mode starts, so a crash never leaves a blank desktop.
 
 ## Diagnostic bundle (app, M6)
 

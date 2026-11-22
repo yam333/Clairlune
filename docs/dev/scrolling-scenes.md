@@ -1,6 +1,6 @@
 # Scrolling scenes ("journeys")
 
-Wallpapers where the camera travels: Clawd hikes across mountains while the landscape slides by, then the whole thing loops back seamlessly. Status: seven journeys ship (2026-11-21: walks, flights and a desert trek, with landmarks; CPU composition); GPU layer grids are M7. Builds on PLAN.md sections 4 and 5 and `docs/activity-system.md`.
+Wallpapers where the camera travels: Clawd hikes across mountains while the landscape slides by, then the whole thing loops back seamlessly. Status: seven journeys ship (2026-11-21: walks, flights and a desert trek, with landmarks; CPU composition); GPU layer grids are M7. Builds on `docs/dev/activity-system.md`.
 
 ## The idea: a world that wraps around
 
@@ -35,7 +35,7 @@ The general scheme, with screen width `W`:
 | mid hills | `3 W` | 1 | 3 |
 | near ground (Clawd walks on it) | `3 W` | 2 | 6 |
 
-Offsets are **integer pixels** computed from `t` with integer arithmetic, so stills, GIF frames and live frames agree exactly (PLAN.md section 12, determinism).
+Offsets are **integer pixels** computed from `t` with integer arithmetic, so stills, GIF frames and live frames agree exactly.
 
 ## Generating periodic terrain
 
@@ -80,7 +80,7 @@ The depth reads best when most of the picture holds still and only the land in f
   - per frame the cost is a few draw calls with UV offsets.
 - **Stills and the static fallback**: the hero frame at `t_hero`, composed on the CPU.
 - **GIF export**: a full journey loop is long (20-60 s), which makes for a big GIF. Export offers the full loop at a smaller size or a short excerpt (not seamless, labelled as such).
-- **Saved scenes** (PLAN.md section 9c): the frozen package stores each layer's strip (cell grid or indexed PNG) plus periods, speeds and `T`, so a saved journey plays exactly as it did.
+- **Saved scenes**: the frozen package stores each layer's strip (cell grid or indexed PNG) plus periods, speeds and `T`, so a saved journey plays exactly as it did.
 
 ## Schema
 

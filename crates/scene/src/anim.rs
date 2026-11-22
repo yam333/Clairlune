@@ -1,4 +1,4 @@
-//! The seeded activity state machine (PLAN.md section 4.7).
+//! The seeded activity state machine.
 //!
 //! The state at time `t` is a pure function of `(activity, seed, t)`. To keep that
 //! cheap at any `t`, time is split into 60 s episodes. Each episode is seeded by

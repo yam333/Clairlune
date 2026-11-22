@@ -1,4 +1,4 @@
-//! Journeys (docs/scrolling-scenes.md): the land scrolls past in layers and
+//! Journeys (docs/dev/scrolling-scenes.md): the land scrolls past in layers and
 //! comes round exactly after the loop; the feet stay on the ground going by;
 //! live playback, saved packages and GIFs show the same frames.
 

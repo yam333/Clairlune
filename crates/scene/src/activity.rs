@@ -1,4 +1,4 @@
-//! Activities: what the character is doing (PLAN.md section 4.7).
+//! Activities: what the character is doing.
 //!
 //! One TOML file per activity in `crates/scene/activities/`, embedded at compile
 //! time. The engine never hardcodes a specific activity: adding a file (and its
@@ -61,7 +61,7 @@ pub const PROJECTILE_PRESETS: [&str; 3] = ["skipping_stone", "snowball", "tennis
 /// on the shore) or `open` (the middle of the screen, where the sky is
 /// widest).
 pub const FACINGS: [&str; 2] = ["water", "open"];
-/// Anchor names the art exports (docs/clawd-style.md).
+/// Anchor names the art exports (docs/dev/clawd-style.md).
 pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "item_tip"];
 /// Generic prop attachment points.
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
@@ -194,7 +194,7 @@ pub struct Activity {
     pub unattended: Unattended,
     #[serde(default)]
     pub character: CharacterDef,
-    /// Effects attached to the character (docs/activity-system.md section 3).
+    /// Effects attached to the character (docs/dev/activity-system.md section 3).
     #[serde(default)]
     pub effects: Vec<EffectDef>,
 }
@@ -261,7 +261,7 @@ pub enum MotionKind {
     Bob,
     Fly,
     /// The camera travels: the landscape scrolls past in layers while the
-    /// character walks on the nearest (docs/scrolling-scenes.md).
+    /// character walks on the nearest (docs/dev/scrolling-scenes.md).
     Journey,
 }
 
@@ -404,7 +404,7 @@ impl Activity {
         })
     }
 
-    /// Every rule from PLAN.md section 4.7 that can be checked without sprites.
+    /// Every activity rule that can be checked without sprites.
     pub fn validate(&self) -> Vec<String> {
         let mut errs = Vec::new();
         let id = &self.id;

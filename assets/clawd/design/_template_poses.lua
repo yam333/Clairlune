@@ -1,5 +1,5 @@
 -- Pose catalogue: one key pose per planned activity, to check that the rig can
--- express them (docs/activity-system.md). Not exported (name starts with
+-- express them (docs/dev/activity-system.md). Not exported (name starts with
 -- `_template`). Extras sketch where scene effects attach; in the engine those
 -- are effects and set pieces, not part of the character sheet.
 

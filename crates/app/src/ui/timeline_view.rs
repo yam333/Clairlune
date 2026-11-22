@@ -1,4 +1,4 @@
-//! The timeline editor (PLAN.md section 9b, docs/design.md section 4): a
+//! The timeline editor (docs/dev/design.md section 4): a
 //! 24-hour bar for every day (one in the single layout, seven in the weekly
 //! one), with slots as blocks showing their wallpaper. Saved wallpapers sit on
 //! the left, ready to drag onto a day; the selected slot's choices are on the

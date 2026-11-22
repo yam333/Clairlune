@@ -1,4 +1,4 @@
-//! The live compositor (PLAN.md section 5.3): a frame made incrementally from
+//! The live compositor: a frame made incrementally from
 //! the last one equals the full render at every time, and the rectangles it
 //! reports cover every pixel that changed, so copying only those keeps a GPU
 //! texture (or any other copy) exact.

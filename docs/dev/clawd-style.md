@@ -2,7 +2,7 @@
 
 How the project's own Clawd sprites are drawn. Write against this before drawing anything; change it here first if the rules need to move.
 
-> Clawd is Anthropic's character. Every frame in this project is drawn from scratch by this project. Use the character's public look as the only reference: never trace, colour-pick from, or frame-step anyone else's sprites, the davecurry.net zip, or other streams and videos. Keep the `.aseprite` history in git as the record that the art is ours. See `NOTICE` and `docs/takedown.md`.
+> Clawd is Anthropic's character. Every frame in this project is drawn from scratch by this project. Use the character's public look as the only reference: never trace, colour-pick from, or frame-step anyone else's sprites, the davecurry.net zip, or other streams and videos. Keep the `.aseprite` history in git as the record that the art is ours. See `NOTICE` and `docs/dev/takedown.md`.
 
 ## Tooling
 
@@ -33,7 +33,7 @@ The silhouette must read at 1x and stay recognisable when Buddy is scaled up 10-
 
 ## Palette
 
-Small and fixed. At most **16 colours for all Clawd sheets combined** (the scene palette budget, PLAN.md section 4.5).
+Small and fixed. At most **16 colours for all Clawd sheets combined** (the scene palette budget).
 
 | Role | Colour |
 |---|---|

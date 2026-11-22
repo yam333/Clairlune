@@ -1,4 +1,4 @@
-//! Diagnostics for bug reports (docs/logging.md): the log's last lines in
+//! Diagnostics for bug reports (docs/dev/logging.md): the log's last lines in
 //! memory, crash reports, log retention, "Detailed logging" for a day, and
 //! the diagnostic bundle. Nothing leaves the machine unless the user sends
 //! the bundle; paths inside the home folder are written as `~`.

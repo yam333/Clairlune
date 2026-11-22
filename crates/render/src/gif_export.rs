@@ -1,4 +1,4 @@
-//! Seamless GIF export (PLAN.md section 6.4).
+//! Seamless GIF export.
 //!
 //! - One global palette: the scene palette (at most 255 colours, by
 //!   construction) plus index 255 as the transparent colour. No per-frame
@@ -22,7 +22,7 @@ use std::fmt;
 use std::io::Write;
 use std::time::Instant;
 
-/// Smoothness (PLAN.md section 5.3), capped by what GIF delays can express.
+/// Smoothness, capped by what GIF delays can express.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Smoothness {
     BatterySaver,

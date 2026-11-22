@@ -3,7 +3,7 @@ name: Release
 # Installers for people who don't use a terminal: a per-user Windows setup.exe
 # (plus a portable zip for Scoop) and macOS DMGs (Apple Silicon and Intel).
 # Then the package-manager manifests for those files
-# (docs/distribution.md), as an artifact: nothing is published to a package
+# (docs/dev/distribution.md), as an artifact: nothing is published to a package
 # manager from here yet. Runs on version tags (v1.2.3) and by hand; a tag also
 # attaches the installers to a draft GitHub release.
 on:
@@ -41,7 +41,7 @@ jobs:
             arch: x64
     runs-on: ${{ matrix.os }}
     env:
-      # The oldest macOS supported (docs/platform-support.md).
+      # The oldest macOS supported (docs/dev/platform-support.md).
       MACOSX_DEPLOYMENT_TARGET: "13.0"
     steps:
       - uses: actions/checkout@v5
@@ -57,7 +57,7 @@ jobs:
         run: cargo build --release -p clairlune --target ${{ matrix.target }}
       - name: Package
         run: cargo packager --release -p clairlune --target ${{ matrix.target }} --formats ${{ matrix.formats }}
-      # No Developer ID (docs/distribution.md), so the app is signed ad hoc,
+      # No Developer ID (docs/dev/distribution.md), so the app is signed ad hoc,
       # which seals its files: an Apple silicon Mac reports a downloaded app
       # without that as damaged, where a signed one gets Open Anyway. Then
       # the DMG: the app and a link to Applications.

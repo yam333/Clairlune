@@ -75,7 +75,7 @@ impl Character for Placeholder {
 
 /// Sheets per activity (`<activity>.json`) plus the shared `_base` sheet. Any
 /// activity without art falls back to the placeholder, so missing art is never a
-/// crash (PLAN.md section 7.1).
+/// crash.
 #[derive(Clone, Debug)]
 pub struct SheetCharacter {
     sheets: BTreeMap<String, SpriteSheet>,
@@ -150,7 +150,7 @@ impl SheetCharacter {
     }
 
     /// Every state of an activity that has a sheet must have a tag, in its own
-    /// sheet or the base sheet (PLAN.md section 7.2, step 2).
+    /// sheet or the base sheet.
     pub fn validate(&self, catalog: &Catalog) -> Vec<String> {
         let mut errors = Vec::new();
         for a in &catalog.activities {

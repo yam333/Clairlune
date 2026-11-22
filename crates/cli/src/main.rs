@@ -45,7 +45,7 @@ fn set_scene_context(s: String) {
     }
 }
 
-/// stderr (human-readable) plus an optional JSON-lines file (docs/logging.md).
+/// stderr (human-readable) plus an optional JSON-lines file (docs/dev/logging.md).
 fn init_logging(verbose: u8, log_file: Option<&std::path::Path>) -> Result<(), String> {
     use tracing_subscriber::{EnvFilter, Layer, fmt, prelude::*};
     let level = match verbose {

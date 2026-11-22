@@ -1,6 +1,6 @@
 //! `compose(seed, aspect, ctx) -> SceneRecipe`: sequential, seeded, weighted picks.
 //!
-//! The activity is picked first (PLAN.md section 4.2, step 0) and constrains
+//! The activity is picked first and constrains
 //! every later pick: archetype, time of day per theme, weather and props. Each
 //! subsystem draws from its own RNG stream, so adding a pick in one place never
 //! shifts the draws of another. When no activity is eligible, the scene falls back

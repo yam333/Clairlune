@@ -3,7 +3,7 @@
 //! macOS and GNOME don't reload an unchanged path even when the file changed,
 //! so every still gets a new file name: `<monitor key>-<time>-<n>.png`. The
 //! previous files for that monitor are deleted only after the new one is set
-//! (PLAN.md section 2, "Unique file names").
+//!.
 
 use serde::{Deserialize, Serialize};
 use std::fs;

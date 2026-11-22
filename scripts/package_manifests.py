@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write the package-manager manifests for one release (docs/distribution.md).
+"""Write the package-manager manifests for one release (docs/dev/distribution.md).
 
 Reads the installers a release built (the Release workflow's artifacts),
 hashes them, and writes ready-to-publish manifests:

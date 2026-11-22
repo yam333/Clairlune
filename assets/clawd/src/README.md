@@ -1,6 +1,6 @@
 # Clawd sprite sources
 
-Aseprite source files for the project's own Clawd drawings. Read `docs/clawd-style.md` first.
+Aseprite source files for the project's own Clawd drawings. Read `docs/dev/clawd-style.md` first.
 
 | File | Contents |
 |---|---|

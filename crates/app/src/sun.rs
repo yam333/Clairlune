@@ -1,5 +1,5 @@
 //! Sunrise and sunset, worked out on this computer from a latitude and
-//! longitude (PLAN.md section 2: no network is used). NOAA's general solar
+//! longitude. NOAA's general solar
 //! position equations: within a couple of minutes away from the poles,
 //! which is plenty for switching the wallpaper's theme.
 

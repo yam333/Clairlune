@@ -1,5 +1,5 @@
--- The project's own Clawd, drawn from scratch as code (docs/clawd-style.md,
--- docs/activity-system.md). Fan art of Anthropic's character: not covered by the
+-- The project's own Clawd, drawn from scratch as code (docs/dev/clawd-style.md,
+-- docs/dev/activity-system.md). Fan art of Anthropic's character: not covered by the
 -- code licence (NOTICE).
 --
 -- A rig: `M.draw(canvas, pose)` draws Clawd from a pose description and returns
@@ -17,7 +17,7 @@ M.color = {
 }
 local C = M.color
 
--- Shared prop / costume palette (scene budget: PLAN.md section 4.5).
+-- Shared prop / costume palette (within the scene's 255-colour budget).
 M.prop = {
   wood = { 0x7A, 0x52, 0x34 },
   wood_dark = { 0x4E, 0x34, 0x22 },
@@ -66,7 +66,7 @@ M.along = along
 
 -- ---------------------------------------------------------------- pose
 
--- Pose controls (all optional; see docs/activity-system.md):
+-- Pose controls (all optional; see docs/dev/activity-system.md):
 --   facing   "front" | "side"
 --   lift     body raised n px (legs stretch)      crouch  body lowered n px (legs bend)
 --   lean     upper body shifted n px toward the facing direction

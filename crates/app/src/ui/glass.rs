@@ -1,4 +1,4 @@
-//! Moonglass (docs/design.md): the Settings window as glass laid over the
+//! Moonglass (docs/dev/design.md): the Settings window as glass laid over the
 //! scene the app just drew. The sidebar is reeded glass: flutes that each
 //! show the scene behind them a little wider, so the landscape breaks into
 //! soft ribbons. The content pane is smoked glass over a blurred copy. With

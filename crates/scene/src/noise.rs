@@ -93,7 +93,7 @@ pub fn ridged1(seed: u64, x: f64, octaves: u32) -> f64 {
     sum / norm
 }
 
-// ---- Periodic noise, for scrolling scenes that loop (docs/scrolling-scenes.md).
+// ---- Periodic noise, for scrolling scenes that loop (docs/dev/scrolling-scenes.md).
 // The lattice wraps every `period` cells, so the noise repeats exactly in x. Each
 // fBm octave doubles both frequency and period, so wrapping holds at every octave.
 // For a bit-exact seam, sample at `x` already reduced into `[0, period)`, e.g.

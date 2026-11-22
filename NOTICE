@@ -25,7 +25,7 @@ Clawd artwork (fan art)
 Other original art (props such as the campfire, icons, UI)
   CC BY 4.0.
 
-The trailer (docs/media/trailer.mp4)
+The trailer (clairlune-trailer.mp4, attached to the 0.28.0 release)
   Made from the app's own renders and Settings screenshots by
   scripts/trailer/. Its music is original, composed and synthesised from
   scratch by scripts/trailer/music.py (no samples or other recordings), and

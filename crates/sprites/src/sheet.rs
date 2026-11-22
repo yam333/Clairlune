@@ -5,7 +5,7 @@ use clairlune_scene::Rgb;
 use std::collections::BTreeMap;
 use std::fmt;
 
-/// Palette budget for all character colours (PLAN.md section 4.5).
+/// Palette budget for all character colours.
 pub const MAX_CHARACTER_COLORS: usize = 16;
 /// Every frame needs this anchor: feet baseline x body centre.
 pub const ORIGIN: &str = "origin";

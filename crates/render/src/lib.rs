@@ -4,7 +4,7 @@
 //! Every pixel is a palette index. Colours are looked up, never blended at
 //! render time, so a scene has at most 255 colours (index 255 is reserved for GIF
 //! transparency) and the still PNG, GIF frames and the live renderer can match
-//! exactly (PLAN.md section 4.5).
+//! exactly.
 
 /// Compiles the README example as a doctest so it can't go stale.
 #[cfg(doctest)]

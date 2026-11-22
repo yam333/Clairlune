@@ -2,7 +2,7 @@
 
 How Clawd ends up skiing, making coffee, hiking, playing chess or tennis, casting spells and many more things, each fitting the wallpaper it's in and interacting with it, without every new activity becoming a large one-off project.
 
-Status: design (2026-11-19). It extends PLAN.md section 4.7 and the rig prototype in `assets/clawd/design/clawd.lua`.
+Status: design (2026-11-19). It extends the rig prototype in `assets/clawd/design/clawd.lua`.
 
 ## The problem
 
@@ -34,7 +34,7 @@ Anchors (`origin`, `head`, `hand_l`, `hand_r`, `item_tip`, `seat`) come out of t
 
 The rig prototype already draws the six key poses (from `assets/clawd/design/_template_poses.lua`): ski, coffee, hike / chess, tennis, wizard.
 
-![Pose catalogue](img/pose-catalogue.png)
+![Pose catalogue](../img/pose-catalogue.png)
 
 **Held items are drawn as code** (lines, small ellipses, pixel maps), so they can point in any direction. Pixel-art rotation of bitmaps looks bad, but an item made of lines redraws cleanly at any angle.
 
@@ -53,7 +53,7 @@ The rig prototype already draws the six key poses (from `assets/clawd/design/_te
 
 **Canvas per activity**: 24 x 20 is the base. Activities with long items use larger canvases (skis 40 x 24, tennis 40 x 32). The `origin` marker keeps every canvas aligned on the feet.
 
-**Budget**: about 20-40 frames per activity, at most 16 character colours in total (body, shadow, highlight, eyes, plus shared costume colours), item and costume colours from a shared prop palette (scene palette budget, PLAN.md section 4.5).
+**Budget**: about 20-40 frames per activity, at most 16 character colours in total (body, shadow, highlight, eyes, plus shared costume colours), item and costume colours from a shared prop palette (the scene palette budget).
 
 ## 2. Place: capabilities and set pieces
 
@@ -70,7 +70,7 @@ New archetypes follow activity groups:
 | `meadow` / park (wide flat ground, grass) | tennis, kite, picnic, hiking |
 | `shore` (water line, pier) | fishing, skipping stones, rowing, surfing |
 | `interior`: a cozy room whose **window shows a generated landscape** (any other archetype, rendered small) | coffee, chess, reading, coding, wizard study |
-| `city_rooftops`, `desert`, `cave`, `forest`, `night_sky` | as in PLAN.md section 4.2 |
+| `city_rooftops`, `desert`, `cave`, `forest`, `night_sky` | as they are |
 
 The `interior` archetype is the multiplier: every outdoor archetype also becomes the view from a window, so cozy indoor activities get as much variety as outdoor ones.
 
@@ -134,7 +134,7 @@ to = "practice_wall"
 period_from_state = "swing"  # one hit per swing
 ```
 
-**Live versus GIF**: live mode plays the state machine freely (seeded variations, PLAN.md section 4.4). Periodic effects (particles, projectiles, prop animations) loop on the scene's loop length, so GIF export stays seamless. Moving lights are static in v1 (glow is baked); the live GPU path can animate them later.
+**Live versus GIF**: live mode plays the state machine freely (seeded variations). Periodic effects (particles, projectiles, prop animations) loop on the scene's loop length, so GIF export stays seamless. Moving lights are static in v1 (glow is baked); the live GPU path can animate them later.
 
 ## 4. Schema additions (activity TOML)
 
@@ -163,7 +163,7 @@ Each wave adds one engine capability and the activities it unlocks. Waves map on
 | E | `fly` and `bob` motion | broom flight (wizard), kite, hot-air balloon, rowing | M4 |
 | F | `interior` archetype with a window view | coffee at a counter, chess indoors, coding at a desk, the wizard's study | M4+ |
 | G | Seasonal and celebration sets, more costumes | snowman, fireworks, birthday cake, leaf piles | ongoing |
-| J | `journey` motion: the land scrolls past in layers (docs/scrolling-scenes.md), walking or flying (`altitude`) | hiking a ridge, ski touring, sledding, a forest walk, a desert trek, broom and balloon flights; later a train, sailing | M4+ |
+| J | `journey` motion: the land scrolls past in layers (docs/dev/scrolling-scenes.md), walking or flying (`altitude`) | hiking a ridge, ski touring, sledding, a forest walk, a desert trek, broom and balloon flights; later a train, sailing | M4+ |
 
 Every activity is weighted equally by default, and the variety test (no activity above twice its share) keeps any one from dominating as the catalogue grows.
 
@@ -180,4 +180,4 @@ Most activities touch only steps 1, 2, 4 and 5.
 
 ## 7. Legal reminder
 
-Every pose, item and costume is drawn from scratch by this project. Costumes must not copy other franchises' character designs (a generic pointed wizard hat, not a specific film's). See PLAN.md section 15.
+Every pose, item and costume is drawn from scratch by this project. Costumes must not copy other franchises' character designs (a generic pointed wizard hat, not a specific film's).

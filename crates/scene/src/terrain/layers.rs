@@ -93,7 +93,7 @@ impl Layer {
 }
 
 /// A layer painted as a strip `cols` cells wide whose right edge continues
-/// into its left edge (docs/scrolling-scenes.md): every noise lookup wraps
+/// into its left edge (docs/dev/scrolling-scenes.md): every noise lookup wraps
 /// with the strip, so the silhouette and the fill tile with no seam.
 pub(crate) struct Strip<'a> {
     pub layer: &'a Layer,

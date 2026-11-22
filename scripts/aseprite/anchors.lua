@@ -1,7 +1,7 @@
 -- Reads anchor marker pixels from the `anchors` layer of a sprite and writes
 -- them as per-frame slice keys (the shape of Aseprite's own slice export), so
 -- the sprite loader can read them like slices. Aseprite's Lua API can't set
--- per-frame slice keys, which is why anchors are markers (docs/clawd-style.md).
+-- per-frame slice keys, which is why anchors are markers (docs/dev/clawd-style.md).
 --
 -- Usage:
 --   aseprite -b --script-param src=<file.aseprite> --script-param out=<anchors.json> \

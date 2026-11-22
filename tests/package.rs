@@ -1,4 +1,4 @@
-//! Frozen scene packages (PLAN.md section 9c): a saved scene plays exactly as it
+//! Frozen scene packages: a saved scene plays exactly as it
 //! did live, survives a save and load, ignores the generator (recipe, catalog,
 //! built-in art) once saved, and a committed format-1 package keeps playing the
 //! same frames.
@@ -283,7 +283,7 @@ fn the_committed_format_1_package_still_plays_the_same() {
     assert_eq!(lines, expected, "format-1 playback changed");
 }
 
-/// Informational: package size at 4K (PLAN.md 9c expects about 0.3-1 MB per
+/// Informational: package size at 4K (expected: about 0.3-1 MB per
 /// theme). `cargo test --release --test package -- --ignored --nocapture`
 #[test]
 #[ignore]

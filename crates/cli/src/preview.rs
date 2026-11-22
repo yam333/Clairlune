@@ -1,7 +1,7 @@
 //! `preview-activity`: a developer window that plays one activity in the
 //! scenes it fits, and reloads the activity files and the sprite sheets when
-//! they change on disk (PLAN.md section 7.1, the authoring loop: draw, save,
-//! see it in a real wallpaper). With `--export`, saving an Aseprite source or
+//! they change on disk (the authoring loop: draw, save, see it in a real
+//! wallpaper). With `--export`, saving an Aseprite source or
 //! a design script also re-exports the sheets.
 //!
 //! Keys: N / Right next scene, P / Left previous, T theme, B Buddy, R reload,

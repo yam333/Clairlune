@@ -1,4 +1,4 @@
-//! Tether effects (docs/activity-system.md section 3): a line from an anchor
+//! Tether effects (docs/dev/activity-system.md section 3): a line from an anchor
 //! on the character to an end that moves on its own. Everything is periodic
 //! in the scene's loop length, like the other effects, so GIF loops stay
 //! seamless.

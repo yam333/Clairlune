@@ -1,4 +1,4 @@
-//! User settings: `<config_dir>/clairlune/settings.toml` (PLAN.md section 8).
+//! User settings: `<config_dir>/clairlune/settings.toml`.
 //!
 //! Every field has a default, so a missing file, a missing key or a file from
 //! an older version all load. Unknown keys (from a newer version) are ignored
@@ -118,7 +118,7 @@ impl MonitorSettings {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LiveSettings {
-    /// Frames per second: 6, 12, 24, 30 or 60 (PLAN.md section 5.3).
+    /// Frames per second: 6, 12, 24, 30 or 60.
     pub smoothness_fps: u32,
     /// On battery, drop to Battery saver (6 fps).
     pub battery_saver_on_battery: bool,

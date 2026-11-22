@@ -1,4 +1,4 @@
-//! Clairlune's live wallpaper (PLAN.md sections 2 and 5.3): a saved scene
+//! Clairlune's live wallpaper: a saved scene
 //! plays behind the desktop icons.
 //!
 //! [`Player`] keeps the frame between ticks with the incremental compositor
@@ -131,7 +131,7 @@ impl Player {
     /// Particles at sub-cell positions (`Clock::Smooth`), for presenters on
     /// a GPU: a higher frame rate then moves them smoothly. Off by default,
     /// so the first frame is the still exactly; the CPU fallback keeps it
-    /// off (PLAN.md section 4.4).
+    /// off.
     pub fn set_smooth(&mut self, on: bool) {
         self.clock = if on { Clock::Smooth } else { Clock::Live };
     }

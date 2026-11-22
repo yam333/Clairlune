@@ -1,7 +1,7 @@
 name: Publish
 
 # When a release is published (the Release workflow makes it as a draft),
-# the package managers get it (docs/distribution.md):
+# the package managers get it (docs/dev/distribution.md):
 # - the manifests are made from the release's own files (an artifact);
 # - with a TAP_DEPLOY_KEY secret (the private half of a deploy key that can
 #   write to yam333/homebrew-clairlune and nothing else), the Homebrew cask

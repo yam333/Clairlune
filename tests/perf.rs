@@ -1,5 +1,5 @@
 //! Performance budget: a 4K static bake in under 150 ms, single-threaded, in a
-//! release build (PLAN.md section 5.2). Ignored by default because debug builds
+//! release build. Ignored by default because debug builds
 //! and shared CI runners are not representative. Run it with:
 //!
 //! ```sh
@@ -57,7 +57,7 @@ fn bake_4k_within_budget() {
 
 /// A journey redraws the whole frame each tick (the land moves). At 4K that
 /// must stay well inside a 30 fps frame on one core, the CPU fallback's cost
-/// before the GPU layer grids (docs/scrolling-scenes.md, M7).
+/// before the GPU layer grids (docs/dev/scrolling-scenes.md, M7).
 #[test]
 #[ignore = "release-only timing; run with --release -- --ignored"]
 fn journey_frame_4k_within_budget() {

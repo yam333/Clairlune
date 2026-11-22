@@ -1,6 +1,6 @@
 # Platform support
 
-Decided 2026-11-19 (resolves PLAN.md section 14, question 1). Linux was
+Decided 2026-11-19. Linux was
 dropped on 2026-11-22 (0.19.0): its wallpaper and live code had never run on
 a real Linux desktop, and there was no machine to try it on. The scene,
 render and CLI crates still build and pass their tests on Linux in CI, and
@@ -53,4 +53,4 @@ Stills live in the local data directory (`%LOCALAPPDATA%\clairlune\current` on W
 - CI tests on `windows-latest`, `macos-latest` (Apple Silicon) and `ubuntu-latest` (everything but the app there). The Release workflow builds:
   - the macOS app for Apple Silicon and Intel with the deployment target above,
   - a Windows x64 per-user setup.exe and a portable zip.
-- The manual QA matrix in PLAN.md section 12 adds an Intel Mac on macOS 13 or 14 and Windows 10 22H2.
+- The manual QA matrix adds an Intel Mac on macOS 13 or 14 and Windows 10 22H2.

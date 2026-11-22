@@ -1,4 +1,4 @@
-//! The Library window (PLAN.md section 9a, docs/design.md section 4): saved
+//! The Library window (docs/dev/design.md section 4): saved
 //! wallpapers as a grid of thumbnails (the content is the hero; no card
 //! frames), and one action bar for the selection.
 

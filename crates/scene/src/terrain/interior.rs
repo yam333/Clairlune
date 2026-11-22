@@ -2,7 +2,7 @@
 //! from the focal group with a landscape outside (another archetype, painted
 //! off-screen and seen through the frame, its horizon low in the window),
 //! curtains, a shelf of books and a picture on the wall, and a wooden floor
-//! for the focal group to stand on (docs/activity-system.md section 2: every
+//! for the focal group to stand on (docs/dev/activity-system.md section 2: every
 //! outdoor archetype becomes a view from a window).
 
 use super::layers::{put, row_at};

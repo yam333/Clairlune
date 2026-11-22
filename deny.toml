@@ -1,4 +1,4 @@
-# cargo-deny policy (PLAN.md section 15.2.7). Run locally with `cargo deny check`.
+# cargo-deny policy. Run locally with `cargo deny check`.
 
 [graph]
 all-features = false

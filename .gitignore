@@ -4,3 +4,6 @@
 *.png.tmp
 # Local renders made with the CLI during development
 /renders/
+# The trailer's video and poster: published as release assets, not kept here
+/docs/media/trailer.mp4
+/docs/media/trailer.jpg

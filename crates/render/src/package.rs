@@ -1,4 +1,4 @@
-//! Frozen scene packages (PLAN.md section 9c): how saved wallpapers are kept.
+//! Frozen scene packages: how saved wallpapers are kept.
 //!
 //! A package holds the *output* of the generator for one scene at one size,
 //! not its inputs: for each theme the scene supports, the scene graph (layout,

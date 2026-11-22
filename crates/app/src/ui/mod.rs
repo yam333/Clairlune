@@ -1,4 +1,4 @@
-//! UI windows on the app's single event loop (PLAN.md section 3.4). A window
+//! UI windows on the app's single event loop. A window
 //! and everything it needs (egui context, GPU device, surface) are created
 //! when it opens and dropped when it closes, so nothing of the UI is held
 //! while the app sits in the tray.

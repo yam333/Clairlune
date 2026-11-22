@@ -1,4 +1,4 @@
-//! `package`: save a scene as a frozen scene package (PLAN.md section 9c), and
+//! `package`: save a scene as a frozen scene package, and
 //! play one back as a still (`generate --package`) or a GIF (`gif --package`).
 
 use crate::{ThemeArg, parse_size, random_seed, restrict_activity, restrict_archetype};

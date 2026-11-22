@@ -1,4 +1,4 @@
-//! The tray (menu-bar) icon and its menu (PLAN.md section 10): the
+//! The tray (menu-bar) icon and its menu: the
 //! notification area on Windows, the menu bar on macOS.
 
 use crate::settings::ThemeMode;

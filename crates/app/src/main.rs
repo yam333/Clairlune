@@ -3,7 +3,7 @@
 //! The Clairlune desktop app: a tray icon that sets a new procedural wallpaper
 //! on a schedule, one scene per monitor, keeping an archive of past ones.
 //!
-//! One event loop for the whole process (PLAN.md section 3.4): the tray, and
+//! One event loop for the whole process: the tray, and
 //! later the live wallpaper windows and the UI windows, all live on it. Work
 //! that takes time (rendering, archiving) runs on a worker thread and reports
 //! back as a user event.
@@ -641,7 +641,7 @@ impl App {
         }
     }
 
-    /// Applies the timeline's active slot when it changed (PLAN.md 9b).
+    /// Applies the timeline's active slot when it changed.
     fn check_timeline(&mut self) {
         if !self.timeline_mode() {
             if self.timeline_since.take().is_some() {
@@ -664,7 +664,7 @@ impl App {
             return;
         }
         // Shortly before the next slot starts, make it now and show it at
-        // its start (PLAN.md section 9b, pre-rendering).
+        // its start.
         if !self.busy && self.timeline_since != Some(active.next) {
             let ahead = active.next.duration_since(now);
             if ahead > jiff::SignedDuration::ZERO
@@ -1469,7 +1469,7 @@ impl App {
     /// and, once the layout has settled and differs from the one the
     /// wallpaper was made for, makes the current scenes again at the new
     /// sizes: same seeds, saved scenes replayed where a monitor kept its size
-    /// (PLAN.md section 2.1). Explorer restarts start live playback again.
+    ///. Explorer restarts start live playback again.
     fn watch_monitors(&mut self, event_loop: &ActiveEventLoop, now: Instant) {
         let mut noticed = false;
         #[cfg(windows)]
@@ -2452,8 +2452,8 @@ impl ApplicationHandler<AppEvent> for App {
         }
         // Settings opens at launch unless Clairlune started quietly (at
         // sign-in), and always when the tray it wants didn't come up: then
-        // Settings is its only face and closing it quits (PLAN.md section
-        // 10, "No tray available"). And for the first run's question.
+        // Settings is its only face and closing it quits. And for the first
+        // run's question.
         if self.ui_test.is_none()
             && (!self.background
                 || self.tray_missing()

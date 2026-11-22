@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: User guide
+    url: https://github.com/yam333/Clairlune/blob/main/docs/guide.md
+    about: Installing, every setting, and answers to common questions.
+  - name: Security problem
+    url: https://github.com/yam333/Clairlune/security/advisories/new
+    about: Report it privately instead of in an issue.
