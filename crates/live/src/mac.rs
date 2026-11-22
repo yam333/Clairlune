@@ -6,25 +6,32 @@
 //! it is, with no GPU device or swapchain in the app (they cost far more
 //! memory and threads than a wallpaper needs).
 //!
-//! A screen whose window is fully covered (a zoomed app, the lock screen, a
-//! sleeping display) reports itself occluded, and isn't drawn until it shows
-//! again.
+//! A screen whose window is fully covered (a full-screen app, the lock
+//! screen, a sleeping display) reports itself occluded, and isn't drawn
+//! until it shows again. A zoomed window leaves the menu bar and the Dock
+//! showing, so twice a second the host also asks the window server where the
+//! other apps' windows are: a screen whose usable area they all but fill
+//! counts as covered too ([`crate::cover`]).
 //!
 //! Everything here runs on the main thread (AppKit's rule), which is where
 //! the app ticks it.
 
+use crate::cover::{self, Rect};
 use crate::surface::SurfaceView;
 use crate::{CoverPolicy, FrameStats, Player};
 use clairlune_platform::Monitor;
 use clairlune_platform::macos::find_screen;
 use objc2::rc::Retained;
-use objc2::{MainThreadMarker, MainThreadOnly};
+use objc2::runtime::AnyObject;
+use objc2::{ClassType, MainThreadMarker, MainThreadOnly, msg_send};
 use objc2_app_kit::{
-    NSBackingStoreType, NSWindow, NSWindowCollectionBehavior, NSWindowOcclusionState,
+    NSBackingStoreType, NSScreen, NSWindow, NSWindowCollectionBehavior, NSWindowOcclusionState,
     NSWindowStyleMask,
 };
-use objc2_core_graphics::{CGWindowLevelForKey, CGWindowLevelKey};
-use objc2_foundation::{NSPoint, NSRect};
+use objc2_core_graphics::{
+    CGWindowLevelForKey, CGWindowLevelKey, CGWindowListCopyWindowInfo, CGWindowListOption,
+};
+use objc2_foundation::{NSArray, NSDictionary, NSNumber, NSPoint, NSRect, NSString};
 use std::time::{Duration, Instant};
 
 /// One screen's window and the view that shows it. The view goes before
@@ -40,6 +47,95 @@ struct Output {
 pub struct MacDesktop {
     outputs: Vec<Output>,
     pub cover_policy: CoverPolicy,
+    /// Per output: other apps' windows all but fill its screen; and when
+    /// that was last asked.
+    filled: Vec<bool>,
+    windows_checked: Option<Instant>,
+}
+
+/// How often to ask where the other apps' windows are.
+const WINDOW_CHECK: Duration = Duration::from_millis(500);
+
+/// The on-screen windows of other apps at the normal level (no menus,
+/// panels or the Dock), in the window server's points (top-left origin).
+/// Their bounds need no permission; their titles aren't read.
+fn app_windows() -> Vec<Rect> {
+    let options =
+        CGWindowListOption::OptionOnScreenOnly | CGWindowListOption::ExcludeDesktopElements;
+    let Some(list) = CGWindowListCopyWindowInfo(options, 0) else {
+        return Vec::new();
+    };
+    // SAFETY: a CFArray is an NSArray (toll-free bridged), and the window
+    // list holds dictionaries; each item is checked before it's read.
+    let list: &NSArray<AnyObject> = unsafe { &*(&*list as *const _ as *const NSArray<AnyObject>) };
+    let me = f64::from(std::process::id());
+    let mut out = Vec::new();
+    for i in 0..list.count() {
+        let item = list.objectAtIndex(i);
+        let Some(d) = dict(&item) else {
+            continue;
+        };
+        if number(d, "kCGWindowLayer") != Some(0.0)
+            || number(d, "kCGWindowOwnerPID") == Some(me)
+            || number(d, "kCGWindowAlpha").unwrap_or(1.0) < 0.05
+        {
+            continue;
+        }
+        let Some(bounds) = value(d, "kCGWindowBounds") else {
+            continue;
+        };
+        let Some(b) = dict(&bounds) else {
+            continue;
+        };
+        if let (Some(x), Some(y), Some(w), Some(h)) = (
+            number(b, "X"),
+            number(b, "Y"),
+            number(b, "Width"),
+            number(b, "Height"),
+        ) {
+            out.push(Rect { x, y, w, h });
+        }
+    }
+    out
+}
+
+fn is_kind(obj: &AnyObject, class: &objc2::runtime::AnyClass) -> bool {
+    // SAFETY: isKindOfClass: is on every NSObject.
+    unsafe { msg_send![obj, isKindOfClass: class] }
+}
+
+fn dict(obj: &AnyObject) -> Option<&NSDictionary<AnyObject, AnyObject>> {
+    // SAFETY: checked to be a dictionary first.
+    is_kind(obj, NSDictionary::<AnyObject, AnyObject>::class()).then(|| unsafe {
+        &*(obj as *const AnyObject as *const NSDictionary<AnyObject, AnyObject>)
+    })
+}
+
+fn value(d: &NSDictionary<AnyObject, AnyObject>, key: &str) -> Option<Retained<AnyObject>> {
+    let key = NSString::from_str(key);
+    let key: &AnyObject = &key;
+    d.objectForKey(key)
+}
+
+fn number(d: &NSDictionary<AnyObject, AnyObject>, key: &str) -> Option<f64> {
+    let v = value(d, key)?;
+    // SAFETY: checked to be a number first.
+    is_kind(&v, NSNumber::class())
+        .then(|| unsafe { &*(&*v as *const AnyObject as *const NSNumber) }.doubleValue())
+}
+
+/// The usable part of the screen a window is on (without the menu bar and
+/// the Dock), in the window server's points: AppKit's origin is the main
+/// screen's bottom left, y up; the window server's its top left, y down.
+fn usable_area(mtm: MainThreadMarker, window: &NSWindow) -> Option<Rect> {
+    let main = NSScreen::screens(mtm).firstObject()?.frame();
+    let v = window.screen()?.visibleFrame();
+    Some(Rect {
+        x: v.origin.x,
+        y: main.size.height - (v.origin.y + v.size.height),
+        w: v.size.width,
+        h: v.size.height,
+    })
 }
 
 /// A borderless window covering the screen, at the desktop picture's level.
@@ -110,9 +206,12 @@ impl MacDesktop {
             return Err("no screens to play on".into());
         }
         tracing::info!(target: "clairlune", screens = outputs.len(), "live: showing IOSurfaces");
+        let n = outputs.len();
         Ok(MacDesktop {
             outputs,
             cover_policy: CoverPolicy::default(),
+            filled: vec![false; n],
+            windows_checked: None,
         })
     }
 
@@ -139,22 +238,47 @@ impl MacDesktop {
     /// Draws the current time on every screen that shows.
     pub fn tick(&mut self) -> Result<FrameStats, String> {
         let started = Instant::now();
+        if self.cover_policy == CoverPolicy::Off {
+            self.filled.fill(false);
+        } else if self
+            .windows_checked
+            .is_none_or(|t| t.elapsed() >= WINDOW_CHECK)
+            && let Some(mtm) = MainThreadMarker::new()
+        {
+            self.windows_checked = Some(Instant::now());
+            let windows = app_windows();
+            self.filled = self
+                .outputs
+                .iter()
+                .map(|o| usable_area(mtm, &o.window).is_some_and(|a| cover::filled(a, &windows)))
+                .collect();
+        }
         let shown: Vec<bool> = self
             .outputs
             .iter()
-            .map(|o| {
-                o.window
-                    .occlusionState()
-                    .contains(NSWindowOcclusionState::Visible)
+            .zip(&self.filled)
+            .map(|(o, filled)| {
+                !filled
+                    && o.window
+                        .occlusionState()
+                        .contains(NSWindowOcclusionState::Visible)
             })
             .collect();
         let any_hidden = shown.iter().any(|v| !v);
         for (o, visible) in self.outputs.iter_mut().zip(&shown) {
-            o.covered = match self.cover_policy {
+            let covered = match self.cover_policy {
                 CoverPolicy::Off => false,
                 CoverPolicy::ThatMonitor => !visible,
                 CoverPolicy::AllMonitors => any_hidden,
             };
+            if covered != o.covered {
+                if covered {
+                    tracing::info!(target: "clairlune", screen = %o.monitor.id, "live: covered, paused");
+                } else {
+                    tracing::info!(target: "clairlune", screen = %o.monitor.id, "live: showing again, playing");
+                }
+            }
+            o.covered = covered;
         }
         let (mut pixels, mut count) = (0u64, 0usize);
         for o in &mut self.outputs {

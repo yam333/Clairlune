@@ -15,6 +15,7 @@ use clairlune_scene::Theme;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+pub mod cover;
 #[cfg(windows)]
 pub mod d3d11;
 #[cfg(windows)]
