@@ -1,0 +1,59 @@
+name: Mac cover check
+
+# Pause behind a window that fills the screen, on a macOS runner (a throwaway
+# machine): Clairlune plays live, scripts/cover_check.swift opens a window
+# the size a zoomed one takes (the menu bar and the Dock still showing),
+# then makes it smaller. The log must say the screen was covered and paused,
+# then played again.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["crates/live/src/mac.rs", "crates/live/src/cover.rs", "scripts/cover_check.swift", ".github/workflows/mac-cover.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  cover:
+    runs-on: macos-latest
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: mac-cover
+      - name: Build
+        run: cargo build --release -p clairlune
+      - name: Play live, cover the screen, uncover it
+        run: |
+          set -u
+          dir="$HOME/Library/Application Support/clairlune"
+          mkdir -p "$dir"
+          cat > "$dir/settings.toml" <<EOF
+          [general]
+          asked_start_at_login = true
+          check_updates = false
+
+          [display]
+          mode = "live"
+
+          [live]
+          pause_when_covered = "that_monitor"
+          EOF
+          ./target/release/clairlune --background &
+          pid=$!
+          sleep 25
+          swift scripts/cover_check.swift
+          sleep 3
+          kill "$pid" 2>/dev/null
+          log=$(ls "$dir"/logs/*.log | head -1)
+          grep -E "live|usage" "$log" | tail -20
+          grep -q "live: covered, paused" "$log" || { echo "it didn't pause behind the zoomed-size window"; exit 1; }
+          grep -q "live: showing again, playing" "$log" || { echo "it didn't play again once the window shrank"; exit 1; }
+          paused=$(grep -n "live: covered, paused" "$log" | head -1 | cut -d: -f1)
+          again=$(grep -n "live: showing again, playing" "$log" | tail -1 | cut -d: -f1)
+          [ "$again" -gt "$paused" ] || { echo "the order is wrong"; exit 1; }
+          echo "paused behind the window, and played again after"

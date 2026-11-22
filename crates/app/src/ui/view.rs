@@ -1334,7 +1334,7 @@ fn page(
                 ui,
                 theme,
                 "Pause behind full-screen apps",
-                "When an app is maximized or full screen, the wallpaper under it stops moving.",
+                "When an app fills the screen (maximized, zoomed or full screen), the wallpaper under it stops moving.",
                 |ui| {
                     use crate::settings::CoverPause;
                     segmented(
