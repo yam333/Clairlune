@@ -23,7 +23,12 @@ Downloads are on the [releases page](https://github.com/yam333/Clairlune/release
   for your account only and needs no admin rights. If SmartScreen says it
   protected your PC, click More info, then Run anyway. With Scoop:
   `scoop bucket add clairlune https://github.com/yam333/homebrew-clairlune`,
-  then `scoop install clairlune`.
+  then `scoop install clairlune`. With winget: until Microsoft accepts the
+  package (then it's `winget install Clairlune.Clairlune`), install from the
+  release's `clairlune_<version>_winget.zip`: extract it, allow local
+  manifests once with `winget settings --enable LocalManifestFiles` in an
+  administrator Terminal, then run `winget install --manifest <the folder>`
+  ([the README](../README.md#winget) has a copy-paste version).
 - **macOS 13 or later:** open the DMG (`aarch64` for Apple silicon, `x64` for
   Intel) and drag Clairlune to Applications. The first time you open it, macOS
   refuses: open System Settings > Privacy & Security, scroll down and click
