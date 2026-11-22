@@ -82,10 +82,9 @@ window.
 - **Rotation:** how often the wallpaper changes (every hour by default), or a
   Timeline that follows a plan for each day of the week; Resume when changes
   are paused; and From a seed: type a wallpaper's seed to get it back.
-- **Theme:** light, dark, like the system, or on a schedule (set times, or
-  sunrise and sunset for your location).
-- **Display:** Live or Still frame, and one scene per monitor or one across
-  all.
+- **Display:** Live or Still frame; the appearance (light, dark, like the
+  system, or on a schedule: set times, or sunrise and sunset for your
+  location); and one scene per monitor or one across all.
 - **Live:** smoothness (6 to 60 frames a second, 12 by default; higher is
   smoother and uses more power), what to do on battery, what pauses live
   when an app covers the screen, and on the Mac Lighter on Retina screens
@@ -97,7 +96,7 @@ window.
   (line art or dithered), contrast and zoom (Clawd up close, smaller, or tiny
   in a huge landscape).
 - **Archive** and **Export:** how long past wallpapers are kept, and where
-  saved PNGs and GIFs go. Saved images are signed in a corner, small, in the
+  saved PNGs and GIFs go (Choose… opens the system's folder picker). Saved images are signed in a corner, small, in the
   scene's own text ("clairlune · by yam333"); Sign saved images turns that
   off. The wallpaper on your desktop is never signed.
 - **General:** start with the computer, the tray icon, Permissions (what to

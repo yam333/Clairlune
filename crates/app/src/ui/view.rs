@@ -62,7 +62,6 @@ impl LandThumbs {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Section {
     Rotation,
-    Theme,
     Display,
     Live,
     Buddy,
@@ -73,15 +72,13 @@ pub enum Section {
     About,
 }
 
-/// Where the maker is on GitHub, and Clairlune.
+/// Where the maker is on GitHub.
 pub const MAKER: &str = "yam333";
 pub const MAKER_URL: &str = "https://github.com/yam333";
-pub const PROJECT_URL: &str = "https://github.com/yam333/Clairlune";
 
 impl Section {
-    pub const ALL: [Section; 10] = [
+    pub const ALL: [Section; 9] = [
         Section::Rotation,
-        Section::Theme,
         Section::Display,
         Section::Live,
         Section::Buddy,
@@ -95,7 +92,6 @@ impl Section {
     pub fn name(self) -> &'static str {
         match self {
             Section::Rotation => "Rotation",
-            Section::Theme => "Theme",
             Section::Display => "Display",
             Section::Live => "Live",
             Section::Buddy => "Clawd",
@@ -158,6 +154,8 @@ pub struct Status {
     pub note: Option<String>,
     /// Timeline mode: the slot boundary to come ("Next slot at 19:30").
     pub timeline_next: Option<String>,
+    /// Where saved images go when no folder is chosen.
+    pub export_dir: String,
     /// Problems in timeline.toml (missing items, unknown ids).
     pub timeline_problems: Vec<String>,
     /// What the live wallpaper does, or why it can't run.
@@ -177,8 +175,10 @@ pub enum UiAction {
     FromSeed(u64),
     /// Changes start again (they were paused from the menu, or by Restore).
     Resume,
-    /// Opens a web page (the maker's, the project's).
+    /// Opens a web page (the maker's).
     OpenLink(&'static str),
+    /// Pick where saved images go, in the system's folder picker.
+    ChooseExportFolder,
     Previous,
     OpenArchive,
     OpenLogs,
@@ -981,24 +981,27 @@ fn now_showing(
     };
     // Room for the tag and, when live, its dot.
     let title_w = pic.width() - tag_g.size().x - if live { 24.0 } else { 12.0 };
-    let title = p.layout_job(one_line(&what, style::body_medium(), c(t.text), title_w));
-    p.galley(pos2(pic.min.x + 2.0, y), title, c(t.text));
+    marquee(
+        ui,
+        &p,
+        Rect::from_min_size(pos2(pic.min.x + 2.0, y), vec2(title_w, 20.0)),
+        &what,
+        c(t.text),
+    );
     let tag_x = pic.max.x - tag_g.size().x - 2.0;
     if live {
         p.circle_filled(pos2(tag_x - 7.0, y + 9.0), 3.0, c(t.accent_text));
     }
     p.galley(pos2(tag_x, y + 3.0), tag_g, tag_ink);
     let next = match status.next_in_minutes {
-        None if status.timeline_next.is_some() => status
-            .timeline_next
-            .clone()
-            .unwrap_or_default()
-            .to_lowercase(),
-        Some(0) => "next one in under a minute".to_string(),
-        Some(1) => "next one in 1 min".to_string(),
-        Some(m) if m < 120 => format!("next one in {m} min"),
-        Some(m) => format!("next one in {} h", m / 60),
-        None => "changes when you ask".to_string(),
+        None if status.timeline_next.is_some() => {
+            let at = status.timeline_next.clone().unwrap_or_default();
+            format!("next: {}", at.strip_prefix("Next slot at ").unwrap_or(&at))
+        }
+        Some(0) => "next: under a minute".to_string(),
+        Some(m) if m < 120 => format!("next: {m} min"),
+        Some(m) => format!("next: {} h", m / 60),
+        None => "next: when you ask".to_string(),
     };
     let facts = match status.theme {
         Some(th) => format!("{} \u{b7} {next}", th.as_str()),
@@ -1041,21 +1044,22 @@ fn signature(ui: &mut Ui, theme: Theme, actions: &mut Vec<UiAction>) {
     } else {
         c(t.text)
     };
+    let hovered = resp.hovered() || resp.has_focus();
     let p = ui.painter();
-    p.galley(rect.min + vec2(2.0, 0.0), galley, ink);
     // A pen stroke under it: rising a little, then easing off.
     let (x0, x1) = (rect.min.x + 4.0, rect.min.x + size.x * 0.96);
     let y = rect.min.y + size.y + 2.0;
-    let stroke: Vec<egui::Pos2> = (0..=24)
-        .map(|i| {
-            let u = i as f32 / 24.0;
-            let lift = (u * std::f32::consts::PI).sin() * 3.0 - u * 2.0;
-            pos2(x0 + (x1 - x0) * u, y - lift)
-        })
-        .collect();
+    let under = |u: f32| {
+        let lift = (u * std::f32::consts::PI).sin() * 3.0 - u * 2.0;
+        pos2(x0 + (x1 - x0) * u, y - lift)
+    };
+    p.galley(rect.min + vec2(2.0, 0.0), galley, ink);
+    embers(ui, theme, &under, size.y, hovered);
+    let stroke: Vec<egui::Pos2> = (0..=24).map(|i| under(i as f32 / 24.0)).collect();
+    let width = if hovered { 2.2 } else { 1.6 };
     p.add(egui::Shape::line(
         stroke,
-        Stroke::new(1.6, c(t.accent_deep)),
+        Stroke::new(width, c(t.accent_deep)),
     ));
     if resp.has_focus() {
         focus_ring(ui, theme, rect, 6.0);
@@ -1063,6 +1067,38 @@ fn signature(ui: &mut Ui, theme: Theme, actions: &mut Vec<UiAction>) {
     if resp.clicked() {
         actions.push(UiAction::OpenLink(MAKER_URL));
     }
+}
+
+/// Embers rising off the signature's pen stroke, the way they rise off the
+/// wallpapers' campfires: a few, slowly, saying there's something to touch;
+/// more and quicker under the pointer. `along` places a point on the stroke
+/// (0 to 1); they rise about `height`.
+fn embers(ui: &Ui, theme: Theme, along: &dyn Fn(f32) -> egui::Pos2, height: f32, hot: bool) {
+    let t = colors(theme);
+    let now = ui.input(|i| i.time) as f32;
+    // A fixed scatter: the same embers every time, each its own pace.
+    let h = |k: u32| (k.wrapping_mul(2_654_435_761) >> 8) as f32 / (1u32 << 24) as f32;
+    let count = if hot { 28 } else { 16 };
+    let pace = if hot { 1.8 } else { 1.0 };
+    let p = ui.painter();
+    for i in 0..count {
+        let k = i as u32 * 7 + 1;
+        let life = 2.4 + h(k) * 1.8;
+        let phase = ((now * pace + h(k + 1) * life) % life) / life;
+        let start = along(-0.04 + 1.08 * h(k + 2));
+        let rise = height * (0.8 + 0.6 * h(k + 3));
+        let sway = (now * (0.8 + h(k + 4)) + i as f32).sin() * 3.0;
+        let at = start + vec2(sway * phase, -rise * phase);
+        // Bright as they leave the stroke, fading as they climb.
+        let glow = (phase * std::f32::consts::PI).sin().powf(0.7) * (1.0 - phase * 0.6);
+        let strength = if hot { 1.0 } else { 0.8 };
+        let ink = if i % 3 == 0 { t.accent } else { t.accent_deep };
+        let r = 1.3 + h(k + 5) * 1.1;
+        p.circle_filled(at, r * 3.2, alpha(ink, 0.16 * glow * strength));
+        p.circle_filled(at, r, alpha(ink, glow * strength));
+    }
+    ui.ctx()
+        .request_repaint_after(std::time::Duration::from_millis(33));
 }
 
 /// The seed in a small box: hovered it offers to copy, clicked it copies.
@@ -1171,6 +1207,29 @@ fn squircle(rect: Rect, r: f32) -> Vec<egui::Pos2> {
     out
 }
 
+/// A line of text in `rect`: as it is when it fits, otherwise drifting
+/// slowly left, resting a moment at the start of each pass.
+fn marquee(ui: &Ui, p: &Painter, rect: Rect, text: &str, ink: Color32) {
+    const SPEED: f32 = 18.0; // points a second
+    const GAP: f32 = 40.0;
+    const REST: f32 = 2.5; // seconds
+    let galley = p.layout_no_wrap(text.to_string(), style::body_medium(), ink);
+    let w = galley.size().x;
+    if w <= rect.width() {
+        p.galley(rect.min, galley, ink);
+        return;
+    }
+    let span = w + GAP;
+    let cycle = REST + span / SPEED;
+    let phase = (ui.input(|i| i.time) as f32) % cycle;
+    let shift = ((phase - REST).max(0.0) * SPEED).round();
+    let clip = p.with_clip_rect(rect.expand2(vec2(0.0, 3.0)).intersect(p.clip_rect()));
+    clip.galley(rect.min - vec2(shift, 0.0), galley.clone(), ink);
+    clip.galley(rect.min + vec2(span - shift, 0.0), galley, ink);
+    ui.ctx()
+        .request_repaint_after(std::time::Duration::from_millis(40));
+}
+
 /// One line of text, cut short with an ellipsis where it doesn't fit.
 fn one_line(text: &str, font: egui::FontId, color: Color32, width: f32) -> egui::text::LayoutJob {
     let mut job = egui::text::LayoutJob::simple(text.to_string(), font, color, width);
@@ -1234,19 +1293,22 @@ fn summary(section: Section, s: &Settings, status: &Status) -> String {
                 );
             format!("a new scene every {every}")
         }
-        Section::Theme => match s.theme.mode {
-            ThemeMode::FollowSystem => "like the system".into(),
-            ThemeMode::Light => "always light".into(),
-            ThemeMode::Dark => "always dark".into(),
-            ThemeMode::Schedule => "on a schedule".into(),
-        },
         Section::Display => {
             let n = status.monitors.len().max(1);
             let mode = match s.display.mode {
                 WallpaperMode::Live => "live",
                 WallpaperMode::Still => "still",
             };
-            format!("{n} monitor{} · {mode}", if n == 1 { "" } else { "s" })
+            let look = match s.theme.mode {
+                ThemeMode::FollowSystem => "like the system",
+                ThemeMode::Light => "light",
+                ThemeMode::Dark => "dark",
+                ThemeMode::Schedule => "on a schedule",
+            };
+            format!(
+                "{n} monitor{} \u{b7} {mode} \u{b7} {look}",
+                if n == 1 { "" } else { "s" }
+            )
         }
         Section::Live => format!("{} frames a second", s.live.smoothness_fps),
         Section::Buddy if s.buddy.show => "in every wallpaper".into(),
@@ -1313,12 +1375,6 @@ fn icon(p: &Painter, icon: Icon, r: Rect, ink: Color32) {
             line(&[(10.6, 2.9), (12.6, 5.4), (9.6, 5.9)]);
             p.add(egui::Shape::line(arc(8.0, 8.0, 5.3, 20.0, 150.0), st));
             line(&[(5.4, 13.1), (3.4, 10.6), (6.4, 10.1)]);
-        }
-        Icon::Section(Section::Theme) => {
-            p.circle_stroke(at(8.0, 8.0), 5.6 * k, st);
-            let mut half = arc(8.0, 8.0, 5.6, -90.0, 90.0);
-            half.push(at(8.0, 13.6));
-            p.add(egui::Shape::convex_polygon(half, ink, Stroke::NONE));
         }
         Icon::Section(Section::Display) => {
             p.rect_stroke(
@@ -2223,57 +2279,33 @@ fn page(
                     }
                 });
             }
-            row(
-                ui,
-                theme,
-                "From a seed",
-                "The same seed and Content choices make the same wallpaper.",
-                |ui| {
-                    let show = ui.button("Show").clicked();
-                    let field = ui.add(
-                        egui::TextEdit::singleline(&mut ps.seed)
-                            .font(style::mono())
-                            .hint_text("seed")
-                            .char_limit(20)
-                            .desired_width(200.0),
-                    );
-                    let entered =
-                        field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                    if show || entered {
-                        match ps.seed.trim().parse::<u64>() {
-                            Ok(seed) => {
-                                ps.seed_wrong = false;
-                                actions.push(UiAction::FromSeed(seed));
-                            }
-                            Err(_) => ps.seed_wrong = true,
+            row(ui, theme, "From a seed", "", |ui| {
+                let show = ui.button("Show").clicked();
+                let field = ui.add(
+                    egui::TextEdit::singleline(&mut ps.seed)
+                        .font(style::mono())
+                        .hint_text("seed")
+                        .char_limit(20)
+                        .desired_width(200.0),
+                );
+                let entered = field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                if show || entered {
+                    match ps.seed.trim().parse::<u64>() {
+                        Ok(seed) => {
+                            ps.seed_wrong = false;
+                            ps.seed.clear();
+                            actions.push(UiAction::FromSeed(seed));
                         }
+                        Err(_) => ps.seed_wrong = true,
                     }
-                },
-            );
+                }
+            });
             if ps.seed_wrong {
                 ui.label(
                     RichText::new("A seed is a whole number of up to 20 digits.")
                         .color(c(t.danger)),
                 );
                 ui.add_space(space::S2);
-            }
-        }
-        Section::Theme => {
-            row(ui, theme, "Appearance", "", |ui| {
-                segmented(
-                    ui,
-                    theme,
-                    &mut s.theme.mode,
-                    &[
-                        (ThemeMode::FollowSystem, "Follow system", true),
-                        (ThemeMode::Light, "Light", true),
-                        (ThemeMode::Dark, "Dark", true),
-                        (ThemeMode::Schedule, "Schedule", true),
-                    ],
-                );
-            });
-            if s.theme.mode == ThemeMode::Schedule {
-                theme_schedule(ui, theme, s);
             }
         }
         Section::Display => {
@@ -2298,6 +2330,22 @@ fn page(
                         .color(c(t.text_secondary)),
                 );
                 ui.add_space(space::S4);
+            }
+            row(ui, theme, "Appearance", "", |ui| {
+                segmented(
+                    ui,
+                    theme,
+                    &mut s.theme.mode,
+                    &[
+                        (ThemeMode::FollowSystem, "Follow system", true),
+                        (ThemeMode::Light, "Light", true),
+                        (ThemeMode::Dark, "Dark", true),
+                        (ThemeMode::Schedule, "Schedule", true),
+                    ],
+                );
+            });
+            if s.theme.mode == ThemeMode::Schedule {
+                theme_schedule(ui, theme, s);
             }
             row(ui, theme, "Monitors", "", |ui| {
                 segmented(
@@ -2407,14 +2455,7 @@ fn page(
             row(ui, theme, "Pause on battery", "", |ui| {
                 toggle(ui, theme, &mut s.live.pause_on_battery, "Pause on battery");
             });
-            ui.label(
-                RichText::new(
-                    "Live also pauses while the computer is locked or the displays are off. Frames are drawn on the graphics card the monitor is plugged into.",
-                )
-                .color(c(t.text_secondary)),
-            );
             if s.display.mode != crate::settings::WallpaperMode::Live {
-                ui.add_space(space::S2);
                 ui.label(
                     RichText::new("The wallpaper is a still frame now (Display, Wallpaper mode).")
                         .color(c(t.text_secondary)),
@@ -2430,22 +2471,11 @@ fn page(
             });
         }
         Section::Content => {
-            ui.label(
-                RichText::new("New wallpapers pick from what's on here.")
-                    .color(c(t.text_secondary)),
-            );
-            // Which monitor's choices: all of them, or one with its own.
+            // Which monitor's choices: all of them, or one with its own (a
+            // scene spread across them picks from the choices for all).
             let span = s.display.span;
             if status.monitors.len() > 1 {
-                ui.add_space(space::S3);
-                if span {
-                    ui.label(
-                        RichText::new(
-                            "The monitors share one spread-across scene, so it picks from the choices for all of them.",
-                        )
-                        .color(c(t.text_secondary)),
-                    );
-                } else {
+                if !span {
                     let mut pick = ps
                         .content_monitor
                         .as_ref()
@@ -2546,33 +2576,27 @@ fn page(
             });
         }
         Section::Archive => {
-            row(
-                ui,
-                theme,
-                "Keep wallpapers for",
-                "Older ones are deleted unless pinned.",
-                |ui| {
-                    let label = match s.archive.keep_days {
-                        0 => "Forever".to_string(),
-                        1 => "1 day".to_string(),
-                        d => format!("{d} days"),
-                    };
-                    egui::ComboBox::from_id_salt("keep")
-                        .selected_text(label)
-                        .width(160.0)
-                        .show_ui(ui, |ui| {
-                            for (d, l) in [
-                                (1, "1 day"),
-                                (7, "7 days"),
-                                (30, "30 days"),
-                                (90, "90 days"),
-                                (0, "Forever"),
-                            ] {
-                                ui.selectable_value(&mut s.archive.keep_days, d, l);
-                            }
-                        });
-                },
-            );
+            row(ui, theme, "Keep wallpapers for", "", |ui| {
+                let label = match s.archive.keep_days {
+                    0 => "Forever".to_string(),
+                    1 => "1 day".to_string(),
+                    d => format!("{d} days"),
+                };
+                egui::ComboBox::from_id_salt("keep")
+                    .selected_text(label)
+                    .width(160.0)
+                    .show_ui(ui, |ui| {
+                        for (d, l) in [
+                            (1, "1 day"),
+                            (7, "7 days"),
+                            (30, "30 days"),
+                            (90, "90 days"),
+                            (0, "Forever"),
+                        ] {
+                            ui.selectable_value(&mut s.archive.keep_days, d, l);
+                        }
+                    });
+            });
             row(ui, theme, "Size limit", "", |ui| {
                 egui::ComboBox::from_id_salt("cap")
                     .selected_text(format!("{} GB", s.archive.max_mb.div_ceil(1024).max(1)))
@@ -2609,21 +2633,27 @@ fn page(
                     actions.push(UiAction::SaveGif);
                 }
             });
-            row(
-                ui,
-                theme,
-                "Sign saved images",
-                "A small \u{201c}clairlune \u{b7} by yam333\u{201d} in a corner, in the scene's own text.",
-                |ui| {
-                    toggle(ui, theme, &mut s.export.sign, "Sign saved images");
-                },
-            );
-            ui.label(RichText::new("Export folder").font(style::body_strong()));
-            let hint = "Empty: Pictures\\Clairlune";
-            ui.add(
-                egui::TextEdit::singleline(&mut s.export.folder)
-                    .hint_text(hint)
-                    .desired_width(f32::INFINITY),
+            row(ui, theme, "Sign saved images", "", |ui| {
+                toggle(ui, theme, &mut s.export.sign, "Sign saved images");
+            });
+            let custom = !s.export.folder.trim().is_empty();
+            row(ui, theme, "Export folder", "", |ui| {
+                if ui.button("Choose\u{2026}").clicked() {
+                    actions.push(UiAction::ChooseExportFolder);
+                }
+                if custom && ui.button("Pictures").clicked() {
+                    s.export.folder.clear();
+                }
+            });
+            let shown = if custom {
+                s.export.folder.trim().to_string()
+            } else {
+                status.export_dir.clone()
+            };
+            ui.label(
+                RichText::new(shown)
+                    .font(style::mono())
+                    .color(c(t.text_secondary)),
             );
         }
         Section::General => {
@@ -2831,14 +2861,14 @@ fn page(
                     });
             }
             ui.add_space(space::S4);
-            row(ui, theme, "Logs", "Details for bug reports.", |ui| {
+            row(ui, theme, "Logs", "", |ui| {
                 if ui.button("Open").clicked() {
                     actions.push(UiAction::OpenLogs);
                 }
             });
             let detailed_text = match &status.detailed_until {
                 Some(until) => format!("On until {until}, then back to normal."),
-                None => "Logs much more for a day, for a bug report.".to_string(),
+                None => String::new(),
             };
             row(ui, theme, "Detailed logging", &detailed_text, |ui| {
                 let mut on = status.detailed_until.is_some();
@@ -2846,17 +2876,11 @@ fn page(
                     actions.push(UiAction::SetDetailedLogging(on));
                 }
             });
-            row(
-                ui,
-                theme,
-                "Diagnostics",
-                "One zip for a bug report: system facts, recent logs, crash reports, recipes and settings, with your home folder written as ~. Nothing is sent anywhere.",
-                |ui| {
-                    if ui.button("Export").clicked() {
-                        actions.push(UiAction::ExportDiagnostics);
-                    }
-                },
-            );
+            row(ui, theme, "Diagnostics", "", |ui| {
+                if ui.button("Export").clicked() {
+                    actions.push(UiAction::ExportDiagnostics);
+                }
+            });
             if status.crash_reports > 0 {
                 let n = status.crash_reports;
                 row(
@@ -2884,15 +2908,6 @@ fn page(
                     .italics()
                     .color(c(t.text_secondary)),
             );
-            ui.add_space(space::S4);
-            ui.horizontal(|ui| {
-                if ui.button("GitHub profile").clicked() {
-                    actions.push(UiAction::OpenLink(MAKER_URL));
-                }
-                if ui.button("Clairlune on GitHub").clicked() {
-                    actions.push(UiAction::OpenLink(PROJECT_URL));
-                }
-            });
             ui.add_space(space::S5);
             hairline(ui, t.hairline);
             ui.add_space(space::S3);
