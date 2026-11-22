@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "ff7a56b1aefb8046",
-  "activity": "wizard_magic",
-  "archetype": "meadow",
+  "content_ctx_hash": "472e5683060b8a8d",
+  "activity": "play_flute",
+  "archetype": "islands",
   "light_tod": "noon",
   "dark_tod": "deep_dusk",
-  "platform": "grassy_knoll",
+  "platform": "sand_spit",
   "props": [
-    "spellbook"
+    "music_stand"
   ],
-  "weather": "none",
+  "weather": "birds",
   "composition": {
     "horizon_pm": 571,
     "focus_x_pm": 505,

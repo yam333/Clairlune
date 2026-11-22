@@ -1,0 +1,38 @@
+# Yoga beside a rolled mat: reaching up, side stretches, a seated rest.
+id = "yoga"
+weight = 0.9
+
+[requires]
+terrain = ["flat", "ledge", "shore", "rooftop", "indoor"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk"]
+weather = ["none", "petals", "leaves", "fog", "birds", "butterflies", "seeds"]
+
+[motion]
+type = "stationary"
+
+[props.yoga_mat]
+attach = "either_side"
+
+[animation]
+start = "reach"
+
+[animation.states.reach]
+loop = true
+dwell_s = [3, 6]
+next = { stretch = 0.7, rest = 0.3 }
+
+[animation.states.stretch]
+loop = true
+dwell_s = [3, 6]
+next = { reach = 0.5, rest = 0.5 }
+
+[animation.states.rest]
+loop = true
+dwell_s = [3, 6]
+next = { reach = 1.0 }
+
+[gif]
+loop_script = ["reach", "stretch", "rest"]
+
+[unattended]
+props = ["yoga_mat"]

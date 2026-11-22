@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "ff7a56b1aefb8046",
-  "activity": "skiing",
-  "archetype": "mountains",
+  "content_ctx_hash": "472e5683060b8a8d",
+  "activity": "fishing",
+  "archetype": "shore",
   "light_tod": "noon",
   "dark_tod": "dusk",
-  "platform": "rock_ledge",
+  "platform": "pier",
   "props": [],
-  "weather": "none",
+  "weather": "birds",
   "composition": {
     "horizon_pm": 587,
     "focus_x_pm": 355,
@@ -21,8 +21,8 @@
     "platform_margin_pm": 23,
     "cliff_layers": 3,
     "prop_left": true,
-    "motion_speed_cc": 444,
-    "pace_half_pm": 62
+    "motion_speed_cc": 0,
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "sand_day",

@@ -7,7 +7,7 @@ weight = 0.35
 [requires]
 terrain = ["shore"]
 time_of_day = ["morning", "noon", "golden_hour", "dusk"]
-weather = ["none", "dust"]
+weather = ["none", "dust", "birds"]
 
 [motion]
 type = "bob"

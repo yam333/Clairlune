@@ -1,0 +1,39 @@
+# Watering the flowers in their pots, then a step back to admire them.
+id = "gardening"
+weight = 1.0
+
+[requires]
+terrain = ["flat", "ledge", "rooftop", "indoor"]
+time_of_day = ["morning", "noon", "golden_hour"]
+weather = ["none", "petals", "leaves", "birds", "butterflies", "seeds"]
+
+[motion]
+type = "stationary"
+
+[props.flower_pots]
+attach = "either_side"
+
+[animation]
+start = "water"
+
+[animation.states.water]
+loop = true
+dwell_s = [4, 8]
+next = { admire = 1.0 }
+
+[animation.states.admire]
+loop = true
+dwell_s = [2, 4]
+next = { water = 1.0 }
+
+[[effects]]
+type = "particles"
+preset = "drops"
+at = "item_tip"
+states = ["water"]
+
+[gif]
+loop_script = ["water", "admire"]
+
+[unattended]
+props = ["bucket"]

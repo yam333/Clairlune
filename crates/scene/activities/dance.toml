@@ -5,7 +5,7 @@ weight = 0.9
 [requires]
 terrain = ["flat", "ledge", "shore", "rooftop"]
 time_of_day = ["golden_hour", "dusk", "deep_dusk", "night"]
-weather = ["none", "stars", "fireflies", "confetti", "petals"]
+weather = ["none", "stars", "fireflies", "confetti", "petals", "shooting_stars"]
 
 [motion]
 type = "stationary"

@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "ff7a56b1aefb8046",
-  "activity": "tennis",
-  "archetype": "bamboo",
+  "content_ctx_hash": "472e5683060b8a8d",
+  "activity": "chess",
+  "archetype": "canyon",
   "light_tod": "morning",
-  "dark_tod": null,
-  "platform": "mossy_bank",
+  "dark_tod": "dusk",
+  "platform": "rock_ledge",
   "props": [
-    "practice_wall"
+    "chess_table"
   ],
-  "weather": "leaves",
+  "weather": "birds",
   "composition": {
     "horizon_pm": 641,
     "focus_x_pm": 650,

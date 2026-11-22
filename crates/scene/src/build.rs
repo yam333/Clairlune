@@ -383,16 +383,13 @@ fn build_scene(
         })
         .into_iter()
         .collect();
-    // ---- Weather across the whole screen (fireflies only after dark). ----
+    // ---- Weather across the whole screen (fireflies and shooting stars
+    // only after dark, birds and butterflies only by day). ----
     let mut emitters: Vec<Emitter> = emitters;
     if let Some(kind) = WeatherKind::from_id(&recipe.weather)
         // Confetti had no particles before generator 4.
         && (kind != WeatherKind::Confetti || recipe.generator_version >= 4)
-        && (kind != WeatherKind::Fireflies
-            || matches!(
-                tod,
-                TimeOfDay::Dusk | TimeOfDay::DeepDusk | TimeOfDay::Night
-            ))
+        && kind.shows_at(tod)
     {
         emitters.push(Emitter {
             kind: EmitterKind::Weather(kind),

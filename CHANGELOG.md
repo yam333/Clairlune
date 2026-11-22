@@ -4,6 +4,20 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.20.0 (2026-11-22)
+
+- **Five new landscapes:** a waterfall pouring into a misty pool, countryside
+  with patchwork fields, a windmill and a barn, old ruins (a colonnade, an
+  arch, fallen blocks), a savanna with acacias and table hills, and a swamp of
+  cypress trees in still water.
+- **Six new things for Clawd to do:** watering flowers, playing the flute by a
+  music stand, taking photos of the view, birdwatching with binoculars (when
+  birds are about), building a sandcastle, and yoga by a rolled mat.
+- **Four new kinds of weather:** small flocks of birds and butterflies by
+  day, dandelion seeds on the breeze, and shooting stars after dark.
+- All of them are in Settings > Content, on by default. `clairlune-cli` has a
+  new `--weather` option.
+
 ## 0.19.0 (2026-11-22)
 
 - **No more Linux app.** Clairlune's desktop app is for Windows and macOS

@@ -1,0 +1,39 @@
+# Building a sandcastle with a toy spade, then sitting back to admire it.
+id = "sandcastle"
+weight = 1.0
+
+[requires]
+terrain = ["flat", "dune"]
+surface = ["sand"]
+time_of_day = ["morning", "noon", "golden_hour"]
+weather = ["none", "birds", "dust"]
+
+[motion]
+type = "stationary"
+
+[props.sandcastle]
+attach = "either_side"
+
+[animation]
+start = "dig"
+
+[animation.states.dig]
+loop = true
+dwell_s = [3, 6]
+next = { pat = 0.6, admire = 0.4 }
+
+[animation.states.pat]
+loop = true
+dwell_s = [1.5, 3]
+next = { dig = 0.5, admire = 0.5 }
+
+[animation.states.admire]
+loop = true
+dwell_s = [2, 4]
+next = { dig = 1.0 }
+
+[gif]
+loop_script = ["dig", "pat", "admire"]
+
+[unattended]
+props = ["bucket"]

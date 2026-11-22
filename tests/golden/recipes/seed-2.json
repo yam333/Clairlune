@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "ff7a56b1aefb8046",
+  "content_ctx_hash": "472e5683060b8a8d",
   "activity": "broom_flight",
-  "archetype": "city_rooftops",
+  "archetype": "savanna",
   "light_tod": null,
   "dark_tod": "dusk",
-  "platform": "rooftop_edge",
+  "platform": "earth_bank",
   "props": [
     "spellbook"
   ],
-  "weather": "none",
+  "weather": "shooting_stars",
   "composition": {
     "horizon_pm": 672,
     "focus_x_pm": 694,

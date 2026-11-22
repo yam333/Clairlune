@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "ff7a56b1aefb8046",
-  "activity": "paint_easel",
-  "archetype": "meadow",
-  "light_tod": "morning",
-  "dark_tod": "dusk",
-  "platform": "grassy_knoll",
+  "content_ctx_hash": "472e5683060b8a8d",
+  "activity": "read_lantern",
+  "archetype": "bamboo",
+  "light_tod": "golden_hour",
+  "dark_tod": "deep_dusk",
+  "platform": "mossy_bank",
   "props": [
-    "easel"
+    "lantern"
   ],
   "weather": "none",
   "composition": {

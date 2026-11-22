@@ -13,6 +13,9 @@ fn hike(seed: u64) -> SceneRecipe {
     let ctx = ContentContext {
         enabled_activities: vec!["hike_ridge".into()],
         enabled_archetypes: vec!["mountains".into()],
+        // Clear skies: these tests watch the land, and birds or shooting
+        // stars would cross the still sky.
+        enabled_weather: vec!["none".into(), "stars".into()],
         ..ContentContext::default()
     };
     let r = compose(seed, Aspect::from_size(W, H), &ctx);

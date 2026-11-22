@@ -1,0 +1,34 @@
+# Birdwatching with binoculars, a field guide by the feet.
+id = "birdwatching"
+weight = 1.0
+
+[requires]
+terrain = ["flat", "ledge", "shore", "rooftop"]
+time_of_day = ["morning", "noon", "golden_hour"]
+weather = ["birds"]
+
+[motion]
+type = "stationary"
+face = "open"
+
+[props.book_closed]
+attach = "either_side"
+
+[animation]
+start = "watch"
+
+[animation.states.watch]
+loop = true
+dwell_s = [5, 10]
+next = { point = 1.0 }
+
+[animation.states.point]
+loop = true
+dwell_s = [1.5, 3]
+next = { watch = 1.0 }
+
+[gif]
+loop_script = ["watch", "point"]
+
+[unattended]
+props = ["book_closed"]

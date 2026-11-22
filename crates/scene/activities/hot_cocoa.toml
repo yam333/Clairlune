@@ -6,7 +6,7 @@ weight = 0.9
 terrain = ["flat", "ledge", "indoor"]
 surface = ["snow", "ice", "rock", "wood", "grass"]
 time_of_day = ["morning", "golden_hour", "dusk", "deep_dusk", "night"]
-weather = ["none", "snow", "blizzard", "sparkle", "stars"]
+weather = ["none", "snow", "blizzard", "sparkle", "stars", "shooting_stars"]
 
 [motion]
 type = "stationary"

@@ -7,7 +7,7 @@ weight = 0.8
 [requires]
 terrain = ["ridge", "trail", "path", "dune_trail"]
 time_of_day = ["dusk", "deep_dusk", "night"]
-weather = ["none", "stars", "fireflies", "snow"]
+weather = ["none", "stars", "fireflies", "snow", "shooting_stars"]
 sky = true
 
 # Faster than a walk: the land underfoot is far below.

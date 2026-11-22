@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "ff7a56b1aefb8046",
-  "activity": "meditate",
-  "archetype": "volcano",
-  "light_tod": "noon",
+  "content_ctx_hash": "472e5683060b8a8d",
+  "activity": "play_guitar",
+  "archetype": "lunar",
+  "light_tod": "golden_hour",
   "dark_tod": "night",
-  "platform": "rock_ledge",
+  "platform": "crater_rim",
   "props": [
-    "stone_pile"
+    "campfire"
   ],
-  "weather": "stars",
+  "weather": "none",
   "composition": {
     "horizon_pm": 638,
     "focus_x_pm": 500,
