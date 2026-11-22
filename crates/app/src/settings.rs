@@ -32,9 +32,6 @@ pub struct General {
     pub show_tray_icon: bool,
     /// The first-run question, start quietly at sign-in, was answered.
     pub asked_start_at_login: bool,
-    /// macOS: the scene on screen is the screen saver too (Clairlune's
-    /// saver installed in ~/Library/Screen Savers).
-    pub screen_saver: bool,
     /// Once a day, ask GitHub whether a newer version is out.
     pub check_updates: bool,
     /// macOS: the one-time move to Live (the default there since 0.17)
@@ -48,7 +45,6 @@ impl Default for General {
             detailed_logging_until: 0,
             show_tray_icon: true,
             asked_start_at_login: false,
-            screen_saver: false,
             check_updates: true,
             mac_live_moved: false,
         }
@@ -551,7 +547,7 @@ mod tests {
 
         std::fs::write(
             &p,
-            "[schedule]\nchange_every_minutes = 5\n[future]\nthing = 1\n",
+            "[schedule]\nchange_every_minutes = 5\n[general]\nscreen_saver = true\n[future]\nthing = 1\n",
         )
         .unwrap();
         let s = Settings::load(&p);

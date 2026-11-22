@@ -75,8 +75,6 @@ pub struct Status {
     pub permissions: Vec<Permission>,
     /// Ask, once, whether to start quietly at sign-in (the first run).
     pub ask_start_at_login: bool,
-    /// macOS: this copy carries the screen saver (from the DMG or Homebrew).
-    pub saver_available: bool,
 
     /// The monitors the wallpaper is on: id and name ("Left (2560x1440,
     /// main)").
@@ -137,16 +135,8 @@ pub enum UiAction {
     ReportProblem,
     /// Remove Clairlune: the wallpaper back, its folders and the app gone.
     RemoveEverything,
-    /// macOS: System Settings at Screen Saver.
-    OpenSaverSettings,
     /// macOS: System Settings at General > Login Items.
     OpenLoginItems,
-    /// macOS: start the screen saver now (it locks the Mac).
-    LockScreen,
-    /// macOS: System Settings at Lock Screen, and at Desktop & Dock (Hot
-    /// Corners).
-    OpenLockScreenSettings,
-    OpenHotCorners,
     Quit,
     RestoreWallpaper,
     SaveToLibrary,
@@ -1782,52 +1772,6 @@ fn page(
                 );
             }
             ui.add_space(space::S4);
-            if cfg!(target_os = "macos") {
-                if status.saver_available {
-                    row(
-                        ui,
-                        theme,
-                        "Screen saver",
-                        "Plays the wallpaper as the Mac's screen saver: it starts when the Mac sits idle and ends with a key or the mouse, as System Settings says. Turning it on adds Clairlune to System Settings, Screen Saver, and opens it there: pick Clairlune.",
-                        |ui| {
-                            toggle(ui, theme, &mut s.general.screen_saver, "Screen saver");
-                        },
-                    );
-                    if s.general.screen_saver {
-                        ui.horizontal_wrapped(|ui| {
-                            if ui.button("Open Screen Saver settings").clicked() {
-                                actions.push(UiAction::OpenSaverSettings);
-                            }
-                            if ui.button("Hot Corners\u{2026}").clicked() {
-                                actions.push(UiAction::OpenHotCorners);
-                            }
-                            if ui.button("Lock now").clicked() {
-                                actions.push(UiAction::LockScreen);
-                            }
-                        });
-                        ui.label(
-                            RichText::new(
-                                "Pick Clairlune there. To lock with the scene playing until the display turns off, use Lock Screen in Clairlune's menu, or a hot corner set to Start Screen Saver: macOS's own Lock Screen shows a still picture.",
-                            )
-                            .color(c(t.text_secondary)),
-                        );
-                        ui.add_space(space::S4);
-                    }
-                } else {
-                    row(
-                        ui,
-                        theme,
-                        "Screen saver",
-                        "Comes with the app from the DMG or Homebrew.",
-                        |ui| {
-                            ui.add_enabled_ui(false, |ui| {
-                                let mut off = false;
-                                toggle(ui, theme, &mut off, "Screen saver");
-                            });
-                        },
-                    );
-                }
-            }
             row(ui, theme, "Quit Clairlune", "", |ui| {
                 if ui.button("Quit").clicked() {
                     actions.push(UiAction::Quit);
@@ -1859,9 +1803,6 @@ fn page(
                             "Your wallpaper from before Clairlune comes back.".to_string(),
                             "Starting with the computer is turned off.".to_string(),
                         ];
-                        if cfg!(target_os = "macos") {
-                            goes.push("The screen saver is removed.".into());
-                        }
                         goes.push(
                             "Its settings, archive, library, saved scenes and logs are deleted. PNGs and GIFs you exported stay where you saved them."
                                 .into(),

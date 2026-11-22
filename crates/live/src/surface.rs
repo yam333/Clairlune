@@ -1,5 +1,5 @@
 //! Showing a player's frame on macOS through two IOSurfaces: the live
-//! wallpaper's windows and the screen saver both draw this way.
+//! wallpaper's windows draw this way.
 //!
 //! A view hosts a plain Core Animation layer whose contents is one of two
 //! IOSurfaces (BGRA, the view's size in pixels). Each tick writes only the

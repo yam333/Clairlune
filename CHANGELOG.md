@@ -4,6 +4,14 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.18.0 (2026-11-22)
+
+- **The Mac screen saver is gone**, with Lock Screen in the menu, the Screen
+  saver setting and its Permissions. Clairlune stays the wallpaper; for
+  locking, use macOS's own Lock Screen. If an earlier version installed
+  Clairlune's screen saver, this one removes it from System Settings > Screen
+  Saver the first time it starts; if it was the one picked, pick another there.
+
 ## 0.17.7 (2026-11-22)
 
 - **Mac: Lighter on Retina screens** (Settings > Live, off by default). Live

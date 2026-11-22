@@ -799,23 +799,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clairlune-saver"
-version = "0.17.7"
-dependencies = [
- "block2 0.6.2",
- "clairlune-live",
- "clairlune-render",
- "clairlune-scene",
- "libc",
- "objc2 0.6.5",
- "objc2-app-kit 0.3.2",
- "objc2-foundation 0.3.2",
- "objc2-screen-saver",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "clairlune-scene"
 version = "0.17.7"
 dependencies = [
@@ -2571,17 +2554,6 @@ dependencies = [
  "objc2-core-graphics",
  "objc2-foundation 0.3.2",
  "objc2-metal 0.3.2",
-]
-
-[[package]]
-name = "objc2-screen-saver"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99bd4e20d51e655ecad5d7965b3af205835ec83093d869b5b4f3e7131f10a862"
-dependencies = [
- "objc2 0.6.5",
- "objc2-app-kit 0.3.2",
- "objc2-foundation 0.3.2",
 ]
 
 [[package]]
