@@ -175,7 +175,11 @@ impl MacDesktop {
         let mtm = MainThreadMarker::new().ok_or("live wallpapers start on the main thread")?;
         let mut outputs = Vec::new();
         for (monitor, mut player) in scenes {
-            if player.size() != (monitor.width, monitor.height) {
+            // The screen's size, or half of it (Lighter on Retina screens:
+            // shown pixel-doubled).
+            let (pw, ph) = player.size();
+            let fits = |p: u32, m: u32| p == m || (p * 2).abs_diff(m) <= 1;
+            if !(fits(pw, monitor.width) && fits(ph, monitor.height)) {
                 return Err(format!(
                     "the scene is {:?} but screen {} is {}x{}",
                     player.size(),

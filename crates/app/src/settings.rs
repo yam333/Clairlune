@@ -141,6 +141,9 @@ pub struct LiveSettings {
     pub pause_on_battery: bool,
     /// When an app is maximized or full screen over a monitor.
     pub pause_when_covered: CoverPause,
+    /// macOS: on Retina screens, draw the wallpaper at half the resolution
+    /// (a quarter of the pixels: much less memory and work, softer text).
+    pub lighter_on_retina: bool,
 }
 
 /// What a maximized or full-screen app pauses.
@@ -163,6 +166,7 @@ impl Default for LiveSettings {
             battery_saver_on_battery: true,
             pause_on_battery: false,
             pause_when_covered: CoverPause::ThatMonitor,
+            lighter_on_retina: false,
         }
     }
 }
