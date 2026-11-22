@@ -180,11 +180,20 @@ impl SurfaceView {
         // its w x h pixels (the rects are inside the player's frame, which
         // is the surface's size).
         unsafe {
-            if b.surface
-                .lock(IOSurfaceLockOptions::empty(), std::ptr::null_mut())
-                != 0
-            {
-                return;
+            // The surface on screen is read by the window server: no need
+            // to wait for that to sync (nothing is read back), which would
+            // put the thread to sleep and wake it every frame. Refused, the
+            // plain lock.
+            let mut opts = if in_place {
+                IOSurfaceLockOptions::AvoidSync
+            } else {
+                IOSurfaceLockOptions::empty()
+            };
+            if b.surface.lock(opts, std::ptr::null_mut()) != 0 {
+                opts = IOSurfaceLockOptions::empty();
+                if b.surface.lock(opts, std::ptr::null_mut()) != 0 {
+                    return;
+                }
             }
             let base = b.surface.base_address().as_ptr().cast::<u8>();
             let stride = b.surface.bytes_per_row();
@@ -201,8 +210,7 @@ impl SurfaceView {
                     }
                 }
             }
-            b.surface
-                .unlock(IOSurfaceLockOptions::empty(), std::ptr::null_mut());
+            b.surface.unlock(opts, std::ptr::null_mut());
         }
         b.missing.clear();
         CATransaction::begin();
