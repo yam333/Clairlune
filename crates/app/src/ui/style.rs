@@ -211,6 +211,9 @@ pub fn apply(ctx: &egui::Context, theme: Theme) {
         sp.indent = space::S4;
         sp.menu_margin = Margin::same(space::S2 as i8);
         sp.window_margin = Margin::same(space::S4 as i8);
+        // Scroll bars float over the content, but always with room kept
+        // for them: nothing ends up underneath one.
+        sp.scroll.floating_allocated_width = sp.scroll.bar_width + sp.scroll.bar_inner_margin;
         s.animation_time = tokens::motion::BASE as f32 / 1000.0;
     });
 }

@@ -72,6 +72,16 @@ pub enum Section {
     About,
 }
 
+/// The page's margins in Settings, left and right of it.
+const PAGE_LEFT: f32 = space::S6 + 4.0;
+const PAGE_RIGHT: f32 = space::S6;
+/// Room for the page's scroll bar beside it.
+const SCROLL_GUTTER: f32 = 24.0;
+/// Settings' narrowest: the sidebar, the page at its full width and its
+/// scroll bar, so no row's controls are squeezed, cut off or under the bar.
+pub const SETTINGS_MIN_WIDTH: f32 =
+    size::SIDEBAR + PAGE_LEFT + size::PAGE_MAX + SCROLL_GUTTER + PAGE_RIGHT;
+
 /// Where the maker is on GitHub.
 pub const MAKER: &str = "yam333";
 pub const MAKER_URL: &str = "https://github.com/yam333";
@@ -493,15 +503,17 @@ pub fn show(
     let top = if OWN_FRAME { 40.0 } else { 28.0 + MAC_TOP };
     egui::CentralPanel::default()
         .frame(egui::Frame::new().inner_margin(egui::Margin {
-            left: space::S6 as i8 + 4,
-            right: space::S6 as i8,
+            left: PAGE_LEFT as i8,
+            right: PAGE_RIGHT as i8,
             top: top as i8,
             bottom: 0,
         }))
         .show(ui, |ui| {
             header(ui, theme, st.section, settings, status);
             ui.add_space(space::S5);
-            let mut area = egui::ScrollArea::vertical();
+            // The whole pane scrolls (its bar at the pane's edge), the page
+            // keeping to its width on the left.
+            let mut area = egui::ScrollArea::vertical().auto_shrink([false, true]);
             if let Some(y) = st.page.scroll_to.take() {
                 area = area.vertical_scroll_offset(y);
             }
@@ -1635,15 +1647,9 @@ fn theme_schedule(ui: &mut Ui, theme: Theme, s: &mut Settings) {
         ui.label(RichText::new(text).color(c(t.text_secondary)));
         ui.add_space(space::S4);
     };
-    row(
-        ui,
-        theme,
-        "Follow the sun",
-        "Dark from sunset to sunrise where you are. Worked out on this computer; nothing goes online.",
-        |ui| {
-            toggle(ui, theme, &mut s.theme.follow_sun, "Follow the sun");
-        },
-    );
+    row(ui, theme, "Follow the sun", "", |ui| {
+        toggle(ui, theme, &mut s.theme.follow_sun, "Follow the sun");
+    });
     if s.theme.follow_sun {
         ui.label(RichText::new("Location").font(style::body_strong()));
         let location = settled_text(
@@ -1676,27 +1682,21 @@ fn theme_schedule(ui: &mut Ui, theme: Theme, s: &mut Settings) {
         return;
     }
     let mut valid = true;
-    row(
-        ui,
-        theme,
-        "Dark between",
-        "Light the rest of the day. 24-hour times.",
-        |ui| {
-            let ok = |text: &str| crate::settings::parse_clock(text).is_some();
-            // Right to left: the second time first.
-            let light = settled_text(
-                ui,
-                "theme-light-from",
-                &mut s.theme.light_from,
-                "",
-                56.0,
-                ok,
-            );
-            ui.label("and");
-            let dark = settled_text(ui, "theme-dark-from", &mut s.theme.dark_from, "", 56.0, ok);
-            valid = ok(&dark) && ok(&light);
-        },
-    );
+    row(ui, theme, "Dark between", "", |ui| {
+        let ok = |text: &str| crate::settings::parse_clock(text).is_some();
+        // Right to left: the second time first.
+        let light = settled_text(
+            ui,
+            "theme-light-from",
+            &mut s.theme.light_from,
+            "",
+            56.0,
+            ok,
+        );
+        ui.label("and");
+        let dark = settled_text(ui, "theme-dark-from", &mut s.theme.dark_from, "", 56.0, ok);
+        valid = ok(&dark) && ok(&light);
+    });
     if !valid {
         note(ui, "Use 24-hour times like 19:00 and 07:00.");
     }
@@ -2213,17 +2213,11 @@ fn page(
             });
             let timeline = s.rotation.mode == RotationMode::Timeline;
             if timeline {
-                row(
-                    ui,
-                    theme,
-                    "Timeline",
-                    "Which wallpaper shows when, for every day or each weekday.",
-                    |ui| {
-                        if ui.button("Edit timeline").clicked() {
-                            actions.push(UiAction::EditTimeline);
-                        }
-                    },
-                );
+                row(ui, theme, "Timeline", "", |ui| {
+                    if ui.button("Edit timeline").clicked() {
+                        actions.push(UiAction::EditTimeline);
+                    }
+                });
                 if let Some(next) = &status.timeline_next {
                     ui.label(
                         RichText::new(next)
@@ -2240,10 +2234,7 @@ fn page(
                 }
             }
             let (name, description) = if timeline {
-                (
-                    "Days without slots change every",
-                    "Days with no slots get new scenes on this interval.",
-                )
+                ("Days without slots change every", "")
             } else {
                 ("Change wallpaper every", "")
             };

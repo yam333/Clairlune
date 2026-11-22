@@ -4,6 +4,17 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.26.0 (2026-11-22)
+
+- **Nothing cut off or under a scroll bar.** Settings can't be made narrower
+  than its page needs (972 points: the sidebar, the page at full width and
+  room for its scroll bar), the whole pane scrolls with its bar at the
+  pane's edge, and every scroll bar in Clairlune keeps room of its own
+  instead of covering the content. The Timeline's start time shows all of
+  "00:00".
+- Fewer lines of explanation: under Timeline, Days without slots change
+  every, Follow the sun and Dark between.
+
 ## 0.25.0 (2026-11-22)
 
 - **Sharper text.** Settings draws letters on whole pixels; small text was
