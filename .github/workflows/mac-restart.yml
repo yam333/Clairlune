@@ -1,0 +1,66 @@
+name: Mac restart check
+
+# When a new copy of Clairlune is put where the running one lives (what
+# `brew upgrade` does), it restarts into the new copy on its own. On a
+# macOS runner (a throwaway machine): this build runs from
+# /Applications/Clairlune.app, then the app is moved aside and copied back
+# the way Homebrew swaps it; a new Clairlune process must take over.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/mac-restart.yml"]
+
+permissions:
+  contents: read
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  restart:
+    runs-on: macos-latest
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: mac-restart
+      - name: Build
+        run: cargo build --release -p clairlune
+      - name: Run it from /Applications, swap the app as Homebrew does
+        run: |
+          set -u
+          v=$(gh release view --repo yam333/Clairlune --json tagName --jq .tagName); v=${v#v}
+          gh release download "v$v" --repo yam333/Clairlune --pattern "Clairlune_${v}_aarch64.dmg" --dir rel
+          mnt=$(mktemp -d)
+          hdiutil attach "rel/Clairlune_${v}_aarch64.dmg" -mountpoint "$mnt" -nobrowse -readonly
+          rm -rf /Applications/Clairlune.app
+          ditto "$mnt/Clairlune.app" /Applications/Clairlune.app
+          hdiutil detach "$mnt"
+          cp target/release/clairlune /Applications/Clairlune.app/Contents/MacOS/clairlune
+          dir="$HOME/Library/Application Support/clairlune"
+          mkdir -p "$dir"
+          printf '[general]\nasked_start_at_login = true\ncheck_updates = false\n\n[display]\nmode = "still"\n' > "$dir/settings.toml"
+          /Applications/Clairlune.app/Contents/MacOS/clairlune --background &
+          sleep 20
+          first=$(pgrep -x clairlune | head -1)
+          echo "running: $first"
+          # Homebrew moves the old app away and puts the new one in place.
+          mv /Applications/Clairlune.app "$RUNNER_TEMP/Clairlune-old.app"
+          sleep 1
+          ditto "$RUNNER_TEMP/Clairlune-old.app" /Applications/Clairlune.app
+          now=""
+          for i in $(seq 1 40); do
+            sleep 2
+            now=$(pgrep -x clairlune | head -1)
+            [ -n "$now" ] && [ "$now" != "$first" ] && break
+          done
+          echo "running now: ${now:-nothing}"
+          grep -h "program file changed\|restarting into it\|starting" "$dir"/logs/*.log | tail -6
+          [ -n "$now" ] && [ "$now" != "$first" ] || { echo "it didn't restart into the new copy"; exit 1; }
+          kill -0 "$first" 2>/dev/null && { echo "the old copy is still running"; exit 1; }
+          echo "restarted into the new copy in about $((i * 2)) s"
+          pkill -x clairlune || true
