@@ -126,6 +126,11 @@ struct App {
     /// Remove Clairlune was asked for: once the old wallpaper is back, the
     /// helper deletes the rest and the app quits.
     removing: bool,
+    /// The program file as it was at start; and whether a new copy was put
+    /// in its place (Homebrew, a DMG copy dragged over): seen once, then
+    /// again a moment later, it restarts into it.
+    exe_stamp: Option<install::ExeStamp>,
+    exe_replaced: Option<install::ExeStamp>,
     busy: bool,
     /// When the schedule next changes the wallpaper (None: only on demand).
     next_change: Option<Instant>,
@@ -2001,6 +2006,53 @@ impl App {
         }
     }
 
+    /// A new copy of Clairlune was put where this one runs from (Homebrew
+    /// upgraded it, a new DMG copy was dragged over): once the change has
+    /// settled, restart into it, the way it runs now (Settings again if
+    /// it's open, else quietly). Returns whether a change is being watched.
+    fn watch_exe(&mut self, event_loop: &ActiveEventLoop) -> bool {
+        if self.ui_test.is_some() || self.installing.is_some() || self.removing {
+            return false;
+        }
+        let Some(start) = &self.exe_stamp else {
+            return false;
+        };
+        let now = install::exe_stamp();
+        match (&self.exe_replaced, now) {
+            // Mid-copy: look again.
+            (_, None) => true,
+            (_, Some(n)) if n == *start => {
+                self.exe_replaced = None;
+                false
+            }
+            // The same new copy as a moment ago: settled.
+            (Some(seen), Some(n)) if *seen == n => {
+                let args: &[&str] = if self.settings_window.is_some() {
+                    &[]
+                } else {
+                    &[clairlune_platform::BACKGROUND_ARG]
+                };
+                match install::restart_after_exit(std::process::id(), args) {
+                    Ok(()) => {
+                        tracing::info!(target: "clairlune", "a new copy of Clairlune is in place; restarting into it");
+                        event_loop.exit();
+                    }
+                    Err(e) => {
+                        tracing::warn!(target: "clairlune", error = %e, "couldn't restart into the new copy");
+                        self.exe_stamp = Some(n);
+                        self.exe_replaced = None;
+                    }
+                }
+                false
+            }
+            (_, Some(n)) => {
+                tracing::info!(target: "clairlune", "the program file changed on disk; checking it settles");
+                self.exe_replaced = Some(n);
+                true
+            }
+        }
+    }
+
     /// macOS: whether the screen saver locks at once, for Settings.
     fn check_saver_password(&mut self) {
         self.status.saver_password_after = if self.settings.general.screen_saver {
@@ -2498,6 +2550,10 @@ impl ApplicationHandler<AppEvent> for App {
         if now >= self.next_check {
             self.check();
             self.next_check = now + CHECK_EVERY;
+            if self.watch_exe(event_loop) {
+                // Look again soon, once a copy being put in place settles.
+                self.next_check = now + Duration::from_secs(3);
+            }
         }
         self.log_usage(now);
         let live_next = self.live.tick(Instant::now());
@@ -3004,6 +3060,8 @@ fn main() {
         install: install::detect(),
         installing: None,
         removing: false,
+        exe_stamp: install::exe_stamp(),
+        exe_replaced: None,
         busy: false,
         next_change: None,
         next_check: Instant::now() + CHECK_EVERY,

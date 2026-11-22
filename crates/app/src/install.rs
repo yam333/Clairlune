@@ -508,6 +508,99 @@ fn is_clairlune_dir(dir: &Path) -> bool {
         && dir.components().count() > 2
 }
 
+/// What identifies the program file on disk: a new copy put in its place
+/// (Homebrew, a new DMG copy dragged over, an AppImage update) has another
+/// file underneath the same path.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExeStamp {
+    len: u64,
+    modified: Option<std::time::SystemTime>,
+    /// Unix: device and inode (a replaced file is a new one).
+    node: Option<(u64, u64)>,
+}
+
+/// The stamp of the program file this process runs from (its path, or
+/// the AppImage file), or `None` while it can't be read (mid-update).
+pub fn exe_stamp() -> Option<ExeStamp> {
+    let path = std::env::var_os("APPIMAGE")
+        .map(PathBuf::from)
+        .or_else(|| std::env::current_exe().ok())?;
+    let m = std::fs::metadata(path).ok()?;
+    #[cfg(unix)]
+    let node = {
+        use std::os::unix::fs::MetadataExt;
+        Some((m.dev(), m.ino()))
+    };
+    #[cfg(not(unix))]
+    let node = None;
+    Some(ExeStamp {
+        len: m.len(),
+        modified: m.modified().ok(),
+        node,
+    })
+}
+
+/// Starts this program again, from where it is now on disk, once this
+/// process (`pid`) is gone, with `args` (a new copy was put in its place).
+/// The caller quits right after.
+pub fn restart_after_exit(pid: u32, args: &[&str]) -> Result<(), String> {
+    let exe = std::env::var_os("APPIMAGE")
+        .map(PathBuf::from)
+        .or_else(|| std::env::current_exe().ok())
+        .ok_or("no program path")?;
+    let mut cmd = if cfg!(windows) {
+        let mut s = format!(
+            "$ErrorActionPreference = 'SilentlyContinue'; Wait-Process -Id {pid} -Timeout 60; Start-Process -FilePath {}",
+            ps_quote(&exe.to_string_lossy())
+        );
+        if !args.is_empty() {
+            let list: Vec<String> = args.iter().map(|a| ps_quote(a)).collect();
+            s.push_str(&format!(" -ArgumentList {}", list.join(",")));
+        }
+        let mut c = std::process::Command::new("powershell.exe");
+        c.args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-WindowStyle",
+            "Hidden",
+            "-Command",
+            &s,
+        ]);
+        c
+    } else {
+        let args: Vec<String> = args.iter().map(|a| sh_quote(a)).collect();
+        let start = match exe
+            .ancestors()
+            .find(|p| p.extension().is_some_and(|e| e == "app"))
+        {
+            // macOS: through Launch Services, as the app was opened.
+            Some(bundle) if cfg!(target_os = "macos") => {
+                let mut s = format!("open {}", sh_quote(&bundle.to_string_lossy()));
+                if !args.is_empty() {
+                    s.push_str(&format!(" --args {}", args.join(" ")));
+                }
+                s
+            }
+            _ => format!(
+                "nohup {} {} >/dev/null 2>&1 &",
+                sh_quote(&exe.to_string_lossy()),
+                args.join(" ")
+            ),
+        };
+        let s = format!(
+            "i=0; while kill -0 {pid} 2>/dev/null && [ $i -lt 300 ]; do sleep 0.2; i=$((i+1)); done; {start}"
+        );
+        let mut c = std::process::Command::new("/bin/sh");
+        c.arg("-c").arg(s);
+        c
+    };
+    cmd.stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    no_window(&mut cmd);
+    cmd.spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
 /// PowerShell's single-quoted string.
 fn ps_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "''"))
@@ -752,6 +845,12 @@ mod tests {
             !windows_script(1, Path::new("s"), Path::new("e"), None)
                 .contains("Start-Process -FilePath 'e'")
         );
+    }
+
+    #[test]
+    fn this_program_has_a_stamp_that_stays_put() {
+        let a = exe_stamp().expect("the test binary has a stamp");
+        assert_eq!(exe_stamp(), Some(a));
     }
 
     #[test]
