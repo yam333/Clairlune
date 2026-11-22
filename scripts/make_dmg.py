@@ -27,8 +27,9 @@ def main():
         "files": [app],
         "symlinks": {"Applications": "/Applications"},
         "background": os.path.join(ROOT, "packaging", "macos", "dmg-background.png"),
-        # The background is drawn for this size (points) and these places.
-        "window_rect": ((200, 140), (660, 420)),
+        # The background is drawn for a 660 x 420 point content area and
+        # these places; the window's height counts its title bar too.
+        "window_rect": ((200, 140), (660, 452)),
         "icon_locations": {name: (180, 205), "Applications": (480, 205)},
         "icon_size": 104,
         "text_size": 13,
