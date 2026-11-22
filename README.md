@@ -49,7 +49,7 @@ Until then, winget can install it from the manifest files attached to each relea
 winget settings --enable LocalManifestFiles
 ```
 
-Then, in a normal Terminal, fetch the latest release's manifests and install:
+Then, in a normal (not administrator) PowerShell window, which is Windows Terminal's default (not Command Prompt), fetch the latest release's manifests and install:
 
 ```powershell
 $r = Invoke-RestMethod https://api.github.com/repos/yam333/Clairlune/releases/latest
