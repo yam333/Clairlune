@@ -2,7 +2,9 @@
 
 Procedural, animated ASCII-art desktop wallpapers, written in Rust.
 
-[![Watch the trailer: Clairlune in 55 seconds](docs/media/trailer.jpg)](docs/media/trailer.mp4)
+[![Clairlune: scenes from the trailer](docs/media/trailer-preview.webp)](docs/media/trailer.mp4)
+
+**[Watch the full trailer with sound](docs/media/trailer.mp4)** (55 s, MP4)
 
 Each wallpaper is a landscape made of text characters, with a small pixel-art Clawd doing something in it and a few things moving: embers, snow, stars. Everything is generated on your computer from a seed, and the same seed gives the same picture everywhere. There's no AI and nothing about you goes online: Clairlune checks GitHub once a day for a newer version (you can turn that off in Settings -> General), and downloads one only when you click Update now.
 
