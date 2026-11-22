@@ -1,4 +1,4 @@
-name: Mac profile
+name: "Profile: macOS live"
 
 # What the app costs on a Mac (by hand): it runs the real app on the runner's
 # screen in a few setups and records CPU, memory and a call-stack sample of

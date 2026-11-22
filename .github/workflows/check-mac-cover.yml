@@ -1,4 +1,4 @@
-name: Mac cover check
+name: "Check: macOS cover pause"
 
 # Pause behind a window that fills the screen, on a macOS runner (a throwaway
 # machine): Clairlune plays live, scripts/cover_check.swift opens a window
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["crates/live/src/mac.rs", "crates/live/src/cover.rs", "scripts/cover_check.swift", ".github/workflows/mac-cover.yml"]
+    paths: ["crates/live/src/mac.rs", "crates/live/src/cover.rs", "scripts/cover_check.swift", ".github/workflows/check-mac-cover.yml"]
 
 permissions:
   contents: read

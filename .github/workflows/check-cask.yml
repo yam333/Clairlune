@@ -1,4 +1,4 @@
-name: Cask check
+name: "Check: Homebrew cask"
 
 # The Homebrew cask as scripts/package_manifests.py writes it, for the latest
 # release: Homebrew's style check and audit, then a real install and uninstall
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["scripts/package_manifests.py", ".github/workflows/cask-check.yml"]
+    paths: ["scripts/package_manifests.py", ".github/workflows/check-cask.yml"]
 
 permissions:
   contents: read

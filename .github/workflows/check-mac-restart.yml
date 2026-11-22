@@ -1,4 +1,4 @@
-name: Mac restart check
+name: "Check: macOS restart after replace"
 
 # When a new copy of Clairlune is put where the running one lives (what
 # `brew upgrade` does), it restarts into the new copy on its own. On a
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [".github/workflows/mac-restart.yml"]
+    paths: [".github/workflows/check-mac-restart.yml"]
 
 permissions:
   contents: read

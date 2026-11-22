@@ -11,6 +11,15 @@ authors = ["Clairlune contributors"]
 readme = "README.md"
 repository = "https://github.com/yam333/Clairlune"
 
+# Lints every crate shares (CI also runs clippy with -D warnings).
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+
 [workspace.dependencies]
 # Our own crates. The version is required so `cargo publish` can resolve them.
 clairlune-scene = { path = "crates/scene", version = "0.28.0" }

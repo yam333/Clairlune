@@ -32,3 +32,6 @@ objc2-core-graphics = { workspace = true, features = ["CGWindowLevel", "CGColorS
 objc2-core-foundation = { workspace = true, features = ["CFDictionary", "CFNumber", "CFString", "CFData"] }
 objc2-io-surface = { workspace = true, features = ["IOSurfaceRef", "IOSurfaceTypes", "objc2-core-foundation", "libc", "objc2"] }
 objc2-quartz-core = { workspace = true, features = ["CALayer", "CATransaction"] }
+
+[lints]
+workspace = true
