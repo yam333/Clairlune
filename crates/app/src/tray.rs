@@ -28,9 +28,6 @@ pub enum Action {
     OpenSettings,
     /// The newer version: install it, or open its release page.
     OpenUpdate,
-    /// macOS: start the screen saver, which locks the Mac with the scene
-    /// playing.
-    LockScreen,
     Quit,
 }
 
@@ -60,10 +57,6 @@ pub struct Tray {
     /// "Update available": at the top of the menu while there is one.
     update: MenuItem,
     update_shown: Cell<bool>,
-    /// macOS: "Lock Screen" (with the screen saver), above Settings while
-    /// the screen saver is on.
-    lock: MenuItem,
-    lock_shown: Cell<bool>,
 }
 
 /// The colour of the mark: macOS gets black, as a template it tints itself
@@ -115,7 +108,6 @@ impl Tray {
         let settings = MenuItem::new("Settings\u{2026}", true, None);
         let quit = MenuItem::new("Quit Clairlune", true, None);
         let update = MenuItem::new("Update available\u{2026}", true, None);
-        let lock = MenuItem::new("Lock Screen", true, None);
         let menu = Menu::new();
         menu.append_items(&[
             &new,
@@ -172,8 +164,6 @@ impl Tray {
             quit,
             update,
             update_shown: Cell::new(false),
-            lock,
-            lock_shown: Cell::new(false),
         })
     }
 
@@ -195,7 +185,6 @@ impl Tray {
             (self.archive.id(), Action::OpenArchive),
             (self.settings.id(), Action::OpenSettings),
             (self.update.id(), Action::OpenUpdate),
-            (self.lock.id(), Action::LockScreen),
             (self.quit.id(), Action::Quit),
         ];
         if let Some(a) = pairs.into_iter().find(|(i, _)| *i == id).map(|(_, a)| a) {
@@ -271,25 +260,6 @@ impl Tray {
             #[cfg(not(target_os = "macos"))]
             let _ = self._icon.set_icon(Some(icon));
         }
-    }
-
-    /// macOS: shows "Lock Screen" above Settings, or takes it away.
-    pub fn show_lock(&self, on: bool) {
-        if on == self.lock_shown.get() {
-            return;
-        }
-        if on {
-            let at = self
-                .menu
-                .items()
-                .iter()
-                .position(|i| i.id() == self.settings.id())
-                .unwrap_or(0);
-            let _ = self.menu.insert(&self.lock, at);
-        } else {
-            let _ = self.menu.remove(&self.lock);
-        }
-        self.lock_shown.set(on);
     }
 
     /// Shows the theme mode as a radio group (check items toggle themselves on

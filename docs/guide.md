@@ -9,7 +9,6 @@ controls, and what to do when something isn't right.
 - [Everyday use](#everyday-use)
 - [Settings](#settings)
 - [More than one monitor](#more-than-one-monitor)
-- [The Mac screen saver](#the-mac-screen-saver)
 - [Updates](#updates)
 - [Where things are kept](#where-things-are-kept)
 - [Privacy](#privacy)
@@ -32,8 +31,7 @@ Downloads are on the [releases page](https://github.com/yam333/Clairlune/release
   `brew install --cask yam333/clairlune/clairlune`.
 - **Linux:** the `.deb` (`sudo apt install ./clairlune_<version>_amd64.deb`) or
   the AppImage (make it executable and run it).
-- **From source:** `cargo install clairlune` (Rust 1.90 or newer). This build
-  has no Mac screen saver.
+- **From source:** `cargo install clairlune` (Rust 1.90 or newer).
 
 ## The first run
 
@@ -88,8 +86,8 @@ Opening Clairlune again while it runs brings up Settings.
   saved PNGs and GIFs go.
 - **General:** start with the computer, the tray icon, Permissions (what to
   allow in the system's settings, each Granted or with an Open Settings
-  button), updates, the Mac screen saver, Restore my wallpaper, Report a
-  problem, Remove Clairlune, logs and diagnostics.
+  button), updates, Restore my wallpaper, Report a problem, Remove Clairlune,
+  logs and diagnostics.
 
 Changes save as you make them; content changes show from the next wallpaper.
 
@@ -105,25 +103,6 @@ across all of them (Display > Monitors). With a scene each:
   give it its own landscapes, activities and the rest. Monitors without their
   own choices follow the ones for all.
 - The menu's **New wallpaper on** gives one monitor a new scene.
-
-## The Mac screen saver
-
-Settings > General > Screen saver makes the wallpaper on screen the screen
-saver too. Turning it on adds Clairlune to System Settings > Screen Saver and
-opens it there: pick Clairlune. (macOS 14 and later let only you choose the
-screen saver; on macOS 13 Clairlune picks it for you.) When it starts and
-whether it locks are set in System Settings, like any screen saver. The
-**Open Screen Saver settings** button gets you back there.
-
-**Locking with the scene playing.** macOS's own Lock Screen (Control-Command-Q,
-or the Apple menu) shows a still picture: only Apple's own wallpapers move
-there, and macOS runs no other screen saver once the screen is locked. Use
-**Lock Screen** in Clairlune's menu instead (or **Lock now** in Settings, or a
-hot corner set to Start Screen Saver): it starts the screen saver, macOS locks
-behind it, and the scene plays until the display turns off, as set in System
-Settings > Lock Screen. If macOS asks for the password only some minutes after
-the screen saver starts, Settings says so, with a button to Lock Screen
-settings, where Immediately makes it lock at once.
 
 ## Updates
 
@@ -183,10 +162,6 @@ between changes.
 System Settings > General > Login Items. Settings > General then says so under
 Start at login, with an Open Login Items button: switch Clairlune on there.
 
-**The Mac shows a different screen saver.** Pick Clairlune in System Settings >
-Screen Saver (the Open Screen Saver settings button in Settings > General goes
-there).
-
 **Something else is wrong.** Settings > General > Report a problem opens a
 GitHub issue with the details filled in. Detailed logging (same page) records
 more for a day if the problem is hard to catch, and Diagnostics > Export saves
@@ -196,8 +171,7 @@ a zip with the logs and settings to attach.
 
 Settings > General > **Remove Clairlune** does it all after asking: your
 wallpaper from before comes back, starting with the computer is turned off,
-the Mac screen saver goes, Clairlune's settings, archive, library and logs are
-deleted, and the app itself is removed where Clairlune can do it (the Windows
+Clairlune's settings, archive, library and logs are deleted, and the app itself is removed where Clairlune can do it (the Windows
 uninstaller runs, the Mac app goes to the Trash, an AppImage is deleted). PNGs
 and GIFs you saved stay in Pictures/Clairlune.
 
