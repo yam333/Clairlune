@@ -90,6 +90,29 @@ fn entry(exe: &Path) -> Option<(PathBuf, String)> {
     }
 }
 
+/// macOS: the entry is there, but turned off in System Settings > General >
+/// Login Items (macOS 13 and later let the user switch background items
+/// off there; Clairlune can't turn it back on itself).
+#[cfg(target_os = "macos")]
+pub(crate) fn needs_approval(exe: &Path) -> bool {
+    use objc2_foundation::{NSString, NSURL};
+    use objc2_service_management::{SMAppService, SMAppServiceStatus};
+    let Some((path, _)) = entry(exe).filter(|(path, _)| path.exists()) else {
+        return false;
+    };
+    let url = NSURL::fileURLWithPath(&NSString::from_str(&path.to_string_lossy()));
+    // SAFETY: a file URL to the agent's plist (macOS 13, the oldest
+    // supported, has this call).
+    unsafe { SMAppService::statusForLegacyURL(&url) == SMAppServiceStatus::RequiresApproval }
+}
+
+/// macOS: System Settings at General > Login Items.
+#[cfg(target_os = "macos")]
+pub(crate) fn open_login_items() {
+    // SAFETY: no arguments; macOS 13 has it.
+    unsafe { objc2_service_management::SMAppService::openSystemSettingsLoginItems() };
+}
+
 /// Whether the entry is there and starts this `exe`.
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(crate) fn registered(exe: &Path) -> bool {
