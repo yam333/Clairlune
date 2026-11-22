@@ -2786,7 +2786,25 @@ fn main() {
             .unwrap_or_else(|| data_dir.clone())
             .join("settings.toml"),
     };
-    let settings = Settings::load(&settings_path);
+    #[allow(unused_mut)]
+    let mut settings = Settings::load(&settings_path);
+    // Live became the default on the Mac in 0.17: a copy still on the old
+    // default moves to it, once.
+    #[cfg(target_os = "macos")]
+    let moved_to_live = {
+        let was_moved = settings.general.mac_live_moved;
+        let moved =
+            ui_test_out.is_none() && live::supported().is_ok() && settings.move_to_live_once();
+        if settings.general.mac_live_moved != was_moved
+            && let Err(e) = settings.save(&settings_path)
+        {
+            tracing::warn!(target: "clairlune", error = %e, "settings not saved");
+        }
+        if moved {
+            tracing::info!(target: "clairlune", "moved to Live, the default on the Mac now");
+        }
+        moved
+    };
     let timeline_path = settings_path.with_file_name("timeline.toml");
     if settings.general.detailed_logging_until > timefmt::now_unix() {
         diagnostics::set_detailed(true);
@@ -2969,6 +2987,13 @@ fn main() {
         tray_monitors: Vec::new(),
         screens: Vec::new(),
     };
+    #[cfg(target_os = "macos")]
+    if moved_to_live {
+        app.status.note = Some(
+            "Clairlune plays live on the Mac now: Clawd moves, fires flicker, snow falls. Settings > Display switches back to a still frame."
+                .into(),
+        );
+    }
     if app.ui_test.is_some() {
         let m = |id: &str, x: i32, w: u32, h: u32, primary: bool| clairlune_platform::Monitor {
             id: id.into(),

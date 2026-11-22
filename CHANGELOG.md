@@ -4,6 +4,12 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.17.1 (2026-11-22)
+
+- **Live on every Mac:** a Mac still on the old default (the still frame)
+  switches to Live once, with a note saying how to go back (Settings >
+  Display). A still frame chosen after that stays.
+
 ## 0.17.0 (2026-11-22)
 
 - **A welcome on the first run:** one screen with what Clairlune does and the

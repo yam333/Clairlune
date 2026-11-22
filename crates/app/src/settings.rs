@@ -37,6 +37,9 @@ pub struct General {
     pub screen_saver: bool,
     /// Once a day, ask GitHub whether a newer version is out.
     pub check_updates: bool,
+    /// macOS: the one-time move to Live (the default there since 0.17)
+    /// happened, so a still frame chosen after it stays.
+    pub mac_live_moved: bool,
 }
 
 impl Default for General {
@@ -47,6 +50,7 @@ impl Default for General {
             asked_start_at_login: false,
             screen_saver: false,
             check_updates: true,
+            mac_live_moved: false,
         }
     }
 }
@@ -354,6 +358,20 @@ impl Settings {
         std::fs::rename(&tmp, path)
     }
 
+    /// The one-time move to Live on the Mac: a copy still on the old default
+    /// (Still frame) plays live from now on. Once only: afterwards a still
+    /// frame chosen by hand stays. Returns whether it switched.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub fn move_to_live_once(&mut self) -> bool {
+        if self.general.mac_live_moved {
+            return false;
+        }
+        self.general.mac_live_moved = true;
+        let moved = self.display.mode == WallpaperMode::Still;
+        self.display.mode = WallpaperMode::Live;
+        moved
+    }
+
     /// The scene filters for composition, for all monitors.
     pub fn content_context(&self) -> clairlune_scene::ContentContext {
         context_of(&self.content)
@@ -475,6 +493,23 @@ mod tests {
         s.edit_monitor("DISPLAY1", "Left (2560x1440, main)", |m| m.still = false);
         s.edit_monitor("DISPLAY2", "Right (1920x1080)", |m| m.content = None);
         assert!(s.display.monitors.is_empty());
+    }
+
+    #[test]
+    fn the_mac_moves_to_live_once() {
+        let mut s = Settings::default();
+        s.display.mode = WallpaperMode::Still;
+        assert!(s.move_to_live_once());
+        assert_eq!(s.display.mode, WallpaperMode::Live);
+        // Still chosen afterwards stays.
+        s.display.mode = WallpaperMode::Still;
+        assert!(!s.move_to_live_once());
+        assert_eq!(s.display.mode, WallpaperMode::Still);
+        // Already live: nothing to say.
+        let mut s = Settings::default();
+        s.display.mode = WallpaperMode::Live;
+        assert!(!s.move_to_live_once());
+        assert!(s.general.mac_live_moved);
     }
 
     #[test]
