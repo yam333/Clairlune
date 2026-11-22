@@ -4,6 +4,13 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.17.5 (2026-11-22)
+
+- **No more quit and reopen after `brew upgrade`.** When a new copy of
+  Clairlune is put where the running one lives (Homebrew upgrading it, or a
+  new copy dragged over from the DMG), Clairlune restarts into it on its own
+  within about half a minute: quietly, or with Settings open if it was.
+
 ## 0.17.4 (2026-11-22)
 
 - **Mac: lock with the scene playing.** macOS's own Lock Screen shows a still
