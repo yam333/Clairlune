@@ -61,6 +61,9 @@ pub struct Status {
     pub busy: bool,
     /// Registered to start at login; `None` where this build can't manage it.
     pub start_at_login: Option<bool>,
+    /// macOS: registered, but switched off in System Settings > General >
+    /// Login Items (only the user can switch it on there).
+    pub login_needs_approval: bool,
     /// Ask, once, whether to start quietly at sign-in (the first run).
     pub ask_start_at_login: bool,
     /// macOS: this copy carries the screen saver (from the DMG or Homebrew).
@@ -126,6 +129,8 @@ pub enum UiAction {
     RemoveEverything,
     /// macOS: System Settings at Screen Saver.
     OpenSaverSettings,
+    /// macOS: System Settings at General > Login Items.
+    OpenLoginItems,
     Quit,
     RestoreWallpaper,
     SaveToLibrary,
@@ -1633,11 +1638,27 @@ fn page(
                 tray_name()
             );
             match status.start_at_login {
-                Some(mut on) => row(ui, theme, "Start at login", &tray_desc, |ui| {
-                    if toggle(ui, theme, &mut on, "Start at login").changed() {
-                        actions.push(UiAction::SetStartAtLogin(on));
+                Some(mut on) => {
+                    row(ui, theme, "Start at login", &tray_desc, |ui| {
+                        if toggle(ui, theme, &mut on, "Start at login").changed() {
+                            actions.push(UiAction::SetStartAtLogin(on));
+                        }
+                    });
+                    if on && status.login_needs_approval {
+                        ui.horizontal_wrapped(|ui| {
+                            ui.label(
+                                RichText::new(
+                                    "macOS has Clairlune switched off in Login Items, so it won't start with your Mac until you switch it on there.",
+                                )
+                                .color(c(t.danger)),
+                            );
+                            if ui.button("Open Login Items").clicked() {
+                                actions.push(UiAction::OpenLoginItems);
+                            }
+                        });
+                        ui.add_space(space::S4);
                     }
-                }),
+                }
                 None => row(
                     ui,
                     theme,

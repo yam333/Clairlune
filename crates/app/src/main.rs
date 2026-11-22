@@ -919,6 +919,14 @@ impl App {
         if self.settings.general.check_updates && self.update.due(timefmt::now_unix()) {
             self.check_updates(false);
         }
+        // Login Items may have been switched on or off meanwhile.
+        if self.settings_window.is_some() {
+            let was = self.status.login_needs_approval;
+            self.check_login_approval();
+            if was != self.status.login_needs_approval {
+                self.redraw_settings();
+            }
+        }
         let until = self.settings.general.detailed_logging_until;
         if until != 0 && until <= timefmt::now_unix() {
             self.settings.general.detailed_logging_until = 0;
@@ -1072,6 +1080,7 @@ impl App {
         self.status.start_at_login = std::env::current_exe()
             .ok()
             .and_then(|exe| clairlune_platform::start_at_login(&exe));
+        self.check_login_approval();
         self.status.saver_available = saver::shipped().is_some();
         self.status.ask_start_at_login = !self.settings.general.asked_start_at_login
             && self.status.start_at_login == Some(false)
@@ -1600,6 +1609,7 @@ impl App {
                 open_url(&url);
             }
             UiAction::OpenSaverSettings => saver::open_settings(),
+            UiAction::OpenLoginItems => clairlune_platform::open_login_items_settings(),
             UiAction::SetStartAtLogin(on) => {
                 let result = std::env::current_exe()
                     .map_err(|e| e.to_string())
@@ -1609,7 +1619,20 @@ impl App {
                             .map(|()| clairlune_platform::start_at_login(&exe))
                     });
                 match result {
-                    Ok(state) => self.status.start_at_login = state,
+                    Ok(state) => {
+                        self.status.start_at_login = state;
+                        self.check_login_approval();
+                        // Switched off in Login Items: only the user can turn
+                        // it on, there; take them to it.
+                        if on && self.status.login_needs_approval {
+                            tracing::info!(target: "clairlune", "start at login needs approval in Login Items");
+                            clairlune_platform::open_login_items_settings();
+                            self.status.note = Some(
+                                "Switch Clairlune on in System Settings > General > Login Items, which is open now, so it starts with your Mac."
+                                    .into(),
+                            );
+                        }
+                    }
                     Err(e) => {
                         self.status.note = Some(format!("Couldn't change start at login: {e}"))
                     }
@@ -1970,6 +1993,14 @@ impl App {
                 self.redraw_settings();
             }
         }
+    }
+
+    /// macOS: whether start at login is switched off in Login Items.
+    fn check_login_approval(&mut self) {
+        self.status.login_needs_approval = cfg!(target_os = "macos")
+            && self.status.start_at_login == Some(true)
+            && std::env::current_exe()
+                .is_ok_and(|exe| clairlune_platform::start_at_login_needs_approval(&exe));
     }
 
     fn redraw_settings(&self) {

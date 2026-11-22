@@ -1,0 +1,58 @@
+name: DMG check
+
+# The DMG window as people see it: the latest release's app, packed by
+# scripts/make_dmg.py, opened in Finder on a macOS runner, with screenshots
+# in light and dark mode. The app inside must still verify.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["scripts/make_dmg.py", "packaging/macos/**", ".github/workflows/dmg-check.yml"]
+
+permissions:
+  contents: read
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  dmg:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Pack the latest release's app
+        run: |
+          set -euo pipefail
+          v=$(gh release view --repo yam333/Clairlune --json tagName --jq .tagName); v=${v#v}
+          gh release download "v$v" --repo yam333/Clairlune --pattern "Clairlune_${v}_aarch64.dmg" --dir rel
+          mnt=$(mktemp -d)
+          hdiutil attach "rel/Clairlune_${v}_aarch64.dmg" -mountpoint "$mnt" -nobrowse -readonly
+          mkdir -p app
+          ditto "$mnt/Clairlune.app" app/Clairlune.app
+          hdiutil detach "$mnt"
+          python3 -m venv "$RUNNER_TEMP/dmg"
+          "$RUNNER_TEMP/dmg/bin/pip" install --quiet dmgbuild==1.6.7
+          mkdir -p out
+          "$RUNNER_TEMP/dmg/bin/python" scripts/make_dmg.py app/Clairlune.app out/Clairlune.dmg
+          ls -la out
+      - name: Open it in Finder and take screenshots
+        run: |
+          set -u
+          hdiutil attach out/Clairlune.dmg
+          codesign --verify --deep --strict --verbose=2 /Volumes/Clairlune/Clairlune.app
+          ls -la /Volumes/Clairlune
+          open /Volumes/Clairlune
+          sleep 6
+          screencapture -x out/dmg-light.png
+          defaults write -g AppleInterfaceStyle Dark
+          killall Finder; sleep 4
+          open /Volumes/Clairlune
+          sleep 6
+          screencapture -x out/dmg-dark.png
+          defaults delete -g AppleInterfaceStyle 2>/dev/null
+          hdiutil detach /Volumes/Clairlune -force || true
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: dmg-check
+          path: out/

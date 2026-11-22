@@ -250,6 +250,27 @@ pub fn login_entry_outdated(exe: &Path) -> bool {
     }
 }
 
+/// macOS: start at login is registered but turned off in System Settings >
+/// General > Login Items, where only the user can turn it on. `false`
+/// elsewhere.
+pub fn start_at_login_needs_approval(exe: &Path) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        login::needs_approval(exe)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = exe;
+        false
+    }
+}
+
+/// macOS: opens System Settings at General > Login Items. Nothing elsewhere.
+pub fn open_login_items_settings() {
+    #[cfg(target_os = "macos")]
+    login::open_login_items();
+}
+
 /// Registers or removes `exe` as a login item (per user, no admin rights),
 /// started with [`BACKGROUND_ARG`].
 pub fn set_start_at_login(exe: &Path, enable: bool) -> Result<(), PlatformError> {
