@@ -65,7 +65,7 @@ winget downloads the setup.exe from the release, checks it against the SHA-256 i
 
 It sets a new wallpaper when it starts and then every hour, with a separate scene on each monitor. By default the scene plays live behind your desktop icons, and it pauses on a monitor while a maximized or full-screen app covers it. Settings -> Display switches to a still frame; Settings -> Live sets the frame rate (6 to 60 a second, 12 by default).
 
-On Windows, double-click the moon to open Settings and right-click it for the menu. From the menu you can get a new wallpaper (on every monitor, or just one), go back to the previous one, switch theme, pause the changes, save the current wallpaper as a PNG or GIF, and open the Archive, Library and Timeline windows.
+On Windows, double-click the moon to open Settings and right-click it for the menu. From the menu you can get a new wallpaper (on every monitor, or just one), go back to the previous one, switch theme, pause the changes, save the current wallpaper as a PNG or GIF, open the Archive, Library and Timeline windows, and see who made it (About Clairlune).
 
 The Archive keeps the last week of wallpapers so you can reuse, pin or export them. Save to library keeps one for good; it's stored as a frozen scene, so it looks the same after updates. With Settings -> Rotation set to Timeline, the app follows a daily plan instead of the hourly change: drag saved wallpapers or random scenes onto a 24-hour bar for each day, and pick each slot's theme.
 

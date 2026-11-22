@@ -285,11 +285,22 @@ impl Default for ArchiveSettings {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Export {
     /// Folder for exports; empty means `Pictures/Clairlune`.
     pub folder: String,
+    /// Saved PNGs and GIFs carry the signature in a corner.
+    pub sign: bool,
+}
+
+impl Default for Export {
+    fn default() -> Self {
+        Export {
+            folder: String::new(),
+            sign: true,
+        }
+    }
 }
 
 impl Settings {

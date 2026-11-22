@@ -61,6 +61,18 @@ impl GlyphAtlas {
         cell_h: u32,
         font_px: f64,
     ) -> Result<Self, AtlasError> {
+        Self::with_chars(font, &GLYPHS, cell_w, cell_h, font_px)
+    }
+
+    /// An atlas of these characters (mask `i` is `chars[i]`'s), for text
+    /// beyond the scene's glyphs, such as a signature.
+    pub fn with_chars(
+        font: &[u8],
+        chars: &[char],
+        cell_w: u32,
+        cell_h: u32,
+        font_px: f64,
+    ) -> Result<Self, AtlasError> {
         let face = FontRef::new(font).map_err(AtlasError::Font)?;
         // Everything in font units; we scale ourselves with f64.
         let location = LocationRef::default();
@@ -74,8 +86,8 @@ impl GlyphAtlas {
         let content = (cap + DESCENT_ROOM_EM * upm) * scale;
         let baseline = (f64::from(cell_h) - content) * 0.5 + cap * scale;
         let cell_len = (cell_w * cell_h) as usize;
-        let mut masks = vec![0u8; cell_len * GLYPHS.len()];
-        for (i, &ch) in GLYPHS.iter().enumerate() {
+        let mut masks = vec![0u8; cell_len * chars.len()];
+        for (i, &ch) in chars.iter().enumerate() {
             if ch == ' ' {
                 continue;
             }

@@ -24,6 +24,8 @@ pub enum Action {
     OpenTimeline,
     OpenArchive,
     OpenSettings,
+    /// Settings, on About: who made it.
+    About,
     /// The newer version: install it, or open its release page.
     OpenUpdate,
     Quit,
@@ -51,6 +53,7 @@ pub struct Tray {
     timeline: MenuItem,
     archive: MenuItem,
     settings: MenuItem,
+    about: MenuItem,
     quit: MenuItem,
     /// "Update available": at the top of the menu while there is one.
     update: MenuItem,
@@ -99,6 +102,7 @@ impl Tray {
         let timeline = MenuItem::new("Timeline\u{2026}", true, None);
         let archive = MenuItem::new("Archive\u{2026}", true, None);
         let settings = MenuItem::new("Settings\u{2026}", true, None);
+        let about = MenuItem::new("About Clairlune", true, None);
         let quit = MenuItem::new("Quit Clairlune", true, None);
         let update = MenuItem::new("Update available\u{2026}", true, None);
         let menu = Menu::new();
@@ -118,6 +122,7 @@ impl Tray {
             &archive,
             &settings,
             &PredefinedMenuItem::separator(),
+            &about,
             &quit,
         ])
         .map_err(|e| e.to_string())?;
@@ -154,6 +159,7 @@ impl Tray {
             timeline,
             archive,
             settings,
+            about,
             quit,
             update,
             update_shown: Cell::new(false),
@@ -177,6 +183,7 @@ impl Tray {
             (self.timeline.id(), Action::OpenTimeline),
             (self.archive.id(), Action::OpenArchive),
             (self.settings.id(), Action::OpenSettings),
+            (self.about.id(), Action::About),
             (self.update.id(), Action::OpenUpdate),
             (self.quit.id(), Action::Quit),
         ];

@@ -269,7 +269,7 @@ impl UiTest {
         let mut steps = Vec::new();
         let cycles = [
             (Theme::Dark, Section::Rotation, "settings-dark-rotation.png"),
-            (Theme::Light, Section::Buddy, "settings-light-buddy.png"),
+            (Theme::Light, Section::About, "settings-light-about.png"),
             (Theme::Dark, Section::Live, "settings-dark-live.png"),
             (Theme::Dark, Section::Content, "settings-dark-content.png"),
         ];
@@ -1106,6 +1106,16 @@ impl App {
             Action::OpenTimeline => self.open_timeline(event_loop),
             Action::OpenArchive => self.open_archive(event_loop),
             Action::OpenSettings => self.open_settings(event_loop, None),
+            Action::About => {
+                self.last_section = ui::view::Section::About;
+                match &mut self.settings_window {
+                    Some(w) => {
+                        w.set_section(ui::view::Section::About);
+                        w.focus();
+                    }
+                    None => self.open_settings(event_loop, None),
+                }
+            }
             Action::OpenUpdate => self.install_update(),
             Action::Quit => event_loop.exit(),
         }
@@ -1266,6 +1276,7 @@ impl App {
                 let source = Some(dir_of(&name));
                 if gif {
                     self.submit(Job::ExportGif {
+                        sign: self.settings.export.sign,
                         dest,
                         source,
                         theme: apply::resolve_theme(&self.settings.theme),
@@ -1273,6 +1284,7 @@ impl App {
                     });
                 } else {
                     self.submit(Job::Export {
+                        sign: self.settings.export.sign,
                         dest,
                         source,
                         still: None,
@@ -1362,6 +1374,7 @@ impl App {
                         .map(|i| Self::library_choices(&i, &self.settings))
                         .unwrap_or((None, None));
                     self.submit(Job::ExportGif {
+                        sign: self.settings.export.sign,
                         dest,
                         source,
                         theme: theme.unwrap_or_else(|| apply::resolve_theme(&self.settings.theme)),
@@ -1369,6 +1382,7 @@ impl App {
                     });
                 } else {
                     self.submit(Job::Export {
+                        sign: self.settings.export.sign,
                         dest,
                         source,
                         still: None,
@@ -1616,6 +1630,7 @@ impl App {
             }
             UiAction::NewWallpaper => self.new_wallpaper_by_hand(),
             UiAction::FromSeed(seed) => self.wallpaper_from_seed(seed),
+            UiAction::OpenLink(url) => open_url(url),
             UiAction::Resume => {
                 self.settings.schedule.paused = false;
                 if let Some(t) = &self.tray {
@@ -2245,6 +2260,7 @@ impl App {
     fn export_png(&mut self) {
         let dest = self.export_dir();
         self.submit(Job::Export {
+            sign: self.settings.export.sign,
             dest,
             source: self.current.clone(),
             still: self.shown_still.clone(),
@@ -2257,6 +2273,7 @@ impl App {
             .shown_theme
             .unwrap_or_else(|| apply::resolve_theme(&self.settings.theme));
         self.submit(Job::ExportGif {
+            sign: self.settings.export.sign,
             dest,
             source: self.current.clone(),
             theme,

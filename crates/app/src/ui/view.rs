@@ -70,10 +70,16 @@ pub enum Section {
     Archive,
     Export,
     General,
+    About,
 }
 
+/// Where the maker is on GitHub, and Clairlune.
+pub const MAKER: &str = "yam333";
+pub const MAKER_URL: &str = "https://github.com/yam333";
+pub const PROJECT_URL: &str = "https://github.com/yam333/Clairlune";
+
 impl Section {
-    pub const ALL: [Section; 9] = [
+    pub const ALL: [Section; 10] = [
         Section::Rotation,
         Section::Theme,
         Section::Display,
@@ -83,6 +89,7 @@ impl Section {
         Section::Archive,
         Section::Export,
         Section::General,
+        Section::About,
     ];
 
     pub fn name(self) -> &'static str {
@@ -96,6 +103,7 @@ impl Section {
             Section::Archive => "Archive",
             Section::Export => "Export",
             Section::General => "General",
+            Section::About => "About",
         }
     }
 }
@@ -169,6 +177,8 @@ pub enum UiAction {
     FromSeed(u64),
     /// Changes start again (they were paused from the menu, or by Restore).
     Resume,
+    /// Opens a web page (the maker's, the project's).
+    OpenLink(&'static str),
     Previous,
     OpenArchive,
     OpenLogs,
@@ -812,7 +822,7 @@ fn sidebar(
     // clearly over the flutes; the chosen one is lit.
     for s in Section::ALL {
         let selected = st.section == s;
-        let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 32.0), Sense::click());
+        let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 30.0), Sense::click());
         resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Tab, true, selected, s.name()));
         let p = ui.painter();
         let (fill, edge) = if selected {
@@ -1011,6 +1021,50 @@ fn now_showing(
     }
 }
 
+/// The maker's signature: the handle in the serif's italic, underlined by
+/// hand in ember. It opens their GitHub.
+fn signature(ui: &mut Ui, theme: Theme, actions: &mut Vec<UiAction>) {
+    let t = colors(theme);
+    let galley = ui.painter().layout_no_wrap(
+        MAKER.into(),
+        style::serif(crate::tokens::text::DISPLAY.size, true),
+        Color32::PLACEHOLDER,
+    );
+    let size = galley.size();
+    let (rect, resp) = ui.allocate_exact_size(size + vec2(10.0, 10.0), Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Link, true, "yam333 on GitHub"));
+    let resp = resp
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_text("github.com/yam333");
+    let ink = if resp.hovered() {
+        c(t.accent_text)
+    } else {
+        c(t.text)
+    };
+    let p = ui.painter();
+    p.galley(rect.min + vec2(2.0, 0.0), galley, ink);
+    // A pen stroke under it: rising a little, then easing off.
+    let (x0, x1) = (rect.min.x + 4.0, rect.min.x + size.x * 0.96);
+    let y = rect.min.y + size.y + 2.0;
+    let stroke: Vec<egui::Pos2> = (0..=24)
+        .map(|i| {
+            let u = i as f32 / 24.0;
+            let lift = (u * std::f32::consts::PI).sin() * 3.0 - u * 2.0;
+            pos2(x0 + (x1 - x0) * u, y - lift)
+        })
+        .collect();
+    p.add(egui::Shape::line(
+        stroke,
+        Stroke::new(1.6, c(t.accent_deep)),
+    ));
+    if resp.has_focus() {
+        focus_ring(ui, theme, rect, 6.0);
+    }
+    if resp.clicked() {
+        actions.push(UiAction::OpenLink(MAKER_URL));
+    }
+}
+
 /// The seed in a small box: hovered it offers to copy, clicked it copies.
 fn seed_box(ui: &mut Ui, theme: Theme, rect: Rect, seed: u64, ps: &mut PageState) {
     let t = colors(theme);
@@ -1203,9 +1257,20 @@ fn summary(section: Section, s: &Settings, status: &Status) -> String {
             ACTIVITIES.len(),
             WEATHER.len()
         ),
+        Section::Archive if s.archive.keep_days == 0 => "kept forever".into(),
+        Section::Archive if s.archive.keep_days == 1 => "kept for a day".into(),
         Section::Archive => format!("kept for {} days", s.archive.keep_days),
+        Section::Export if s.export.sign => "PNGs and GIFs, signed".into(),
         Section::Export => "PNGs and GIFs".into(),
-        Section::General => format!("Clairlune {}", env!("CARGO_PKG_VERSION")),
+        Section::General if status.start_at_login == Some(true) => {
+            "starts with the computer".into()
+        }
+        Section::General => "starts when you open it".into(),
+        Section::About => format!(
+            "Clairlune {} \u{b7} generator {}",
+            env!("CARGO_PKG_VERSION"),
+            clairlune_scene::GENERATOR_VERSION
+        ),
     }
 }
 
@@ -1324,6 +1389,11 @@ fn icon(p: &Painter, icon: Icon, r: Rect, ink: Color32) {
             for (x, y) in [(10.5, 4.0), (5.6, 8.0), (11.4, 12.0)] {
                 p.circle_stroke(at(x, y), 1.6 * k, st);
             }
+        }
+        Icon::Section(Section::About) => {
+            p.circle_stroke(at(8.0, 8.0), 6.2 * k, st);
+            line(&[(8.0, 7.2), (8.0, 11.6)]);
+            p.circle_filled(at(8.0, 4.8), 0.95 * k, ink);
         }
         Icon::Previous => {
             line(&[(5.5, 3.5), (2.5, 6.5), (5.5, 9.5)]);
@@ -2539,6 +2609,15 @@ fn page(
                     actions.push(UiAction::SaveGif);
                 }
             });
+            row(
+                ui,
+                theme,
+                "Sign saved images",
+                "A small \u{201c}clairlune \u{b7} by yam333\u{201d} in a corner, in the scene's own text.",
+                |ui| {
+                    toggle(ui, theme, &mut s.export.sign, "Sign saved images");
+                },
+            );
             ui.label(RichText::new("Export folder").font(style::body_strong()));
             let hint = "Empty: Pictures\\Clairlune";
             ui.add(
@@ -2795,21 +2874,31 @@ fn page(
                     },
                 );
             }
-            ui.add_space(space::S2);
+        }
+        Section::About => {
+            group(ui, "Made by");
+            signature(ui, theme, actions);
+            ui.add_space(space::S4);
+            ui.label(
+                RichText::new("If Clairlune made your desk a little nicer, say hi.")
+                    .italics()
+                    .color(c(t.text_secondary)),
+            );
+            ui.add_space(space::S4);
+            ui.horizontal(|ui| {
+                if ui.button("GitHub profile").clicked() {
+                    actions.push(UiAction::OpenLink(MAKER_URL));
+                }
+                if ui.button("Clairlune on GitHub").clicked() {
+                    actions.push(UiAction::OpenLink(PROJECT_URL));
+                }
+            });
+            ui.add_space(space::S5);
             hairline(ui, t.hairline);
             ui.add_space(space::S3);
             ui.label(
-                RichText::new(format!(
-                    "Clairlune {}  generator {}",
-                    env!("CARGO_PKG_VERSION"),
-                    clairlune_scene::GENERATOR_VERSION
-                ))
-                .font(style::mono())
-                .color(c(t.text_secondary)),
-            );
-            ui.label(
                 RichText::new(
-                    "Unofficial fan project, not affiliated with or endorsed by Anthropic. Clawd is Anthropic's character. Code under MIT or Apache-2.0; fonts under the SIL Open Font License.",
+                    "Unofficial fan project, not affiliated with or endorsed by Anthropic. Clawd is Anthropic's character. Code under MIT or Apache-2.0; fonts (Instrument Serif, IBM Plex Sans, JetBrains Mono) under the SIL Open Font License.",
                 )
                 .color(c(t.text_secondary)),
             );

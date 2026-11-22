@@ -22,6 +22,7 @@ pub mod journey;
 pub mod package;
 pub mod palette;
 mod projectile;
+pub mod sign;
 mod tether;
 
 pub use art::{BuiltinArt, OwnedPixmap, Pixmap, SceneArt};
@@ -39,6 +40,7 @@ pub use gif_export::{
 pub use journey::JourneyBake;
 pub use package::{PACKAGE_FORMAT, PackageError, ScenePackage};
 pub use palette::IndexedPalette;
+pub use sign::{SIGNATURE, Signature};
 
 use clairlune_scene::activity::builtin_catalog;
 use clairlune_scene::{BuildError, BuildOptions, SceneGraph, SceneRecipe, build};
