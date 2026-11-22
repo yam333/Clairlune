@@ -423,6 +423,97 @@ pub const SKIS_REST: PixelMap = PixelMap {
     colors: &[('R', KITE_RED), ('s', STEEL_DARK), ('K', INK_DARK)],
 };
 
+const LEAF: Rgb = Rgb::hex(0x5E7A45);
+
+/// Two flower pots, red blooms and white daisies: the set piece for
+/// gardening (project art, CC BY 4.0).
+pub const FLOWER_POTS: PixelMap = PixelMap {
+    width: 11,
+    height: 9,
+    rows: &[
+        ".R.R...P.P.",
+        "..Y.....Y..",
+        ".R.R...P.P.",
+        "..G.....G..",
+        ".GG.....GG.",
+        "..G.....G..",
+        "TTTTT.TTTTT",
+        ".TTT...TTT.",
+        ".ttt...ttt.",
+    ],
+    colors: &[
+        ('R', KITE_RED),
+        ('P', PAGE),
+        ('Y', SPARK),
+        ('G', LEAF),
+        ('T', LOG),
+        ('t', LOG_DARK),
+    ],
+};
+
+/// A music stand with a page of music: the set piece for the flute
+/// (project art, CC BY 4.0).
+pub const MUSIC_STAND: PixelMap = PixelMap {
+    width: 7,
+    height: 12,
+    rows: &[
+        "PPPPPPP", "PLLLLLP", "PPKPPKP", "PLLLLLP", "PKPPKPP", "sssssss", "...s...", "...s...",
+        "...s...", "...s...", "..s.s..", ".s...s.",
+    ],
+    colors: &[
+        ('P', PAGE),
+        ('L', PAGE_LINE),
+        ('K', INK_DARK),
+        ('s', STEEL_DARK),
+    ],
+};
+
+/// A camera on a tripod: the unattended variant of photography (project
+/// art, CC BY 4.0).
+pub const CAMERA_TRIPOD: PixelMap = PixelMap {
+    width: 7,
+    height: 12,
+    rows: &[
+        "..KK...", ".KKKKK.", ".KKPKK.", ".KKKKK.", "...s...", "...s...", "..s.s..", "..s.s..",
+        ".s...s.", ".s...s.", "s.....s", "s.....s",
+    ],
+    colors: &[('K', INK_DARK), ('P', PAGE), ('s', STEEL_DARK)],
+};
+
+/// A sandcastle with a flag on its keep: the set piece for building one
+/// (project art, CC BY 4.0).
+pub const SANDCASTLE: PixelMap = PixelMap {
+    width: 11,
+    height: 10,
+    rows: &[
+        "....KR.....",
+        "....KRR....",
+        "....K......",
+        "...B.B.B...",
+        "...BBBBB...",
+        "B.B.BBB.B.B",
+        "BBBBBBBBBBB",
+        "BBBBdddBBBB",
+        "BBBBdddBBBB",
+        "WWWWWWWWWWW",
+    ],
+    colors: &[
+        ('K', INK_DARK),
+        ('R', KITE_RED),
+        ('B', BRASS),
+        ('d', WOOD_DARK),
+        ('W', WOOD),
+    ],
+};
+
+/// A rolled yoga mat: the set piece for yoga (project art, CC BY 4.0).
+pub const YOGA_MAT: PixelMap = PixelMap {
+    width: 9,
+    height: 4,
+    rows: &[".HHHHHHH.", "hHHHHHHHh", "hHHHHHHHh", ".HHHHHHH."],
+    colors: &[('H', HAT), ('h', HAT_DARK)],
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -451,6 +542,11 @@ mod tests {
             CHESS_TABLE,
             PRACTICE_WALL,
             SKIS_REST,
+            FLOWER_POTS,
+            MUSIC_STAND,
+            CAMERA_TRIPOD,
+            SANDCASTLE,
+            YOGA_MAT,
         ] {
             assert_eq!(map.rows.len() as u32, map.height);
             for row in map.rows {

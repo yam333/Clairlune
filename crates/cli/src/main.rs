@@ -143,6 +143,10 @@ struct GenerateArgs {
     /// Force a landscape (e.g. `mountains`). Lists the ids when unknown.
     #[arg(long, conflicts_with = "recipe")]
     archetype: Option<String>,
+    /// Force the weather (e.g. `birds`), where the landscape and activity
+    /// allow it. Lists the ids when unknown.
+    #[arg(long, conflicts_with = "recipe")]
+    weather: Option<String>,
     /// Force a look: `line` (line art) or `dither` (light and dark masses).
     #[arg(long, conflicts_with = "recipe")]
     look: Option<String>,
@@ -230,6 +234,19 @@ pub(crate) fn restrict_archetype(ctx: &mut ContentContext, id: &str) -> Result<(
     Ok(())
 }
 
+/// Limits composition to one weather; errors list the ones that exist.
+pub(crate) fn restrict_weather(ctx: &mut ContentContext, id: &str) -> Result<(), String> {
+    use clairlune_scene::archetype::WEATHERS;
+    if !WEATHERS.contains(&id) {
+        return Err(format!(
+            "unknown weather `{id}`; available: {}",
+            WEATHERS.join(", ")
+        ));
+    }
+    ctx.enabled_weather = vec![id.to_string()];
+    Ok(())
+}
+
 /// Limits composition to one activity; errors list the ones that exist.
 pub(crate) fn restrict_activity(ctx: &mut ContentContext, id: &str) -> Result<(), String> {
     let catalog = builtin_catalog();
@@ -312,6 +329,9 @@ fn generate(args: GenerateArgs) -> Result<(), String> {
             }
             if let Some(id) = &args.activity {
                 restrict_activity(&mut ctx, id)?;
+            }
+            if let Some(id) = &args.weather {
+                restrict_weather(&mut ctx, id)?;
             }
             restrict_look(&mut ctx, args.look.as_deref(), args.contrast.as_deref())?;
             restrict_zoom(&mut ctx, args.zoom.as_deref())?;

@@ -5,14 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "ff7a56b1aefb8046",
-  "activity": "balloon_journey",
-  "archetype": "forest",
+  "content_ctx_hash": "472e5683060b8a8d",
+  "activity": "play_flute",
+  "archetype": "lake",
   "light_tod": "golden_hour",
-  "dark_tod": null,
-  "platform": "tree_branch",
-  "props": [],
-  "weather": "none",
+  "dark_tod": "dusk",
+  "platform": "grassy_bank",
+  "props": [
+    "music_stand"
+  ],
+  "weather": "stars",
   "composition": {
     "horizon_pm": 571,
     "focus_x_pm": 692,
@@ -22,9 +24,7 @@
     "cliff_layers": 3,
     "prop_left": false,
     "motion_speed_cc": 0,
-    "pace_half_pm": 0,
-    "journey_pace_c": 246,
-    "landmark": "peak"
+    "pace_half_pm": 0
   },
   "palette": {
     "light": "sand_day",

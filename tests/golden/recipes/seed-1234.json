@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "ff7a56b1aefb8046",
-  "activity": "hot_cocoa",
-  "archetype": "interior",
-  "light_tod": "morning",
+  "content_ctx_hash": "472e5683060b8a8d",
+  "activity": "snowballs",
+  "archetype": "mountains",
+  "light_tod": "golden_hour",
   "dark_tod": "dusk",
-  "platform": "floor",
+  "platform": "rock_ledge",
   "props": [
-    "lantern"
+    "snowman"
   ],
   "weather": "none",
   "composition": {

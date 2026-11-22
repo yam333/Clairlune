@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 /// Prop ids the engine can draw.
-pub const PROPS: [&str; 20] = [
+pub const PROPS: [&str; 25] = [
     "campfire",
     "log_seat",
     "telescope",
@@ -34,11 +34,23 @@ pub const PROPS: [&str; 20] = [
     "chess_table",
     "practice_wall",
     "skis_rest",
+    "flower_pots",
+    "music_stand",
+    "camera_tripod",
+    "sandcastle",
+    "yoga_mat",
 ];
 /// Effect ids the engine can draw.
 pub const EFFECTS: [&str; 1] = ["embers"];
 /// Particle presets an `[[effects]]` entry can attach to an anchor.
-pub const PARTICLE_PRESETS: [&str; 5] = ["sparkles", "steam", "notes", "snow_spray", "bubbles"];
+pub const PARTICLE_PRESETS: [&str; 6] = [
+    "sparkles",
+    "steam",
+    "notes",
+    "snow_spray",
+    "bubbles",
+    "drops",
+];
 /// Tether presets: a line from an anchor to a moving end (a float on the
 /// water, a kite in the sky).
 pub const TETHER_PRESETS: [&str; 2] = ["fishing_line", "kite_string"];
@@ -55,7 +67,7 @@ pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "i
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 32] = [
+const SOURCES: [(&str, &str); 38] = [
     (
         "balloon_journey.toml",
         include_str!("../activities/balloon_journey.toml"),
@@ -63,6 +75,10 @@ const SOURCES: [(&str, &str); 32] = [
     (
         "balloon_ride.toml",
         include_str!("../activities/balloon_ride.toml"),
+    ),
+    (
+        "birdwatching.toml",
+        include_str!("../activities/birdwatching.toml"),
     ),
     (
         "broom_flight.toml",
@@ -90,6 +106,10 @@ const SOURCES: [(&str, &str); 32] = [
         include_str!("../activities/forest_walk.toml"),
     ),
     (
+        "gardening.toml",
+        include_str!("../activities/gardening.toml"),
+    ),
+    (
         "hike_ridge.toml",
         include_str!("../activities/hike_ridge.toml"),
     ),
@@ -106,7 +126,15 @@ const SOURCES: [(&str, &str); 32] = [
         "paint_easel.toml",
         include_str!("../activities/paint_easel.toml"),
     ),
+    (
+        "photography.toml",
+        include_str!("../activities/photography.toml"),
+    ),
     ("picnic.toml", include_str!("../activities/picnic.toml")),
+    (
+        "play_flute.toml",
+        include_str!("../activities/play_flute.toml"),
+    ),
     (
         "play_guitar.toml",
         include_str!("../activities/play_guitar.toml"),
@@ -116,6 +144,10 @@ const SOURCES: [(&str, &str); 32] = [
         include_str!("../activities/read_lantern.toml"),
     ),
     ("rowing.toml", include_str!("../activities/rowing.toml")),
+    (
+        "sandcastle.toml",
+        include_str!("../activities/sandcastle.toml"),
+    ),
     ("ski_tour.toml", include_str!("../activities/ski_tour.toml")),
     ("skiing.toml", include_str!("../activities/skiing.toml")),
     (
@@ -139,6 +171,7 @@ const SOURCES: [(&str, &str); 32] = [
         "wizard_magic.toml",
         include_str!("../activities/wizard_magic.toml"),
     ),
+    ("yoga.toml", include_str!("../activities/yoga.toml")),
 ];
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

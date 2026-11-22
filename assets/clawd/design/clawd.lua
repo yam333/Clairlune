@@ -74,7 +74,8 @@ M.along = along
 --   eyes     "open" | "closed" | "left" | "right" | "up" | "happy" | "focus"
 --   arm_l, arm_r   "rest" | "out" | "up" | { dx, dy } hand position from the shoulder
 --   reach, wiggle  extra length / 1 px raise for "out" and "up" arms
---   hold     { item, angle, hand = "r" }  item: wand, racket, ski_pole, walking_stick, mug, chess_piece, rod, stone, broom, brush, snowball, apple, bubble_wand
+--   hold     { item, angle, hand = "r" }  item: wand, racket, ski_pole, walking_stick, mug, chess_piece, rod, stone, broom, brush, snowball, apple, bubble_wand,
+--            watering_can, flute, camera, binoculars, spade
 --   costume  { "wizard_hat", "beanie", "goggles", "backpack", "scarf" }
 --   legs     "stand" | "walk_a" | "walk_b" | "ski"
 function M.pose(o)
@@ -214,6 +215,56 @@ function ITEMS.bubble_wand(c, x, y, deg)
   c.px(rx - 1, ry, P.white); c.px(rx + 1, ry, P.white)
   c.px(rx, ry - 1, P.white); c.px(rx, ry + 1, P.white)
   return { rx, ry }
+end
+function ITEMS.watering_can(c, x, y, deg)
+  -- A watering can held by its handle: the body under the hand, the spout
+  -- from its front toward `deg`, a rose on the end; the rose is the tip
+  -- the water falls from.
+  c.rect(x - 1, y + 1, 4, 3, P.metal_dark)
+  c.px(x, y + 2, P.white) -- a glint
+  c.px(x - 1, y, P.metal_dark); c.px(x + 2, y, P.metal_dark)
+  local sx, sy = x + 3, y + 2
+  local tx, ty = along(sx, sy, deg, 4)
+  line(c, sx, sy, tx, ty, P.metal_dark)
+  c.px(tx, ty - 1, P.metal_dark); c.px(tx, ty + 1, P.metal_dark)
+  return { tx + 1, ty }
+end
+function ITEMS.flute(c, x, y, deg)
+  -- A flute held across, from just past the hand along `deg`: white with
+  -- dark finger holes. The end past the hand is the tip the notes leave.
+  local ex, ey = along(x, y, deg, 11)
+  local bx, by = along(x, y, deg + 180, 2)
+  line(c, bx, by, ex, ey, P.white)
+  for i = 3, 9, 2 do
+    local hx, hy = along(x, y, deg, i)
+    c.px(hx, hy, P.ink)
+  end
+  return { bx, by - 1 }
+end
+function ITEMS.camera(c, x, y)
+  -- A small camera held up: a dark body, a pale lens, the shutter button
+  -- on top; the button's corner is the tip, where the flash goes off.
+  c.rect(x - 1, y - 2, 5, 3, P.ink)
+  c.px(x + 1, y - 1, P.white)
+  c.px(x + 3, y - 3, P.metal_dark)
+  return { x + 3, y - 3 }
+end
+function ITEMS.binoculars(c, x, y)
+  -- Held up to the eyes from the right hand: two dark barrels an eye
+  -- spacing apart, a bridge between, a glint on each lens.
+  c.rect(x - 10, y - 1, 3, 2, P.ink)
+  c.rect(x - 3, y - 1, 3, 2, P.ink)
+  line(c, x - 7, y, x - 4, y, P.metal_dark)
+  c.px(x - 9, y - 1, P.white); c.px(x - 2, y - 1, P.white)
+  return { x - 6, y - 2 }
+end
+function ITEMS.spade(c, x, y, deg)
+  -- A toy spade: a short wooden handle, a red blade at the end.
+  local tx, ty = along(x, y, deg, 4)
+  line(c, x, y, tx, ty, P.wood)
+  local bx, by = along(x, y, deg, 6)
+  c.rect(bx - 1, by - 1, 2, 2, P.red)
+  return { bx, by }
 end
 function ITEMS.snowball(c, x, y)
   c.rect(x - 1, y - 2, 2, 2, P.white)

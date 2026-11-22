@@ -1,0 +1,39 @@
+# Playing the flute by a music stand, notes drifting off.
+id = "play_flute"
+weight = 0.9
+
+[requires]
+terrain = ["ledge", "flat", "shore", "rooftop", "indoor"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
+weather = ["none", "stars", "fireflies", "petals", "leaves", "fog", "birds", "butterflies", "shooting_stars"]
+
+[motion]
+type = "stationary"
+
+[props.music_stand]
+attach = "either_side"
+
+[animation]
+start = "play"
+
+[animation.states.play]
+loop = true
+dwell_s = [5, 10]
+next = { pause = 1.0 }
+
+[animation.states.pause]
+loop = true
+dwell_s = [2, 4]
+next = { play = 1.0 }
+
+[[effects]]
+type = "particles"
+preset = "notes"
+at = "item_tip"
+states = ["play"]
+
+[gif]
+loop_script = ["play", "pause"]
+
+[unattended]
+props = ["music_stand"]

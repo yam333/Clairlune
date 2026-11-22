@@ -259,6 +259,14 @@ pub enum WeatherKind {
     Sparkle,
     /// Confetti tumbling down.
     Confetti,
+    /// Birds crossing high up, flapping and gliding (by day).
+    Birds,
+    /// Butterflies fluttering low over the land (by day).
+    Butterflies,
+    /// Dandelion seeds drifting across on the breeze, rising a little.
+    Seeds,
+    /// Shooting stars streaking down the sky now and then (after dark).
+    ShootingStars,
 }
 
 impl WeatherKind {
@@ -276,6 +284,10 @@ impl WeatherKind {
             "ash" => Some(WeatherKind::Ash),
             "sparkle" => Some(WeatherKind::Sparkle),
             "confetti" => Some(WeatherKind::Confetti),
+            "birds" => Some(WeatherKind::Birds),
+            "butterflies" => Some(WeatherKind::Butterflies),
+            "seeds" => Some(WeatherKind::Seeds),
+            "shooting_stars" => Some(WeatherKind::ShootingStars),
             _ => None,
         }
     }
@@ -291,7 +303,22 @@ impl WeatherKind {
                 | WeatherKind::Blizzard
                 | WeatherKind::Ash
                 | WeatherKind::Sparkle
+                | WeatherKind::Birds
+                | WeatherKind::Seeds
+                | WeatherKind::ShootingStars
         )
+    }
+
+    /// Whether it shows at this time of day: fireflies and shooting stars
+    /// after dark, birds and butterflies by day, the rest at any time.
+    pub fn shows_at(self, tod: crate::recipe::TimeOfDay) -> bool {
+        use crate::recipe::TimeOfDay as T;
+        let dark = matches!(tod, T::Dusk | T::DeepDusk | T::Night);
+        match self {
+            WeatherKind::Fireflies | WeatherKind::ShootingStars => dark,
+            WeatherKind::Birds | WeatherKind::Butterflies => !dark,
+            _ => true,
+        }
     }
 }
 
@@ -339,15 +366,49 @@ pub fn weather_set(kind: WeatherKind, seed: u64, aspect: f64, pace: u8) -> Vec<D
                 WeatherKind::Blizzard => rng.range_f64(0.25, 0.4),
                 WeatherKind::Ash => rng.range_f64(0.06, 0.14),
                 WeatherKind::Confetti => rng.range_f64(0.16, 0.28),
+                WeatherKind::Birds => rng.range_f64(0.12, 0.2),
+                WeatherKind::Butterflies => rng.range_f64(0.04, 0.08),
+                WeatherKind::Seeds => rng.range_f64(0.1, 0.2),
+                // A streak's drop, set per star (see `shooting_stars`).
+                WeatherKind::ShootingStars => d.fall,
                 WeatherKind::Fireflies | WeatherKind::Sparkle => 0.0,
             };
         }
     }
+    if kind == WeatherKind::Birds {
+        flock(&mut drops);
+    }
     drops
+}
+
+/// Birds fly in threes: each follows the first of its three in a small V,
+/// a little behind it, one above and one below, keeping its pace.
+fn flock(drops: &mut [Drop]) {
+    for i in 0..drops.len() {
+        let place = i % 3;
+        if place == 0 {
+            continue;
+        }
+        let lead = drops[i - place];
+        let side = if place == 1 { -1.0 } else { 1.0 };
+        drops[i] = Drop {
+            x0: frac(lead.x0 - 0.012),
+            y0: lead.y0 + side * 0.014,
+            phase: lead.phase,
+            sway: lead.sway,
+            cycles: lead.cycles,
+            wraps: lead.wraps,
+            fall: lead.fall,
+            ..drops[i]
+        };
+    }
 }
 
 fn old_weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
     use crate::glyphs::id;
+    if kind == WeatherKind::ShootingStars {
+        return shooting_stars(seed, aspect);
+    }
     let mut rng = Rng::stream(seed, "weather_particles");
     let per = match kind {
         WeatherKind::Snow => 70.0,
@@ -361,6 +422,10 @@ fn old_weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
         WeatherKind::Ash => 55.0,
         WeatherKind::Sparkle => 30.0,
         WeatherKind::Confetti => 45.0,
+        WeatherKind::Birds => 6.0,
+        WeatherKind::Butterflies => 8.0,
+        WeatherKind::Seeds => 24.0,
+        WeatherKind::ShootingStars => 0.0,
     };
     let count = (per * aspect).round() as u32;
     (0..count)
@@ -502,9 +567,100 @@ fn old_weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
                     level: rng.range_u32(3, 5) as u8,
                     fall: 0.0,
                 },
+                WeatherKind::Birds => Drop {
+                    x0,
+                    // High in the sky.
+                    y0: 0.08 + 0.3 * y0,
+                    wraps: 1,
+                    sway: rng.range_f64(0.004, 0.012),
+                    cycles: rng.range_u32(1, 2),
+                    phase,
+                    glyph: id('v'),
+                    level: rng.range_u32(3, 4) as u8,
+                    fall: 0.0,
+                },
+                WeatherKind::Butterflies => Drop {
+                    x0,
+                    // Low over the land.
+                    y0: 0.5 + 0.4 * y0,
+                    wraps: 1,
+                    sway: rng.range_f64(0.006, 0.016),
+                    cycles: 1,
+                    phase,
+                    glyph: id('x'),
+                    level: rng.range_u32(4, 5) as u8,
+                    fall: 0.0,
+                },
+                WeatherKind::Seeds => Drop {
+                    x0,
+                    y0,
+                    wraps: 1,
+                    sway: rng.range_f64(0.006, 0.018),
+                    cycles: rng.range_u32(1, 3),
+                    phase,
+                    glyph: *rng.choose(&[id('*'), id('.'), id('\''), id('*')]),
+                    level: rng.range_u32(2, 4) as u8,
+                    fall: 0.0,
+                },
+                WeatherKind::ShootingStars => unreachable!("made by `shooting_stars`"),
             }
         })
         .collect()
+}
+
+/// Shooting stars: each is a head and a fading tail of three, sharing one
+/// path (`sway` across and `fall` down, over one streak); `cycles` is the
+/// place in the streak, 0 for the head. Two or so across the screen.
+fn shooting_stars(seed: u64, aspect: f64) -> Vec<Drop> {
+    use crate::glyphs::id;
+    let mut rng = Rng::stream(seed, "shooting_stars");
+    let count = (1.1 * aspect).round().max(1.0) as u32;
+    let mut drops = Vec::new();
+    for _ in 0..count {
+        let right = rng.chance(1, 2);
+        let across = rng.range_f64(0.14, 0.24) * if right { 1.0 } else { -1.0 };
+        let x0 = if right {
+            rng.range_f64(0.05, 0.7)
+        } else {
+            rng.range_f64(0.3, 0.95)
+        };
+        let y0 = rng.range_f64(0.04, 0.3);
+        let fall = rng.range_f64(0.08, 0.14);
+        let phase = rng.unit();
+        let tail = if right { id('\\') } else { id('/') };
+        for i in 0..4u32 {
+            drops.push(Drop {
+                x0,
+                y0,
+                wraps: 1,
+                sway: across,
+                cycles: i,
+                phase,
+                glyph: if i == 0 { id('*') } else { tail },
+                level: 5 - i.min(3) as u8,
+                fall,
+            });
+        }
+    }
+    drops
+}
+
+/// Where a shooting star's drop is at `p` through its life (it streaks over
+/// the first tenth), or `None` while it isn't showing.
+fn streak(d: &Drop, p: f64) -> Option<(f64, f64, u8, u8)> {
+    const SHOWS: f64 = 0.1;
+    if p >= SHOWS {
+        return None;
+    }
+    // The tail trails the head by a few hundredths of the streak.
+    let s = p / SHOWS - 0.06 * f64::from(d.cycles);
+    if s < 0.0 {
+        return None;
+    }
+    // Brightest mid-streak, gone at its end.
+    let glow = (s * 4.0).min((1.0 - s) * 3.0).clamp(0.0, 1.0);
+    let level = (f64::from(d.level) * glow).round() as u8;
+    (level > 0).then(|| (frac(d.x0 + d.sway * s), d.y0 + d.fall * s, d.glyph, level))
 }
 
 fn frac(x: f64) -> f64 {
@@ -553,6 +709,36 @@ fn drop_state(kind: WeatherKind, d: &Drop, t_ms: u64) -> (f64, f64, u8, u8) {
             d.glyph,
             d.level,
         ),
+        WeatherKind::Birds => {
+            // Across the sky once a loop, wings beating, then gliding.
+            let flap = sin(TAU * (24.0 * u + d.phase)) > 0.2;
+            (
+                frac(d.x0 + f64::from(d.wraps) * u),
+                d.y0 + d.sway * wave(d.cycles, d.phase),
+                if flap { id('v') } else { id('-') },
+                d.level,
+            )
+        }
+        WeatherKind::Butterflies => {
+            // A wandering loop, bobbing, wings opening and closing.
+            let open = sin(TAU * (60.0 * u + d.phase)) > 0.0;
+            (
+                frac(d.x0 + 0.3 * u + d.sway * wave(d.cycles, d.phase)),
+                d.y0 + 0.5 * d.sway * wave(d.cycles + 2, d.phase + 0.25),
+                if open { id('x') } else { id('+') },
+                d.level,
+            )
+        }
+        WeatherKind::Seeds => (
+            frac(d.x0 + 0.3 * u + d.sway * wave(d.cycles, d.phase)),
+            frac(d.y0 - f64::from(d.wraps) * u * 0.5 + 1.0),
+            d.glyph,
+            d.level,
+        ),
+        WeatherKind::ShootingStars => {
+            let p = frac(u * f64::from(d.wraps) + d.phase);
+            streak(d, p).unwrap_or((d.x0, d.y0, d.glyph, 0))
+        }
         WeatherKind::Sparkle => {
             // Still; each crystal catches the light now and then.
             let glint = sin(TAU * (f64::from(d.wraps) * u + d.phase)).max(0.0);
@@ -578,6 +764,9 @@ fn calm_drop_state(kind: WeatherKind, d: &Drop, t_ms: u64) -> Option<(f64, f64, 
     }
     let life = calm_life_ms(kind);
     let p = frac((t_ms % life) as f64 / life as f64 + d.phase);
+    if kind == WeatherKind::ShootingStars {
+        return streak(d, p);
+    }
     // Fade in over the first fifth, out over the last fifth.
     let fade = (p / 0.2).min((1.0 - p) / 0.2).min(1.0);
     let level = (f64::from(d.level) * fade).round() as u8;
@@ -612,6 +801,36 @@ fn calm_drop_state(kind: WeatherKind, d: &Drop, t_ms: u64) -> Option<(f64, f64, 
             let turn = TURN[((p * 8.0 + d.phase * 4.0) as usize) % 4];
             (frac(d.x0 + sway), frac(d.y0 + d.fall * p), turn, level)
         }
+        // Gliding across; the wings beat in bursts.
+        WeatherKind::Birds => {
+            use crate::glyphs::id;
+            let beat = ((p * 40.0 + d.phase * 7.0) as usize) % 6 < 3;
+            let glyph = if beat && ((p * 160.0) as usize).is_multiple_of(2) {
+                id('v')
+            } else {
+                id('-')
+            };
+            (frac(d.x0 + d.fall * p), d.y0 + sway * 0.5, glyph, level)
+        }
+        // Drifting along slowly, bobbing, wings opening and closing.
+        WeatherKind::Butterflies => {
+            use crate::glyphs::id;
+            let bob = 0.006 * sin(TAU * (3.0 * p + d.phase));
+            let open = ((p * 90.0) as usize).is_multiple_of(2);
+            (
+                frac(d.x0 + d.fall * p + sway),
+                d.y0 + bob,
+                if open { id('x') } else { id('+') },
+                level,
+            )
+        }
+        // Mostly across on the breeze, rising a little.
+        WeatherKind::Seeds => (
+            frac(d.x0 + 0.8 * d.fall * p + sway),
+            frac(d.y0 - 0.25 * d.fall * p + 1.0),
+            d.glyph,
+            level,
+        ),
         _ => (frac(d.x0 + sway), frac(d.y0 + d.fall * p), d.glyph, level),
     })
 }
@@ -629,6 +848,8 @@ pub enum Preset {
     SnowSpray,
     /// Soap bubbles from a wand: drifting up and away, growing, then popping.
     Bubbles,
+    /// Water from a watering can's rose: falling in short arcs.
+    Drops,
 }
 
 impl Preset {
@@ -639,6 +860,7 @@ impl Preset {
             "notes" => Some(Preset::Notes),
             "snow_spray" => Some(Preset::SnowSpray),
             "bubbles" => Some(Preset::Bubbles),
+            "drops" => Some(Preset::Drops),
             _ => None,
         }
     }
@@ -671,6 +893,9 @@ pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64, pace: u8) -> Vec<P
         (Preset::SnowSpray, true) => ("fx_snow_spray", 8, &[1000, 1500]),
         (Preset::Bubbles, false) => ("fx_bubbles", 7, &[2000, 3000]),
         (Preset::Bubbles, true) => ("fx_bubbles", 7, &[3000, 6000]),
+        // Water falls: quick at any pace.
+        (Preset::Drops, false) => ("fx_drops", 8, &[600, 1000]),
+        (Preset::Drops, true) => ("fx_drops", 8, &[1000, 1500]),
     };
     let mut rng = Rng::stream(seed, label);
     let mut out = Vec::new();
@@ -752,6 +977,20 @@ pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64, pace: u8) -> Vec<P
                     level: if p > 0.92 { 3 } else { 5 },
                 });
             }
+            Preset::Drops => {
+                // Out of the rose and down, a little forward, falling
+                // faster as they go.
+                let ahead = (0.5 + 1.5 * b) * p;
+                let down = (2.0 + 2.0 * a) * p + 8.0 * p * p;
+                let level = (4.0 * (1.0 - 0.6 * p) + 0.5).round() as u8;
+                let glyph = [id('\''), id('.'), id(','), id('.')][((p * 4.0) as usize).min(3)];
+                out.push(PresetParticle {
+                    dx: ahead + 0.6 * (c - 0.5),
+                    dy: down,
+                    glyph,
+                    level,
+                });
+            }
             Preset::Notes => {
                 // Up and out to one side, swaying, fading.
                 let side = if a < 0.5 { -1.0 } else { 1.0 };
@@ -776,7 +1015,7 @@ pub fn preset_particles(preset: Preset, seed: u64, t_ms: u64, pace: u8) -> Vec<P
 mod weather_tests {
     use super::*;
 
-    const KINDS: [WeatherKind; 11] = [
+    const KINDS: [WeatherKind; 15] = [
         WeatherKind::Snow,
         WeatherKind::Rain,
         WeatherKind::Fireflies,
@@ -788,6 +1027,10 @@ mod weather_tests {
         WeatherKind::Ash,
         WeatherKind::Sparkle,
         WeatherKind::Confetti,
+        WeatherKind::Birds,
+        WeatherKind::Butterflies,
+        WeatherKind::Seeds,
+        WeatherKind::ShootingStars,
     ];
 
     fn emitter(kind: WeatherKind, pace: u8) -> Emitter {
@@ -815,6 +1058,19 @@ mod weather_tests {
                     e.sample(1234 + LOOP_MS),
                     "{kind:?} pace {pace}"
                 );
+                if kind == WeatherKind::ShootingStars {
+                    // Shows only now and then: somewhere in the loop it
+                    // streaks, moving from one frame to the next.
+                    let shown: Vec<_> = (0..60u64)
+                        .map(|k| e.sample(k * 100))
+                        .filter(|s| s.iter().any(|p| p.level > 0))
+                        .collect();
+                    assert!(
+                        shown.len() >= 2 && shown.windows(2).any(|w| w[0] != w[1]),
+                        "{kind:?} pace {pace} should streak"
+                    );
+                    continue;
+                }
                 assert_ne!(
                     e.sample(0),
                     e.sample(700),
@@ -852,6 +1108,11 @@ mod weather_tests {
     #[test]
     fn the_calm_pace_is_calm() {
         for kind in KINDS {
+            // A shooting star is meant to streak (and shows a tenth of the
+            // time).
+            if kind == WeatherKind::ShootingStars {
+                continue;
+            }
             let (old, calm) = (mean_speed(kind, 0), mean_speed(kind, CALM_PACE));
             // Rain and a blizzard are meant to be quick.
             let cap = if matches!(kind, WeatherKind::Rain | WeatherKind::Blizzard) {

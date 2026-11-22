@@ -5,9 +5,10 @@
 use crate::palette::{PaletteFamily, Theme};
 use crate::particles::{Emitter, Particle};
 use crate::placeholder::{
-    BASKET, BOOK_CLOSED, BUCKET, CAMP_STOVE, CAMPFIRE, CHESS_TABLE, CLAWD_PLACEHOLDER, COFFEE_MUG,
-    EASEL, FALLEN_HAT, GUITAR_REST, KITE_REST, LANTERN, LOG_SEAT, PICNIC_BASKET, PRACTICE_WALL,
-    PixelMap, SKIS_REST, SNOWMAN, SPELLBOOK, STONE_PILE, TELESCOPE,
+    BASKET, BOOK_CLOSED, BUCKET, CAMERA_TRIPOD, CAMP_STOVE, CAMPFIRE, CHESS_TABLE,
+    CLAWD_PLACEHOLDER, COFFEE_MUG, EASEL, FALLEN_HAT, FLOWER_POTS, GUITAR_REST, KITE_REST, LANTERN,
+    LOG_SEAT, MUSIC_STAND, PICNIC_BASKET, PRACTICE_WALL, PixelMap, SANDCASTLE, SKIS_REST, SNOWMAN,
+    SPELLBOOK, STONE_PILE, TELESCOPE, YOGA_MAT,
 };
 use crate::recipe::TimeOfDay;
 
@@ -194,6 +195,11 @@ pub enum SpriteKind {
     ChessTable,
     PracticeWall,
     SkisRest,
+    FlowerPots,
+    MusicStand,
+    CameraTripod,
+    Sandcastle,
+    YogaMat,
 }
 
 impl SpriteKind {
@@ -204,7 +210,7 @@ impl SpriteKind {
 
     /// Every kind, so palettes can reserve all sprite colours up front. New
     /// kinds go at the end.
-    pub const ALL: [SpriteKind; 21] = [
+    pub const ALL: [SpriteKind; 26] = [
         SpriteKind::Character,
         SpriteKind::Campfire,
         SpriteKind::LogSeat,
@@ -226,6 +232,11 @@ impl SpriteKind {
         SpriteKind::ChessTable,
         SpriteKind::PracticeWall,
         SpriteKind::SkisRest,
+        SpriteKind::FlowerPots,
+        SpriteKind::MusicStand,
+        SpriteKind::CameraTripod,
+        SpriteKind::Sandcastle,
+        SpriteKind::YogaMat,
     ];
 
     /// Layout box in sprite pixels. The character's box is the drawn art's
@@ -260,6 +271,11 @@ impl SpriteKind {
             SpriteKind::ChessTable => &CHESS_TABLE,
             SpriteKind::PracticeWall => &PRACTICE_WALL,
             SpriteKind::SkisRest => &SKIS_REST,
+            SpriteKind::FlowerPots => &FLOWER_POTS,
+            SpriteKind::MusicStand => &MUSIC_STAND,
+            SpriteKind::CameraTripod => &CAMERA_TRIPOD,
+            SpriteKind::Sandcastle => &SANDCASTLE,
+            SpriteKind::YogaMat => &YOGA_MAT,
         }
     }
 }

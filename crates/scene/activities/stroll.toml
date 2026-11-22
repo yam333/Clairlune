@@ -5,7 +5,7 @@ weight = 1.0
 [requires]
 terrain = ["ledge", "rooftop", "shore", "flat"]
 time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
-weather = ["none", "fireflies", "stars", "dust", "leaves", "snow"]
+weather = ["none", "fireflies", "stars", "dust", "leaves", "snow", "birds", "butterflies", "seeds", "shooting_stars"]
 
 [motion]
 type = "pace"

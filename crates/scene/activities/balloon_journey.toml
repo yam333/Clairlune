@@ -7,7 +7,7 @@ weight = 0.8
 [requires]
 terrain = ["ridge", "trail", "path", "dune_trail"]
 time_of_day = ["morning", "noon", "golden_hour"]
-weather = ["none", "dust", "leaves"]
+weather = ["none", "dust", "leaves", "birds"]
 sky = true
 
 # A slow drift.

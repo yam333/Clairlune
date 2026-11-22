@@ -1,0 +1,41 @@
+# Photographing the view: aiming, a click and a flash, a look at the picture.
+id = "photography"
+weight = 0.9
+
+[requires]
+terrain = ["ledge", "flat", "shore", "rooftop"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk"]
+weather = ["none", "birds", "butterflies", "petals", "leaves", "fog", "snow", "seeds", "stars", "shooting_stars"]
+
+[motion]
+type = "stationary"
+face = "open"
+
+[animation]
+start = "aim"
+
+[animation.states.aim]
+loop = true
+dwell_s = [3, 6]
+next = { snap = 1.0 }
+
+# One-shot: the shutter.
+[animation.states.snap]
+next = { check = 0.6, aim = 0.4 }
+
+[animation.states.check]
+loop = true
+dwell_s = [2, 4]
+next = { aim = 1.0 }
+
+[[effects]]
+type = "particles"
+preset = "sparkles"
+at = "item_tip"
+states = ["snap"]
+
+[gif]
+loop_script = ["aim", "snap", "check"]
+
+[unattended]
+props = ["camera_tripod"]

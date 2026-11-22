@@ -233,7 +233,7 @@ pub(super) const ZOOMS: [Item; 3] = [
     ("vast", "Vast", "Clawd tiny in a huge landscape"),
 ];
 
-pub(super) const LANDSCAPES: [Item; 16] = [
+pub(super) const LANDSCAPES: [Item; 21] = [
     ("canyon", "Canyon", ""),
     ("mountains", "Mountains", ""),
     ("forest", "Forest", ""),
@@ -254,9 +254,18 @@ pub(super) const LANDSCAPES: [Item; 16] = [
     ("islands", "Islands", "Palm islets on a calm sea"),
     ("lunar", "The Moon", "Craters, with the Earth in the sky"),
     ("bamboo", "Bamboo", "A bamboo grove"),
+    ("waterfall", "Waterfall", "A fall into a misty pool"),
+    (
+        "countryside",
+        "Countryside",
+        "Fields, a windmill and a barn",
+    ),
+    ("ruins", "Ruins", "Old columns and an arch"),
+    ("savanna", "Savanna", "Golden grass and acacias"),
+    ("swamp", "Swamp", "Cypress trees in still water"),
 ];
 
-pub(super) const ACTIVITIES: [Item; 32] = [
+pub(super) const ACTIVITIES: [Item; 38] = [
     ("warm_hands", "Campfire", "Warming hands by a fire"),
     ("stroll", "Strolling", ""),
     ("stargaze", "Stargazing", "Night only"),
@@ -313,11 +322,17 @@ pub(super) const ACTIVITIES: [Item; 32] = [
     ),
     ("sweep", "Sweeping", "Daytime"),
     ("hot_cocoa", "Hot cocoa", "In the cold"),
+    ("gardening", "Gardening", "Watering flowers, daytime"),
+    ("play_flute", "Flute", "Playing the flute"),
+    ("photography", "Photography", "Photos of the view"),
+    ("birdwatching", "Birdwatching", "When birds are about"),
+    ("sandcastle", "Sandcastle", "On sand, daytime"),
+    ("yoga", "Yoga", "Stretches by a mat"),
 ];
 
 /// Weather that shows as particles. Clear weather ("none", "stars") is
 /// always allowed so every scene has something to fall back to.
-pub(super) const WEATHER: [Item; 11] = [
+pub(super) const WEATHER: [Item; 15] = [
     ("snow", "Snow", ""),
     ("rain", "Rain", ""),
     ("fireflies", "Fireflies", ""),
@@ -329,6 +344,14 @@ pub(super) const WEATHER: [Item; 11] = [
     ("ash", "Ash", "Falling ash, by a volcano"),
     ("sparkle", "Frost", "Ice crystals glinting in the cold"),
     ("confetti", "Confetti", "Over the rooftops"),
+    ("birds", "Birds", "Crossing the sky by day"),
+    ("butterflies", "Butterflies", "Fluttering low, by day"),
+    ("seeds", "Dandelion seeds", "Drifting on the breeze"),
+    (
+        "shooting_stars",
+        "Shooting stars",
+        "Streaking by after dark",
+    ),
 ];
 pub(super) const CLEAR_WEATHER: [&str; 2] = ["none", "stars"];
 

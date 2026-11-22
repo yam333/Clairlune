@@ -8,7 +8,7 @@ weight = 0.8
 [requires]
 terrain = ["ridge"]
 time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
-weather = ["none", "snow", "stars"]
+weather = ["none", "snow", "stars", "birds", "shooting_stars"]
 
 # The ground goes by at about the walk's own stride (four art pixels per
 # 0.56 s cycle is ~5 cells a second at any resolution), so the feet don't

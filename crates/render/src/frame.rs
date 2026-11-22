@@ -567,8 +567,10 @@ fn draw_effects(
                     && x < gx0 + f64::from(g.cols * g.cell_w)
                     && y < gy0 + f64::from(g.rows * g.cell_h);
                 if inside {
-                    let steam =
-                        matches!(preset, Preset::Steam | Preset::SnowSpray | Preset::Bubbles);
+                    let steam = matches!(
+                        preset,
+                        Preset::Steam | Preset::SnowSpray | Preset::Bubbles | Preset::Drops
+                    );
                     draw_particle_at(img, drawn, graph, atlas, x, y, p.glyph, p.level, steam);
                 }
                 continue;
@@ -587,7 +589,10 @@ fn draw_effects(
                 row as u32,
                 p.glyph,
                 p.level,
-                matches!(preset, Preset::Steam | Preset::SnowSpray | Preset::Bubbles),
+                matches!(
+                    preset,
+                    Preset::Steam | Preset::SnowSpray | Preset::Bubbles | Preset::Drops
+                ),
                 true,
             );
         }
