@@ -129,7 +129,8 @@ General; it can be turned off, and **Check now** asks right away). When there
 is one, **Update now** in Settings or **Update to ...** in the menu downloads
 it, checks it against the checksum GitHub lists for it, installs it and starts
 Clairlune again. Copies installed with Scoop, cargo or the `.deb` show the
-command to update them instead.
+command to update them instead. After `brew upgrade`, or a new copy dragged over from the
+DMG, Clairlune restarts into the new version on its own.
 
 ## Where things are kept
 
