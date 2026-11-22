@@ -4,6 +4,15 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.17.6 (2026-11-22)
+
+- **Settings > General > Permissions:** everything Clairlune needs you to allow
+  in the system's settings, each with Granted or an Open Settings button to the
+  right place. On the Mac: start at login (Login Items), and with the screen
+  saver on, Clairlune picked as the screen saver and the password asked right
+  away (so it locks). On Windows: start at login (Settings > Apps > Startup).
+  It checks again when you come back to Settings.
+
 ## 0.17.5 (2026-11-22)
 
 - **No more quit and reopen after `brew upgrade`.** When a new copy of

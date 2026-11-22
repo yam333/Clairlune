@@ -84,9 +84,10 @@ Opening Clairlune again while it runs brings up Settings.
   in a huge landscape).
 - **Archive** and **Export:** how long past wallpapers are kept, and where
   saved PNGs and GIFs go.
-- **General:** start with the computer, the tray icon, updates, the Mac screen
-  saver, Restore my wallpaper, Report a problem, Remove Clairlune, logs and
-  diagnostics.
+- **General:** start with the computer, the tray icon, Permissions (what to
+  allow in the system's settings, each Granted or with an Open Settings
+  button), updates, the Mac screen saver, Restore my wallpaper, Report a
+  problem, Remove Clairlune, logs and diagnostics.
 
 Changes save as you make them; content changes show from the next wallpaper.
 
