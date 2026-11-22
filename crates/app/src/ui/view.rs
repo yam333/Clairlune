@@ -165,6 +165,10 @@ pub struct Status {
 pub enum UiAction {
     SettingsChanged,
     NewWallpaper,
+    /// The wallpaper a typed-in seed makes.
+    FromSeed(u64),
+    /// Changes start again (they were paused from the menu, or by Restore).
+    Resume,
     Previous,
     OpenArchive,
     OpenLogs,
@@ -250,6 +254,9 @@ pub struct PageState {
     pub remove_confirm: bool,
     /// The welcome: don't start with the computer (it does by default).
     pub welcome_no_login: bool,
+    /// Rotation: the seed being typed in, and whether it isn't one.
+    pub seed: String,
+    pub seed_wrong: bool,
 }
 
 /// How long a brief note stays.
@@ -801,25 +808,34 @@ fn sidebar(
         ui.label(job);
     });
     ui.add_space(space::S4 + 2.0);
+    // Each section sits on a small pane of smoked glass, so its name reads
+    // clearly over the flutes; the chosen one is lit.
     for s in Section::ALL {
         let selected = st.section == s;
-        let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 34.0), Sense::click());
+        let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 32.0), Sense::click());
         resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Tab, true, selected, s.name()));
         let p = ui.painter();
+        let (fill, edge) = if selected {
+            (alpha(g.card, g.chosen), highlight(theme))
+        } else if resp.hovered() {
+            (
+                alpha(g.pane, (g.nav + 0.15).min(1.0)),
+                highlight(theme).gamma_multiply(0.6),
+            )
+        } else {
+            (alpha(g.pane, g.nav), highlight(theme).gamma_multiply(0.35))
+        };
+        p.add(egui::Shape::convex_polygon(
+            squircle(rect, 12.0),
+            fill,
+            Stroke::new(1.0, edge),
+        ));
         if selected {
-            p.rect_filled(rect, radius::CONTROL, alpha(g.card, g.chosen));
-            p.hline(
-                rect.x_range().shrink(radius::CONTROL),
-                rect.min.y + 0.5,
-                Stroke::new(1.0, highlight(theme)),
-            );
             p.circle_filled(
                 pos2(rect.max.x - 14.0, rect.center().y),
                 3.0,
                 c(t.accent_deep),
             );
-        } else if resp.hovered() {
-            p.rect_filled(rect, radius::CONTROL, alpha(g.card, g.chosen * 0.5));
         }
         let ink = if selected {
             c(t.text)
@@ -850,7 +866,7 @@ fn sidebar(
         if resp.clicked() {
             st.section = s;
         }
-        ui.add_space(1.0);
+        ui.add_space(3.0);
     }
     ui.with_layout(Layout::bottom_up(Align::Min), |ui| {
         now_showing(ui, theme, st, settings, status, actions);
@@ -863,7 +879,7 @@ fn sidebar(
 fn now_showing(
     ui: &mut Ui,
     theme: Theme,
-    st: &ViewState,
+    st: &mut ViewState,
     settings: &Settings,
     status: &Status,
     actions: &mut Vec<UiAction>,
@@ -894,10 +910,15 @@ fn now_showing(
     );
     ui.add_space(space::S2);
     let pad = 10.0;
-    let pic_h = 96.0;
-    let card_h = pad + pic_h + 8.0 + 20.0 + 32.0 + pad;
+    // Below the picture: the title, a line of facts, the seed's box.
+    let below = 8.0 + 20.0 + 17.0 + 6.0 + 22.0;
+    let note_h = if status.note.is_some() { 48.0 } else { 0.0 };
+    // A short window keeps the sections clear: the picture shrinks, or goes.
+    let room = ui.available_height() - 2.0 * pad - below - note_h - space::S3;
+    let pic_h = if room >= 56.0 { room.min(96.0) } else { 0.0 };
+    let card_h = pad + pic_h + below + pad - if pic_h > 0.0 { 0.0 } else { 8.0 };
     let (rect, _) = ui.allocate_exact_size(vec2(w, card_h), Sense::hover());
-    let p = ui.painter();
+    let p = ui.painter().clone();
     p.rect_filled(rect, radius::PANEL, alpha(g.card, g.card_alpha * 1.3));
     p.hline(
         rect.x_range().shrink(radius::PANEL),
@@ -905,26 +926,28 @@ fn now_showing(
         Stroke::new(1.0, highlight(theme)),
     );
     let pic = Rect::from_min_size(rect.min + vec2(pad, pad), vec2(w - 2.0 * pad, pic_h));
-    match &st.thumb {
-        Some(tex) => {
-            let tint = if status.busy {
-                Color32::from_white_alpha(150)
-            } else {
-                Color32::WHITE
-            };
-            egui::Image::new(tex)
-                .uv(cover_uv(tex.size_vec2(), pic.size()))
-                .corner_radius(8)
-                .tint(tint)
-                .paint_at(ui, pic);
-        }
-        None => {
-            p.rect_filled(pic, 8.0, alpha(g.card, g.card_alpha * 2.0));
-            moon(
-                p,
-                Rect::from_center_size(pic.center(), vec2(30.0, 30.0)),
-                c(t.text_secondary),
-            );
+    if pic_h > 0.0 {
+        match &st.thumb {
+            Some(tex) => {
+                let tint = if status.busy {
+                    Color32::from_white_alpha(150)
+                } else {
+                    Color32::WHITE
+                };
+                egui::Image::new(tex)
+                    .uv(cover_uv(tex.size_vec2(), pic.size()))
+                    .corner_radius(8)
+                    .tint(tint)
+                    .paint_at(ui, pic);
+            }
+            None => {
+                p.rect_filled(pic, 8.0, alpha(g.card, g.card_alpha * 2.0));
+                moon(
+                    &p,
+                    Rect::from_center_size(pic.center(), vec2(30.0, 30.0)),
+                    c(t.text_secondary),
+                );
+            }
         }
     }
     let what = if status.busy {
@@ -941,7 +964,11 @@ fn now_showing(
         ("STILL", c(t.text_secondary))
     };
     let tag_g = p.layout_no_wrap(tag.into(), style::label(), tag_ink);
-    let y = pic.max.y + 8.0;
+    let y = if pic_h > 0.0 {
+        pic.max.y + 8.0
+    } else {
+        pic.min.y
+    };
     // Room for the tag and, when live, its dot.
     let title_w = pic.width() - tag_g.size().x - if live { 24.0 } else { 12.0 };
     let title = p.layout_job(one_line(&what, style::body_medium(), c(t.text), title_w));
@@ -951,13 +978,6 @@ fn now_showing(
         p.circle_filled(pos2(tag_x - 7.0, y + 9.0), 3.0, c(t.accent_text));
     }
     p.galley(pos2(tag_x, y + 3.0), tag_g, tag_ink);
-    let mut facts = Vec::new();
-    if let Some(th) = status.theme {
-        facts.push(th.as_str().to_string());
-    }
-    if let Some(s) = status.seed {
-        facts.push(format!("seed {s}"));
-    }
     let next = match status.next_in_minutes {
         None if status.timeline_next.is_some() => status
             .timeline_next
@@ -970,23 +990,131 @@ fn now_showing(
         Some(m) => format!("next one in {} h", m / 60),
         None => "changes when you ask".to_string(),
     };
-    for (i, line) in [facts.join(" · "), next].into_iter().enumerate() {
-        let gal = p.layout_job(one_line(
-            &line,
-            style::mono(),
-            c(t.text_secondary),
-            pic.width(),
-        ));
-        p.galley(
-            pos2(pic.min.x + 2.0, y + 22.0 + 15.0 * i as f32),
-            gal,
-            c(t.text_secondary),
-        );
+    let facts = match status.theme {
+        Some(th) => format!("{} \u{b7} {next}", th.as_str()),
+        None => next,
+    };
+    let gal = p.layout_job(one_line(
+        &facts,
+        style::mono(),
+        c(t.text_secondary),
+        pic.width(),
+    ));
+    p.galley(pos2(pic.min.x + 2.0, y + 22.0), gal, c(t.text_secondary));
+    if let Some(seed) = status.seed {
+        let at = Rect::from_min_size(pos2(pic.min.x, y + 45.0), vec2(pic.width(), 22.0));
+        seed_box(ui, theme, at, seed, &mut st.page);
     }
     if let Some(note) = &status.note {
         ui.add_space(space::S2);
         ui.label(RichText::new(note).small().color(c(t.text_secondary)));
     }
+}
+
+/// The seed in a small box: hovered it offers to copy, clicked it copies.
+fn seed_box(ui: &mut Ui, theme: Theme, rect: Rect, seed: u64, ps: &mut PageState) {
+    let t = colors(theme);
+    let g = &t.glass;
+    let id = ui.scope_id().with("seed-box");
+    let resp = ui
+        .interact(rect, id, Sense::click())
+        .on_hover_cursor(egui::CursorIcon::PointingHand);
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Copy the seed"));
+    let now = ui.input(|i| i.time);
+    if resp.clicked() {
+        ui.ctx().copy_text(seed.to_string());
+        ui.ctx().data_mut(|d| d.insert_temp(id, now));
+        ps.toast = Some("Copied the seed".into());
+    }
+    let copied = ui
+        .ctx()
+        .data(|d| d.get_temp::<f64>(id))
+        .is_some_and(|at| now - at < 1.5);
+    if copied {
+        ui.ctx()
+            .request_repaint_after(std::time::Duration::from_millis(250));
+    }
+    let shown = resp.hovered() || resp.has_focus() || copied;
+    let p = ui.painter();
+    let fill = if shown {
+        alpha(g.card, g.chosen)
+    } else {
+        alpha(g.card, g.card_alpha * 1.6)
+    };
+    let edge = alpha(t.border_control, if shown { 0.6 } else { 0.3 });
+    p.add(egui::Shape::convex_polygon(
+        squircle(rect, 8.0),
+        fill,
+        Stroke::new(1.0, edge),
+    ));
+    let inner = rect.shrink2(vec2(8.0, 0.0));
+    let action = if copied { "copied" } else { "copy" };
+    let action_g = p.layout_no_wrap(action.into(), style::label(), c(t.accent_text));
+    let room = if shown {
+        inner.width() - action_g.size().x - 8.0
+    } else {
+        inner.width()
+    };
+    let mut job = egui::text::LayoutJob::default();
+    job.wrap.max_width = room;
+    job.wrap.max_rows = 1;
+    job.wrap.break_anywhere = true;
+    for (text, ink) in [("seed ", t.text_secondary), (&*seed.to_string(), t.text)] {
+        job.append(
+            text,
+            0.0,
+            egui::TextFormat {
+                font_id: style::label(),
+                color: c(ink),
+                ..Default::default()
+            },
+        );
+    }
+    let text = p.layout_job(job);
+    let text_y = rect.center().y - text.size().y / 2.0;
+    p.galley(pos2(inner.min.x, text_y), text, c(t.text));
+    if shown {
+        let ax = inner.max.x - action_g.size().x;
+        let ay = rect.center().y - action_g.size().y / 2.0;
+        p.galley(pos2(ax, ay), action_g, c(t.accent_text));
+    }
+    if resp.has_focus() {
+        focus_ring(ui, theme, rect, 8.0);
+    }
+}
+
+/// A box whose corners bend like a superellipse (|x|^4 + |y|^4 = 1) rather
+/// than a quarter circle: the curve leaves the straight sides gently, the
+/// way a squircle does. `r` is how far each corner reaches; the points run
+/// clockwise.
+fn squircle(rect: Rect, r: f32) -> Vec<egui::Pos2> {
+    const STEPS: usize = 10;
+    let r = r.min(rect.width() / 2.0).min(rect.height() / 2.0);
+    let centres = [
+        pos2(rect.max.x - r, rect.min.y + r),
+        pos2(rect.max.x - r, rect.max.y - r),
+        pos2(rect.min.x + r, rect.max.y - r),
+        pos2(rect.min.x + r, rect.min.y + r),
+    ];
+    let mut out: Vec<egui::Pos2> = Vec::with_capacity(4 * (STEPS + 1));
+    for (k, centre) in centres.into_iter().enumerate() {
+        for i in 0..=STEPS {
+            let a = (k as f32 - 1.0 + i as f32 / STEPS as f32) * std::f32::consts::FRAC_PI_2;
+            let (sin, cos) = a.sin_cos();
+            let at = centre
+                + r * vec2(
+                    cos.signum() * cos.abs().sqrt(),
+                    sin.signum() * sin.abs().sqrt(),
+                );
+            if out.last().is_none_or(|l| l.distance(at) > 0.01) {
+                out.push(at);
+            }
+        }
+    }
+    if out.len() > 1 && out[0].distance(out[out.len() - 1]) <= 0.01 {
+        out.pop();
+    }
+    out
 }
 
 /// One line of text, cut short with an ellipsis where it doesn't fit.
@@ -1946,23 +2074,17 @@ fn page(
     match section {
         Section::Rotation => {
             use crate::settings::RotationMode;
-            row(
-                ui,
-                theme,
-                "Mode",
-                "Generate makes a new scene on a schedule. Timeline follows a daily plan of saved wallpapers and random scenes.",
-                |ui| {
-                    segmented(
-                        ui,
-                        theme,
-                        &mut s.rotation.mode,
-                        &[
-                            (RotationMode::Generate, "Generate", true),
-                            (RotationMode::Timeline, "Timeline", true),
-                        ],
-                    );
-                },
-            );
+            row(ui, theme, "Mode", "", |ui| {
+                segmented(
+                    ui,
+                    theme,
+                    &mut s.rotation.mode,
+                    &[
+                        (RotationMode::Generate, "Generate", true),
+                        (RotationMode::Timeline, "Timeline", true),
+                    ],
+                );
+            });
             let timeline = s.rotation.mode == RotationMode::Timeline;
             if timeline {
                 row(
@@ -1997,7 +2119,7 @@ fn page(
                     "Days with no slots get new scenes on this interval.",
                 )
             } else {
-                ("Change wallpaper every", "A new scene on this interval.")
+                ("Change wallpaper every", "")
             };
             row(ui, theme, name, description, |ui| {
                 let current = INTERVALS
@@ -2015,74 +2137,88 @@ fn page(
                     });
             });
             if !timeline {
-                row(
-                    ui,
-                    theme,
-                    "Also change at login",
-                    "Start each session with a fresh scene.",
-                    |ui| {
-                        toggle(
-                            ui,
-                            theme,
-                            &mut s.schedule.change_at_login,
-                            "Also change at login",
-                        );
-                    },
-                );
+                row(ui, theme, "Change at login", "", |ui| {
+                    toggle(
+                        ui,
+                        theme,
+                        &mut s.schedule.change_at_login,
+                        "Change at login",
+                    );
+                });
+            }
+            if s.schedule.paused {
+                row(ui, theme, "Changes are paused", "", |ui| {
+                    if ui.button("Resume").clicked() {
+                        actions.push(UiAction::Resume);
+                    }
+                });
             }
             row(
                 ui,
                 theme,
-                "Pause",
-                "Keep the current wallpaper until you resume.",
+                "From a seed",
+                "The same seed and Content choices make the same wallpaper.",
                 |ui| {
-                    toggle(ui, theme, &mut s.schedule.paused, "Pause");
+                    let show = ui.button("Show").clicked();
+                    let field = ui.add(
+                        egui::TextEdit::singleline(&mut ps.seed)
+                            .font(style::mono())
+                            .hint_text("seed")
+                            .char_limit(20)
+                            .desired_width(200.0),
+                    );
+                    let entered =
+                        field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                    if show || entered {
+                        match ps.seed.trim().parse::<u64>() {
+                            Ok(seed) => {
+                                ps.seed_wrong = false;
+                                actions.push(UiAction::FromSeed(seed));
+                            }
+                            Err(_) => ps.seed_wrong = true,
+                        }
+                    }
                 },
             );
+            if ps.seed_wrong {
+                ui.label(
+                    RichText::new("A seed is a whole number of up to 20 digits.")
+                        .color(c(t.danger)),
+                );
+                ui.add_space(space::S2);
+            }
         }
         Section::Theme => {
-            row(
-                ui,
-                theme,
-                "Appearance",
-                "Light and dark scenes use different times of day and palettes. Night-only scenes stay dark.",
-                |ui| {
-                    segmented(
-                        ui,
-                        theme,
-                        &mut s.theme.mode,
-                        &[
-                            (ThemeMode::FollowSystem, "Follow system", true),
-                            (ThemeMode::Light, "Light", true),
-                            (ThemeMode::Dark, "Dark", true),
-                            (ThemeMode::Schedule, "Schedule", true),
-                        ],
-                    );
-                },
-            );
+            row(ui, theme, "Appearance", "", |ui| {
+                segmented(
+                    ui,
+                    theme,
+                    &mut s.theme.mode,
+                    &[
+                        (ThemeMode::FollowSystem, "Follow system", true),
+                        (ThemeMode::Light, "Light", true),
+                        (ThemeMode::Dark, "Dark", true),
+                        (ThemeMode::Schedule, "Schedule", true),
+                    ],
+                );
+            });
             if s.theme.mode == ThemeMode::Schedule {
                 theme_schedule(ui, theme, s);
             }
         }
         Section::Display => {
             use crate::settings::WallpaperMode;
-            row(
-                ui,
-                theme,
-                "Wallpaper mode",
-                "Live plays the scene behind your desktop icons: Clawd moves, fires flicker, snow falls. Still frame sets one image and does nothing between changes.",
-                |ui| {
-                    segmented(
-                        ui,
-                        theme,
-                        &mut s.display.mode,
-                        &[
-                            (WallpaperMode::Still, "Still frame", true),
-                            (WallpaperMode::Live, "Live", true),
-                        ],
-                    );
-                },
-            );
+            row(ui, theme, "Wallpaper mode", "", |ui| {
+                segmented(
+                    ui,
+                    theme,
+                    &mut s.display.mode,
+                    &[
+                        (WallpaperMode::Still, "Still frame", true),
+                        (WallpaperMode::Live, "Live", true),
+                    ],
+                );
+            });
             if s.display.mode == WallpaperMode::Live
                 && let Some(live) = &status.live
             {
@@ -2093,20 +2229,14 @@ fn page(
                 );
                 ui.add_space(space::S4);
             }
-            row(
-                ui,
-                theme,
-                "Monitors",
-                "One scene each, at each monitor's own resolution, or one wide scene spread across all of them (best with monitors side by side).",
-                |ui| {
-                    segmented(
-                        ui,
-                        theme,
-                        &mut s.display.span,
-                        &[(false, "One each", true), (true, "Spread across", true)],
-                    );
-                },
-            );
+            row(ui, theme, "Monitors", "", |ui| {
+                segmented(
+                    ui,
+                    theme,
+                    &mut s.display.span,
+                    &[(false, "One each", true), (true, "Spread across", true)],
+                );
+            });
             if status.monitors.len() > 1 && s.display.mode == WallpaperMode::Live {
                 group(ui, "Each monitor");
                 ui.label(
@@ -2141,80 +2271,53 @@ fn page(
         Section::Live => {
             // Every setting plays at the same speed; only the choppiness and
             // the work differ.
-            const SMOOTHNESS: [(u32, &str, &str); 5] = [
-                (
-                    6,
-                    "Battery saver",
-                    "6 frames a second: the lightest, and the choppiest. Every setting moves at the same speed.",
-                ),
-                (
-                    12,
-                    "Balanced",
-                    "12 frames a second, the pixel art's own rhythm. Every setting moves at the same speed.",
-                ),
-                (
-                    24,
-                    "Smooth",
-                    "24 frames a second: smoother, a little more work. Every setting moves at the same speed.",
-                ),
-                (
-                    30,
-                    "Very smooth",
-                    "30 frames a second. Every setting moves at the same speed.",
-                ),
-                (
-                    60,
-                    "Ultra smooth",
-                    "60 frames a second: the smoothest, the most work. Every setting moves at the same speed.",
-                ),
+            const SMOOTHNESS: [(u32, &str); 5] = [
+                (6, "Battery saver"),
+                (12, "Balanced"),
+                (24, "Smooth"),
+                (30, "Very smooth"),
+                (60, "Ultra smooth"),
             ];
             let current = SMOOTHNESS
                 .iter()
-                .find(|(f, _, _)| *f == s.live.smoothness_fps)
+                .find(|(f, _)| *f == s.live.smoothness_fps)
                 .copied()
                 .unwrap_or(SMOOTHNESS[1]);
-            row(ui, theme, "Smoothness", current.2, |ui| {
+            row(ui, theme, "Smoothness", "", |ui| {
                 egui::ComboBox::from_id_salt("smoothness")
-                    .selected_text(current.1)
+                    .selected_text(format!("{} \u{b7} {} fps", current.1, current.0))
+                    .width(180.0)
                     .show_ui(ui, |ui| {
-                        for (fps, name, _) in SMOOTHNESS {
-                            ui.selectable_value(&mut s.live.smoothness_fps, fps, name);
+                        for (fps, name) in SMOOTHNESS {
+                            ui.selectable_value(
+                                &mut s.live.smoothness_fps,
+                                fps,
+                                format!("{name} \u{b7} {fps} fps"),
+                            );
                         }
                     });
             });
-            row(
-                ui,
-                theme,
-                "Pause behind full-screen apps",
-                "When an app fills the screen (maximized, zoomed or full screen), the wallpaper under it stops moving.",
-                |ui| {
-                    use crate::settings::CoverPause;
-                    segmented(
-                        ui,
-                        theme,
-                        &mut s.live.pause_when_covered,
-                        &[
-                            (CoverPause::ThatMonitor, "That monitor", true),
-                            (CoverPause::AllMonitors, "All monitors", true),
-                            (CoverPause::Off, "Off", true),
-                        ],
-                    );
-                },
-            );
-            row(
-                ui,
-                theme,
-                "Battery saver on battery",
-                "On battery, drop to 6 frames a second.",
-                |ui| {
-                    toggle(
-                        ui,
-                        theme,
-                        &mut s.live.battery_saver_on_battery,
-                        "Battery saver on battery",
-                    );
-                },
-            );
+            row(ui, theme, "Pause behind full-screen apps", "", |ui| {
+                use crate::settings::CoverPause;
+                segmented(
+                    ui,
+                    theme,
+                    &mut s.live.pause_when_covered,
+                    &[
+                        (CoverPause::ThatMonitor, "That monitor", true),
+                        (CoverPause::AllMonitors, "All monitors", true),
+                        (CoverPause::Off, "Off", true),
+                    ],
+                );
+            });
+            row(ui, theme, "Battery saver on battery", "", |ui| {
+                toggle(
+                    ui,
+                    theme,
+                    &mut s.live.battery_saver_on_battery,
+                    "Battery saver on battery",
+                );
+            });
             if cfg!(target_os = "macos") {
                 row(
                     ui,
@@ -2231,15 +2334,9 @@ fn page(
                     },
                 );
             }
-            row(
-                ui,
-                theme,
-                "Pause on battery",
-                "On battery, stop the animation; the frame stays on screen.",
-                |ui| {
-                    toggle(ui, theme, &mut s.live.pause_on_battery, "Pause on battery");
-                },
-            );
+            row(ui, theme, "Pause on battery", "", |ui| {
+                toggle(ui, theme, &mut s.live.pause_on_battery, "Pause on battery");
+            });
             ui.label(
                 RichText::new(
                     "Live also pauses while the computer is locked or the displays are off. Frames are drawn on the graphics card the monitor is plugged into.",
@@ -2264,10 +2361,8 @@ fn page(
         }
         Section::Content => {
             ui.label(
-                RichText::new(
-                    "New scenes pick from what's selected; hover for what each needs. Changes apply to the next wallpaper.",
-                )
-                .color(c(t.text_secondary)),
+                RichText::new("New wallpapers pick from what's on here.")
+                    .color(c(t.text_secondary)),
             );
             // Which monitor's choices: all of them, or one with its own.
             let span = s.display.span;
@@ -2343,30 +2438,25 @@ fn page(
                 None => &mut s.content,
             };
             ui.add_enabled_ui(editable, |ui| {
-            group(ui, "Landscapes");
-            land_tiles(ui, theme, &mut content.archetypes, lands);
-            ui.add_space(space::S4);
-            group(ui, "What Clawd does");
-            filter_checks(ui, &mut content.activities, &ACTIVITIES, &[]);
-            ui.add_space(space::S4);
-            group(ui, "Weather");
-            filter_chips(ui, &mut content.weather, &WEATHER, &CLEAR_WEATHER, weather_glyph);
-            ui.add_space(space::S4);
-            group(ui, "Look");
-            ui.label(
-                RichText::new(
-                    "Line art draws the land in strokes of text. Dithered draws it as light and dark masses, every character a dot or a bar sized by how bright it is there.",
-                )
-                .color(c(t.text_secondary)),
-            );
-            filter_checks(ui, &mut content.looks, &LOOKS, &[]);
-            ui.add_space(space::S2);
-            row(
-                ui,
-                theme,
-                "Contrast",
-                "How strong the ink is against the background. Vary picks one for each wallpaper.",
-                |ui| {
+                group(ui, "Landscapes");
+                land_tiles(ui, theme, &mut content.archetypes, lands);
+                ui.add_space(space::S4);
+                group(ui, "What Clawd does");
+                filter_checks(ui, &mut content.activities, &ACTIVITIES, &[]);
+                ui.add_space(space::S4);
+                group(ui, "Weather");
+                filter_chips(
+                    ui,
+                    &mut content.weather,
+                    &WEATHER,
+                    &CLEAR_WEATHER,
+                    weather_glyph,
+                );
+                ui.add_space(space::S4);
+                group(ui, "Look");
+                filter_checks(ui, &mut content.looks, &LOOKS, &[]);
+                ui.add_space(space::S2);
+                row(ui, theme, "Contrast", "", |ui| {
                     use crate::settings::Contrast;
                     segmented(
                         ui,
@@ -2379,18 +2469,11 @@ fn page(
                             (Contrast::Vary, "Vary", true),
                         ],
                     );
-                },
-            );
-            ui.add_space(space::S4);
-            group(ui, "Zoom");
-            ui.label(
-                RichText::new(
-                    "How far back the view stands. Close shows Clawd as he has always been; Wide and Vast make him smaller and the landscape bigger. With more than one on, each wallpaper picks one.",
-                )
-                .color(c(t.text_secondary)),
-            );
-            filter_checks(ui, &mut content.zooms, &ZOOMS, &[]);
-        });
+                });
+                ui.add_space(space::S4);
+                group(ui, "Zoom");
+                filter_checks(ui, &mut content.zooms, &ZOOMS, &[]);
+            });
         }
         Section::Archive => {
             row(
@@ -2420,72 +2503,42 @@ fn page(
                         });
                 },
             );
-            row(
-                ui,
-                theme,
-                "Size limit",
-                "The oldest wallpapers go first when the archive grows past this.",
-                |ui| {
-                    egui::ComboBox::from_id_salt("cap")
-                        .selected_text(format!("{} GB", s.archive.max_mb.div_ceil(1024).max(1)))
-                        .width(160.0)
-                        .show_ui(ui, |ui| {
-                            for gb in [1u64, 2, 5, 10] {
-                                ui.selectable_value(
-                                    &mut s.archive.max_mb,
-                                    gb * 1024,
-                                    format!("{gb} GB"),
-                                );
-                            }
-                        });
-                },
-            );
-            row(
-                ui,
-                theme,
-                "Library",
-                "Wallpapers you saved. They are never deleted automatically.",
-                |ui| {
-                    if ui.button("Open").clicked() {
-                        actions.push(UiAction::OpenLibrary);
-                    }
-                },
-            );
-            row(
-                ui,
-                theme,
-                "Archive folder",
-                "Every wallpaper set, with its recipe and images.",
-                |ui| {
-                    if ui.button("Open").clicked() {
-                        actions.push(UiAction::OpenArchive);
-                    }
-                },
-            );
+            row(ui, theme, "Size limit", "", |ui| {
+                egui::ComboBox::from_id_salt("cap")
+                    .selected_text(format!("{} GB", s.archive.max_mb.div_ceil(1024).max(1)))
+                    .width(160.0)
+                    .show_ui(ui, |ui| {
+                        for gb in [1u64, 2, 5, 10] {
+                            ui.selectable_value(
+                                &mut s.archive.max_mb,
+                                gb * 1024,
+                                format!("{gb} GB"),
+                            );
+                        }
+                    });
+            });
+            row(ui, theme, "Library", "", |ui| {
+                if ui.button("Open").clicked() {
+                    actions.push(UiAction::OpenLibrary);
+                }
+            });
+            row(ui, theme, "Archive folder", "", |ui| {
+                if ui.button("Open").clicked() {
+                    actions.push(UiAction::OpenArchive);
+                }
+            });
         }
         Section::Export => {
-            row(
-                ui,
-                theme,
-                "Save current as PNG",
-                "Copies the primary monitor's wallpaper to the export folder.",
-                |ui| {
-                    if ui.button("Save").clicked() {
-                        actions.push(UiAction::SavePng);
-                    }
-                },
-            );
-            row(
-                ui,
-                theme,
-                "Save current as GIF",
-                "A 6-second loop of the scene as it plays, for sharing. Saved wallpapers keep the full scene.",
-                |ui| {
-                    if ui.button("Save").clicked() {
-                        actions.push(UiAction::SaveGif);
-                    }
-                },
-            );
+            row(ui, theme, "Save current as PNG", "", |ui| {
+                if ui.button("Save").clicked() {
+                    actions.push(UiAction::SavePng);
+                }
+            });
+            row(ui, theme, "Save current as GIF", "", |ui| {
+                if ui.button("Save").clicked() {
+                    actions.push(UiAction::SaveGif);
+                }
+            });
             ui.label(RichText::new("Export folder").font(style::body_strong()));
             let hint = "Empty: Pictures\\Clairlune";
             ui.add(
@@ -2493,15 +2546,10 @@ fn page(
                     .hint_text(hint)
                     .desired_width(f32::INFINITY),
             );
-            ui.label(RichText::new("Where saved images go.").color(c(t.text_secondary)));
         }
         Section::General => {
-            let tray_desc = format!(
-                "Starts quietly in the {} when you sign in, with no window.",
-                tray_name()
-            );
             match status.start_at_login {
-                Some(mut on) => row(ui, theme, "Start at login", &tray_desc, |ui| {
+                Some(mut on) => row(ui, theme, "Start at login", "", |ui| {
                     if toggle(ui, theme, &mut on, "Start at login").changed() {
                         actions.push(UiAction::SetStartAtLogin(on));
                     }
@@ -2519,24 +2567,14 @@ fn page(
                     },
                 ),
             }
-            let (icon_name, back) = if cfg!(target_os = "macos") {
-                ("Show menu bar icon", "Launchpad or Spotlight")
-            } else if cfg!(windows) {
-                ("Show tray icon", "the Start menu")
+            let icon_name = if cfg!(target_os = "macos") {
+                "Show menu bar icon"
             } else {
-                ("Show tray icon", "your app menu")
+                "Show tray icon"
             };
-            row(
-                ui,
-                theme,
-                icon_name,
-                &format!(
-                    "Hidden, Clairlune keeps running in the background. Open it again from {back} to come back here."
-                ),
-                |ui| {
-                    toggle(ui, theme, &mut s.general.show_tray_icon, icon_name);
-                },
-            );
+            row(ui, theme, icon_name, "", |ui| {
+                toggle(ui, theme, &mut s.general.show_tray_icon, icon_name);
+            });
             if cfg!(any(target_os = "macos", windows)) {
                 group(ui, "Permissions");
                 if status.permissions.is_empty() {
@@ -2677,21 +2715,15 @@ fn page(
                     });
                 ui.add_space(space::S4);
             }
-            row(
-                ui,
-                theme,
-                "Report a problem",
-                "Opens a new issue on GitHub with the details below filled in, for you to describe what happened and send (a GitHub account is needed). Nothing is sent until you do.",
-                |ui| {
-                    if primary_button(ui, theme, "Report on GitHub").clicked() {
-                        actions.push(UiAction::ReportProblem);
-                    }
-                    if ui.button("Copy details").clicked() {
-                        ui.ctx().copy_text(status.report.clone());
-                        ps.toast = Some("Copied the details".into());
-                    }
-                },
-            );
+            row(ui, theme, "Report a problem", "", |ui| {
+                if primary_button(ui, theme, "Report on GitHub").clicked() {
+                    actions.push(UiAction::ReportProblem);
+                }
+                if ui.button("Copy details").clicked() {
+                    ui.ctx().copy_text(status.report.clone());
+                    ps.toast = Some("Copied the details".into());
+                }
+            });
             let shown = if ps.report_open {
                 "Hide the details"
             } else {

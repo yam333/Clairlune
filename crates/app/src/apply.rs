@@ -19,6 +19,10 @@ pub enum Job {
     /// A new scene per monitor from a base seed.
     New {
         seed: u64,
+        /// Exactly this seed (typed in Settings): it brings back the
+        /// wallpaper it made. Otherwise seeds from it are tried until one
+        /// makes a scene unlike the recent ones.
+        exact: bool,
         settings: Box<Settings>,
         /// Made now, shown then (a timeline slot prepared ahead of its start).
         at: Option<Instant>,
@@ -427,6 +431,8 @@ struct Want {
     /// Scrolling scenes (journeys) are fine: live plays smoothly enough,
     /// or the wallpaper is a still frame.
     scrolling: bool,
+    /// A new wallpaper from exactly the seed given (typed in Settings).
+    exact: bool,
 }
 
 impl Want {
@@ -468,28 +474,57 @@ fn scenes(
         }
         ctx
     };
-    // Composes a new scene with the recent picks, then remembers it, so the
-    // next monitor (and the next wallpaper) avoids it. A span scene puts its
+    // A scene is what its seed, the monitor's shape and choices, and the
+    // theme make: the recent picks only decide which seeds are taken
+    // (`pick_seed`), so a seed brings its scene back. A span scene puts its
     // focal group on the primary monitor (`focus_pm`), never across a seam.
-    let mut new_scene = |seed: u64, m: &Monitor| {
-        let mut ctx = context(m);
-        ctx.recent = recent.entries().to_vec();
-        let mut r = compose(seed, Aspect::from_size(m.width, m.height), &ctx);
+    let make = |seed: u64, m: &Monitor| {
+        let mut r = compose(seed, Aspect::from_size(m.width, m.height), &context(m));
         if let Some(f) = want.focus_pm {
             r.composition.focus_x_pm = f;
         }
+        r
+    };
+    // A new scene for one monitor, unlike the recent ones, remembered so
+    // the next wallpaper avoids it too.
+    let mut new_scene = |seed: u64, m: &Monitor| {
+        let (_, r) = pick_seed(seed, recent.entries(), |s| make(s, m));
         recent.push(&r);
         r
     };
     match job_recipes {
-        None => (
-            seed,
-            monitors
-                .iter()
-                .map(|m| new_scene(monitor_seed(seed, m), m))
-                .collect(),
-            false,
-        ),
+        None => {
+            // The primary monitor's scene first: the wallpaper's seed (the
+            // one Settings shows) is the first seed from `seed` whose scene
+            // is unlike the recent ones, or exactly `seed` when it was asked
+            // for. The other monitors' seeds follow from it, kept apart from
+            // the monitors before them only, so the seed alone brings the
+            // whole wallpaper back.
+            let first = monitors.iter().position(|m| m.primary).unwrap_or(0);
+            let lead = &monitors[first];
+            let (base, lead_scene) = if want.exact {
+                (seed, make(monitor_seed(seed, lead), lead))
+            } else {
+                pick_seed(seed, recent.entries(), |s| {
+                    make(monitor_seed(s, lead), lead)
+                })
+            };
+            let mut shown = vec![history_of(&lead_scene)];
+            let mut out: Vec<Option<SceneRecipe>> = vec![None; monitors.len()];
+            out[first] = Some(lead_scene);
+            for (i, m) in monitors.iter().enumerate() {
+                if i != first {
+                    let (_, r) = pick_seed(monitor_seed(base, m), &shown, |s| make(s, m));
+                    shown.push(history_of(&r));
+                    out[i] = Some(r);
+                }
+            }
+            let out: Vec<SceneRecipe> = out.into_iter().flatten().collect();
+            for r in &out {
+                recent.push(r);
+            }
+            (base, out, false)
+        }
         Some(r) => {
             let mut changed = false;
             let recipes = monitors
@@ -519,6 +554,72 @@ fn scenes(
             (r.base_seed, recipes, changed)
         }
     }
+}
+
+/// What a scene picked, as the recent picks remember it.
+fn history_of(r: &SceneRecipe) -> HistoryEntry {
+    HistoryEntry {
+        activity: r.activity.clone(),
+        archetype: r.archetype.clone(),
+        platform: r.platform.clone(),
+        prop: r.props.first().cloned(),
+    }
+}
+
+/// How welcome a scene is after these picks (newest last), from 0 to 1: never
+/// the activity just shown, less often one shown lately or the landscape
+/// just shown. The weighting compose applies when handed the history; here
+/// it decides between seeds instead, so each scene stays what its seed makes.
+fn welcome(r: &SceneRecipe, history: &[HistoryEntry]) -> f64 {
+    let Some(last) = history.last() else {
+        return 1.0;
+    };
+    let mut w = 1.0;
+    if let Some(a) = &r.activity {
+        if last.activity.as_ref() == Some(a) {
+            return 0.0;
+        }
+        let uses = history
+            .iter()
+            .filter(|h| h.activity.as_ref() == Some(a))
+            .count();
+        w *= 4.0 / (4.0 + uses as f64);
+    }
+    if r.archetype == last.archetype {
+        w *= 0.25;
+    }
+    w
+}
+
+/// The first seed from `start` (itself, then seeds derived from it) whose
+/// scene is kept, each with the chance [`welcome`] gives it, decided by the
+/// seed so it's the same every time: scenes come out weighted as compose
+/// would weigh them. The most welcome of the tries when none is kept (one
+/// activity on, say).
+fn pick_seed(
+    start: u64,
+    history: &[HistoryEntry],
+    mut make: impl FnMut(u64) -> SceneRecipe,
+) -> (u64, SceneRecipe) {
+    const TRIES: u32 = 40;
+    let mut best: Option<(f64, u64, SceneRecipe)> = None;
+    for i in 0..TRIES {
+        let seed = if i == 0 {
+            start
+        } else {
+            hash_label(start, &format!("try {i}"))
+        };
+        let r = make(seed);
+        let w = welcome(&r, history);
+        if clairlune_scene::hash::unit_from_hash(hash_label(seed, "welcome")) < w {
+            return (seed, r);
+        }
+        if best.as_ref().is_none_or(|(b, _, _)| w > *b) {
+            best = Some((w, seed, r));
+        }
+    }
+    let (_, seed, r) = best.expect("at least one try");
+    (seed, r)
 }
 
 /// The most recent picks, newest last (PLAN.md section 4.7): new scenes skip
@@ -553,12 +654,7 @@ impl Recent {
 
     /// Remembers a composed scene (and saves the list).
     fn push(&mut self, r: &SceneRecipe) {
-        self.entries.push(HistoryEntry {
-            activity: r.activity.clone(),
-            archetype: r.archetype.clone(),
-            platform: r.platform.clone(),
-            prop: r.props.first().cloned(),
-        });
+        self.entries.push(history_of(r));
         let extra = self.entries.len().saturating_sub(Self::KEEP);
         self.entries.drain(..extra);
         if let Some(path) = &self.path
@@ -660,11 +756,21 @@ fn run(
         })),
         Job::New {
             seed,
+            exact,
             settings,
             at,
             scrolling,
         } => apply(
-            None, seed, &settings, true, host, store, archive, recent, at, scrolling,
+            None,
+            (seed, exact),
+            &settings,
+            true,
+            host,
+            store,
+            archive,
+            recent,
+            at,
+            scrolling,
         ),
         Job::Recipes {
             recipes,
@@ -686,7 +792,7 @@ fn run(
                 renew: renew.as_ref().map(|(id, s)| (id.as_str(), *s)),
                 refresh,
             }),
-            0,
+            (0, false),
             &settings,
             add,
             host,
@@ -717,7 +823,7 @@ struct Source<'a> {
 #[allow(clippy::too_many_arguments)]
 fn apply(
     saved: Option<Source>,
-    seed: u64,
+    (seed, exact): (u64, bool),
     settings: &Settings,
     add_to_archive: bool,
     host: Option<&dyn WallpaperHost>,
@@ -775,6 +881,7 @@ fn apply(
             .map(|(id, s)| (id.to_string(), s)),
         focus_pm,
         scrolling,
+        exact,
     };
     let (base_seed, packages, replayed, changed) =
         packages(saved, seed, &monitors, settings, recent, &want)?;
@@ -1029,6 +1136,7 @@ mod tests {
             renew: None,
             focus_pm: None,
             scrolling: true,
+            exact: false,
         }
     }
 
@@ -1299,6 +1407,62 @@ mod tests {
     }
 
     #[test]
+    fn a_wallpapers_seed_brings_it_back() {
+        // Wallpapers made after others (the recent picks steer which seeds
+        // are taken), then each made again from its seed alone, with other
+        // recent picks: the same scenes on both monitors.
+        let settings = Settings::default();
+        let two = [
+            monitor(640, 360),
+            Monitor {
+                id: "second".into(),
+                x: 640,
+                primary: false,
+                ..monitor(640, 360)
+            },
+        ];
+        let mut recent = Recent::default();
+        let mut other = Recent::default();
+        let exact = Want {
+            exact: true,
+            ..want(Theme::Dark)
+        };
+        for seed in 0..12u64 {
+            let (base, made, _) =
+                scenes(None, seed, &two, &settings, &mut recent, &want(Theme::Dark));
+            assert_eq!(made[0].seed, base, "the primary's seed is the wallpaper's");
+            let (again_base, again, _) = scenes(None, base, &two, &settings, &mut other, &exact);
+            assert_eq!((again_base, &again), (base, &made), "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn seeds_are_picked_like_compose_weighs_the_recent_ones() {
+        let last = |activity: &str, archetype: &str| HistoryEntry {
+            activity: Some(activity.into()),
+            archetype: archetype.into(),
+            platform: "rock_ledge".into(),
+            prop: None,
+        };
+        use clairlune_scene::ContentContext;
+        let r = compose(3, Aspect::from_size(16, 9), &ContentContext::default());
+        let a = r.activity.clone().unwrap();
+        assert_eq!(welcome(&r, &[]), 1.0);
+        assert_eq!(welcome(&r, &[last(&a, "elsewhere")]), 0.0);
+        let before = [last(&a, "elsewhere"), last("x", &r.archetype)];
+        assert!((welcome(&r, &before) - 0.8 * 0.25).abs() < 1e-9);
+        // With one activity on, it's the only choice: still a scene.
+        let ctx = ContentContext {
+            enabled_activities: vec![a.clone()],
+            ..ContentContext::default()
+        };
+        let (_, r) = pick_seed(5, &[last(&a, "x")], |s| {
+            compose(s, Aspect::from_size(16, 9), &ctx)
+        });
+        assert_eq!(r.activity.as_deref(), Some(a.as_str()));
+    }
+
+    #[test]
     fn recent_picks_keep_wallpapers_and_monitors_apart() {
         let settings = Settings::default();
         let path =
@@ -1476,7 +1640,7 @@ mod tests {
         settings.display.span = true;
         let done = apply(
             None,
-            11,
+            (11, false),
             &settings,
             true,
             Some(&host),

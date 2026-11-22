@@ -347,13 +347,6 @@ impl UiWindow {
     ) -> Outcome {
         match event {
             WindowEvent::CloseRequested => return Outcome::Close,
-            WindowEvent::KeyboardInput { event: key, .. }
-                if key.state.is_pressed()
-                    && key.logical_key
-                        == winit::keyboard::Key::Named(winit::keyboard::NamedKey::Escape) =>
-            {
-                return Outcome::Close;
-            }
             WindowEvent::Resized(size) => {
                 if let (Some(w), Some(h)) = (
                     std::num::NonZeroU32::new(size.width),

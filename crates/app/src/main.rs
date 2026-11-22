@@ -477,10 +477,58 @@ impl App {
         let scrolling = self.live.scrolling_ok();
         self.submit(Job::New {
             seed,
+            exact: false,
             settings: Box::new(self.settings.clone()),
             at,
             scrolling,
         });
+    }
+
+    /// The wallpaper a typed-in seed makes: from the archive or the library
+    /// when it's there (exactly as it was shown), otherwise made again from
+    /// the seed (the same scenes for the same Content choices and theme).
+    fn wallpaper_from_seed(&mut self, seed: u64) {
+        if self.timeline_mode() && !self.timeline_generate {
+            self.manual_until = self.timeline_next;
+        }
+        let archived = self.archive().and_then(|a| {
+            a.entries()
+                .into_iter()
+                .filter(|e| e.seed == seed)
+                .max_by_key(|e| e.created)
+                .map(|e| a.dir().join(e.name))
+        });
+        let saved = self.library().and_then(|lib| {
+            lib.items()
+                .into_iter()
+                .find(|i| i.seed == seed)
+                .map(|i| (lib.item_dir(&i.id), i))
+        });
+        if let Some(dir) = archived {
+            self.current_theme = None;
+            self.current_buddy = None;
+            self.chosen = true;
+            self.apply_folder(dir, None, None, false, false);
+        } else if let Some((dir, item)) = saved {
+            let (theme, buddy) = Self::library_choices(&item, &self.settings);
+            self.current_theme = theme;
+            self.current_buddy = buddy;
+            self.chosen = true;
+            self.apply_folder(dir, theme, buddy, false, false);
+        } else {
+            self.chosen = true;
+            self.current_theme = None;
+            self.current_buddy = None;
+            let scrolling = self.live.scrolling_ok();
+            self.submit(Job::New {
+                seed,
+                exact: true,
+                settings: Box::new(self.settings.clone()),
+                at: None,
+                scrolling,
+            });
+        }
+        self.reschedule();
     }
 
     fn archive(&self) -> Option<archive::Archive> {
@@ -754,6 +802,7 @@ impl App {
                 let scrolling = self.live.scrolling_ok();
                 self.submit(Job::New {
                     seed: random_seed(),
+                    exact: false,
                     settings: Box::new(s),
                     at,
                     scrolling,
@@ -1566,6 +1615,15 @@ impl App {
                 self.check();
             }
             UiAction::NewWallpaper => self.new_wallpaper_by_hand(),
+            UiAction::FromSeed(seed) => self.wallpaper_from_seed(seed),
+            UiAction::Resume => {
+                self.settings.schedule.paused = false;
+                if let Some(t) = &self.tray {
+                    t.show_paused(false);
+                }
+                self.save_settings();
+                self.reschedule();
+            }
             UiAction::EditTimeline => self.open_timeline(event_loop),
             UiAction::TimelineChanged => self.timeline_edited(),
             UiAction::Previous => self.reapply(true),
@@ -2308,8 +2366,9 @@ impl App {
                 self.status.what.clear();
                 self.status.seed = None;
                 self.status.theme = None;
-                self.status.note =
-                    Some("Your wallpaper is back. The schedule is paused.".to_string());
+                self.status.note = Some(
+                    "Your wallpaper is back. Changes are paused until you resume them.".to_string(),
+                );
                 if let Some(w) = &mut self.settings_window {
                     w.clear_thumb();
                 }
