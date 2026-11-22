@@ -1747,7 +1747,7 @@ fn row(ui: &mut Ui, theme: Theme, name: &str, description: &str, control: impl F
     ui.add_space(space::S4);
 }
 
-fn toggle(ui: &mut Ui, theme: Theme, on: &mut bool, label: &str) -> egui::Response {
+pub(super) fn toggle(ui: &mut Ui, theme: Theme, on: &mut bool, label: &str) -> egui::Response {
     let t = colors(theme);
     let (rect, mut resp) = ui.allocate_exact_size(vec2(40.0, 24.0), Sense::click());
     if resp.clicked() {
@@ -2347,13 +2347,6 @@ fn page(
                 );
             });
             if status.monitors.len() > 1 && s.display.mode == WallpaperMode::Live {
-                group(ui, "Each monitor");
-                ui.label(
-                    RichText::new(
-                        "A monitor can keep the still frame while Live plays on the others. What each one shows is set under Content.",
-                    )
-                    .color(c(t.text_secondary)),
-                );
                 ui.add_space(space::S2);
                 for (id, label) in &status.monitors {
                     let mut still = s.still_only(id);
@@ -2825,9 +2818,9 @@ fn page(
                 }
             });
             let shown = if ps.report_open {
-                "Hide the details"
+                "Hide details"
             } else {
-                "Show the details"
+                "Show details"
             };
             if ui.link(shown).clicked() {
                 ps.report_open = !ps.report_open;
@@ -2843,10 +2836,13 @@ fn page(
                             .max_height(220.0)
                             .min_scrolled_height(200.0)
                             .show(ui, |ui| {
-                                ui.label(
-                                    RichText::new(&status.report)
-                                        .font(style::mono())
-                                        .color(c(t.text_secondary)),
+                                ui.add(
+                                    egui::Label::new(
+                                        RichText::new(&status.report)
+                                            .font(style::mono())
+                                            .color(c(t.text_secondary)),
+                                    )
+                                    .selectable(true),
                                 );
                             });
                     });

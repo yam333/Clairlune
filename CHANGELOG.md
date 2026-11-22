@@ -4,6 +4,23 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.27.0 (2026-11-22)
+
+- **The Timeline, shown rather than told.** With nothing picked, its right
+  side plays how it works, the way macOS's trackpad settings do: a pointer
+  drops a wallpaper on a day, drags a slot's start, and opens a slot. The
+  keys are drawn as keys. Empty time is hatched; under the pointer it shows
+  the slot a click adds there. Slot edges show grips. Saved wallpapers and
+  the random scene (a die) lift under the pointer to be dragged. A day's
+  Add, Copy to… and Clear are marks; Copy to… picks days as chips; a switch
+  beside the title turns the timeline on; Undo is a mark; a missing
+  wallpaper is marked on its slot. Its paragraphs of help and status went.
+- **Animations keep moving** without the pointer: the embers on the
+  signature and a long wallpaper name no longer wait for the mouse.
+- Text in Clairlune's windows can't be selected by dragging over it (the
+  problem report's details still can).
+- "Show details" / "Hide details"; Each monitor's heading and note went.
+
 ## 0.26.0 (2026-11-22)
 
 - **Nothing cut off or under a scroll bar.** Settings can't be made narrower

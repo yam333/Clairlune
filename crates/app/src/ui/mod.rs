@@ -82,6 +82,8 @@ pub struct UiWindow {
     theme: Theme,
     /// Save the next frame to this PNG (UI review screenshots).
     pub screenshot_to: Option<std::path::PathBuf>,
+    /// When egui wants its next frame (an animation running), if not now.
+    repaint_at: Option<std::time::Instant>,
 }
 
 /// The graphics API the system is built around.
@@ -239,6 +241,7 @@ impl UiWindow {
             },
             theme,
             screenshot_to: None,
+            repaint_at: None,
         })
     }
 
@@ -310,6 +313,19 @@ impl UiWindow {
     pub fn set_section(&mut self, section: view::Section) {
         self.view.section = section;
         self.window.request_redraw();
+    }
+
+    /// Asks for the frame egui wanted by now; returns when the next one is
+    /// due, for the event loop to wake then.
+    pub fn redraw_due(&mut self, now: std::time::Instant) -> Option<std::time::Instant> {
+        match self.repaint_at {
+            Some(at) if at <= now => {
+                self.repaint_at = None;
+                self.window.request_redraw();
+                None
+            }
+            later => later,
+        }
     }
 
     /// The window itself (a dialog's parent).
@@ -470,12 +486,20 @@ impl UiWindow {
             capture,
             &self.window,
         );
-        let again = full
+        // A frame now, or one later (embers, a drifting name): the event
+        // loop wakes for it (`redraw_due`), or animations would only move
+        // while the pointer does.
+        let delay = full
             .viewport_output
             .get(&ViewportId::ROOT)
-            .is_some_and(|v| v.repaint_delay.is_zero());
-        if again {
-            self.window.request_redraw();
+            .map(|v| v.repaint_delay);
+        self.repaint_at = None;
+        match delay {
+            Some(d) if d.is_zero() => self.window.request_redraw(),
+            Some(d) if d < std::time::Duration::from_secs(3600) => {
+                self.repaint_at = Some(std::time::Instant::now() + d);
+            }
+            _ => {}
         }
         close
     }

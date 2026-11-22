@@ -6,7 +6,7 @@
 //! typing a start or Earlier/Later for dragging an edge, Add for
 //! double-clicking, and the slot's own picker for dropping a wallpaper.
 
-use super::style::{self, c, colors};
+use super::style::{self, alpha, c, colors};
 use super::view::{self, UiAction, filter_checks, group, hairline, primary_button, segmented};
 use crate::library::{BuddyChoice, DisplayChoice, Item, ThemeChoice};
 use crate::settings::RotationMode;
@@ -33,7 +33,7 @@ const UNDO_STEPS: usize = 50;
 /// How close to a slot's left edge a press grabs it.
 const EDGE_GRAB: f32 = 6.0;
 /// The day names and their buttons, left of the bars.
-const LABEL_W: f32 = 164.0;
+const LABEL_W: f32 = 132.0;
 const SIDEBAR_W: f32 = 184.0;
 const INSPECTOR_W: f32 = 304.0;
 
@@ -258,6 +258,9 @@ fn keyboard(ui: &Ui, st: &mut TimelineState, tl: &mut Timeline, actions: &mut Ve
     if ctx.input_mut(|i| i.consume_key(Modifiers::COMMAND, Key::Z)) {
         undo(st, tl, actions);
     }
+    if st.drag.is_none() && ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape)) {
+        st.selected = None;
+    }
     // Not while a slot edge is being dragged: the drag holds the slot's
     // index, and deleting under it would move the drag onto the next slot.
     if let Some((d, i)) = st.selected
@@ -319,44 +322,27 @@ fn step_day(tl: &Timeline, sel: Option<(usize, usize)>, step: i32) -> Option<(us
     sel
 }
 
-/// Saved wallpapers, and a random scene, to drag onto a day.
+/// Saved wallpapers, and a random scene, to drag onto a day: tiles that
+/// lift and show a grip under the pointer, so they read as things to pick up.
 fn sidebar(ui: &mut Ui, look: &Look, st: &mut TimelineState) {
     let t = colors(look.theme);
-    ui.label(RichText::new("Add to a day").font(style::body_strong()));
-    ui.label(RichText::new("Drag onto a day's bar.").color(c(t.text_secondary)));
-    ui.add_space(space::S3);
-    ui.dnd_drag_source(Id::unique("tl-drag-random"), Payload::Random, |ui| {
-        let (rect, _) = ui.allocate_exact_size(
-            vec2(ui.available_width(), size::CONTROL + 8.0),
-            Sense::hover(),
-        );
+    let w = ui.available_width();
+    let random = ui.dnd_drag_source(Id::unique("tl-drag-random"), Payload::Random, |ui| {
+        let (rect, _) = ui.allocate_exact_size(vec2(w, w * 9.0 / 16.0), Sense::hover());
         st.random_chip = Some(rect);
-        ui.painter().rect(
-            rect,
-            radius::CONTROL,
-            c(t.bg_raised),
-            Stroke::new(size::HAIRLINE, c(t.border_control)),
-            StrokeKind::Inside,
-        );
-        ui.painter().text(
-            rect.left_center() + vec2(space::S3, 0.0),
-            Align2::LEFT_CENTER,
-            "Random scene",
-            style::body_medium(),
-            c(t.text),
-        );
+        let hot = ui.rect_contains_pointer(rect);
+        random_tile(ui.painter(), look.theme, rect, hot);
     });
-    ui.add_space(space::S4);
-    ui.label(RichText::new("Saved").font(style::body_strong()));
-    ui.add_space(space::S1);
+    let _ = random.response.on_hover_text("Random scene");
+    ui.add_space(space::S3);
+    hairline(ui, t.hairline);
+    ui.add_space(space::S3);
     egui::ScrollArea::vertical().show(ui, |ui| {
         if look.items.is_empty() {
-            ui.label(
-                RichText::new(
-                    "Wallpapers you save to the library show here. Random slots work without them.",
-                )
-                .color(c(t.text_secondary)),
-            );
+            let w = ui.available_width();
+            let (rect, resp) = ui.allocate_exact_size(vec2(w, w * 9.0 / 16.0), Sense::hover());
+            empty_library(ui.painter(), look.theme, rect);
+            let _ = resp.on_hover_text("Wallpapers you save to the library show up here");
         }
         for item in look.items {
             ui.dnd_drag_source(
@@ -366,6 +352,7 @@ fn sidebar(ui: &mut Ui, look: &Look, st: &mut TimelineState) {
                     ui.spacing_mut().item_spacing.y = space::S1;
                     let w = ui.available_width();
                     let (rect, _) = ui.allocate_exact_size(vec2(w, w * 9.0 / 16.0), Sense::hover());
+                    let hot = ui.rect_contains_pointer(rect);
                     match st.thumbs.get(ui.ctx(), look.dir, &item.id) {
                         Some(tex) => egui::Image::new(tex)
                             .corner_radius(radius::CONTROL)
@@ -375,12 +362,99 @@ fn sidebar(ui: &mut Ui, look: &Look, st: &mut TimelineState) {
                                 .rect_filled(rect, radius::CONTROL, c(t.bg_raised));
                         }
                     }
+                    if hot {
+                        lifted(ui.painter(), look.theme, rect);
+                    }
                     ui.label(RichText::new(&item.name).font(style::body_medium()));
                 },
             );
             ui.add_space(space::S3);
         }
     });
+}
+
+/// The random scene's tile: a landscape in miniature, drawn in rows of dots
+/// like the wallpapers, with a die on it.
+fn random_tile(p: &egui::Painter, theme: Theme, r: Rect, hot: bool) {
+    let t = colors(theme);
+    p.rect_filled(r, radius::CONTROL, c(t.bg_raised));
+    let clip = p.with_clip_rect(r.shrink(2.0));
+    let h = |k: u32| (k.wrapping_mul(2_654_435_761) >> 8) as f32 / (1u32 << 24) as f32;
+    let rows = 10;
+    for row in 0..rows {
+        let y = r.top() + 6.0 + row as f32 * (r.height() - 12.0) / (rows - 1) as f32;
+        // Sky above, ground below: denser lower down.
+        let dense = 0.1 + 0.75 * (row as f32 / rows as f32).powf(1.4);
+        let mut x = r.left() + 4.0;
+        let mut k = row as u32 * 131 + 7;
+        while x < r.right() - 4.0 {
+            k += 1;
+            if h(k) < dense {
+                clip.rect_filled(
+                    Rect::from_min_size(pos2(x, y), vec2(2.0, 1.5)),
+                    0.0,
+                    alpha(t.text_secondary, 0.5),
+                );
+            }
+            x += 5.0;
+        }
+    }
+    let die = Rect::from_center_size(r.center(), vec2(30.0, 30.0));
+    p.rect_filled(die, 7.0, c(t.bg));
+    p.rect_stroke(die, 7.0, Stroke::new(1.4, c(t.text)), StrokeKind::Inside);
+    for (x, y) in [
+        (-1.0, -1.0),
+        (1.0, 1.0),
+        (0.0, 0.0),
+        (1.0, -1.0),
+        (-1.0, 1.0),
+    ] {
+        p.circle_filled(die.center() + vec2(x * 7.0, y * 7.0), 2.2, c(t.text));
+    }
+    p.rect_stroke(
+        r,
+        radius::CONTROL,
+        Stroke::new(size::HAIRLINE, c(t.border_control)),
+        StrokeKind::Inside,
+    );
+    if hot {
+        lifted(p, theme, r);
+    }
+}
+
+/// A tile under the pointer: outlined, with a grip in its corner.
+fn lifted(p: &egui::Painter, theme: Theme, r: Rect) {
+    let t = colors(theme);
+    p.rect_stroke(
+        r,
+        radius::CONTROL,
+        Stroke::new(1.6, c(t.accent_text)),
+        StrokeKind::Inside,
+    );
+    let g = Rect::from_min_size(pos2(r.right() - 22.0, r.top() + 5.0), vec2(17.0, 17.0));
+    p.rect_filled(g, 5.0, c(t.bg).gamma_multiply(0.85));
+    glyph(p, Glyph::Grip, g.shrink(3.0), c(t.text));
+}
+
+/// Where saved wallpapers will be: an empty frame with the library's mark.
+fn empty_library(p: &egui::Painter, theme: Theme, r: Rect) {
+    let t = colors(theme);
+    let stroke = Stroke::new(1.2, alpha(t.text_secondary, 0.5));
+    let (a, b, cc, d) = (
+        r.left_top(),
+        r.right_top(),
+        r.right_bottom(),
+        r.left_bottom(),
+    );
+    for (p0, p1) in [(a, b), (b, cc), (cc, d), (d, a)] {
+        p.extend(egui::Shape::dashed_line(&[p0, p1], stroke, 5.0, 4.0));
+    }
+    glyph(
+        p,
+        Glyph::Bookmark,
+        Rect::from_center_size(r.center(), vec2(22.0, 22.0)),
+        alpha(t.text_secondary, 0.85),
+    );
 }
 
 fn header(
@@ -397,6 +471,23 @@ fn header(
     let (today, _) = now();
     ui.horizontal(|ui| {
         ui.label(RichText::new("Timeline").font(style::title()));
+        ui.add_space(space::S3);
+        // Whether Rotation follows it.
+        let mut on = settings.rotation.mode == RotationMode::Timeline;
+        let switch = view::toggle(ui, theme, &mut on, "Use the timeline");
+        if switch.changed() {
+            settings.rotation.mode = if on {
+                RotationMode::Timeline
+            } else {
+                RotationMode::Generate
+            };
+            actions.push(UiAction::SettingsChanged);
+        }
+        let _ = switch.on_hover_text(if on {
+            "On: the wallpaper follows this timeline"
+        } else {
+            "Off: new scenes on the Generate schedule"
+        });
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             let mut layout = tl.layout;
             if segmented(
@@ -404,8 +495,8 @@ fn header(
                 theme,
                 &mut layout,
                 &[
-                    (Days::Single, "Every day", true),
-                    (Days::Weekly, "Each weekday", true),
+                    (Days::Single, "Daily", true),
+                    (Days::Weekly, "Weekly", true),
                 ],
             ) {
                 match layout {
@@ -416,13 +507,21 @@ fn header(
                     Days::Single => st.keep_day = Some(today),
                 }
             }
-            ui.add_space(space::S4);
-            if ui
-                .add_enabled(!st.undo.is_empty(), egui::Button::new("Undo"))
-                .on_hover_text("Ctrl+Z")
-                .clicked()
-            {
+            ui.add_space(space::S3);
+            let undo_tip = if cfg!(target_os = "macos") {
+                "Undo  \u{2318}Z"
+            } else {
+                "Undo  Ctrl+Z"
+            };
+            if icon_btn(ui, theme, Glyph::Undo, undo_tip, !st.undo.is_empty(), false).clicked() {
                 undo(st, tl, actions);
+            }
+            // Something a slot needs is gone: a mark, the details on hover.
+            if !status.timeline_problems.is_empty() {
+                ui.add_space(space::S2);
+                let (r, resp) = ui.allocate_exact_size(vec2(24.0, 24.0), Sense::hover());
+                glyph(ui.painter(), Glyph::Warning, r.shrink(3.0), c(t.danger));
+                let _ = resp.on_hover_text(status.timeline_problems.join("\n"));
             }
         });
     });
@@ -437,24 +536,19 @@ fn header(
             .corner_radius(radius::PANEL)
             .inner_margin(egui::Margin::same(space::S3 as i8))
             .show(ui, |ui| {
-                ui.label(
-                    RichText::new("Which day should run every day?").font(style::body_strong()),
-                );
-                ui.label(
-                    RichText::new("The other six days are dropped; Undo brings them back.")
-                        .color(c(t.text_secondary)),
-                );
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Keep which day?").font(style::body_strong()));
+                    ui.add_space(space::S2);
+                    for d in 0..7 {
+                        if day_chip(ui, theme, short_day(d), keep == d, false, true).clicked() {
+                            keep = d;
+                        }
+                    }
+                });
+                st.keep_day = Some(keep);
                 ui.add_space(space::S2);
                 ui.horizontal(|ui| {
-                    egui::ComboBox::from_id_salt("tl-keep")
-                        .selected_text(day_name(keep))
-                        .show_ui(ui, |ui| {
-                            for d in 0..7 {
-                                ui.selectable_value(&mut keep, d, day_name(d));
-                            }
-                        });
-                    st.keep_day = Some(keep);
-                    if primary_button(ui, theme, "Use it every day").clicked() {
+                    if primary_button(ui, theme, "Keep").clicked() {
                         commit(st, tl, actions, |tl| tl.make_single(keep));
                         st.keep_day = None;
                         st.selected = None;
@@ -466,47 +560,215 @@ fn header(
             });
         ui.add_space(space::S3);
     }
+}
 
-    let running = settings.rotation.mode == RotationMode::Timeline;
-    if !running {
-        ui.horizontal_wrapped(|ui| {
-            ui.label(
-                RichText::new("Not running: Rotation is set to Generate.")
-                    .color(c(t.text_secondary)),
-            );
-            if ui.button("Use the timeline").clicked() {
-                settings.rotation.mode = RotationMode::Timeline;
-                actions.push(UiAction::SettingsChanged);
-            }
-        });
-    } else if tl.is_empty() {
-        ui.label(
-            RichText::new("No slots yet, so new scenes come on the Generate schedule.")
-                .color(c(t.text_secondary)),
-        );
-    } else if let Some(a) =
-        timeline::resolve(tl, &jiff::tz::TimeZone::system(), jiff::Timestamp::now())
-    {
-        let what = match a.pick {
-            timeline::Pick::Slot { weekday, index } => tl
-                .day(weekday)
-                .get(index)
-                .map(|s| describe(&s.content, look.items))
-                .unwrap_or_default(),
-            timeline::Pick::Generate => "new scenes on the Generate schedule".into(),
-        };
-        let local = timeline::local_hhmm;
-        ui.label(
-            RichText::new(format!(
-                "Now: {what}, since {}. Next slot at {}.",
-                local(a.since),
-                local(a.next)
-            ))
-            .color(c(t.text_secondary)),
+/// A day as three letters.
+fn short_day(d: usize) -> &'static str {
+    let name = day_name(d);
+    &name[..3.min(name.len())]
+}
+
+/// A round chip for a day: on, off, or marked as about to be replaced.
+fn day_chip(
+    ui: &mut Ui,
+    theme: Theme,
+    label: &str,
+    on: bool,
+    replaced: bool,
+    enabled: bool,
+) -> egui::Response {
+    let t = colors(theme);
+    let sense = if enabled {
+        Sense::click()
+    } else {
+        Sense::hover()
+    };
+    let (rect, resp) = ui.allocate_exact_size(vec2(40.0, 28.0), sense);
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, enabled, on, label));
+    let p = ui.painter();
+    let fill = match (on, enabled) {
+        (true, true) => c(t.accent_deep),
+        (true, false) => alpha(t.accent_deep, 0.4),
+        _ if resp.hovered() => alpha(t.text, 0.10),
+        _ => alpha(t.text, 0.05),
+    };
+    p.rect_filled(rect, 14.0, fill);
+    if replaced {
+        p.rect_stroke(
+            rect,
+            14.0,
+            Stroke::new(1.6, c(t.danger)),
+            StrokeKind::Inside,
         );
     }
-    for p in &status.timeline_problems {
-        ui.label(RichText::new(p).color(c(t.danger)));
+    let ink = if on {
+        c(t.on_accent)
+    } else if enabled {
+        c(t.text)
+    } else {
+        c(t.text_disabled)
+    };
+    p.text(
+        rect.center(),
+        Align2::CENTER_CENTER,
+        label,
+        FontId::new(text::SMALL.size, FontFamily::Proportional),
+        ink,
+    );
+    if resp.has_focus() {
+        p.rect_stroke(
+            rect.expand(2.0),
+            16.0,
+            Stroke::new(size::FOCUS_RING, c(t.accent_text)),
+            StrokeKind::Outside,
+        );
+    }
+    resp
+}
+
+/// The little drawn marks the editor uses instead of words.
+#[derive(Clone, Copy)]
+enum Glyph {
+    Plus,
+    Copy,
+    Clear,
+    Undo,
+    Earlier,
+    Later,
+    Bookmark,
+    Warning,
+    Grip,
+}
+
+/// Draws a mark on a 16-unit grid scaled into `r`.
+fn glyph(p: &egui::Painter, g: Glyph, r: Rect, ink: egui::Color32) {
+    let k = r.width() / 16.0;
+    let at = |x: f32, y: f32| pos2(r.min.x + x * k, r.min.y + y * k);
+    let st = Stroke::new(1.5 * k.max(0.8), ink);
+    let line = |pts: &[(f32, f32)]| {
+        p.add(egui::Shape::line(
+            pts.iter().map(|&(x, y)| at(x, y)).collect(),
+            st,
+        ));
+    };
+    match g {
+        Glyph::Plus => {
+            line(&[(8.0, 2.5), (8.0, 13.5)]);
+            line(&[(2.5, 8.0), (13.5, 8.0)]);
+        }
+        Glyph::Copy => {
+            p.rect_stroke(
+                Rect::from_min_max(at(5.0, 5.0), at(14.0, 14.0)),
+                1.5 * k,
+                st,
+                StrokeKind::Middle,
+            );
+            line(&[(2.0, 10.5), (2.0, 2.0), (10.5, 2.0)]);
+        }
+        Glyph::Clear => {
+            line(&[(3.5, 3.5), (12.5, 12.5)]);
+            line(&[(12.5, 3.5), (3.5, 12.5)]);
+        }
+        Glyph::Undo => {
+            line(&[(5.5, 2.5), (2.5, 5.5), (5.5, 8.5)]);
+            let mut back = vec![at(2.5, 5.5), at(9.5, 5.5)];
+            back.extend((0..=10).map(|i| {
+                let a = (-90.0 + 180.0 * i as f32 / 10.0_f32).to_radians();
+                at(9.5 + 4.0 * a.cos(), 9.5 + 4.0 * a.sin())
+            }));
+            back.push(at(6.0, 13.5));
+            p.add(egui::Shape::line(back, st));
+        }
+        Glyph::Earlier => line(&[(10.0, 3.0), (5.0, 8.0), (10.0, 13.0)]),
+        Glyph::Later => line(&[(6.0, 3.0), (11.0, 8.0), (6.0, 13.0)]),
+        Glyph::Bookmark => {
+            p.add(egui::Shape::closed_line(
+                [
+                    (4.0, 2.5),
+                    (12.0, 2.5),
+                    (12.0, 13.5),
+                    (8.0, 10.8),
+                    (4.0, 13.5),
+                ]
+                .iter()
+                .map(|&(x, y)| at(x, y))
+                .collect(),
+                st,
+            ));
+        }
+        Glyph::Warning => {
+            p.add(egui::Shape::closed_line(
+                vec![at(8.0, 1.8), at(14.8, 14.0), at(1.2, 14.0)],
+                st,
+            ));
+            line(&[(8.0, 6.0), (8.0, 9.6)]);
+            p.circle_filled(at(8.0, 11.8), 0.9 * k, ink);
+        }
+        Glyph::Grip => {
+            for y in [4.0, 8.0, 12.0] {
+                for x in [5.5, 10.5] {
+                    p.circle_filled(at(x, y), 1.3 * k, ink);
+                }
+            }
+        }
+    }
+}
+
+/// A small button that is only its mark; the words are in its tooltip.
+/// `faint` keeps it quiet until its row is under the pointer.
+fn icon_btn(
+    ui: &mut Ui,
+    theme: Theme,
+    g: Glyph,
+    tip: &str,
+    enabled: bool,
+    faint: bool,
+) -> egui::Response {
+    let t = colors(theme);
+    let sense = if enabled {
+        Sense::click()
+    } else {
+        Sense::hover()
+    };
+    let (rect, resp) = ui.allocate_exact_size(vec2(26.0, 26.0), sense);
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, enabled, tip));
+    let hovered = enabled && resp.hovered();
+    let p = ui.painter();
+    if hovered {
+        p.rect_filled(rect, 7.0, alpha(t.text, 0.09));
+    }
+    let ink = if !enabled {
+        alpha(t.text_secondary, 0.3)
+    } else if hovered {
+        c(t.text)
+    } else if faint {
+        alpha(t.text_secondary, 0.45)
+    } else {
+        c(t.text_secondary)
+    };
+    glyph(p, g, rect.shrink(6.0), ink);
+    if resp.has_focus() {
+        p.rect_stroke(
+            rect,
+            7.0,
+            Stroke::new(size::FOCUS_RING, c(t.accent_text)),
+            StrokeKind::Inside,
+        );
+    }
+    resp.on_hover_text(tip)
+}
+
+/// Diagonal lines over a stretch: the day runs itself there (new scenes
+/// on the Generate schedule).
+fn hatch(p: &egui::Painter, r: Rect, ink: egui::Color32) {
+    let clip = p.with_clip_rect(r.shrink(1.5));
+    let mut x = r.left() - r.height();
+    while x < r.right() {
+        clip.line_segment(
+            [pos2(x, r.bottom()), pos2(x + r.height(), r.top())],
+            Stroke::new(1.0, ink),
+        );
+        x += 7.0;
     }
 }
 
@@ -560,7 +822,8 @@ fn days(
             pos2(row.right(), row.center().y + bar_h / 2.0),
         );
         let is_today = n == 1 || day == today;
-        day_actions(ui, look, st, tl, day, label, is_today, actions);
+        let hot = ui.rect_contains_pointer(row);
+        day_actions(ui, look, st, tl, day, label, is_today, hot, actions);
         st.bars.push(bar);
         day_bar(
             ui,
@@ -575,7 +838,8 @@ fn days(
     }
 }
 
-/// The day's name and its Add, Copy to... and Clear buttons.
+/// The day's name (a dot for today) and its buttons as marks: add a slot,
+/// copy the day, clear it. Quiet until the row is under the pointer.
 #[allow(clippy::too_many_arguments)]
 fn day_actions(
     ui: &mut Ui,
@@ -585,6 +849,7 @@ fn day_actions(
     day: usize,
     rect: Rect,
     is_today: bool,
+    hot: bool,
     actions: &mut Vec<UiAction>,
 ) {
     let theme = look.theme;
@@ -599,27 +864,21 @@ fn day_actions(
     ui.horizontal(|ui| {
         ui.label(RichText::new(day_label(tl, day)).font(style::body_strong()));
         if is_today && tl.layout == Days::Weekly {
-            ui.label(
-                RichText::new("today")
-                    .font(style::mono())
-                    .color(c(t.text_secondary)),
-            );
+            let (r, resp) = ui.allocate_exact_size(vec2(10.0, 16.0), Sense::hover());
+            ui.painter().circle_filled(r.center(), 3.0, c(t.accent));
+            let _ = resp.on_hover_text("Today");
         }
     });
     ui.horizontal(|ui| {
-        ui.spacing_mut().interact_size.y = 24.0;
-        ui.spacing_mut().button_padding = vec2(space::S2, 2.0);
-        let small = |s: &str| egui::Button::new(RichText::new(s).size(text::SMALL.size));
-        if ui
-            .add(small("Add"))
-            .on_hover_text("Add a slot in the day's longest stretch")
-            .clicked()
+        ui.spacing_mut().item_spacing.x = 2.0;
+        let faint = !hot;
+        if icon_btn(ui, theme, Glyph::Plus, "Add a slot", true, faint).clicked()
             && let Some(i) = commit(st, tl, actions, |tl| tl.add_slot(day))
         {
             st.selected = Some((day, i));
         }
         if tl.layout == Days::Weekly {
-            let copy = ui.add(small("Copy to\u{2026}"));
+            let copy = icon_btn(ui, theme, Glyph::Copy, "Copy to other days", true, faint);
             if copy.clicked() {
                 st.copy_to = [false; 7];
             }
@@ -627,10 +886,8 @@ fn day_actions(
                 .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
                 .show(|ui| copy_picker(ui, theme, st, tl, day, actions));
         }
-        if ui
-            .add_enabled(!tl.slots(day).is_empty(), small("Clear"))
-            .clicked()
-        {
+        let any = !tl.slots(day).is_empty();
+        if icon_btn(ui, theme, Glyph::Clear, "Clear the day", any, faint).clicked() {
             commit(st, tl, actions, |tl| tl.clear_day(day));
             if st.selected.is_some_and(|(d, _)| d == day) {
                 st.selected = None;
@@ -639,7 +896,8 @@ fn day_actions(
     });
 }
 
-/// Copy a day over others, with quick picks; says which days it replaces.
+/// Copy a day over others: the days as chips (one about to lose its slots
+/// is ringed in red), quick picks, and the button.
 fn copy_picker(
     ui: &mut Ui,
     theme: Theme,
@@ -648,11 +906,18 @@ fn copy_picker(
     day: usize,
     actions: &mut Vec<UiAction>,
 ) {
-    let t = colors(theme);
-    ui.set_min_width(240.0);
-    ui.label(RichText::new(format!("Copy {} to", day_name(day))).font(style::body_strong()));
     ui.horizontal(|ui| {
-        if ui.button("All days").clicked() {
+        for d in 0..7 {
+            let on = d == day || st.copy_to[d];
+            let replaced = d != day && st.copy_to[d] && !tl.slots(d).is_empty();
+            if day_chip(ui, theme, short_day(d), on, replaced, d != day).clicked() {
+                st.copy_to[d] = !st.copy_to[d];
+            }
+        }
+    });
+    ui.add_space(space::S2);
+    ui.horizontal(|ui| {
+        if ui.button("All").clicked() {
             st.copy_to = [true; 7];
         }
         if ui.button("Weekdays").clicked() {
@@ -662,26 +927,10 @@ fn copy_picker(
             st.copy_to = [false, false, false, false, false, true, true];
         }
     });
-    for d in (0..7).filter(|d| *d != day) {
-        ui.checkbox(&mut st.copy_to[d], day_name(d));
-    }
+    ui.add_space(space::S2);
     let targets: Vec<usize> = (0..7).filter(|d| *d != day && st.copy_to[*d]).collect();
-    let replaced: Vec<&str> = targets
-        .iter()
-        .filter(|d| !tl.slots(**d).is_empty())
-        .map(|d| day_name(*d))
-        .collect();
-    if !replaced.is_empty() {
-        ui.label(
-            RichText::new(format!("Replaces the slots on {}.", replaced.join(", ")))
-                .color(c(t.danger)),
-        );
-    }
-    let label = if replaced.is_empty() {
-        "Copy"
-    } else {
-        "Copy and replace"
-    };
+    let replacing = targets.iter().any(|d| !tl.slots(*d).is_empty());
+    let label = if replacing { "Replace" } else { "Copy" };
     ui.add_enabled_ui(!targets.is_empty(), |ui| {
         if primary_button(ui, theme, label).clicked() {
             commit(st, tl, actions, |tl| tl.copy_day(day, &targets));
@@ -763,17 +1012,21 @@ fn day_bar(
         ui.ctx().set_cursor_icon(CursorIcon::ResizeHorizontal);
     }
 
+    // A click on a slot opens it; on empty time (the Generate schedule's)
+    // it adds a slot there, as the ghost under the pointer shows.
     if resp.clicked()
         && let Some(p) = resp.interact_pointer_pos()
     {
         let m = (minute_at(p.x).max(0.0) as u16).min(DAY_MINUTES - 1);
-        st.selected = match tl.slot_at(day, m) {
-            Some(i) => Some((day, i)),
-            None if tl.slots(day).is_empty() => None,
-            None => match tl.carried_into(day) {
-                Carried::Slot(d, i) => Some((d, i)),
-                Carried::Generate => None,
-            },
+        let empty = tl.slots(day).is_empty();
+        st.selected = match (tl.slot_at(day, m), tl.carried_into(day)) {
+            (Some(i), _) => Some((day, i)),
+            (None, Carried::Slot(d, i)) if !empty => Some((d, i)),
+            _ => {
+                let at = snap(minute_at(p.x), fine).min(DAY_MINUTES - 1);
+                let i = commit(st, tl, actions, |tl| tl.insert(day, Slot::random(at)));
+                Some((day, i))
+            }
         };
     }
     if resp.double_clicked()
@@ -815,21 +1068,18 @@ fn day_bar(
         )
     };
     let painter = ui.painter().clone();
-    if slots.is_empty() {
+    let generate = |r: Rect| {
         painter.rect(
-            bar,
+            r,
             radius::CONTROL,
             c(t.bg_sidebar),
             Stroke::new(size::HAIRLINE, c(t.hairline)),
             StrokeKind::Inside,
         );
-        painter.text(
-            bar.center(),
-            Align2::CENTER_CENTER,
-            "Empty: new scenes on the Generate schedule",
-            style::body(),
-            c(t.text_secondary),
-        );
+        hatch(&painter, r, alpha(t.text_secondary, 0.14));
+    };
+    if slots.is_empty() {
+        generate(bar);
     } else {
         if slots[0].start > 0 {
             let r = seg(0, slots[0].start);
@@ -841,24 +1091,7 @@ fn day_bar(
                         selected_ring(&painter, look.theme, r);
                     }
                 }
-                Carried::Generate => {
-                    painter.rect(
-                        r,
-                        radius::CONTROL,
-                        c(t.bg_sidebar),
-                        Stroke::new(size::HAIRLINE, c(t.hairline)),
-                        StrokeKind::Inside,
-                    );
-                    if r.width() >= 80.0 {
-                        painter.with_clip_rect(r).text(
-                            r.left_center() + vec2(space::S2, 0.0),
-                            Align2::LEFT_CENTER,
-                            "Generate",
-                            FontId::new(text::SMALL.size, FontFamily::Proportional),
-                            c(t.text_secondary),
-                        );
-                    }
-                }
+                Carried::Generate => generate(r),
             }
         }
         for (i, s) in slots.iter().enumerate() {
@@ -868,6 +1101,19 @@ fn day_bar(
             if st.selected == Some((day, i)) {
                 selected_ring(&painter, look.theme, r);
             }
+        }
+    }
+    if resp.hovered() || dragging.is_some() {
+        let near = resp.hover_pos().and_then(|h| edge_at(&starts, bar, h.x));
+        for (k, s) in slots.iter().enumerate() {
+            let x = x_of(s.start);
+            let grip = Rect::from_center_size(
+                pos2(x, bar.center().y),
+                vec2(4.0, (bar.height() * 0.45).min(18.0)),
+            );
+            let strong = near == Some(k) || dragging == Some(k);
+            painter.rect_filled(grip.expand(1.5), 3.0, c(t.bg).gamma_multiply(0.8));
+            painter.rect_filled(grip, 2.0, alpha(t.text, if strong { 1.0 } else { 0.55 }));
         }
     }
     if let Some(m) = now_minute {
@@ -896,6 +1142,42 @@ fn day_bar(
             pos2(x + 4.0, bar.top() + 3.0),
             &format_time(m),
         );
+    } else if let Some(h) = resp.hover_pos()
+        && edge_at(&starts, bar, h.x).is_none()
+        && tl
+            .slot_at(day, (minute_at(h.x).max(0.0) as u16).min(DAY_MINUTES - 1))
+            .is_none()
+        && (tl.slots(day).is_empty() || tl.carried_into(day) == Carried::Generate)
+    {
+        // Empty time: the slot a click would add, from here to the next.
+        let from = snap(minute_at(h.x), fine).min(DAY_MINUTES - 1);
+        let to = tl
+            .slots(day)
+            .iter()
+            .map(|s| s.start)
+            .find(|s| *s > from)
+            .unwrap_or(DAY_MINUTES);
+        let g = seg(from, to);
+        painter.rect_filled(g, radius::CONTROL, alpha(t.accent, 0.12));
+        painter.rect_stroke(
+            g,
+            radius::CONTROL,
+            Stroke::new(1.4, alpha(t.accent, 0.85)),
+            StrokeKind::Inside,
+        );
+        let plus = Rect::from_center_size(pos2(g.left() + 14.0, g.center().y), vec2(14.0, 14.0));
+        if g.width() > 24.0 {
+            glyph(&painter, Glyph::Plus, plus, c(t.accent_text));
+        }
+        if g.width() > 80.0 {
+            pill(
+                &painter,
+                look.theme,
+                pos2(g.left() + 26.0, g.center().y - 9.0),
+                &format_time(from),
+            );
+        }
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
     } else if let Some(h) = resp.hover_pos() {
         // Preview: what would be on screen at the time under the pointer.
         let m = (minute_at(h.x).max(0.0) as u16).min(DAY_MINUTES - 1);
@@ -990,6 +1272,12 @@ fn block(
         Stroke::new(size::HAIRLINE, c(t.border_control)),
         StrokeKind::Inside,
     );
+    let missing = matches!(content, Content::Item { .. }) && tex.is_none();
+    if missing && r.width() >= 28.0 {
+        let w = Rect::from_min_size(pos2(r.right() - 24.0, r.top() + 4.0), vec2(20.0, 20.0));
+        painter.rect_filled(w, 5.0, c(t.bg).gamma_multiply(0.85));
+        glyph(&painter, Glyph::Warning, w.shrink(3.0), c(t.danger));
+    }
     let Some(start) = start else {
         painter.rect_filled(r, radius::CONTROL, c(t.bg).gamma_multiply(0.55));
         return;
@@ -1006,7 +1294,6 @@ fn block(
     if r.width() >= 72.0 && r.height() >= 40.0 {
         let name = describe(content, look.items);
         let font = FontId::new(text::SMALL.size, FontFamily::Proportional);
-        let missing = matches!(content, Content::Item { .. }) && tex.is_none();
         let color = if missing { c(t.danger) } else { c(t.text) };
         let galley = painter.layout_no_wrap(name, font, color);
         let nr = Rect::from_min_size(
@@ -1034,6 +1321,316 @@ fn until(tl: &Timeline, day: usize, index: usize) -> String {
     }
 }
 
+/// What the editor does, shown rather than told (the way macOS's trackpad
+/// settings show each gesture): a pointer drops a wallpaper on a day, moves
+/// a slot's start, then opens a slot, over and over; and the keys, as keys.
+fn demo(ui: &mut Ui, look: &Look, st: &mut TimelineState) {
+    let theme = look.theme;
+    let t = colors(theme);
+    let w = ui.available_width();
+    let (r, _) = ui.allocate_exact_size(vec2(w, 188.0), Sense::hover());
+    let now = ui.input(|i| i.time) as f32;
+    const ACT: f32 = 3.4;
+    let act = ((now / ACT) as u32 % 3) as usize;
+    let u = (now % ACT) / ACT;
+    let ease = |x: f32| {
+        let x = x.clamp(0.0, 1.0);
+        x * x * (3.0 - 2.0 * x)
+    };
+    let span = |a: f32, b: f32| ease((u - a) / (b - a));
+    let thumb = look
+        .items
+        .first()
+        .and_then(|it| st.thumbs.get(ui.ctx(), look.dir, &it.id))
+        .cloned();
+    let p = ui.painter().clone();
+    p.rect_filled(r, radius::PANEL, alpha(t.text, 0.03));
+    p.rect_stroke(
+        r,
+        radius::PANEL,
+        Stroke::new(size::HAIRLINE, c(t.hairline)),
+        StrokeKind::Inside,
+    );
+    let bar = Rect::from_min_size(pos2(r.left() + 14.0, r.top() + 108.0), vec2(w - 28.0, 36.0));
+    let x_at = |f: f32| bar.left() + bar.width() * f;
+    let part = |a: f32, b: f32| {
+        Rect::from_min_max(
+            pos2(x_at(a) + 1.0, bar.top()),
+            pos2(x_at(b) - 1.0, bar.bottom()),
+        )
+    };
+    let tile = Rect::from_min_size(pos2(r.left() + 14.0, r.top() + 16.0), vec2(80.0, 45.0));
+    let picture = |p: &egui::Painter, rr: Rect, fade: f32| {
+        match &thumb {
+            Some(tex) => {
+                p.image(
+                    tex.id(),
+                    rr,
+                    cover_uv(tex.size_vec2(), rr.size()),
+                    egui::Color32::WHITE.gamma_multiply(fade),
+                );
+            }
+            None => random_tile(p, theme, rr, false),
+        }
+        p.rect_stroke(
+            rr,
+            radius::CONTROL,
+            Stroke::new(size::HAIRLINE, alpha(t.border_control, fade)),
+            StrokeKind::Inside,
+        );
+    };
+    let plain = |p: &egui::Painter, rr: Rect| {
+        p.rect_filled(rr, radius::CONTROL, c(t.bg_raised));
+        p.rect_stroke(
+            rr,
+            radius::CONTROL,
+            Stroke::new(size::HAIRLINE, c(t.border_control)),
+            StrokeKind::Inside,
+        );
+    };
+    let empty = |p: &egui::Painter, rr: Rect| {
+        p.rect_filled(rr, radius::CONTROL, c(t.bg_sidebar));
+        hatch(p, rr, alpha(t.text_secondary, 0.14));
+    };
+    let clock = |f: f32| format_time(((f * 24.0 * 4.0).round() as u16 * 15).min(DAY_MINUTES - 15));
+    match act {
+        // Drag a wallpaper onto the day.
+        0 => {
+            picture(&p, tile, 1.0);
+            let drop_at = 0.55;
+            let target = pos2(x_at(drop_at) + 18.0, bar.center().y);
+            let from = tile.center();
+            let moving = span(0.12, 0.62);
+            let at = from + (target - from) * moving;
+            let dropped = u > 0.66;
+            if dropped {
+                empty(&p, part(0.0, drop_at));
+                let k = span(0.66, 0.8);
+                picture(&p, part(drop_at, 1.0), k);
+                pill(
+                    &p,
+                    theme,
+                    pos2(x_at(drop_at) + 4.0, bar.top() + 3.0),
+                    &clock(drop_at),
+                );
+            } else {
+                empty(&p, bar);
+                if u > 0.12 {
+                    let ghost = Rect::from_center_size(at - vec2(18.0, 0.0), tile.size() * 0.8);
+                    picture(&p, ghost, 0.75);
+                }
+                if moving > 0.85 {
+                    let x = x_at(drop_at);
+                    p.line_segment(
+                        [pos2(x, bar.top() - 2.0), pos2(x, bar.bottom() + 2.0)],
+                        Stroke::new(2.0, c(t.text)),
+                    );
+                }
+            }
+            pointer(&p, at, u > 0.1 && u < 0.66);
+        }
+        // Move a slot's start by its edge.
+        1 => {
+            let edge = 0.38 + 0.24 * span(0.32, 0.78);
+            plain(&p, part(0.0, edge));
+            picture(&p, part(edge, 1.0), 1.0);
+            let grip = Rect::from_center_size(pos2(x_at(edge), bar.center().y), vec2(4.0, 16.0));
+            p.rect_filled(grip.expand(1.5), 3.0, c(t.bg).gamma_multiply(0.8));
+            p.rect_filled(grip, 2.0, c(t.text));
+            let rest = pos2(r.right() - 36.0, r.top() + 36.0);
+            let grab = pos2(x_at(0.38), bar.center().y);
+            let at = if u < 0.3 {
+                rest + (grab - rest) * span(0.0, 0.28)
+            } else {
+                pos2(x_at(edge), bar.center().y)
+            };
+            if u >= 0.3 {
+                pill(
+                    &p,
+                    theme,
+                    pos2(x_at(edge) + 6.0, bar.top() - 20.0),
+                    &clock(edge),
+                );
+                resize_pointer(&p, at);
+            } else {
+                pointer(&p, at, false);
+            }
+        }
+        // Click a slot to change what it shows.
+        _ => {
+            plain(&p, part(0.0, 0.45));
+            let chosen = part(0.45, 1.0);
+            picture(&p, chosen, 1.0);
+            let rest = pos2(r.left() + 40.0, r.top() + 30.0);
+            let target = chosen.center();
+            let at = rest + (target - rest) * span(0.0, 0.3);
+            let clicked = u > 0.34;
+            if clicked {
+                p.rect_stroke(
+                    chosen,
+                    radius::CONTROL,
+                    Stroke::new(size::FOCUS_RING, c(t.accent)),
+                    StrokeKind::Inside,
+                );
+                let ring = span(0.34, 0.6);
+                p.circle_stroke(
+                    target,
+                    6.0 + 22.0 * ring,
+                    Stroke::new(1.5, alpha(t.accent, 1.0 - ring)),
+                );
+                // The slot's choices slide in beside it.
+                let k = span(0.42, 0.62);
+                let card = Rect::from_min_size(
+                    pos2(r.right() - 118.0 + (1.0 - k) * 24.0, r.top() + 14.0),
+                    vec2(104.0, 74.0),
+                );
+                p.rect_filled(card, radius::CONTROL, alpha(t.bg_raised, k));
+                p.rect_stroke(
+                    card,
+                    radius::CONTROL,
+                    Stroke::new(size::HAIRLINE, alpha(t.border_control, k)),
+                    StrokeKind::Inside,
+                );
+                for (n, len) in [0.7_f32, 0.5, 0.85].iter().enumerate() {
+                    let y = card.top() + 16.0 + n as f32 * 18.0;
+                    p.rect_filled(
+                        Rect::from_min_size(
+                            pos2(card.left() + 10.0, y),
+                            vec2((card.width() - 20.0) * len, 6.0),
+                        ),
+                        3.0,
+                        alpha(t.text_secondary, 0.5 * k),
+                    );
+                }
+            }
+            pointer(&p, at, clicked && u < 0.4);
+        }
+    }
+    for k in 0..3 {
+        let cx = r.center().x + (k as f32 - 1.0) * 12.0;
+        let ink = if k == act {
+            c(t.accent_deep)
+        } else {
+            alpha(t.text_secondary, 0.35)
+        };
+        p.circle_filled(pos2(cx, r.bottom() - 16.0), 3.0, ink);
+    }
+    ui.ctx()
+        .request_repaint_after(std::time::Duration::from_millis(33));
+    ui.add_space(space::S5);
+    let undo = if cfg!(target_os = "macos") {
+        "Cmd Z"
+    } else {
+        "Ctrl Z"
+    };
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = space::S4;
+        keycap(ui, theme, None, "Pick");
+        keycap(ui, theme, Some("Del"), "Delete");
+        keycap(ui, theme, Some(undo), "Undo");
+        keycap(ui, theme, Some("Esc"), "Let go");
+    });
+}
+
+/// A key drawn as a key, its job under it. `None`: the arrow keys.
+fn keycap(ui: &mut Ui, theme: Theme, label: Option<&str>, job: &str) {
+    let t = colors(theme);
+    let font = FontId::new(text::SMALL.size, FontFamily::Monospace);
+    let cap_w = match label {
+        None => 54.0,
+        Some(l) => (l.chars().count() as f32 * 7.4 + 16.0).max(30.0),
+    };
+    let (r, _) = ui.allocate_exact_size(vec2(cap_w.max(44.0), 46.0), Sense::hover());
+    let p = ui.painter();
+    let cap = Rect::from_min_size(pos2(r.center().x - cap_w / 2.0, r.top()), vec2(cap_w, 26.0));
+    p.rect_filled(
+        cap.translate(vec2(0.0, 2.0)),
+        6.0,
+        alpha(t.border_control, 0.5),
+    );
+    p.rect_filled(cap, 6.0, c(t.bg_raised));
+    p.rect_stroke(
+        cap,
+        6.0,
+        Stroke::new(size::HAIRLINE, c(t.border_control)),
+        StrokeKind::Inside,
+    );
+    match label {
+        Some(l) => {
+            p.text(cap.center(), Align2::CENTER_CENTER, l, font, c(t.text));
+        }
+        None => {
+            let half = |dx: f32, g: Glyph| {
+                glyph(
+                    p,
+                    g,
+                    Rect::from_center_size(cap.center() + vec2(dx, 0.0), vec2(12.0, 12.0)),
+                    c(t.text),
+                )
+            };
+            half(-10.0, Glyph::Earlier);
+            half(10.0, Glyph::Later);
+        }
+    }
+    p.text(
+        pos2(r.center().x, cap.bottom() + 12.0),
+        Align2::CENTER_CENTER,
+        job,
+        FontId::new(text::SMALL.size - 1.0, FontFamily::Proportional),
+        c(t.text_secondary),
+    );
+}
+
+/// The arrow pointer, white with a dark edge; smaller while pressed.
+fn pointer(p: &egui::Painter, at: egui::Pos2, pressed: bool) {
+    let s = if pressed { 0.88 } else { 1.0 };
+    let pt = |x: f32, y: f32| at + vec2(x * s, y * s);
+    let head = vec![pt(0.0, 0.0), pt(0.0, 15.0), pt(11.0, 11.0)];
+    let tail = vec![pt(4.0, 11.6), pt(6.6, 17.4), pt(9.0, 16.4), pt(6.4, 10.8)];
+    let white = egui::Color32::WHITE;
+    p.add(egui::Shape::convex_polygon(head, white, Stroke::NONE));
+    p.add(egui::Shape::convex_polygon(tail, white, Stroke::NONE));
+    p.add(egui::Shape::closed_line(
+        vec![
+            pt(0.0, 0.0),
+            pt(0.0, 15.0),
+            pt(4.0, 11.6),
+            pt(6.6, 17.4),
+            pt(9.0, 16.4),
+            pt(6.4, 10.8),
+            pt(11.0, 11.0),
+        ],
+        Stroke::new(1.2, egui::Color32::from_gray(20)),
+    ));
+}
+
+/// The pointer as it is over a slot's edge: arrows both ways.
+fn resize_pointer(p: &egui::Painter, at: egui::Pos2) {
+    for (stroke, ink) in [
+        (4.0, egui::Color32::from_gray(20)),
+        (1.8, egui::Color32::WHITE),
+    ] {
+        let st = Stroke::new(stroke, ink);
+        p.line_segment([at - vec2(9.0, 0.0), at + vec2(9.0, 0.0)], st);
+        p.add(egui::Shape::line(
+            vec![
+                at + vec2(-5.0, -4.0),
+                at - vec2(9.0, 0.0),
+                at + vec2(-5.0, 4.0),
+            ],
+            st,
+        ));
+        p.add(egui::Shape::line(
+            vec![
+                at + vec2(5.0, -4.0),
+                at + vec2(9.0, 0.0),
+                at + vec2(5.0, 4.0),
+            ],
+            st,
+        ));
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Kind {
     Saved,
@@ -1052,18 +1649,7 @@ fn inspector(
     let theme = look.theme;
     let t = colors(theme);
     let Some((d, i)) = st.selected else {
-        ui.label(RichText::new("Slot").font(style::title()));
-        ui.add_space(space::S2);
-        for line in [
-            "Click a slot to change what it shows.",
-            "Double-click a day to split it there, or use Add.",
-            "Drag a slot's left edge to move its start; hold Shift for single minutes.",
-            "Drag a saved wallpaper or a random scene onto a day to add a slot.",
-            "Arrow keys pick slots, Delete removes one, Ctrl+Z undoes.",
-        ] {
-            ui.label(RichText::new(line).color(c(t.text_secondary)));
-            ui.add_space(space::S1);
-        }
+        demo(ui, look, st);
         return;
     };
     let slot = tl.slots(d)[i].clone();
@@ -1107,13 +1693,13 @@ fn inspector(
                 }
                 st.start_for = None;
             }
-            if ui.button("Earlier").clicked() {
+            if icon_btn(ui, theme, Glyph::Earlier, "15 minutes earlier", true, false).clicked() {
                 commit(st, tl, actions, |tl| {
                     tl.move_start(d, i, slot.start.saturating_sub(15))
                 });
                 moved = true;
             }
-            if ui.button("Later").clicked() {
+            if icon_btn(ui, theme, Glyph::Later, "15 minutes later", true, false).clicked() {
                 commit(st, tl, actions, |tl| tl.move_start(d, i, slot.start + 15));
                 moved = true;
             }
@@ -1185,10 +1771,6 @@ fn inspector(
                 }
             }
             Content::Pool { ids, tag, order } => {
-                ui.label(
-                    RichText::new("Picks one of these each time the slot starts.")
-                        .color(c(t.text_secondary)),
-                );
                 for item in look.items {
                     let mut on = ids.contains(&item.id);
                     if ui.checkbox(&mut on, &item.name).changed() {
@@ -1206,7 +1788,7 @@ fn inspector(
                 }
                 let field = ui.add(
                     egui::TextEdit::singleline(&mut st.tag_text)
-                        .hint_text("And every item tagged, e.g. evening")
+                        .hint_text("tag, e.g. evening")
                         .desired_width(ui.available_width()),
                 );
                 if field.lost_focus() {
@@ -1225,22 +1807,12 @@ fn inspector(
                         ],
                     );
                 });
-                if ids.is_empty() && tag.is_none() {
-                    ui.label(
-                        RichText::new("An empty pool shows a random scene.")
-                            .color(c(t.text_secondary)),
-                    );
-                }
             }
             Content::Random {
                 archetypes,
                 activities,
                 weather,
             } => {
-                ui.label(
-                    RichText::new("A new scene each time; all ticked means any.")
-                        .color(c(t.text_secondary)),
-                );
                 group(ui, "Landscapes");
                 filter_checks(ui, archetypes, &view::LANDSCAPES, &[]);
                 group(ui, "Activities");
@@ -1289,14 +1861,11 @@ fn inspector(
                 ],
             )
         });
-        ui.label(
-            RichText::new("Live wallpapers come in a later version.").color(c(t.text_secondary)),
-        );
         if s != slot {
             commit(st, tl, actions, |tl| tl.slots_mut(d)[i] = s);
         }
         ui.add_space(space::S5);
-        if ui.button("Delete slot").clicked() {
+        if ui.button("Delete").clicked() {
             commit(st, tl, actions, |tl| tl.remove(d, i));
             st.selected = None;
         }
@@ -1516,11 +2085,13 @@ mod tests {
         assert_eq!(h.starts(0), [420, 720, 1170]);
         assert_eq!(h.tl.slots(0)[1].content, Content::Item { id: "a".into() });
         assert_eq!(h.st.selected, Some((0, 1)));
-        // Tuesday is empty (the Generate schedule): nothing to select.
+        // Tuesday is empty (the Generate schedule): a click adds a slot
+        // there, as the ghost under the pointer shows.
         h.idle(30);
-        let p = h.at(1, 300);
+        let p = h.at(1, 302);
         h.click(p);
-        assert_eq!(h.st.selected, None, "an empty day has nothing to select");
+        assert_eq!(h.starts(1), [300]);
+        assert_eq!(h.st.selected, Some((1, 0)));
     }
 
     #[test]
