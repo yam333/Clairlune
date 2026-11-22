@@ -86,12 +86,26 @@ def render_gifs(work):
 
 
 def frames(gif):
-    """A GIF's frames as RGB arrays, round and round."""
+    """The GIF as RGB arrays, one per video frame, round and round. The
+    export merges frames that don't change into one longer frame, so each
+    is shown for its own duration (a still moment lasts as long as it did
+    in the app), not for one video frame."""
+    step = 1000 / FPS
+    clock = 0.0  # video time into this pass, ms
     while True:
         im = Image.open(gif)
+        start = 0.0
         for i in range(getattr(im, "n_frames", 1)):
             im.seek(i)
-            yield np.asarray(im.convert("RGB"), dtype=np.float32)
+            end = start + im.info.get("duration", step)
+            rgb = None
+            while clock < end:
+                if rgb is None:
+                    rgb = np.asarray(im.convert("RGB"), dtype=np.float32)
+                yield rgb
+                clock += step
+            start = end
+        clock -= start
 
 
 def caption(title, sub, theme, big=False):
@@ -259,6 +273,19 @@ def main():
     if poster is not None:
         Image.fromarray(poster).save(os.path.splitext(args.out)[0] + ".jpg", quality=88)
     print(args.out, os.path.getsize(args.out) // 1024, "KB")
+    # A silent preview that plays on its own in the README (GitHub shows an
+    # animated image there, not a video from the repository): the first five
+    # shots, smaller and at 12 fps.
+    preview = os.path.splitext(args.out)[0] + "-preview.webp"
+    end = CUTS[5] - 0.25
+    subprocess.run(
+        [args.ffmpeg, "-y", "-loglevel", "error", "-t", f"{end:.2f}", "-i", args.out,
+         "-vf", f"fps=12,scale=960:540:flags=lanczos,fade=out:st={end - 0.8:.2f}:d=0.8", "-an",
+         "-c:v", "libwebp_anim", "-lossless", "0", "-quality", "62", "-compression_level", "6",
+         "-loop", "0", preview],
+        check=True,
+    )
+    print(preview, os.path.getsize(preview) // 1024, "KB")
 
 
 if __name__ == "__main__":
