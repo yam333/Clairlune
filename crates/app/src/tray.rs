@@ -16,13 +16,9 @@ pub enum Action {
     Previous,
     Theme(ThemeMode),
     ToggleLive,
-    TogglePause,
     SavePng,
     SaveGif,
     SaveToLibrary,
-    OpenLibrary,
-    OpenTimeline,
-    OpenArchive,
     OpenSettings,
     /// Settings, on About: who made it.
     About,
@@ -45,13 +41,9 @@ pub struct Tray {
     dark: CheckMenuItem,
     scheduled: CheckMenuItem,
     live: CheckMenuItem,
-    pause: CheckMenuItem,
     save: MenuItem,
     save_gif: MenuItem,
     save_lib: MenuItem,
-    library: MenuItem,
-    timeline: MenuItem,
-    archive: MenuItem,
     settings: MenuItem,
     about: MenuItem,
     quit: MenuItem,
@@ -80,7 +72,9 @@ fn mark() -> Result<Icon, String> {
 }
 
 impl Tray {
-    pub fn new(mode: ThemeMode, paused: bool, live_on: bool) -> Result<Tray, String> {
+    pub fn new(mode: ThemeMode, live_on: bool) -> Result<Tray, String> {
+        // Windows draws the menu the taskbar's way, dark or light.
+        clairlune_platform::set_menu_theme(clairlune_platform::taskbar_is_light().map(|l| !l));
         let new = MenuItem::new("New wallpaper", true, None);
         let on_monitor = Submenu::new("New wallpaper on", true);
         let previous = MenuItem::new("Previous wallpaper", true, None);
@@ -94,13 +88,14 @@ impl Tray {
             .append_items(&[&follow, &light, &dark, &scheduled])
             .map_err(|e| e.to_string())?;
         let live = CheckMenuItem::new("Live wallpaper", true, live_on, None);
-        let pause = CheckMenuItem::new("Pause changes", true, paused, None);
-        let save = MenuItem::new("Save current as PNG", true, None);
-        let save_gif = MenuItem::new("Save current as GIF", true, None);
-        let save_lib = MenuItem::new("Save to library", true, None);
-        let library = MenuItem::new("Library\u{2026}", true, None);
-        let timeline = MenuItem::new("Timeline\u{2026}", true, None);
-        let archive = MenuItem::new("Archive\u{2026}", true, None);
+        // Saving: one entry, the ways in it.
+        let save = MenuItem::new("As PNG", true, None);
+        let save_gif = MenuItem::new("As GIF", true, None);
+        let save_lib = MenuItem::new("To library", true, None);
+        let save_as = Submenu::new("Save wallpaper", true);
+        save_as
+            .append_items(&[&save, &save_gif, &save_lib])
+            .map_err(|e| e.to_string())?;
         let settings = MenuItem::new("Settings\u{2026}", true, None);
         let about = MenuItem::new("About Clairlune", true, None);
         let quit = MenuItem::new("Quit Clairlune", true, None);
@@ -112,16 +107,9 @@ impl Tray {
             &PredefinedMenuItem::separator(),
             &theme,
             &live,
-            &pause,
+            &save_as,
             &PredefinedMenuItem::separator(),
-            &save,
-            &save_gif,
-            &save_lib,
-            &library,
-            &timeline,
-            &archive,
             &settings,
-            &PredefinedMenuItem::separator(),
             &about,
             &quit,
         ])
@@ -151,13 +139,9 @@ impl Tray {
             dark,
             scheduled,
             live,
-            pause,
             save,
             save_gif,
             save_lib,
-            library,
-            timeline,
-            archive,
             settings,
             about,
             quit,
@@ -175,13 +159,9 @@ impl Tray {
             (self.dark.id(), Action::Theme(ThemeMode::Dark)),
             (self.scheduled.id(), Action::Theme(ThemeMode::Schedule)),
             (self.live.id(), Action::ToggleLive),
-            (self.pause.id(), Action::TogglePause),
             (self.save.id(), Action::SavePng),
             (self.save_gif.id(), Action::SaveGif),
             (self.save_lib.id(), Action::SaveToLibrary),
-            (self.library.id(), Action::OpenLibrary),
-            (self.timeline.id(), Action::OpenTimeline),
-            (self.archive.id(), Action::OpenArchive),
             (self.settings.id(), Action::OpenSettings),
             (self.about.id(), Action::About),
             (self.update.id(), Action::OpenUpdate),
@@ -252,8 +232,9 @@ impl Tray {
     }
 
     /// Draws the mark again for the taskbar's colour now (Windows: the
-    /// taskbar turned light or dark).
+    /// taskbar turned light or dark), and the menu with it.
     pub fn refresh_mark(&self) {
+        clairlune_platform::set_menu_theme(clairlune_platform::taskbar_is_light().map(|l| !l));
         if let Ok(icon) = mark() {
             #[cfg(target_os = "macos")]
             let _ = self._icon.set_icon_templated(Some(icon));
@@ -274,10 +255,6 @@ impl Tray {
     /// Check items toggle themselves on click; the setting decides.
     pub fn show_live(&self, on: bool) {
         self.live.set_checked(on);
-    }
-
-    pub fn show_paused(&self, paused: bool) {
-        self.pause.set_checked(paused);
     }
 
     pub fn set_tooltip(&self, text: &str) {

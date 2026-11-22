@@ -63,11 +63,14 @@ From the menu you can:
 
 - get a **new wallpaper** (on every monitor, or just one),
 - go back to the **previous** one,
-- switch the **theme**, or **pause** the hourly changes,
-- **save** what's on screen as a PNG or a GIF (into Pictures/Clairlune),
-- open the **Archive** (the last week of wallpapers), the **Library** (the
-  ones you saved for good) and the **Timeline** (a plan for the day),
-- see who made it (**About Clairlune**).
+- switch the **theme**, or turn **live** on or off,
+- **save** what's on screen as a PNG, a GIF, or to the library,
+- open **Settings**, and see who made it (**About Clairlune**).
+
+On Windows the menu is dark or light like the taskbar. The Archive (the last
+week of wallpapers), the Library (the ones you saved for good) and the
+Timeline (a plan for the day) open from Settings: the Open buttons on the
+Archive page, and Edit timeline under Rotation (Mode: Timeline).
 
 Opening Clairlune again while it runs brings up Settings.
 
@@ -110,8 +113,8 @@ Changes save as you make them; content changes show from the next wallpaper.
 
 ## The Timeline
 
-A plan for the day, or for each day of the week (the menu's Timeline…; the
-switch beside its title turns it on). With nothing picked, its right side
+A plan for the day, or for each day of the week (Settings > Rotation > Edit
+timeline; the switch beside its title turns it on). With nothing picked, its right side
 plays how it works:
 
 - **Drag** a saved wallpaper, or the die (a random scene), onto a day.
@@ -183,8 +186,8 @@ computer is locked.
 
 **The wallpaper changed back to Clairlune's after I set my own.** Clairlune
 changes the wallpaper every hour. Use Restore my wallpaper (Settings >
-General), which also pauses the changes, or pause them from the menu. Resume
-them from the menu or with Resume in Settings > Rotation.
+General), which also stops the changes; Resume in Settings > Rotation starts
+them again.
 
 **How do I get a wallpaper back?** Copy its seed (click it under the
 sections in Settings) and type it into Settings > Rotation > From a seed. A

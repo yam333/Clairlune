@@ -298,6 +298,15 @@ pub fn taskbar_is_light() -> Option<bool> {
     }
 }
 
+/// Draws pop-up menus (the tray's) dark or light, or as apps are (`None`).
+/// Windows only; macOS menus follow the system by themselves.
+pub fn set_menu_theme(dark: Option<bool>) {
+    #[cfg(windows)]
+    windows::set_menu_theme(dark);
+    #[cfg(not(windows))]
+    let _ = dark;
+}
+
 /// Whether the system asks apps for a dark appearance, when that is known.
 pub fn system_prefers_dark() -> Option<bool> {
     #[cfg(windows)]
