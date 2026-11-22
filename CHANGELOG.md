@@ -4,6 +4,16 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.17.7 (2026-11-22)
+
+- **Mac: Lighter on Retina screens** (Settings > Live, off by default). Live
+  mode's memory follows the screens' pixels (two screen buffers plus the
+  scene, about 10-12 bytes a pixel), so several large external displays add
+  up to hundreds of MB. Turned on, each Retina screen's scene is drawn at half
+  its resolution and shown pixel-doubled: about a quarter of the memory and
+  work, with slightly larger, softer text. The still frame matches; the screen
+  saver keeps full size.
+
 ## 0.17.6 (2026-11-22)
 
 - **Settings > General > Permissions:** everything Clairlune needs you to allow

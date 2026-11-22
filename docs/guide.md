@@ -76,8 +76,10 @@ Opening Clairlune again while it runs brings up Settings.
 - **Display:** Live or Still frame, and one scene per monitor or one across
   all.
 - **Live:** smoothness (6 to 60 frames a second, 12 by default; higher is
-  smoother and uses more power), what to do on battery, and what pauses live
-  when an app covers the screen.
+  smoother and uses more power), what to do on battery, what pauses live
+  when an app covers the screen, and on the Mac Lighter on Retina screens
+  (half the resolution: about a quarter of the memory, with big external
+  displays especially).
 - **Buddy:** Clawd on or off.
 - **Content:** which landscapes, activities and weather to pick from, the look
   (line art or dithered), contrast and zoom (Clawd up close, smaller, or tiny
