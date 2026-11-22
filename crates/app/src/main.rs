@@ -88,6 +88,9 @@ enum AppEvent {
     UpdateChecked(Result<update::Release, String>),
     /// How installing an update goes.
     Installing(InstallStep),
+    /// More of Content's landscape tiles have been drawn; `true` when the
+    /// last one is.
+    LandsDrawn(bool),
     /// The live metronome: a frame may be due. It arrives even while one
     /// of the app's windows is dragged or resized (Windows runs its own
     /// message loop then, and winit's timers stop; user events still come).
@@ -111,6 +114,8 @@ struct App {
     jobs: mpsc::Sender<Job>,
     /// For threads that report back (the update check).
     proxy: EventLoopProxy<AppEvent>,
+    /// Content's landscape tiles are being drawn (`land_thumbs`).
+    drawing_lands: bool,
     /// What the last update check found, and whether one is running (and
     /// was asked for by hand: then its answer shows even when it's "up to
     /// date").
@@ -1077,6 +1082,7 @@ impl App {
             Ok(w) => {
                 self.settings_window = Some(w);
                 self.refresh_window_thumb();
+                self.land_thumbs(theme);
             }
             Err(e) => {
                 tracing::warn!(target: "clairlune", error = %e, "no settings window; opening the file");
@@ -1325,17 +1331,67 @@ impl App {
         self.refresh_library();
     }
 
-    /// Loads the current wallpaper's thumbnail into the open Settings window.
+    /// Loads the current wallpaper into the open Settings window: its
+    /// thumbnail, and the main monitor's still behind the glass.
     fn refresh_window_thumb(&mut self) {
         let (Some(w), Some(dir)) = (&mut self.settings_window, &self.current) else {
             return;
         };
-        let path = dir.join("thumb.png");
-        if let Some((size, rgba)) = std::fs::read(&path)
-            .ok()
-            .and_then(|b| ui::decode_png_rgba(&b))
-        {
+        let read = |name: &str| {
+            std::fs::read(dir.join(name))
+                .ok()
+                .and_then(|b| ui::decode_png_rgba(&b))
+        };
+        if let Some((size, rgba)) = read("thumb.png") {
             w.set_thumb(size, &rgba);
+        }
+        if let Some((size, rgba)) = read("wallpaper-0.png").or_else(|| read("thumb.png")) {
+            w.set_backdrop(size, &rgba);
+        }
+    }
+
+    /// Points Settings at its landscape tiles for the theme it shows, and
+    /// draws the missing ones on a thread of their own (once per generator
+    /// version and theme; a second or two the first time).
+    fn land_thumbs(&mut self, theme: Theme) {
+        let dir = self.data_dir.join("thumbs").join(format!(
+            "g{}-{}",
+            clairlune_scene::GENERATOR_VERSION,
+            theme.as_str()
+        ));
+        if let Some(w) = &mut self.settings_window {
+            w.set_land_dir(dir.clone());
+        }
+        if self.drawing_lands {
+            return;
+        }
+        let ids: Vec<&'static str> = clairlune_scene::archetype::ARCHETYPE_INFO
+            .iter()
+            .filter(|a| a.implemented)
+            .map(|a| a.id)
+            .filter(|id| !dir.join(format!("{id}.png")).exists())
+            .collect();
+        if ids.is_empty() {
+            return;
+        }
+        self.drawing_lands = true;
+        let proxy = self.proxy.clone();
+        let spawned = std::thread::Builder::new()
+            .name("clairlune-lands".into())
+            .spawn(move || {
+                for (i, id) in ids.iter().enumerate() {
+                    if let Err(e) = apply::land_thumb(&dir, id, theme) {
+                        tracing::warn!(target: "clairlune", landscape = id, error = %e, "landscape tile");
+                    }
+                    // Show them in batches as they come.
+                    let last = i + 1 == ids.len();
+                    if i % 6 == 5 || last {
+                        let _ = proxy.send_event(AppEvent::LandsDrawn(last));
+                    }
+                }
+            });
+        if spawned.is_err() {
+            self.drawing_lands = false;
         }
     }
 
@@ -1503,6 +1559,9 @@ impl App {
                 .flatten()
                 {
                     w.set_theme(theme);
+                }
+                if self.settings_window.is_some() {
+                    self.land_thumbs(theme);
                 }
                 self.check();
             }
@@ -2433,6 +2492,14 @@ impl ApplicationHandler<AppEvent> for App {
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: AppEvent) {
         match event {
+            AppEvent::LandsDrawn(done) => {
+                if done {
+                    self.drawing_lands = false;
+                }
+                if let Some(w) = &mut self.settings_window {
+                    w.refresh_lands();
+                }
+            }
             AppEvent::Menu(e) => {
                 if let Some(action) = self.tray.as_ref().and_then(|t| t.action(e.id())) {
                     tracing::debug!(target: "clairlune", ?action, "menu");
@@ -2966,6 +3033,7 @@ fn main() {
         data_dir,
         jobs,
         proxy: app_proxy,
+        drawing_lands: false,
         update: update_state,
         checking_updates: None,
         install: install::detect(),

@@ -4,6 +4,7 @@
 //! while the app sits in the tray.
 
 pub mod archive_view;
+pub mod glass;
 pub mod library_view;
 pub mod style;
 pub mod timeline_view;
@@ -131,9 +132,9 @@ impl UiWindow {
         let (title, w, h, min) = match kind {
             Kind::Settings => (
                 format!("{APP_NAME} Settings: {}", section.name()),
-                900.0,
-                640.0,
-                (820.0, 560.0),
+                1000.0,
+                720.0,
+                (880.0, 640.0),
             ),
             Kind::Library => (format!("{APP_NAME} Library"), 980.0, 660.0, (820.0, 540.0)),
             Kind::Archive => (format!("{APP_NAME} Archive"), 980.0, 660.0, (820.0, 540.0)),
@@ -158,6 +159,11 @@ impl UiWindow {
                 Theme::Dark => winit::window::Theme::Dark,
             }))
             .with_visible(false);
+        let attrs = if kind == Kind::Settings {
+            glass_frame(attrs)
+        } else {
+            attrs
+        };
         let window = Arc::new(event_loop.create_window(attrs).map_err(|e| e.to_string())?);
         let ctx = egui::Context::default();
         ctx.set_fonts(style::fonts());
@@ -226,6 +232,10 @@ impl UiWindow {
                 moon: None,
                 toast: None,
                 page: Default::default(),
+                backdrop: None,
+                grain: None,
+                chrome: None,
+                lands: Default::default(),
             },
             theme,
             screenshot_to: None,
@@ -275,6 +285,25 @@ impl UiWindow {
             img,
             egui::TextureOptions::LINEAR,
         ));
+        self.window.request_redraw();
+    }
+
+    /// Lays the glass over this image of the wallpaper on screen (RGBA).
+    pub fn set_backdrop(&mut self, size: [usize; 2], rgba: &[u8]) {
+        self.view.backdrop = glass::Backdrop::new(self.state.egui_ctx(), size, rgba);
+        self.window.request_redraw();
+    }
+
+    /// Where Content's landscape tiles are drawn to.
+    pub fn set_land_dir(&mut self, dir: std::path::PathBuf) {
+        self.view.lands.dir = Some(dir);
+        self.view.lands.refresh();
+        self.window.request_redraw();
+    }
+
+    /// More landscape tiles have been drawn: show them.
+    pub fn refresh_lands(&mut self) {
+        self.view.lands.refresh();
         self.window.request_redraw();
     }
 
@@ -334,8 +363,11 @@ impl UiWindow {
                 }
             }
             WindowEvent::RedrawRequested => {
-                self.paint(model, actions);
-                return Outcome::Nothing;
+                return if self.paint(model, actions) {
+                    Outcome::Close
+                } else {
+                    Outcome::Nothing
+                };
             }
             _ => {}
         }
@@ -346,7 +378,8 @@ impl UiWindow {
         Outcome::Nothing
     }
 
-    fn paint(&mut self, model: &mut Model, actions: &mut Vec<UiAction>) {
+    /// Paints a frame; true when the window's own close button was pressed.
+    fn paint(&mut self, model: &mut Model, actions: &mut Vec<UiAction>) -> bool {
         let input = self.state.take_egui_input(&self.window);
         let ctx = self.state.egui_ctx().clone();
         if self.view.moon.is_none() {
@@ -386,6 +419,19 @@ impl UiWindow {
                 actions,
             ),
         });
+        // What the window's own frame asked for (Windows).
+        let mut close = false;
+        match self.view.chrome.take() {
+            Some(view::Chrome::Drag) => {
+                let _ = self.window.drag_window();
+            }
+            Some(view::Chrome::Resize(d)) => {
+                let _ = self.window.drag_resize_window(d);
+            }
+            Some(view::Chrome::Minimize) => self.window.set_minimized(true),
+            Some(view::Chrome::Close) => close = true,
+            None => {}
+        }
         if kind == Kind::Settings && self.view.section != shown {
             // The title names the page (macOS HIG; harmless elsewhere).
             self.window.set_title(&format!(
@@ -427,6 +473,34 @@ impl UiWindow {
         if again {
             self.window.request_redraw();
         }
+        close
+    }
+}
+
+/// Settings' window as glass: on Windows without the system's frame (the
+/// view draws its own buttons), keeping the shadow and the rounded corners;
+/// on macOS the title bar turns see-through over the glass, its buttons
+/// staying where they are.
+fn glass_frame(attrs: winit::window::WindowAttributes) -> winit::window::WindowAttributes {
+    #[cfg(windows)]
+    {
+        use winit::platform::windows::{CornerPreference, WindowAttributesExtWindows};
+        attrs
+            .with_decorations(false)
+            .with_undecorated_shadow(true)
+            .with_corner_preference(CornerPreference::Round)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use winit::platform::macos::WindowAttributesExtMacOS;
+        attrs
+            .with_titlebar_transparent(true)
+            .with_title_hidden(true)
+            .with_fullsize_content_view(true)
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        attrs
     }
 }
 
