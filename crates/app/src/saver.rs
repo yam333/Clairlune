@@ -134,6 +134,79 @@ pub fn select() -> bool {
         .is_ok_and(|s| s.success())
 }
 
+/// Starts the screen saver now (the one picked in System Settings). macOS
+/// locks behind it, and it plays until the display turns off; Apple menu >
+/// Lock Screen, by contrast, shows only a still picture for a wallpaper
+/// that isn't Apple's own, and no third-party saver runs once the screen is
+/// locked (mac-lock.yml checks both).
+pub fn start_now() {
+    let _ = std::process::Command::new("open")
+        .args(["-b", "com.apple.ScreenSaver.Engine"])
+        .status();
+}
+
+/// How soon after the screen saver starts macOS asks for the password
+/// (System Settings > Lock Screen).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PasswordAfter {
+    Immediately,
+    /// After this many seconds.
+    Seconds(u32),
+    /// Never: the screen saver doesn't lock at all.
+    Never,
+}
+
+/// What macOS has set, from `sysadminctl -screenLock status` (no admin
+/// rights needed to read it).
+pub fn password_after() -> Option<PasswordAfter> {
+    if !cfg!(target_os = "macos") {
+        return None;
+    }
+    let out = std::process::Command::new("sysadminctl")
+        .args(["-screenLock", "status"])
+        .output()
+        .ok()?;
+    // It writes to stderr, through NSLog.
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    parse_password_after(&text)
+}
+
+fn parse_password_after(text: &str) -> Option<PasswordAfter> {
+    let text = text.to_lowercase();
+    if text.contains("screenlock is off") {
+        return Some(PasswordAfter::Never);
+    }
+    let rest = text.split("screenlock delay is ").nth(1)?;
+    if rest.starts_with("immediate") {
+        return Some(PasswordAfter::Immediately);
+    }
+    let secs = rest.split_whitespace().next()?.parse().ok()?;
+    Some(if secs == 0 {
+        PasswordAfter::Immediately
+    } else {
+        PasswordAfter::Seconds(secs)
+    })
+}
+
+/// System Settings at Lock Screen (when to ask for the password, when the
+/// display turns off).
+pub fn open_lock_screen_settings() {
+    let _ = std::process::Command::new("open")
+        .arg("x-apple.systempreferences:com.apple.Lock-Screen-Settings.extension")
+        .status();
+}
+
+/// System Settings at Desktop & Dock, where Hot Corners are.
+pub fn open_hot_corners() {
+    let _ = std::process::Command::new("open")
+        .arg("x-apple.systempreferences:com.apple.Desktop-Settings.extension")
+        .status();
+}
+
 /// System Settings at Screen Saver, to pick Clairlune.
 pub fn open_settings() {
     let _ = std::process::Command::new("open")
@@ -158,6 +231,24 @@ fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_password_delay_is_read() {
+        let log = "2026-11-22 09:29:03.584 sysadminctl[5625:20478] ";
+        assert_eq!(
+            parse_password_after(&format!("{log}screenLock delay is 300 seconds")),
+            Some(PasswordAfter::Seconds(300))
+        );
+        assert_eq!(
+            parse_password_after(&format!("{log}screenLock delay is immediate")),
+            Some(PasswordAfter::Immediately)
+        );
+        assert_eq!(
+            parse_password_after(&format!("{log}screenLock is off")),
+            Some(PasswordAfter::Never)
+        );
+        assert_eq!(parse_password_after("something else"), None);
+    }
 
     #[test]
     fn the_major_version_is_read() {

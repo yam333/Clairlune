@@ -1065,6 +1065,7 @@ impl App {
             Action::OpenArchive => self.open_archive(event_loop),
             Action::OpenSettings => self.open_settings(event_loop, None),
             Action::OpenUpdate => self.install_update(),
+            Action::LockScreen => saver::start_now(),
             Action::Quit => event_loop.exit(),
         }
     }
@@ -1082,6 +1083,7 @@ impl App {
             .and_then(|exe| clairlune_platform::start_at_login(&exe));
         self.check_login_approval();
         self.status.saver_available = saver::shipped().is_some();
+        self.check_saver_password();
         self.status.ask_start_at_login = !self.settings.general.asked_start_at_login
             && self.status.start_at_login == Some(false)
             && self.ui_test.is_none();
@@ -1497,6 +1499,7 @@ impl App {
                 self.save_settings();
                 self.sync_tray();
                 self.sync_saver(true);
+                self.check_saver_password();
                 if let Some(t) = &self.tray {
                     t.show_theme(self.settings.theme.mode);
                     t.show_paused(self.settings.schedule.paused);
@@ -1610,6 +1613,9 @@ impl App {
             }
             UiAction::OpenSaverSettings => saver::open_settings(),
             UiAction::OpenLoginItems => clairlune_platform::open_login_items_settings(),
+            UiAction::LockScreen => saver::start_now(),
+            UiAction::OpenLockScreenSettings => saver::open_lock_screen_settings(),
+            UiAction::OpenHotCorners => saver::open_hot_corners(),
             UiAction::SetStartAtLogin(on) => {
                 let result = std::env::current_exe()
                     .map_err(|e| e.to_string())
@@ -1995,6 +2001,24 @@ impl App {
         }
     }
 
+    /// macOS: whether the screen saver locks at once, for Settings.
+    fn check_saver_password(&mut self) {
+        self.status.saver_password_after = if self.settings.general.screen_saver {
+            match saver::password_after() {
+                Some(saver::PasswordAfter::Seconds(s)) if s >= 60 => Some(format!(
+                    "{} minute{}",
+                    s / 60,
+                    if s / 60 == 1 { "" } else { "s" }
+                )),
+                Some(saver::PasswordAfter::Seconds(s)) => Some(format!("{s} seconds")),
+                Some(saver::PasswordAfter::Never) => Some("never".into()),
+                _ => None,
+            }
+        } else {
+            None
+        };
+    }
+
     /// macOS: whether start at login is switched off in Login Items.
     fn check_login_approval(&mut self) {
         self.status.login_needs_approval = cfg!(target_os = "macos")
@@ -2083,6 +2107,11 @@ impl App {
     fn sync_tray(&mut self) {
         self.sync_tray_inner();
         if let Some(t) = &self.tray {
+            t.show_lock(
+                cfg!(target_os = "macos")
+                    && self.settings.general.screen_saver
+                    && saver::shipped().is_some(),
+            );
             t.show_update(self.update.newer(), self.install.in_place());
         }
     }
