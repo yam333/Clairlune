@@ -157,6 +157,6 @@ With Clawd turned on, wallpapers contain fan art of Anthropic's character, so be
 
 Code: either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
 
-The bundled fonts, JetBrains Mono and IBM Plex Sans, are under the SIL Open Font License 1.1 ([JetBrains Mono](crates/render/assets/fonts/OFL.txt), [IBM Plex Sans](crates/app/assets/fonts/OFL.txt)).
+The bundled fonts, JetBrains Mono, IBM Plex Sans and Instrument Serif, are under the SIL Open Font License 1.1 ([JetBrains Mono](crates/render/assets/fonts/OFL.txt), [IBM Plex Sans](crates/app/assets/fonts/OFL.txt), [Instrument Serif](crates/app/assets/fonts/InstrumentSerif-OFL.txt)).
 
 Clawd artwork is fan art and is **not** covered by the code licence. See [NOTICE](NOTICE).

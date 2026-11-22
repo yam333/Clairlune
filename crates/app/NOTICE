@@ -28,3 +28,5 @@ Other original art (props such as the campfire, icons, UI)
 Fonts
   JetBrains Mono, Copyright 2020 The JetBrains Mono Project Authors,
   SIL Open Font License 1.1 (crates/render/assets/fonts/OFL.txt).
+  Instrument Serif, Copyright 2022 The Instrument Serif Project Authors,
+  SIL Open Font License 1.1 (crates/app/assets/fonts/InstrumentSerif-OFL.txt).

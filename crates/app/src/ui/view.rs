@@ -1,12 +1,63 @@
-//! The Settings window's content: a sidebar of sections (PLAN.md section 8),
-//! the current wallpaper as a status strip above every page, and rows of
-//! name, one-line description and control (docs/design.md sections 3-5).
+//! The Settings window's content (Moonglass, docs/design.md): a sidebar of
+//! sections on reeded glass with the wallpaper on screen at its foot, and
+//! pages on smoked glass: a serif title, then rows of name, one-line
+//! description and control.
 
-use super::style::{self, c, colors};
+use super::glass;
+use super::style::{self, alpha, c, colors};
 use crate::settings::{Settings, ThemeMode};
 use crate::tokens::{radius, size, space};
 use clairlune_scene::Theme;
-use egui::{Align, Align2, Layout, Rect, RichText, Sense, Stroke, Ui, vec2};
+use egui::{
+    Align, Align2, Color32, Layout, Painter, Pos2, Rect, RichText, Sense, Stroke, Ui, pos2, vec2,
+};
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+/// Windows: Settings draws its own frame (minimize and close at the top
+/// right, moved by its top edge, resized at its edges). macOS keeps its
+/// own, see-through, the buttons on the glass at the top left.
+pub const OWN_FRAME: bool = cfg!(windows);
+
+/// Room at the top for macOS's window buttons.
+const MAC_TOP: f32 = if cfg!(target_os = "macos") { 28.0 } else { 0.0 };
+
+/// What the window's own frame asks of the window this frame.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Chrome {
+    Drag,
+    Resize(winit::window::ResizeDirection),
+    Minimize,
+    Close,
+}
+
+/// Content's landscape tiles: small scenes the app draws once (see
+/// `land_thumbs` in main.rs) and loads here as they appear.
+#[derive(Default)]
+pub struct LandThumbs {
+    pub dir: Option<PathBuf>,
+    loaded: HashMap<String, Option<egui::TextureHandle>>,
+}
+
+impl LandThumbs {
+    fn get(&mut self, ctx: &egui::Context, id: &str) -> Option<&egui::TextureHandle> {
+        let dir = self.dir.as_ref()?;
+        self.loaded
+            .entry(id.to_string())
+            .or_insert_with(|| {
+                let bytes = std::fs::read(dir.join(format!("{id}.png"))).ok()?;
+                let (size, rgba) = super::decode_png_rgba(&bytes)?;
+                let img = egui::ColorImage::from_rgba_unmultiplied(size, &rgba);
+                Some(ctx.load_texture(format!("land-{id}"), img, egui::TextureOptions::LINEAR))
+            })
+            .as_ref()
+    }
+
+    /// Looks again for the ones still missing (more have been drawn).
+    pub fn refresh(&mut self) {
+        self.loaded.retain(|_, t| t.is_some());
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Section {
@@ -40,7 +91,7 @@ impl Section {
             Section::Theme => "Theme",
             Section::Display => "Display",
             Section::Live => "Live",
-            Section::Buddy => "Buddy",
+            Section::Buddy => "Clawd",
             Section::Content => "Content",
             Section::Archive => "Archive",
             Section::Export => "Export",
@@ -175,6 +226,12 @@ pub struct ViewState {
     /// A brief note over the page and when it appeared.
     pub toast: Option<(String, std::time::Instant)>,
     pub page: PageState,
+    /// The scene behind the glass, and the grain over it.
+    pub backdrop: Option<glass::Backdrop>,
+    pub grain: Option<egui::TextureHandle>,
+    /// What the window's own frame asks of the window (Windows).
+    pub chrome: Option<Chrome>,
+    pub lands: LandThumbs,
 }
 
 /// What a page remembers between frames.
@@ -390,40 +447,61 @@ pub fn show(
     actions: &mut Vec<UiAction>,
 ) {
     let t = colors(theme);
+    let screen = ui.max_rect();
+    let side = Rect::from_min_max(screen.min, pos2(screen.min.x + size::SIDEBAR, screen.max.y));
+    let pane = Rect::from_min_max(pos2(side.max.x, screen.min.y), screen.max);
+    if st.grain.is_none() {
+        st.grain = Some(glass::grain(ui.ctx()));
+    }
+    glass::paint(
+        &ui.ctx().layer_painter(egui::LayerId::background()),
+        t,
+        screen,
+        side,
+        pane,
+        st.backdrop.as_ref(),
+        st.grain.as_ref(),
+    );
     egui::Panel::left("sections")
         .exact_size(size::SIDEBAR)
         .resizable(false)
-        .frame(
-            egui::Frame::new()
-                .fill(c(t.bg_sidebar))
-                .inner_margin(egui::Margin::symmetric(space::S3 as i8, space::S4 as i8)),
-        )
-        .show(ui, |ui| sidebar(ui, theme, st));
+        .show_separator_line(false)
+        .frame(egui::Frame::new().inner_margin(egui::Margin {
+            left: 14,
+            right: 14,
+            top: (18.0 + MAC_TOP) as i8,
+            bottom: 14,
+        }))
+        .show(ui, |ui| sidebar(ui, theme, st, settings, status, actions));
+    let top = if OWN_FRAME { 40.0 } else { 28.0 + MAC_TOP };
     egui::CentralPanel::default()
-        .frame(
-            egui::Frame::new()
-                .fill(c(t.bg))
-                .inner_margin(egui::Margin::symmetric(space::S6 as i8, space::S5 as i8)),
-        )
+        .frame(egui::Frame::new().inner_margin(egui::Margin {
+            left: space::S6 as i8 + 4,
+            right: space::S6 as i8,
+            top: top as i8,
+            bottom: 0,
+        }))
         .show(ui, |ui| {
+            header(ui, theme, st.section, settings, status);
+            ui.add_space(space::S5);
             let mut area = egui::ScrollArea::vertical();
             if let Some(y) = st.page.scroll_to.take() {
                 area = area.vertical_scroll_offset(y);
             }
             area.show(ui, |ui| {
                 ui.set_max_width(size::PAGE_MAX);
-                status_strip(ui, theme, st, status, actions);
-                ui.add_space(space::S6);
                 let buddy = settings.buddy.show;
                 page(
                     ui,
                     theme,
                     st.section,
                     &mut st.page,
+                    &mut st.lands,
                     settings,
                     status,
                     actions,
                 );
+                ui.add_space(space::S6);
                 if let Some(text) = st.page.toast.take() {
                     st.toast = Some((text, std::time::Instant::now()));
                 }
@@ -437,6 +515,9 @@ pub fn show(
                 }
             });
         });
+    if OWN_FRAME {
+        own_frame(ui, theme, st, screen);
+    }
     toast(ui, theme, st);
     if status.ask_start_at_login {
         let before = settings.clone();
@@ -444,6 +525,90 @@ pub fn show(
         if *settings != before {
             actions.push(UiAction::SettingsChanged);
         }
+    }
+}
+
+/// Windows: the frame Settings draws itself. Minimize and close at the top
+/// right; the top edge moves the window; the edges resize it.
+fn own_frame(ui: &mut Ui, theme: Theme, st: &mut ViewState, screen: Rect) {
+    use winit::window::ResizeDirection as R;
+    let t = colors(theme);
+    let (bw, bh) = (46.0, 34.0);
+    let close = Rect::from_min_size(pos2(screen.max.x - bw, screen.min.y), vec2(bw, bh));
+    let minimize = close.translate(vec2(-bw, 0.0));
+    egui::Area::new(egui::Id::unique("own-frame"))
+        .order(egui::Order::Foreground)
+        .fixed_pos(minimize.min)
+        .show(ui.ctx(), |ui| {
+            for (rect, is_close) in [(minimize, false), (close, true)] {
+                let label = if is_close { "Close" } else { "Minimize" };
+                let resp = ui.interact(rect, ui.scope_id().with(label), Sense::click());
+                resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, label));
+                let p = ui.painter();
+                let ink = if resp.hovered() && is_close {
+                    p.rect_filled(
+                        rect,
+                        egui::CornerRadius {
+                            ne: 8,
+                            ..Default::default()
+                        },
+                        Color32::from_rgb(0xC4, 0x2B, 0x1C),
+                    );
+                    Color32::WHITE
+                } else {
+                    if resp.hovered() {
+                        p.rect_filled(rect, 0.0, alpha(t.glass.card, t.glass.chosen));
+                    }
+                    c(t.text)
+                };
+                let k = rect.center();
+                let stroke = Stroke::new(1.0, ink);
+                if is_close {
+                    p.line_segment([k + vec2(-5.0, -5.0), k + vec2(5.0, 5.0)], stroke);
+                    p.line_segment([k + vec2(5.0, -5.0), k + vec2(-5.0, 5.0)], stroke);
+                } else {
+                    p.line_segment([k + vec2(-5.0, 0.0), k + vec2(5.0, 0.0)], stroke);
+                }
+                if resp.clicked() {
+                    st.chrome = Some(if is_close {
+                        Chrome::Close
+                    } else {
+                        Chrome::Minimize
+                    });
+                }
+            }
+        });
+    let Some(at) = ui.ctx().pointer_hover_pos() else {
+        return;
+    };
+    let pressed = ui.ctx().input(|i| i.pointer.primary_pressed());
+    let edge = 6.0;
+    let (l, r) = (at.x - screen.min.x < edge, screen.max.x - at.x < edge);
+    let (tp, b) = (at.y - screen.min.y < edge, screen.max.y - at.y < edge);
+    let dir = match (l, r, tp, b) {
+        (true, _, true, _) => Some(R::NorthWest),
+        (_, true, true, _) => Some(R::NorthEast),
+        (true, _, _, true) => Some(R::SouthWest),
+        (_, true, _, true) => Some(R::SouthEast),
+        (true, ..) => Some(R::West),
+        (_, true, ..) => Some(R::East),
+        (_, _, true, _) => Some(R::North),
+        (_, _, _, true) => Some(R::South),
+        _ => None,
+    };
+    if let Some(d) = dir {
+        ui.ctx().set_cursor_icon(match d {
+            R::West | R::East => egui::CursorIcon::ResizeHorizontal,
+            R::North | R::South => egui::CursorIcon::ResizeVertical,
+            R::NorthWest | R::SouthEast => egui::CursorIcon::ResizeNwSe,
+            R::NorthEast | R::SouthWest => egui::CursorIcon::ResizeNeSw,
+        });
+        if pressed {
+            st.chrome = Some(Chrome::Resize(d));
+        }
+    } else if pressed && at.y - screen.min.y < 36.0 && !minimize.contains(at) && !close.contains(at)
+    {
+        st.chrome = Some(Chrome::Drag);
     }
 }
 
@@ -481,7 +646,7 @@ fn welcome(
         )
         .show(ui.ctx(), |ui| {
             ui.set_max_width(460.0);
-            ui.label(RichText::new("Welcome to Clairlune").font(style::section()));
+            ui.label(RichText::new("Welcome to Clairlune").font(style::title()));
             ui.add_space(space::S2);
             ui.label(
                 RichText::new(
@@ -579,7 +744,7 @@ fn toast(ui: &mut Ui, theme: Theme, st: &mut ViewState) {
     // Fade in quickly and out over the last half second.
     let a = age.as_secs_f32();
     let left = TOAST.as_secs_f32() - a;
-    let alpha = (a / 0.15).min(left / 0.5).clamp(0.0, 1.0);
+    let fade = (a / 0.15).min(left / 0.5).clamp(0.0, 1.0);
     let t = colors(theme);
     egui::Area::new(egui::Id::unique("toast"))
         .order(egui::Order::Foreground)
@@ -587,51 +752,97 @@ fn toast(ui: &mut Ui, theme: Theme, st: &mut ViewState) {
         .interactable(false)
         .show(ui.ctx(), |ui| {
             egui::Frame::new()
-                .fill(c(t.bg_raised).gamma_multiply(alpha))
+                .fill(c(t.bg_raised).gamma_multiply(fade))
                 .stroke(Stroke::new(
                     size::HAIRLINE,
-                    c(t.hairline).gamma_multiply(alpha),
+                    c(t.hairline).gamma_multiply(fade),
                 ))
                 .corner_radius(radius::PANEL)
                 .inner_margin(egui::Margin::symmetric(space::S4 as i8, space::S2 as i8))
                 .show(ui, |ui| {
-                    ui.label(RichText::new(text).color(c(t.text_secondary).gamma_multiply(alpha)));
+                    ui.label(RichText::new(text).color(c(t.text_secondary).gamma_multiply(fade)));
                 });
         });
     ui.ctx().request_repaint();
 }
 
-fn sidebar(ui: &mut Ui, theme: Theme, st: &mut ViewState) {
+fn sidebar(
+    ui: &mut Ui,
+    theme: Theme,
+    st: &mut ViewState,
+    settings: &Settings,
+    status: &Status,
+    actions: &mut Vec<UiAction>,
+) {
     let t = colors(theme);
-    ui.add_space(space::S2);
+    let g = &t.glass;
+    // The wordmark: Clair, and lune in italic.
+    ui.horizontal(|ui| {
+        ui.add_space(6.0);
+        let (mark, _) = ui.allocate_exact_size(vec2(20.0, 26.0), Sense::hover());
+        moon(
+            ui.painter(),
+            Rect::from_center_size(mark.center(), vec2(19.0, 19.0)),
+            c(t.text),
+        );
+        ui.add_space(4.0);
+        let mut job = egui::text::LayoutJob::default();
+        for (text, italic) in [("Clair", false), ("lune", true)] {
+            job.append(
+                text,
+                0.0,
+                egui::TextFormat {
+                    font_id: style::serif(crate::tokens::text::TITLE.size, italic),
+                    color: c(t.text),
+                    ..Default::default()
+                },
+            );
+        }
+        ui.label(job);
+    });
+    ui.add_space(space::S4 + 2.0);
     for s in Section::ALL {
         let selected = st.section == s;
-        let (rect, resp) = ui.allocate_exact_size(
-            vec2(ui.available_width(), size::CONTROL + 4.0),
-            Sense::click(),
-        );
+        let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 34.0), Sense::click());
         resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Tab, true, selected, s.name()));
-        if resp.hovered() && !selected {
-            ui.painter()
-                .rect_filled(rect, radius::CONTROL, c(t.bg).gamma_multiply(0.6));
-        }
+        let p = ui.painter();
         if selected {
-            ui.painter().rect_filled(rect, radius::CONTROL, c(t.bg));
-            let bar =
-                Rect::from_min_size(rect.min + vec2(0.0, 6.0), vec2(2.0, rect.height() - 12.0));
-            ui.painter().rect_filled(bar, 1.0, c(t.accent));
+            p.rect_filled(rect, radius::CONTROL, alpha(g.card, g.chosen));
+            p.hline(
+                rect.x_range().shrink(radius::CONTROL),
+                rect.min.y + 0.5,
+                Stroke::new(1.0, highlight(theme)),
+            );
+            p.circle_filled(
+                pos2(rect.max.x - 14.0, rect.center().y),
+                3.0,
+                c(t.accent_deep),
+            );
+        } else if resp.hovered() {
+            p.rect_filled(rect, radius::CONTROL, alpha(g.card, g.chosen * 0.5));
         }
-        let (font, color) = if selected {
-            (style::body_medium(), c(t.text))
+        let ink = if selected {
+            c(t.text)
         } else {
-            (style::body(), c(t.text_secondary))
+            c(t.text_secondary)
         };
-        ui.painter().text(
-            rect.left_center() + vec2(space::S3, 0.0),
+        icon(
+            p,
+            Icon::Section(s),
+            Rect::from_center_size(rect.left_center() + vec2(20.0, 0.0), vec2(16.0, 16.0)),
+            ink,
+        );
+        let font = if selected {
+            style::body_medium()
+        } else {
+            style::body()
+        };
+        p.text(
+            rect.left_center() + vec2(38.0, 0.0),
             Align2::LEFT_CENTER,
             s.name(),
             font,
-            color,
+            ink,
         );
         if resp.has_focus() {
             focus_ring(ui, theme, rect, radius::CONTROL);
@@ -639,127 +850,454 @@ fn sidebar(ui: &mut Ui, theme: Theme, st: &mut ViewState) {
         if resp.clicked() {
             st.section = s;
         }
+        ui.add_space(1.0);
     }
     ui.with_layout(Layout::bottom_up(Align::Min), |ui| {
-        ui.label(
-            RichText::new(format!("Clairlune {}", env!("CARGO_PKG_VERSION")))
-                .font(style::mono())
-                .color(c(t.text_secondary)),
-        );
+        now_showing(ui, theme, st, settings, status, actions);
     });
+}
+
+/// The wallpaper on screen at the sidebar's foot: a picture of it, what it
+/// is, live or still, when the next comes; and the actions people reach for
+/// most (in a bottom-up layout: the actions first).
+fn now_showing(
+    ui: &mut Ui,
+    theme: Theme,
+    st: &ViewState,
+    settings: &Settings,
+    status: &Status,
+    actions: &mut Vec<UiAction>,
+) {
+    let t = colors(theme);
+    let g = &t.glass;
+    let w = ui.available_width();
+    ui.allocate_ui_with_layout(
+        vec2(w, size::BUTTON_PRIMARY),
+        Layout::left_to_right(Align::Center),
+        |ui| {
+            ui.spacing_mut().item_spacing.x = 6.0;
+            ui.add_enabled_ui(!status.busy, |ui| {
+                let icon_w = size::BUTTON_PRIMARY;
+                if primary_button_wide(ui, theme, "New wallpaper", w - 2.0 * (icon_w + 6.0))
+                    .clicked()
+                {
+                    actions.push(UiAction::NewWallpaper);
+                }
+                if icon_button(ui, theme, Icon::Previous, "Previous wallpaper").clicked() {
+                    actions.push(UiAction::Previous);
+                }
+                if icon_button(ui, theme, Icon::Keep, "Save to library").clicked() {
+                    actions.push(UiAction::SaveToLibrary);
+                }
+            });
+        },
+    );
+    ui.add_space(space::S2);
+    let pad = 10.0;
+    let pic_h = 96.0;
+    let card_h = pad + pic_h + 8.0 + 20.0 + 32.0 + pad;
+    let (rect, _) = ui.allocate_exact_size(vec2(w, card_h), Sense::hover());
+    let p = ui.painter();
+    p.rect_filled(rect, radius::PANEL, alpha(g.card, g.card_alpha * 1.3));
+    p.hline(
+        rect.x_range().shrink(radius::PANEL),
+        rect.min.y + 0.5,
+        Stroke::new(1.0, highlight(theme)),
+    );
+    let pic = Rect::from_min_size(rect.min + vec2(pad, pad), vec2(w - 2.0 * pad, pic_h));
+    match &st.thumb {
+        Some(tex) => {
+            let tint = if status.busy {
+                Color32::from_white_alpha(150)
+            } else {
+                Color32::WHITE
+            };
+            egui::Image::new(tex)
+                .uv(cover_uv(tex.size_vec2(), pic.size()))
+                .corner_radius(8)
+                .tint(tint)
+                .paint_at(ui, pic);
+        }
+        None => {
+            p.rect_filled(pic, 8.0, alpha(g.card, g.card_alpha * 2.0));
+            moon(
+                p,
+                Rect::from_center_size(pic.center(), vec2(30.0, 30.0)),
+                c(t.text_secondary),
+            );
+        }
+    }
+    let what = if status.busy {
+        "Making a new wallpaper".to_string()
+    } else if status.what.is_empty() {
+        "No wallpaper yet".to_string()
+    } else {
+        capitalise(&status.what)
+    };
+    let live = settings.display.mode == crate::settings::WallpaperMode::Live;
+    let (tag, tag_ink) = if live {
+        ("LIVE", c(t.accent_text))
+    } else {
+        ("STILL", c(t.text_secondary))
+    };
+    let tag_g = p.layout_no_wrap(tag.into(), style::label(), tag_ink);
+    let y = pic.max.y + 8.0;
+    // Room for the tag and, when live, its dot.
+    let title_w = pic.width() - tag_g.size().x - if live { 24.0 } else { 12.0 };
+    let title = p.layout_job(one_line(&what, style::body_medium(), c(t.text), title_w));
+    p.galley(pos2(pic.min.x + 2.0, y), title, c(t.text));
+    let tag_x = pic.max.x - tag_g.size().x - 2.0;
+    if live {
+        p.circle_filled(pos2(tag_x - 7.0, y + 9.0), 3.0, c(t.accent_text));
+    }
+    p.galley(pos2(tag_x, y + 3.0), tag_g, tag_ink);
+    let mut facts = Vec::new();
+    if let Some(th) = status.theme {
+        facts.push(th.as_str().to_string());
+    }
+    if let Some(s) = status.seed {
+        facts.push(format!("seed {s}"));
+    }
+    let next = match status.next_in_minutes {
+        None if status.timeline_next.is_some() => status
+            .timeline_next
+            .clone()
+            .unwrap_or_default()
+            .to_lowercase(),
+        Some(0) => "next one in under a minute".to_string(),
+        Some(1) => "next one in 1 min".to_string(),
+        Some(m) if m < 120 => format!("next one in {m} min"),
+        Some(m) => format!("next one in {} h", m / 60),
+        None => "changes when you ask".to_string(),
+    };
+    for (i, line) in [facts.join(" · "), next].into_iter().enumerate() {
+        let gal = p.layout_job(one_line(
+            &line,
+            style::mono(),
+            c(t.text_secondary),
+            pic.width(),
+        ));
+        p.galley(
+            pos2(pic.min.x + 2.0, y + 22.0 + 15.0 * i as f32),
+            gal,
+            c(t.text_secondary),
+        );
+    }
+    if let Some(note) = &status.note {
+        ui.add_space(space::S2);
+        ui.label(RichText::new(note).small().color(c(t.text_secondary)));
+    }
+}
+
+/// One line of text, cut short with an ellipsis where it doesn't fit.
+fn one_line(text: &str, font: egui::FontId, color: Color32, width: f32) -> egui::text::LayoutJob {
+    let mut job = egui::text::LayoutJob::simple(text.to_string(), font, color, width);
+    job.wrap.max_rows = 1;
+    job.wrap.break_anywhere = true;
+    job
+}
+
+/// The part of an image of `tex` size that covers a box of `target` size,
+/// centred.
+fn cover_uv(tex: egui::Vec2, target: egui::Vec2) -> Rect {
+    let (ta, ba) = (tex.x / tex.y.max(1.0), target.x / target.y.max(1.0));
+    if ta > ba {
+        let w = ba / ta;
+        Rect::from_min_max(pos2(0.5 - w / 2.0, 0.0), pos2(0.5 + w / 2.0, 1.0))
+    } else {
+        let h = ta / ba;
+        Rect::from_min_max(pos2(0.0, 0.5 - h / 2.0), pos2(1.0, 0.5 + h / 2.0))
+    }
+}
+
+/// The light along a glass card's top edge.
+fn highlight(theme: Theme) -> Color32 {
+    match theme {
+        Theme::Dark => Color32::from_white_alpha(38),
+        Theme::Light => Color32::from_white_alpha(220),
+    }
+}
+
+/// The page's title (the serif) and a line of what it's set to.
+fn header(ui: &mut Ui, theme: Theme, section: Section, s: &Settings, status: &Status) {
+    let t = colors(theme);
+    ui.label(
+        RichText::new(section.name())
+            .font(style::display())
+            .color(c(t.text)),
+    );
+    ui.add_space(2.0);
+    ui.label(
+        RichText::new(summary(section, s, status))
+            .font(style::mono())
+            .color(c(t.text_secondary)),
+    );
+}
+
+/// What a page is set to, in a few words, under its title.
+fn summary(section: Section, s: &Settings, status: &Status) -> String {
+    use crate::settings::{RotationMode, WallpaperMode};
+    match section {
+        Section::Rotation if s.rotation.mode == RotationMode::Timeline => {
+            "following the timeline".into()
+        }
+        Section::Rotation if s.schedule.paused => "paused".into(),
+        Section::Rotation => {
+            let every = INTERVALS
+                .iter()
+                .find(|(m, _)| *m == s.schedule.change_every_minutes)
+                .map_or_else(
+                    || format!("{} minutes", s.schedule.change_every_minutes),
+                    |(_, l)| (*l).to_string(),
+                );
+            format!("a new scene every {every}")
+        }
+        Section::Theme => match s.theme.mode {
+            ThemeMode::FollowSystem => "like the system".into(),
+            ThemeMode::Light => "always light".into(),
+            ThemeMode::Dark => "always dark".into(),
+            ThemeMode::Schedule => "on a schedule".into(),
+        },
+        Section::Display => {
+            let n = status.monitors.len().max(1);
+            let mode = match s.display.mode {
+                WallpaperMode::Live => "live",
+                WallpaperMode::Still => "still",
+            };
+            format!("{n} monitor{} · {mode}", if n == 1 { "" } else { "s" })
+        }
+        Section::Live => format!("{} frames a second", s.live.smoothness_fps),
+        Section::Buddy if s.buddy.show => "in every wallpaper".into(),
+        Section::Buddy => "taking a break".into(),
+        Section::Content => format!(
+            "{} landscapes · {} activities · {} kinds of weather",
+            LANDSCAPES.len(),
+            ACTIVITIES.len(),
+            WEATHER.len()
+        ),
+        Section::Archive => format!("kept for {} days", s.archive.keep_days),
+        Section::Export => "PNGs and GIFs".into(),
+        Section::General => format!("Clairlune {}", env!("CARGO_PKG_VERSION")),
+    }
+}
+
+/// The small drawn icons.
+#[derive(Clone, Copy)]
+enum Icon {
+    Section(Section),
+    Previous,
+    Keep,
+}
+
+/// Draws an icon in `r` (laid out on a 16 x 16 grid), in strokes.
+fn icon(p: &Painter, icon: Icon, r: Rect, ink: Color32) {
+    let k = r.width() / 16.0;
+    let at = |x: f32, y: f32| pos2(r.min.x + x * k, r.min.y + y * k);
+    let st = Stroke::new(1.4 * k, ink);
+    let line = |pts: &[(f32, f32)]| {
+        p.add(egui::Shape::line(
+            pts.iter().map(|&(x, y)| at(x, y)).collect(),
+            st,
+        ));
+    };
+    let closed = |pts: &[(f32, f32)]| {
+        p.add(egui::Shape::closed_line(
+            pts.iter().map(|&(x, y)| at(x, y)).collect(),
+            st,
+        ));
+    };
+    let arc = |cx: f32, cy: f32, rad: f32, a0: f32, a1: f32| -> Vec<Pos2> {
+        (0..=12)
+            .map(|i| {
+                let a = (a0 + (a1 - a0) * i as f32 / 12.0).to_radians();
+                at(cx + rad * a.cos(), cy + rad * a.sin())
+            })
+            .collect()
+    };
+    match icon {
+        Icon::Section(Section::Rotation) => {
+            p.add(egui::Shape::line(arc(8.0, 8.0, 5.3, 200.0, 330.0), st));
+            line(&[(10.6, 2.9), (12.6, 5.4), (9.6, 5.9)]);
+            p.add(egui::Shape::line(arc(8.0, 8.0, 5.3, 20.0, 150.0), st));
+            line(&[(5.4, 13.1), (3.4, 10.6), (6.4, 10.1)]);
+        }
+        Icon::Section(Section::Theme) => {
+            p.circle_stroke(at(8.0, 8.0), 5.6 * k, st);
+            let mut half = arc(8.0, 8.0, 5.6, -90.0, 90.0);
+            half.push(at(8.0, 13.6));
+            p.add(egui::Shape::convex_polygon(half, ink, Stroke::NONE));
+        }
+        Icon::Section(Section::Display) => {
+            p.rect_stroke(
+                Rect::from_min_max(at(1.8, 2.8), at(14.2, 11.2)),
+                1.6 * k,
+                st,
+                egui::StrokeKind::Middle,
+            );
+            line(&[(5.8, 14.0), (10.2, 14.0)]);
+            line(&[(8.0, 11.2), (8.0, 14.0)]);
+        }
+        Icon::Section(Section::Live) => {
+            line(&[
+                (1.5, 8.5),
+                (4.3, 8.5),
+                (5.9, 4.3),
+                (8.9, 12.5),
+                (10.6, 8.5),
+                (14.5, 8.5),
+            ]);
+        }
+        Icon::Section(Section::Buddy) => {
+            p.rect_stroke(
+                Rect::from_min_max(at(3.0, 3.5), at(13.0, 10.5)),
+                0.8 * k,
+                st,
+                egui::StrokeKind::Middle,
+            );
+            for x in [4.6, 6.8, 9.2, 11.4] {
+                line(&[(x, 10.5), (x, 13.1)]);
+            }
+            line(&[(1.4, 6.8), (3.0, 6.8)]);
+            line(&[(13.0, 6.8), (14.6, 6.8)]);
+            line(&[(6.0, 6.2), (6.0, 7.4)]);
+            line(&[(10.0, 6.2), (10.0, 7.4)]);
+        }
+        Icon::Section(Section::Content) => {
+            closed(&[
+                (1.2, 13.2),
+                (5.6, 6.6),
+                (8.7, 10.8),
+                (10.7, 8.2),
+                (14.8, 13.2),
+            ]);
+            p.circle_stroke(at(11.6, 4.2), 1.5 * k, st);
+        }
+        Icon::Section(Section::Archive) => {
+            p.rect_stroke(
+                Rect::from_min_max(at(1.8, 2.6), at(14.2, 5.8)),
+                1.0 * k,
+                st,
+                egui::StrokeKind::Middle,
+            );
+            line(&[(3.0, 5.8), (3.0, 13.2), (13.0, 13.2), (13.0, 5.8)]);
+            line(&[(6.4, 8.8), (9.6, 8.8)]);
+        }
+        Icon::Section(Section::Export) => {
+            line(&[(8.0, 1.8), (8.0, 10.2)]);
+            line(&[(4.8, 5.0), (8.0, 1.8), (11.2, 5.0)]);
+            line(&[(2.6, 10.2), (2.6, 13.8), (13.4, 13.8), (13.4, 10.2)]);
+        }
+        Icon::Section(Section::General) => {
+            line(&[(2.4, 4.0), (8.6, 4.0)]);
+            line(&[(12.4, 4.0), (13.6, 4.0)]);
+            line(&[(2.4, 8.0), (3.8, 8.0)]);
+            line(&[(7.4, 8.0), (13.6, 8.0)]);
+            line(&[(2.4, 12.0), (9.6, 12.0)]);
+            for (x, y) in [(10.5, 4.0), (5.6, 8.0), (11.4, 12.0)] {
+                p.circle_stroke(at(x, y), 1.6 * k, st);
+            }
+        }
+        Icon::Previous => {
+            line(&[(5.5, 3.5), (2.5, 6.5), (5.5, 9.5)]);
+            let mut back = vec![at(2.5, 6.5), at(9.5, 6.5)];
+            back.extend(arc(9.5, 10.5, 4.0, -90.0, 90.0));
+            back.push(at(7.0, 14.5));
+            p.add(egui::Shape::line(back, st));
+        }
+        Icon::Keep => closed(&[
+            (4.0, 2.5),
+            (12.0, 2.5),
+            (12.0, 13.5),
+            (8.0, 10.8),
+            (4.0, 13.5),
+        ]),
+    }
+}
+
+/// The crescent moon, filled.
+fn moon(p: &Painter, r: Rect, ink: Color32) {
+    // A disc with a second, offset disc taken out: drawn as the lit part's
+    // outline, a full arc and the shadow's inner arc.
+    let c0 = r.center();
+    let rad = r.width() / 2.0;
+    let inner = c0 + vec2(rad * 0.42, -rad * 0.38);
+    let inner_r = rad * 0.86;
+    let mut pts = Vec::new();
+    for i in 0..=48 {
+        let a = std::f32::consts::TAU * i as f32 / 48.0;
+        let q = c0 + vec2(a.cos(), a.sin()) * rad;
+        if (q - inner).length() > inner_r {
+            pts.push(q);
+        }
+    }
+    // Close the crescent along the shadow's edge.
+    let start = pts.first().copied();
+    let end = pts.last().copied();
+    if let (Some(a), Some(b)) = (start, end) {
+        let (aa, ab) = ((a - inner).angle(), (b - inner).angle());
+        let mut sweep = aa - ab;
+        if sweep < 0.0 {
+            sweep += std::f32::consts::TAU;
+        }
+        for i in 1..24 {
+            let ang = ab + sweep * i as f32 / 24.0;
+            pts.push(inner + vec2(ang.cos(), ang.sin()) * inner_r);
+        }
+    }
+    if pts.len() > 2 {
+        p.add(egui::Shape::Path(egui::epaint::PathShape {
+            points: pts,
+            closed: true,
+            fill: ink,
+            stroke: egui::epaint::PathStroke::NONE,
+        }));
+    }
+}
+
+/// A square button with a drawn icon.
+fn icon_button(ui: &mut Ui, theme: Theme, which: Icon, label: &str) -> egui::Response {
+    let t = colors(theme);
+    let side = size::BUTTON_PRIMARY;
+    let (rect, resp) = ui.allocate_exact_size(vec2(side, side), Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), label));
+    let g = &t.glass;
+    let fill = if resp.hovered() {
+        g.card_alpha * 3.0
+    } else {
+        g.card_alpha * 1.8
+    };
+    let p = ui.painter();
+    p.rect_filled(rect, radius::CONTROL, alpha(g.card, fill));
+    p.rect_stroke(
+        rect,
+        radius::CONTROL,
+        Stroke::new(1.0, alpha(t.border_control, 0.45)),
+        egui::StrokeKind::Inside,
+    );
+    let ink = if ui.is_enabled() {
+        c(t.text)
+    } else {
+        c(t.text_disabled)
+    };
+    icon(
+        p,
+        which,
+        Rect::from_center_size(rect.center(), vec2(16.0, 16.0)),
+        ink,
+    );
+    if resp.has_focus() {
+        focus_ring(ui, theme, rect, radius::CONTROL);
+    }
+    resp.on_hover_text(label)
 }
 
 pub(super) fn focus_ring(ui: &Ui, theme: Theme, rect: Rect, r: f32) {
     ui.painter().rect_stroke(
         rect.expand(size::FOCUS_OFFSET),
         r + size::FOCUS_OFFSET,
-        Stroke::new(size::FOCUS_RING, c(colors(theme).accent)),
+        Stroke::new(size::FOCUS_RING, c(colors(theme).accent_text)),
         egui::StrokeKind::Outside,
     );
-}
-
-/// The wallpaper on screen, its seed and theme, the next change, and the two
-/// actions people reach for most. With no wallpaper yet: the moon mark.
-fn status_strip(
-    ui: &mut Ui,
-    theme: Theme,
-    st: &ViewState,
-    status: &Status,
-    actions: &mut Vec<UiAction>,
-) {
-    let t = colors(theme);
-    ui.horizontal_top(|ui| {
-        let w = 256.0;
-        let h = w * 9.0 / 16.0;
-        let (rect, _) = ui.allocate_exact_size(vec2(w, h), Sense::hover());
-        match &st.thumb {
-            Some(tex) => {
-                let tint = if status.busy {
-                    egui::Color32::from_white_alpha(150)
-                } else {
-                    egui::Color32::WHITE
-                };
-                egui::Image::new(tex)
-                    .corner_radius(radius::PANEL)
-                    .tint(tint)
-                    .paint_at(ui, rect);
-            }
-            None => {
-                ui.painter()
-                    .rect_filled(rect, radius::PANEL, c(t.bg_raised));
-                if let Some(moon) = &st.moon {
-                    let m = Rect::from_center_size(rect.center(), vec2(48.0, 48.0));
-                    // Ivory reads on warm black; on paper it needs ink.
-                    let tint = match theme {
-                        Theme::Dark => egui::Color32::WHITE,
-                        Theme::Light => c(t.text_secondary),
-                    };
-                    egui::Image::new(moon).tint(tint).paint_at(ui, m);
-                }
-            }
-        }
-        ui.painter().rect_stroke(
-            rect,
-            radius::PANEL,
-            Stroke::new(size::HAIRLINE, c(t.hairline)),
-            egui::StrokeKind::Inside,
-        );
-        ui.add_space(space::S5);
-        ui.vertical(|ui| {
-            let what = if status.busy {
-                "Making a new wallpaper".to_string()
-            } else if status.what.is_empty() {
-                "No wallpaper yet".to_string()
-            } else {
-                capitalise(&status.what)
-            };
-            ui.label(RichText::new(what).font(style::body_strong()));
-            let mut facts = Vec::new();
-            if let Some(s) = status.seed {
-                facts.push(format!("seed {s}"));
-            }
-            if let Some(th) = status.theme {
-                facts.push(th.as_str().to_string());
-            }
-            if !facts.is_empty() {
-                ui.label(
-                    RichText::new(facts.join("  "))
-                        .font(style::mono())
-                        .color(c(t.text_secondary)),
-                );
-            }
-            let next = match status.next_in_minutes {
-                // Timeline mode: the slots decide.
-                None if status.timeline_next.is_some() => {
-                    status.timeline_next.clone().unwrap_or_default()
-                }
-                Some(0) => "Next change in under a minute".to_string(),
-                Some(1) => "Next change in 1 minute".to_string(),
-                Some(m) if m < 120 => format!("Next change in {m} minutes"),
-                Some(m) => format!("Next change in {} hours", m / 60),
-                None => "Changes only on demand".to_string(),
-            };
-            ui.label(RichText::new(next).color(c(t.text_secondary)));
-            ui.add_space(space::S3);
-            ui.horizontal_wrapped(|ui| {
-                ui.add_enabled_ui(!status.busy, |ui| {
-                    if primary_button(ui, theme, "New wallpaper").clicked() {
-                        actions.push(UiAction::NewWallpaper);
-                    }
-                    if ui.button("Previous").clicked() {
-                        actions.push(UiAction::Previous);
-                    }
-                    if ui.button("Save to library").clicked() {
-                        actions.push(UiAction::SaveToLibrary);
-                    }
-                });
-            });
-            if let Some(note) = &status.note {
-                ui.add_space(space::S1);
-                ui.label(RichText::new(note).color(c(t.text_secondary)));
-            }
-        });
-    });
 }
 
 fn capitalise(s: &str) -> String {
@@ -771,26 +1309,50 @@ fn capitalise(s: &str) -> String {
 }
 
 pub(super) fn primary_button(ui: &mut Ui, theme: Theme, label: &str) -> egui::Response {
-    let t = colors(theme);
-    ui.add(
-        egui::Button::new(
-            RichText::new(label)
-                .color(c(t.on_accent))
-                .font(style::body_medium()),
-        )
-        .fill(c(t.accent))
-        .stroke(Stroke::NONE)
-        .min_size(vec2(0.0, size::BUTTON_PRIMARY)),
-    )
+    primary_button_wide(ui, theme, label, 0.0)
 }
 
-/// A section heading with a hairline under it.
-pub(super) fn heading(ui: &mut Ui, theme: Theme, title: &str) {
+/// The primary action: ember glass, at least `min_width` wide.
+fn primary_button_wide(ui: &mut Ui, theme: Theme, label: &str, min_width: f32) -> egui::Response {
     let t = colors(theme);
-    ui.label(RichText::new(title).font(style::title()));
-    ui.add_space(space::S2);
-    hairline(ui, t.hairline);
-    ui.add_space(space::S3);
+    let galley =
+        ui.painter()
+            .layout_no_wrap(label.to_string(), style::body_strong(), c(t.on_accent));
+    let w = (galley.size().x + 2.0 * space::S4).max(min_width);
+    let (rect, resp) = ui.allocate_exact_size(vec2(w, size::BUTTON_PRIMARY), Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), label));
+    let enabled = ui.is_enabled();
+    let fade = |col: Color32| {
+        if enabled {
+            col
+        } else {
+            col.gamma_multiply(0.45)
+        }
+    };
+    let p = ui.painter();
+    let fill = if resp.hovered() && enabled {
+        t.accent_deep
+    } else {
+        t.accent
+    };
+    p.rect_filled(rect, radius::CONTROL, fade(c(fill)));
+    // Glass: light along the top edge, the deeper ember along the bottom.
+    p.hline(
+        rect.x_range().shrink(radius::CONTROL),
+        rect.min.y + 0.5,
+        Stroke::new(1.0, fade(Color32::from_white_alpha(90))),
+    );
+    p.hline(
+        rect.x_range().shrink(radius::CONTROL),
+        rect.max.y - 0.5,
+        Stroke::new(1.0, fade(c(t.accent_deep))),
+    );
+    let pos = rect.center() - galley.size() / 2.0;
+    p.galley(pos, galley, c(t.on_accent));
+    if resp.has_focus() {
+        focus_ring(ui, theme, rect, radius::CONTROL);
+    }
+    resp.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
 pub(super) fn hairline(ui: &mut Ui, color: crate::tokens::Rgb) {
@@ -798,11 +1360,16 @@ pub(super) fn hairline(ui: &mut Ui, color: crate::tokens::Rgb) {
     ui.painter().rect_filled(rect, 0.0, c(color));
 }
 
-/// A group label inside a page.
 pub(super) fn group(ui: &mut Ui, title: &str) {
+    ui.add_space(space::S3);
+    let ink = ui.visuals().widgets.noninteractive.fg_stroke.color;
+    ui.label(
+        RichText::new(title.to_uppercase())
+            .font(style::label())
+            .extra_letter_spacing(style::LABEL_SPACING)
+            .color(ink),
+    );
     ui.add_space(space::S2);
-    ui.label(RichText::new(title).font(style::section()));
-    ui.add_space(space::S1);
 }
 
 /// One setting: name and control on the first line, description under it.
@@ -916,7 +1483,7 @@ fn settled_text(
 fn row(ui: &mut Ui, theme: Theme, name: &str, description: &str, control: impl FnOnce(&mut Ui)) {
     let t = colors(theme);
     ui.horizontal(|ui| {
-        ui.label(RichText::new(name).font(style::body_strong()));
+        ui.label(RichText::new(name).font(style::body_medium()));
         ui.with_layout(Layout::right_to_left(Align::Center), control);
     });
     // A setting that says it all in its name has no line under it.
@@ -926,10 +1493,9 @@ fn row(ui: &mut Ui, theme: Theme, name: &str, description: &str, control: impl F
     ui.add_space(space::S4);
 }
 
-/// An on/off switch: 36 x 20, the accent when on.
 fn toggle(ui: &mut Ui, theme: Theme, on: &mut bool, label: &str) -> egui::Response {
     let t = colors(theme);
-    let (rect, mut resp) = ui.allocate_exact_size(vec2(36.0, 20.0), Sense::click());
+    let (rect, mut resp) = ui.allocate_exact_size(vec2(40.0, 24.0), Sense::click());
     if resp.clicked() {
         *on = !*on;
         resp.mark_changed();
@@ -937,41 +1503,39 @@ fn toggle(ui: &mut Ui, theme: Theme, on: &mut bool, label: &str) -> egui::Respon
     resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, true, *on, label));
     let k = ui.ctx().animate_bool_responsive(resp.id, *on);
     let enabled = ui.is_enabled();
-    let (fill, stroke) = if *on {
-        (c(t.accent), c(t.accent))
-    } else {
-        (c(t.bg_raised), c(t.border_control))
-    };
-    let fade = |col: egui::Color32| {
+    let fade = |col: Color32| {
         if enabled {
             col
         } else {
             col.gamma_multiply(0.4)
         }
     };
-    ui.painter().rect(
-        rect,
-        10.0,
-        fade(fill),
-        Stroke::new(1.0, fade(stroke)),
-        egui::StrokeKind::Inside,
+    let p = ui.painter();
+    let off_fill = alpha(t.border_control, 0.28);
+    let track = if *on { c(t.accent_deep) } else { off_fill };
+    p.rect_filled(rect, 12.0, fade(track));
+    if !*on {
+        p.rect_stroke(
+            rect,
+            12.0,
+            Stroke::new(1.0, fade(alpha(t.border_control, 0.9))),
+            egui::StrokeKind::Inside,
+        );
+    }
+    let x = egui::lerp(rect.left() + 12.0..=rect.right() - 12.0, k);
+    let at = pos2(x, rect.center().y);
+    p.circle_filled(
+        at + vec2(0.0, 1.0),
+        9.0,
+        fade(Color32::from_black_alpha(50)),
     );
-    let x = egui::lerp(rect.left() + 10.0..=rect.right() - 10.0, k);
-    let knob = if *on {
-        c(t.on_accent)
-    } else {
-        c(t.border_control)
-    };
-    ui.painter()
-        .circle_filled(egui::pos2(x, rect.center().y), 7.0, fade(knob));
+    p.circle_filled(at, 9.0, fade(Color32::WHITE));
     if resp.has_focus() {
-        focus_ring(ui, theme, rect, 10.0);
+        focus_ring(ui, theme, rect, 12.0);
     }
     resp
 }
 
-/// A row of mutually exclusive choices; the chosen one is filled. Options
-/// marked `false` are shown but can't be chosen.
 pub(super) fn segmented<T: PartialEq + Copy>(
     ui: &mut Ui,
     theme: Theme,
@@ -979,30 +1543,72 @@ pub(super) fn segmented<T: PartialEq + Copy>(
     options: &[(T, &str, bool)],
 ) -> bool {
     let t = colors(theme);
-    let mut changed = false;
-    ui.spacing_mut().item_spacing.x = space::S1;
-    // Right-to-left rows (controls on the right of a setting) add from the
-    // right, so the options go in reversed to read left to right.
-    let ordered: Vec<_> = if ui.layout().prefer_right_to_left() {
-        options.iter().rev().collect()
-    } else {
-        options.iter().collect()
+    let g = &t.glass;
+    let pad = space::S3;
+    let galleys: Vec<_> = options
+        .iter()
+        .map(|(v, label, enabled)| {
+            let ink = if *value == *v {
+                t.text
+            } else if *enabled {
+                t.text_secondary
+            } else {
+                t.text_disabled
+            };
+            ui.painter()
+                .layout_no_wrap((*label).to_string(), style::body(), c(ink))
+        })
+        .collect();
+    let inner: f32 = galleys.iter().map(|g| g.size().x + 2.0 * pad).sum();
+    let (track, _) = ui.allocate_exact_size(vec2(inner + 6.0, size::CONTROL + 2.0), Sense::hover());
+    let groove = match theme {
+        Theme::Dark => Color32::from_black_alpha(80),
+        Theme::Light => alpha(t.text, 0.06),
     };
-    for (v, label, enabled) in ordered {
+    ui.painter()
+        .rect_filled(track, radius::CONTROL + 1.0, groove);
+    ui.painter().rect_stroke(
+        track,
+        radius::CONTROL + 1.0,
+        Stroke::new(1.0, alpha(t.border_control, 0.35)),
+        egui::StrokeKind::Inside,
+    );
+    let mut changed = false;
+    let mut x = track.min.x + 3.0;
+    for (i, ((v, label, enabled), galley)) in options.iter().zip(galleys).enumerate() {
+        let w = galley.size().x + 2.0 * pad;
+        let seg = Rect::from_min_size(pos2(x, track.min.y + 3.0), vec2(w, track.height() - 6.0));
+        x += w;
         let on = *value == *v;
-        let color = if on {
-            t.on_accent
-        } else if *enabled {
-            t.text
+        let sense = if *enabled {
+            Sense::click()
         } else {
-            t.text_disabled
+            Sense::hover()
         };
-        let text = RichText::new(*label).color(c(color));
-        let mut b = egui::Button::new(text).min_size(vec2(0.0, size::CONTROL));
+        let resp = ui.interact(seg, ui.scope_id().with(("segment", i, *label)), sense);
+        resp.widget_info(|| {
+            egui::WidgetInfo::selected(egui::Role::RadioButton, *enabled, on, *label)
+        });
+        let p = ui.painter();
         if on {
-            b = b.fill(c(t.accent)).stroke(Stroke::NONE);
+            let bead = match theme {
+                Theme::Dark => alpha(g.card, g.chosen * 1.2),
+                Theme::Light => Color32::from_white_alpha(235),
+            };
+            p.rect_filled(seg, radius::CONTROL - 2.0, bead);
+            p.hline(
+                seg.x_range().shrink(radius::CONTROL - 2.0),
+                seg.min.y + 0.5,
+                Stroke::new(1.0, highlight(theme)),
+            );
+        } else if resp.hovered() && *enabled {
+            p.rect_filled(seg, radius::CONTROL - 2.0, alpha(g.card, g.chosen * 0.6));
         }
-        if ui.add_enabled(*enabled, b).clicked() && !on {
+        p.galley(seg.center() - galley.size() / 2.0, galley, c(t.text));
+        if resp.has_focus() {
+            focus_ring(ui, theme, seg, radius::CONTROL - 2.0);
+        }
+        if resp.clicked() && !on && *enabled {
             *value = *v;
             changed = true;
         }
@@ -1010,10 +1616,19 @@ pub(super) fn segmented<T: PartialEq + Copy>(
     changed
 }
 
-/// A filter list where empty means "all", as a row of chips: a filled
-/// pill when on, a quiet outline when off, what limits each in its
-/// tooltip. At least one stays on; "All" turns every one back on.
 pub(super) fn filter_checks(ui: &mut Ui, list: &mut Vec<String>, items: &[Item], always: &[&str]) {
+    filter_chips(ui, list, items, always, |_| None);
+}
+
+/// [`filter_checks`] with a glyph before each chip's name where `glyph`
+/// gives one (weather: what the scene draws for it).
+fn filter_chips(
+    ui: &mut Ui,
+    list: &mut Vec<String>,
+    items: &[Item],
+    always: &[&str],
+    glyph: fn(&str) -> Option<&'static str>,
+) {
     let all: Vec<String> = items.iter().map(|(id, _, _)| id.to_string()).collect();
     let mut on: Vec<bool> = items
         .iter()
@@ -1022,9 +1637,9 @@ pub(super) fn filter_checks(ui: &mut Ui, list: &mut Vec<String>, items: &[Item],
     let mut changed = false;
     ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing = vec2(space::S2, space::S2);
-        for (i, (_, label, hint)) in items.iter().enumerate() {
+        for (i, (id, label, hint)) in items.iter().enumerate() {
             let last_one = on[i] && on.iter().filter(|x| **x).count() == 1;
-            let mut r = chip(ui, on[i], label, !last_one);
+            let mut r = chip(ui, on[i], glyph(id), label, !last_one);
             if !hint.is_empty() {
                 r = r.on_hover_text(*hint);
             }
@@ -1033,97 +1648,280 @@ pub(super) fn filter_checks(ui: &mut Ui, list: &mut Vec<String>, items: &[Item],
                 changed = true;
             }
         }
-        // Back to everything, when something is off.
-        if on.iter().any(|o| !o) {
-            let link = ui.add(
-                egui::Label::new(
-                    RichText::new("All")
-                        .color(ui.visuals().hyperlink_color)
-                        .font(style::body()),
-                )
-                .sense(egui::Sense::click()),
-            );
-            if link
-                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                .clicked()
-            {
-                on.fill(true);
-                changed = true;
-            }
+        if on.iter().any(|o| !o) && all_link(ui) {
+            on.fill(true);
+            changed = true;
         }
     });
     if changed {
-        let picked: Vec<String> = all
-            .iter()
-            .zip(&on)
-            .filter(|(_, o)| **o)
-            .map(|(id, _)| id.clone())
-            .collect();
-        *list = if picked.len() == all.len() {
-            Vec::new()
-        } else {
-            always.iter().map(|s| s.to_string()).chain(picked).collect()
-        };
+        *list = picked(&all, &on, always);
     }
 }
 
-/// One filter chip: a rounded pill, filled with a tint of the accent and
-/// a check when on, outlined when off. `enabled` false: it can't be
-/// turned off (the last one on).
-fn chip(ui: &mut Ui, on: bool, label: &str, enabled: bool) -> egui::Response {
-    let v = ui.visuals().clone();
-    let accent = v.selection.bg_fill;
-    let text = if on {
-        v.text_color()
+/// "All", a link turning everything back on; true when clicked.
+fn all_link(ui: &mut Ui) -> bool {
+    let link = ui.add(
+        egui::Label::new(
+            RichText::new("All")
+                .color(ui.visuals().hyperlink_color)
+                .font(style::body()),
+        )
+        .sense(egui::Sense::click()),
+    );
+    link.on_hover_cursor(egui::CursorIcon::PointingHand)
+        .clicked()
+}
+
+/// A filter list from the items' on/off states: empty when all are on.
+fn picked(all: &[String], on: &[bool], always: &[&str]) -> Vec<String> {
+    let chosen: Vec<String> = all
+        .iter()
+        .zip(on)
+        .filter(|(_, o)| **o)
+        .map(|(id, _)| id.clone())
+        .collect();
+    if chosen.len() == all.len() {
+        Vec::new()
     } else {
-        v.widgets.noninteractive.fg_stroke.color
+        always.iter().map(|s| s.to_string()).chain(chosen).collect()
+    }
+}
+
+/// The landscapes as tiles: a small scene of each (drawn once by the app;
+/// a quiet placeholder until it's there), its name, and a tick when on. A
+/// landscape that's off stays in view, dimmed. At least one stays on.
+fn land_tiles(ui: &mut Ui, theme: Theme, list: &mut Vec<String>, lands: &mut LandThumbs) {
+    let t = colors(theme);
+    let g = &t.glass;
+    let items = &LANDSCAPES;
+    let all: Vec<String> = items.iter().map(|(id, _, _)| id.to_string()).collect();
+    let mut on: Vec<bool> = items
+        .iter()
+        .map(|(id, _, _)| list.is_empty() || list.iter().any(|x| x == id))
+        .collect();
+    let mut changed = false;
+    let gap = space::S3;
+    let width = ui.available_width();
+    let cols = if width >= 560.0 { 4 } else { 3 };
+    let tile_w = ((width - gap * (cols - 1) as f32) / cols as f32).floor();
+    let pic_h = (tile_w - 12.0) * 9.0 / 16.0;
+    let tile_h = 6.0 + pic_h + 32.0;
+    for row in items.chunks(cols) {
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = gap;
+            for (id, label, hint) in row {
+                let i = items.iter().position(|(x, _, _)| x == id).unwrap_or(0);
+                let last_one = on[i] && on.iter().filter(|x| **x).count() == 1;
+                let sense = if last_one {
+                    Sense::hover()
+                } else {
+                    Sense::click()
+                };
+                let (rect, resp) = ui.allocate_exact_size(vec2(tile_w, tile_h), sense);
+                resp.widget_info(|| {
+                    egui::WidgetInfo::selected(egui::Role::CheckBox, !last_one, on[i], *label)
+                });
+                let lift = if resp.hovered() && !last_one {
+                    2.0
+                } else {
+                    0.0
+                };
+                let r = rect.translate(vec2(0.0, -lift));
+                let p = ui.painter();
+                p.rect_filled(r, radius::CONTROL + 2.0, alpha(g.card, g.card_alpha * 1.3));
+                p.rect_stroke(
+                    r,
+                    radius::CONTROL + 2.0,
+                    Stroke::new(1.0, alpha(t.border_control, if on[i] { 0.35 } else { 0.2 })),
+                    egui::StrokeKind::Inside,
+                );
+                let pic = Rect::from_min_size(r.min + vec2(6.0, 6.0), vec2(tile_w - 12.0, pic_h));
+                match lands.get(ui.ctx(), id) {
+                    Some(tex) => {
+                        let tint = if on[i] {
+                            Color32::WHITE
+                        } else {
+                            Color32::from_rgba_unmultiplied(120, 120, 120, 150)
+                        };
+                        egui::Image::new(tex)
+                            .uv(cover_uv(tex.size_vec2(), pic.size()))
+                            .corner_radius(7)
+                            .tint(tint)
+                            .paint_at(ui, pic);
+                    }
+                    None => {
+                        let p = ui.painter();
+                        p.rect_filled(pic, 7.0, alpha(g.card, g.card_alpha * 2.0));
+                        p.text(
+                            pic.center(),
+                            Align2::CENTER_CENTER,
+                            "drawing…",
+                            style::mono(),
+                            alpha(t.text_secondary, 0.7),
+                        );
+                    }
+                }
+                let p = ui.painter();
+                let ink = if on[i] {
+                    c(t.text)
+                } else {
+                    c(t.text_secondary)
+                };
+                let name = p.layout_job(one_line(label, style::body(), ink, tile_w - 44.0));
+                p.galley(pos2(r.min.x + 9.0, pic.max.y + 8.0), name, ink);
+                let tick = pos2(r.max.x - 16.0, pic.max.y + 16.0);
+                if on[i] {
+                    p.circle_filled(tick, 9.0, c(t.accent_deep));
+                    p.add(egui::Shape::line(
+                        vec![
+                            tick + vec2(-4.0, 0.2),
+                            tick + vec2(-1.2, 3.0),
+                            tick + vec2(4.0, -3.2),
+                        ],
+                        Stroke::new(1.8, c(t.on_accent)),
+                    ));
+                } else {
+                    p.circle_stroke(tick, 8.5, Stroke::new(1.5, alpha(t.border_control, 0.8)));
+                }
+                if resp.has_focus() {
+                    focus_ring(ui, theme, r, radius::CONTROL + 2.0);
+                }
+                let resp = if hint.is_empty() {
+                    resp
+                } else {
+                    resp.on_hover_text(*hint)
+                };
+                if resp.clicked() {
+                    on[i] = !on[i];
+                    changed = true;
+                }
+            }
+        });
+        ui.add_space(gap);
+    }
+    if on.iter().any(|o| !o) && all_link(ui) {
+        on.fill(true);
+        changed = true;
+    }
+    if changed {
+        *list = picked(&all, &on, &[]);
+    }
+}
+
+/// The glyph each weather draws on the wallpaper.
+fn weather_glyph(id: &str) -> Option<&'static str> {
+    Some(match id {
+        "snow" | "blizzard" => "*",
+        "rain" => "/",
+        "fireflies" => "·",
+        "leaves" => ",",
+        "dust" | "ash" => ".",
+        "petals" => "'",
+        "fog" => "~",
+        "sparkle" => "+",
+        "confetti" => "%",
+        "birds" => "v",
+        "butterflies" => "x",
+        "seeds" => "*",
+        "shooting_stars" => "\\",
+        _ => return None,
+    })
+}
+
+fn chip(ui: &mut Ui, on: bool, glyph: Option<&str>, label: &str, enabled: bool) -> egui::Response {
+    let dark = ui.visuals().dark_mode;
+    let t = if dark {
+        &crate::tokens::DARK
+    } else {
+        &crate::tokens::LIGHT
     };
-    let font = style::body();
-    let galley = ui.painter().layout_no_wrap(label.to_string(), font, text);
-    let check_w = if on { 14.0 } else { 0.0 };
-    let pad = space::S3;
-    let h = 26.0;
-    let w = galley.size().x + 2.0 * pad + check_w;
+    let g = &t.glass;
+    let text = if on { c(t.text) } else { c(t.text_secondary) };
+    let galley = ui
+        .painter()
+        .layout_no_wrap(label.to_string(), style::body(), text);
+    let lead = match glyph {
+        Some(_) => 16.0,
+        None if on => 15.0,
+        None => 0.0,
+    };
+    let pad = space::S3 + 1.0;
+    let h = 30.0;
+    let w = galley.size().x + 2.0 * pad + lead;
     let sense = if enabled {
-        egui::Sense::click()
+        Sense::click()
     } else {
-        egui::Sense::hover()
+        Sense::hover()
     };
     let (rect, resp) = ui.allocate_exact_size(vec2(w, h), sense);
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, enabled, on, label));
     if ui.is_rect_visible(rect) {
         let p = ui.painter();
-        let radius = egui::CornerRadius::same((h / 2.0) as u8);
+        let round = egui::CornerRadius::same((h / 2.0) as u8);
         let hovered = resp.hovered() && enabled;
-        let (fill, stroke) = if on {
-            (
-                accent.gamma_multiply(if hovered { 0.28 } else { 0.18 }),
-                Stroke::new(1.0, accent.gamma_multiply(0.9)),
-            )
-        } else {
-            (
-                if hovered {
-                    v.widgets.hovered.weak_bg_fill
-                } else {
-                    egui::Color32::TRANSPARENT
-                },
-                Stroke::new(1.0, v.widgets.noninteractive.bg_stroke.color),
-            )
-        };
-        p.rect(rect, radius, fill, stroke, egui::StrokeKind::Inside);
-        let mut x = rect.left() + pad;
         if on {
-            // A small check mark, drawn (no font has to have one).
-            let cy = rect.center().y;
-            let pts = [
-                egui::pos2(x, cy),
-                egui::pos2(x + 3.5, cy + 3.5),
-                egui::pos2(x + 9.0, cy - 3.5),
-            ];
-            p.line(pts.to_vec(), Stroke::new(1.6, accent));
-            x += check_w;
+            let fill = if dark {
+                alpha(g.card, g.chosen * if hovered { 1.4 } else { 1.0 })
+            } else {
+                Color32::from_white_alpha(if hovered { 255 } else { 215 })
+            };
+            p.rect_filled(rect, round, fill);
+            p.rect_stroke(
+                rect,
+                round,
+                Stroke::new(1.0, alpha(t.text, if dark { 0.22 } else { 0.16 })),
+                egui::StrokeKind::Inside,
+            );
+            p.hline(
+                rect.x_range().shrink(h / 2.0),
+                rect.min.y + 0.5,
+                Stroke::new(
+                    1.0,
+                    highlight(if dark { Theme::Dark } else { Theme::Light }),
+                ),
+            );
+        } else {
+            if hovered {
+                p.rect_filled(rect, round, alpha(g.card, g.chosen * 0.6));
+            }
+            p.rect_stroke(
+                rect,
+                round,
+                Stroke::new(1.0, alpha(t.text, 0.12)),
+                egui::StrokeKind::Inside,
+            );
         }
-        let y = rect.center().y - galley.size().y / 2.0;
-        p.galley(egui::pos2(x, y), galley, text);
+        let mut x = rect.left() + pad;
+        let cy = rect.center().y;
+        match glyph {
+            Some(gl) => {
+                let ink = if on {
+                    c(t.accent_text)
+                } else {
+                    c(t.text_disabled)
+                };
+                p.text(
+                    pos2(x + 4.0, cy),
+                    Align2::CENTER_CENTER,
+                    gl,
+                    style::mono(),
+                    ink,
+                );
+                x += lead;
+            }
+            None if on => {
+                // A small check mark, drawn (no font has to have one).
+                let pts = vec![
+                    pos2(x, cy),
+                    pos2(x + 3.5, cy + 3.5),
+                    pos2(x + 9.0, cy - 3.5),
+                ];
+                p.add(egui::Shape::line(pts, Stroke::new(1.6, c(t.accent_text))));
+                x += lead;
+            }
+            None => {}
+        }
+        p.galley(pos2(x, cy - galley.size().y / 2.0), galley, text);
     }
     resp.on_hover_cursor(if enabled {
         egui::CursorIcon::PointingHand
@@ -1132,18 +1930,19 @@ fn chip(ui: &mut Ui, on: bool, label: &str, enabled: bool) -> egui::Response {
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn page(
     ui: &mut Ui,
     theme: Theme,
     section: Section,
     ps: &mut PageState,
+    lands: &mut LandThumbs,
     s: &mut Settings,
     status: &Status,
     actions: &mut Vec<UiAction>,
 ) {
     let t = colors(theme);
     let before = s.clone();
-    heading(ui, theme, section.name());
     match section {
         Section::Rotation => {
             use crate::settings::RotationMode;
@@ -1545,13 +2344,13 @@ fn page(
             };
             ui.add_enabled_ui(editable, |ui| {
             group(ui, "Landscapes");
-            filter_checks(ui, &mut content.archetypes, &LANDSCAPES, &[]);
+            land_tiles(ui, theme, &mut content.archetypes, lands);
             ui.add_space(space::S4);
             group(ui, "What Clawd does");
             filter_checks(ui, &mut content.activities, &ACTIVITIES, &[]);
             ui.add_space(space::S4);
             group(ui, "Weather");
-            filter_checks(ui, &mut content.weather, &WEATHER, &CLEAR_WEATHER);
+            filter_chips(ui, &mut content.weather, &WEATHER, &CLEAR_WEATHER, weather_glyph);
             ui.add_space(space::S4);
             group(ui, "Look");
             ui.label(
@@ -2004,6 +2803,10 @@ mod tests {
             moon: None,
             toast: None,
             page: PageState::default(),
+            backdrop: None,
+            grain: None,
+            chrome: None,
+            lands: LandThumbs::default(),
         };
         let mut settings = Settings::default();
         let status = Status {

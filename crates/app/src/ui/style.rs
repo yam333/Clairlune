@@ -11,6 +11,9 @@ use std::sync::Arc;
 
 pub const SEMIBOLD: &str = "plex-semibold";
 pub const MEDIUM: &str = "plex-medium";
+/// Instrument Serif, for page titles.
+pub const SERIF: &str = "serif";
+pub const SERIF_ITALIC: &str = "serif-italic";
 
 pub fn c(rgb: Rgb) -> Color32 {
     Color32::from_rgb(rgb.0, rgb.1, rgb.2)
@@ -23,7 +26,8 @@ pub fn colors(theme: Theme) -> &'static Colors {
     }
 }
 
-/// IBM Plex Sans for the UI (three weights), JetBrains Mono for data.
+/// IBM Plex Sans for the UI (three weights), JetBrains Mono for data and
+/// labels (the wallpaper's own face), Instrument Serif for page titles.
 pub fn fonts() -> FontDefinitions {
     let mut f = FontDefinitions::empty();
     let mut add = |name: &str, bytes: &'static [u8]| {
@@ -43,6 +47,14 @@ pub fn fonts() -> FontDefinitions {
         include_bytes!("../../assets/fonts/IBMPlexSans-SemiBold.ttf"),
     );
     add("mono", clairlune_render::atlas::FONT_DATA);
+    add(
+        SERIF,
+        include_bytes!("../../assets/fonts/InstrumentSerif-Regular.ttf"),
+    );
+    add(
+        SERIF_ITALIC,
+        include_bytes!("../../assets/fonts/InstrumentSerif-Italic.ttf"),
+    );
     f.families
         .insert(FontFamily::Proportional, vec!["plex".into(), "mono".into()]);
     f.families
@@ -55,6 +67,12 @@ pub fn fonts() -> FontDefinitions {
         FontFamily::Name(MEDIUM.into()),
         vec![MEDIUM.into(), "plex".into()],
     );
+    for name in [SERIF, SERIF_ITALIC] {
+        f.families.insert(
+            FontFamily::Name(name.into()),
+            vec![name.into(), "plex".into()],
+        );
+    }
     f
 }
 
@@ -67,14 +85,37 @@ pub fn body_strong() -> FontId {
 pub fn body_medium() -> FontId {
     FontId::new(text::BODY.size, FontFamily::Name(MEDIUM.into()))
 }
-pub fn section() -> FontId {
-    FontId::new(text::LARGE.size, FontFamily::Name(SEMIBOLD.into()))
-}
+/// Window and dialog titles: the serif.
 pub fn title() -> FontId {
-    FontId::new(text::TITLE.size, FontFamily::Name(SEMIBOLD.into()))
+    FontId::new(text::TITLE.size, FontFamily::Name(SERIF.into()))
 }
 pub fn mono() -> FontId {
     FontId::new(text::SMALL.size, FontFamily::Monospace)
+}
+/// Page titles: the serif, large.
+pub fn display() -> FontId {
+    FontId::new(text::DISPLAY.size, FontFamily::Name(SERIF.into()))
+}
+/// The serif at another size (the wordmark), upright or italic.
+pub fn serif(size: f32, italic: bool) -> FontId {
+    let name = if italic { SERIF_ITALIC } else { SERIF };
+    FontId::new(size, FontFamily::Name(name.into()))
+}
+/// Group labels: small mono capitals, set apart.
+pub fn label() -> FontId {
+    FontId::new(11.0, FontFamily::Monospace)
+}
+/// Letter spacing for [`label`] text, in points.
+pub const LABEL_SPACING: f32 = 1.6;
+
+/// A colour at an opacity (0 to 1).
+pub fn alpha(rgb: Rgb, a: f32) -> Color32 {
+    Color32::from_rgba_unmultiplied(
+        rgb.0,
+        rgb.1,
+        rgb.2,
+        (a.clamp(0.0, 1.0) * 255.0).round() as u8,
+    )
 }
 
 /// Applies the theme's tokens to the context.
@@ -90,7 +131,7 @@ pub fn apply(ctx: &egui::Context, theme: Theme) {
     v.extreme_bg_color = c(t.bg_raised);
     v.faint_bg_color = c(t.bg_raised);
     v.code_bg_color = c(t.bg_raised);
-    v.hyperlink_color = c(t.accent);
+    v.hyperlink_color = c(t.accent_text);
     v.override_text_color = Some(c(t.text));
     v.window_corner_radius = CornerRadius::same(radius::PANEL as u8);
     v.menu_corner_radius = control;
@@ -108,20 +149,33 @@ pub fn apply(ctx: &egui::Context, theme: Theme) {
     };
     v.selection.bg_fill = c(t.accent);
     v.selection.stroke = Stroke::new(1.0, c(t.on_accent));
+    v.text_cursor.stroke = Stroke::new(2.0, c(t.accent_text));
     let w = &mut v.widgets;
     w.noninteractive.bg_fill = c(t.bg);
     w.noninteractive.weak_bg_fill = c(t.bg);
     w.noninteractive.bg_stroke = Stroke::new(size::HAIRLINE, c(t.hairline));
     w.noninteractive.fg_stroke = Stroke::new(1.0, c(t.text_secondary));
+    // Buttons: a card of glass with a quiet edge; text fields keep the
+    // control outline (`extreme_bg_color` and the inactive stroke).
+    let g = &t.glass;
+    let card = |a: f32| alpha(g.card, a);
     for (state, fill, stroke) in [
-        (&mut w.inactive, t.bg_raised, t.border_control),
-        (&mut w.hovered, t.bg_raised, t.text_secondary),
-        (&mut w.active, t.bg_raised, t.accent),
-        (&mut w.open, t.bg_raised, t.accent),
+        (
+            &mut w.inactive,
+            card(g.card_alpha * 1.6),
+            alpha(t.border_control, 0.55),
+        ),
+        (
+            &mut w.hovered,
+            card(g.card_alpha * 2.6),
+            alpha(t.border_control, 0.9),
+        ),
+        (&mut w.active, card(g.card_alpha * 3.2), c(t.accent_text)),
+        (&mut w.open, card(g.card_alpha * 3.2), c(t.accent_text)),
     ] {
-        state.bg_fill = c(fill);
-        state.weak_bg_fill = c(fill);
-        state.bg_stroke = Stroke::new(1.0, c(stroke));
+        state.bg_fill = fill;
+        state.weak_bg_fill = fill;
+        state.bg_stroke = Stroke::new(1.0, stroke);
         state.fg_stroke = Stroke::new(1.0, c(t.text));
         state.corner_radius = control;
         state.expansion = 0.0;
@@ -149,7 +203,7 @@ pub fn apply(ctx: &egui::Context, theme: Theme) {
         .into();
         let sp = &mut s.spacing;
         sp.item_spacing = egui::vec2(space::S2, space::S2);
-        sp.button_padding = egui::vec2(space::S3, space::S1 + 2.0);
+        sp.button_padding = egui::vec2(space::S3 + 2.0, space::S2 - 1.0);
         sp.interact_size = egui::vec2(space::S7, size::CONTROL);
         sp.indent = space::S4;
         sp.menu_margin = Margin::same(space::S2 as i8);

@@ -72,6 +72,11 @@ Opening Clairlune again while it runs brings up Settings.
 
 ## Settings
 
+The sections are down the left, over a glass pane that lets the wallpaper
+through. Under them is what's on screen now (its name, Live or Still, the
+seed and when it changes next) with New wallpaper, Previous and Save to
+library.
+
 - **Rotation:** how often the wallpaper changes (every hour by default), or a
   Timeline that follows a plan for each day of the week.
 - **Theme:** light, dark, like the system, or on a schedule (set times, or
@@ -83,8 +88,9 @@ Opening Clairlune again while it runs brings up Settings.
   when an app covers the screen, and on the Mac Lighter on Retina screens
   (half the resolution: about a quarter of the memory, with big external
   displays especially).
-- **Buddy:** Clawd on or off.
-- **Content:** which landscapes, activities and weather to pick from, the look
+- **Clawd:** Clawd on or off.
+- **Content:** which landscapes (each tile shows that landscape), activities
+  and weather to pick from, the look
   (line art or dithered), contrast and zoom (Clawd up close, smaller, or tiny
   in a huge landscape).
 - **Archive** and **Export:** how long past wallpapers are kept, and where

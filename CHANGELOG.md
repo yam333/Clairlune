@@ -4,6 +4,29 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.22.0 (2026-11-22)
+
+- **Settings, redesigned** ("Moonglass"), the same on Windows and macOS:
+  - The sections sit on a pane of reeded glass with your wallpaper showing
+    through it, each flute bending the scene a little; the page is smoked
+    glass over a blurred copy of it.
+  - Page titles in a serif (Instrument Serif), with a one-line summary under
+    each: how many landscapes are picked, what the theme follows, how many
+    monitors.
+  - What's on screen now moved to the foot of the sidebar, on every page: a
+    thumbnail, the scene's name, LIVE or STILL, the seed and when it changes
+    next, with New wallpaper, Previous and Save to library beside it.
+  - Landscapes are picked from tiles that show each one (drawn in the
+    background the first time Settings opens, a few seconds); weather and
+    activities are chips.
+  - New switches, segmented controls and buttons, warmer ember accents and
+    cooler darks.
+  - On Windows the window draws its own minimize and close buttons in place
+    of the title bar; on macOS the title bar is see-through over the glass.
+  - The Library, Archive and Timeline windows take the new colours, controls
+    and serif titles.
+- "Buddy" in Settings is now called Clawd.
+
 ## 0.21.0 (2026-11-22)
 
 - **Six magical landscapes:**

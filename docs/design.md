@@ -81,7 +81,7 @@ From current design critiques plus PLAN.md's list. The common thread: design wit
 - Purple, violet or indigo gradients; cyan on dark; glowing accents; gradient text.
 - Inter everywhere at default settings; random serif/sans mixing; italic for no reason.
 - Centred hero, three rounded feature cards, card-in-card, identical card grids on every screen.
-- Oversized corner radii, generic soft drop shadows, glassmorphism and blur.
+- Oversized corner radii, generic soft drop shadows, frosted-glass cards everywhere (one material on one surface is a decision; glass on everything is a default).
 - Emoji as icons or decoration; decorative illustrations carrying no information.
 - Modals as the default for everything; badges, pills and tooltips on everything.
 - Marketing copy inside settings ("Unleash", "Seamlessly", exclamation marks).
@@ -92,13 +92,17 @@ From current design critiques plus PLAN.md's list. The common thread: design wit
 
 ## 3. Decisions
 
-- **Typefaces.** IBM Plex Sans (OFL) for the UI: a grotesque with International-Style roots and enough character to not read as a default, unlike Inter. JetBrains Mono (OFL, already bundled for the wallpapers) for data: seeds, times, sizes, file names, and section numbers. No third face.
-- **Type scale (5 sizes).** 12 / 14 / 16 / 20 / 26 px with line heights 16 / 20 / 22 / 26 / 32. Weights 400 and 600 only (500 for the selected sidebar item). No all-caps.
-- **Colour.** Neutral surfaces from the wallpaper palettes (paper and warm black), two text tones, hairlines, and one accent: ember orange, the colour of the campfire embers in the wallpapers. Full light and dark sets that follow the app theme.
-- **Depth.** 1 px hairline borders; one elevation level (popovers and the undo toast) with a single tight shadow. No blur, no glass.
-- **Shape.** Radii 6 px for controls, 10 px for panels and the preview; nothing rounder. Icons: Lucide (ISC), 16 px, 1.5 px stroke.
+Revised in 0.22 ("Moonglass"): the same Settings window on Windows and macOS, built around one material, reeded glass, over the wallpaper itself.
+
+- **Material.** Settings' sidebar is a pane of reeded (fluted) glass laid over the wallpaper on screen: 12 px flutes, each showing the scene under it 1.35 times wider, lit on its left edge and shaded on its right, under a tint that deepens towards the bottom. The page is smoked glass: a blurred copy of the wallpaper under a near-opaque pane, with fine grain. Without a wallpaper the same surfaces are flat. Glass appears there and nowhere else.
+- **Window chrome.** Windows: no system title bar; the window draws its own minimize and close buttons and keeps the system shadow, rounded corners, dragging (top 36 px) and resizing (edges). macOS: a see-through title bar with the system's buttons over the sidebar.
+- **Typefaces.** Instrument Serif (OFL) for page, window and dialog titles and the wordmark ("Clair" upright, "lune" italic): a condensed display serif that reads as drawn, not defaulted. IBM Plex Sans (OFL) for the UI. JetBrains Mono (OFL, already bundled for the wallpapers) for data and for the small spaced capitals of group labels.
+- **Type scale (4 sizes).** 12 / 14 / 28 / 40 px with line heights 16 / 20 / 36 / 48 (group labels 11 px mono, spaced). Weights 400 and 600 (500 for row names). Capitals only for the mono group labels.
+- **Colour.** Neutral surfaces from the wallpaper palettes (paper and cool ink-black), two text tones, hairlines, and one accent: ember, the colour of the campfire embers in the wallpapers, as a soft fill (`accent`), a deeper one for switches and selection dots (`accent_deep`) and a text-safe one for links and tags (`accent_text`). Full light and dark sets that follow the app theme.
+- **Depth.** The glass, 1 px hairlines and highlights, translucent cards on the glass; one elevation level (popovers and the undo toast) with a single tight shadow.
+- **Shape.** Radii 10 px for controls, 14 px for panels and cards. Pill shapes only for the switch and the filter chips. Icons: drawn in code on a 16 px grid, 1.5 px stroke.
 - **Motion.** 120 / 160 / 200 ms, ease-out only; respects the system's reduce-motion setting by cutting to 0.
-- **Layout.** Left-aligned on an 8 px rhythm; Settings page content max 640 px wide; sidebar 200 px.
+- **Layout.** Left-aligned on an 8 px rhythm; sidebar 240 px with the sections and, at its foot, what's on screen now (thumbnail, title, LIVE or STILL, seed, next change) and the New wallpaper button; each page opens with its serif title and a one-line mono summary. Landscapes are picked from tiles that show each one.
 - **Copy.** Sentence case, short, specific. Descriptions say what happens, not how good it is. No exclamation marks.
 - **Playfulness budget.** Pixel-art Clawd appears in empty states and the "generating" state only (fan art, so also only when Buddy is on); the moon mark in the title area. Nowhere else.
 
@@ -147,6 +151,8 @@ From current design critiques plus PLAN.md's list. The common thread: design wit
 
 Each checkbox label can show a 48 px pixel thumbnail on hover (keyboard focus too), so the names are recognised, not recalled.
 
+Since 0.22 landscapes are tiles instead: each shows that landscape (drawn once per generator version and theme, in the background, at a wallpaper's scale and shrunk), so the names are recognised, not recalled. Weather and activities are chips.
+
 ### Archive window
 
 ```
@@ -187,9 +193,9 @@ Library follows the Archive grid without time grouping, plus user-given names. T
 ## 6. Review checklist (also in the PR template once UI lands)
 
 - [ ] Only token values: colours, spacing, radii, type sizes, durations.
-- [ ] At most 5 type sizes on any screen; weights 400/600 (500 for selected nav).
+- [ ] Only the four type sizes; weights 400/600 (500 for row names).
 - [ ] One accent, only on primary action, selection, focus and "now".
-- [ ] No gradients, glow, blur, glass, emoji, badges on everything, card-in-card, centred layouts.
+- [ ] Glass only on Settings' sidebar and page; no gradients elsewhere, no glow, emoji, badges on everything, card-in-card, centred layouts.
 - [ ] Every control has a one-line description; sentence case; no exclamation marks.
 - [ ] Keyboard: every action reachable, focus ring visible, Esc closes.
 - [ ] Contrast test passes for every token pair used.
@@ -202,19 +208,23 @@ Implemented in `crates/app/src/tokens.rs` (toolkit-independent constants; checke
 
 | Token | Light | Dark |
 |---|---|---|
-| `bg` page | `#F2EFE6` | `#1A1917` |
-| `bg_sidebar` | `#E9E5DA` | `#151412` |
-| `bg_raised` (rows, inputs) | `#F8F6F0` | `#211F1C` |
-| `hairline` | `#D3CEC1` | `#35322D` |
-| `border_control` (3:1) | `#847E72` | `#77716A` |
-| `text` | `#1C1A17` | `#E9E5D7` |
-| `text_secondary` | `#5B564D` | `#A8A296` |
-| `text_disabled` | `#9C968A` | `#5F5A52` |
-| `accent` | `#B4481C` | `#FF9646` |
-| `on_accent` | `#FFFFFF` | `#1A1917` |
-| `danger` | `#A3341F` | `#FF8A75` |
+| `bg` page | `#F6F3EC` | `#121419` |
+| `bg_sidebar` | `#EFEBE2` | `#0F1116` |
+| `bg_raised` (rows, inputs) | `#FCFBF8` | `#1B1D23` |
+| `hairline` | `#DED8CC` | `#2A2C31` |
+| `border_control` (3:1) | `#847E72` | `#7A766E` |
+| `text` | `#1C1E24` | `#ECE6D8` |
+| `text_secondary` | `#5D5A54` | `#A9A49A` |
+| `text_disabled` | `#A29C90` | `#5F5B54` |
+| `accent` (fills) | `#E8875E` | `#F0A27B` |
+| `accent_deep` (switches, dots) | `#CF6640` | `#DD7D55` |
+| `accent_text` (links, tags, focus) | `#A64D29` | `#F0A27B` |
+| `on_accent` | `#1A1210` | `#1A1210` |
+| `danger` | `#A5321F` | `#FF8A75` |
 
-Spacing: 0, 4, 8, 12, 16, 24, 32, 48, 64 px. Radii: 6 (controls), 10 (panels). Type: 12/16, 14/20, 16/22, 20/26, 26/32. Motion: 120, 160, 200 ms, ease-out `cubic-bezier(0.2, 0, 0, 1)`. Control height 28 px (32 px for primary buttons). Focus ring 2 px accent, 2 px offset.
+The glass has its own set (`Colors::glass`): the pane colour and opacity (at least 0.8, so text on it keeps the contrast measured against `bg`), the sidebar tint from top to bottom, the flutes' light and shade, the card fill and the grain's strength.
+
+Spacing: 0, 4, 8, 12, 16, 24, 32, 48, 64 px. Radii: 10 (controls), 14 (panels). Type: 12/16, 14/20, 28/36, 40/48. Motion: 120, 160, 200 ms, ease-out `cubic-bezier(0.2, 0, 0, 1)`. Control height 32 px (36 px for primary buttons). Focus ring 2 px `accent_text`, 2 px offset.
 
 ## 8. Toolkit: egui (spike, 2026-11-20)
 

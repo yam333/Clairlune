@@ -238,6 +238,103 @@ pub fn monitor_seed(base: u64, m: &Monitor) -> u64 {
     }
 }
 
+/// Draws a small scene of one landscape for Settings' tiles, into
+/// `<dir>/<id>.png`: the same seed every time, the camera stood back, in the
+/// theme Settings shows (or the other one when the scene keeps to one). It is
+/// drawn at a wallpaper's scale and shrunk, so the land reads as shapes
+/// rather than a few large glyphs.
+pub(crate) fn land_thumb(dir: &Path, id: &str, theme: Theme) -> Result<(), String> {
+    use clairlune_render::{render_still, to_rgba};
+    use clairlune_scene::{BuildError, BuildOptions, ContentContext};
+    const DRAWN: [u32; 2] = [960, 540];
+    const SHOWN: usize = 320;
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    let ctx = ContentContext {
+        enabled_archetypes: vec![id.to_string()],
+        enabled_zooms: vec!["wide".into()],
+        theme: Some(theme),
+        ..ContentContext::default()
+    };
+    let recipe = compose(7, Aspect::from_size(16, 9), &ctx);
+    let draw = |theme| {
+        let opts = BuildOptions {
+            width: DRAWN[0],
+            height: DRAWN[1],
+            theme,
+            buddy: true,
+        };
+        render_still(&recipe, &opts, None)
+    };
+    let still = match draw(theme) {
+        Err(BuildError::ThemeLocked(_)) => draw(match theme {
+            Theme::Light => Theme::Dark,
+            Theme::Dark => Theme::Light,
+        }),
+        drawn => drawn,
+    }
+    .map_err(|e| e.to_string())?;
+    let rgba = to_rgba(&still.image, &still.palette);
+    let ([w, h], small) = crate::ui::glass::shrink(
+        [still.image.width as usize, still.image.height as usize],
+        &rgba,
+        SHOWN,
+    );
+    let rgb = stretch(
+        &small
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .flat_map(|p| [p[0], p[1], p[2]])
+            .collect::<Vec<u8>>(),
+    );
+    let mut png = Vec::new();
+    {
+        let mut enc = png::Encoder::new(&mut png, w as u32, h as u32);
+        enc.set_color(png::ColorType::Rgb);
+        enc.set_depth(png::BitDepth::Eight);
+        let mut out = enc.write_header().map_err(|e| e.to_string())?;
+        out.write_image_data(&rgb).map_err(|e| e.to_string())?;
+    }
+    let path = dir.join(format!("{id}.png"));
+    let part = dir.join(format!("{id}.png.part"));
+    std::fs::write(&part, png).map_err(|e| e.to_string())?;
+    std::fs::rename(&part, &path).map_err(|e| e.to_string())
+}
+
+/// Spreads a shrunk scene's tones over the whole range (at most three times
+/// over), the way a print is levelled: glyphs averaged into a tile come out
+/// as a faint haze otherwise.
+fn stretch(rgb: &[u8]) -> Vec<u8> {
+    let luma = |p: &[u8]| (u32::from(p[0]) * 3 + u32::from(p[1]) * 6 + u32::from(p[2])) / 10;
+    let mut seen = [0usize; 256];
+    for p in rgb.as_chunks::<3>().0 {
+        seen[luma(p) as usize] += 1;
+    }
+    let n = rgb.len() / 3;
+    let at = |share: f64| {
+        let want = (n as f64 * share) as usize;
+        let mut sum = 0;
+        (0..256)
+            .find(|&v| {
+                sum += seen[v];
+                sum > want
+            })
+            .unwrap_or(255) as f32
+    };
+    let (lo, hi) = (at(0.01), at(0.995));
+    let gain = (255.0 / (hi - lo).max(1.0)).min(3.0);
+    // Keep the middle of what is there where it is when the gain is capped.
+    let mid = (lo + hi) / 2.0;
+    let centre = if gain < 255.0 / (hi - lo).max(1.0) {
+        mid
+    } else {
+        127.5
+    };
+    rgb.iter()
+        .map(|&v| ((f32::from(v) - mid) * gain + centre).clamp(0.0, 255.0) as u8)
+        .collect()
+}
+
 pub(crate) fn png_of(img: &IndexedImage, palette: &IndexedPalette) -> Result<Vec<u8>, String> {
     let mut png = Vec::new();
     encode_png(img, palette, &mut png).map_err(|e| e.to_string())?;
@@ -963,6 +1060,24 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    #[test]
+    fn landscape_tiles_are_levelled_within_reason() {
+        // A faint two-tone haze spreads out, at most three times over.
+        let mut px = Vec::new();
+        for i in 0..200 {
+            let v = if i % 2 == 0 { 100 } else { 140 };
+            px.extend_from_slice(&[v, v, v]);
+        }
+        let out = stretch(&px);
+        assert_eq!((out[0], out[3]), (60, 180), "{:?}", &out[..6]);
+        // A full range stays as it is; one flat tone stays flat.
+        let full: Vec<u8> = (0..=255u8).flat_map(|v| [v, v, v]).collect();
+        let out = stretch(&full);
+        assert!(out[0] < 4 && out[out.len() - 1] > 251);
+        let flat = vec![90u8; 30];
+        assert!(stretch(&flat).windows(2).all(|w| w[0] == w[1]));
     }
 
     #[test]
