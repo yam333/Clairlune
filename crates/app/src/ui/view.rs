@@ -1384,6 +1384,22 @@ fn page(
                     );
                 },
             );
+            if cfg!(target_os = "macos") {
+                row(
+                    ui,
+                    theme,
+                    "Lighter on Retina screens",
+                    "Draws the wallpaper at half the resolution on Retina screens: about a quarter of the memory and less work, with slightly softer text. Applies to the wallpaper on screen now.",
+                    |ui| {
+                        toggle(
+                            ui,
+                            theme,
+                            &mut s.live.lighter_on_retina,
+                            "Lighter on Retina screens",
+                        );
+                    },
+                );
+            }
             row(
                 ui,
                 theme,

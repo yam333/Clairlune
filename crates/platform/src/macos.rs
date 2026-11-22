@@ -109,6 +109,12 @@ pub fn find_screen(mtm: MainThreadMarker, id: &str) -> Option<Retained<NSScreen>
         .map(|(s, _)| s)
 }
 
+/// How many pixels a point is on this screen (2 on Retina), if it's
+/// connected.
+pub fn backing_scale(id: &str) -> Option<f64> {
+    on_main(|mtm| find_screen(mtm, id).map(|s| s.backingScaleFactor()))
+}
+
 /// The host for macOS.
 pub(crate) struct MacHost;
 

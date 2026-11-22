@@ -49,6 +49,7 @@ jobs:
 
           [live]
           smoothness_fps = 12
+          lighter_on_retina = ${LIGHTER:-false}
 
           [content]
           activities = [$activities]
@@ -64,6 +65,7 @@ jobs:
             # Threads, and idle wake-ups over 10 s (Activity Monitor's
             # columns), from top's second sample.
             top -l 2 -s 10 -pid "$pid" -stats pid,th,idlew,cpu,mem | tail -1 | awk '{printf "threads %s  idle wakeups %s in 10 s  cpu %s  mem %s\n", $2, $3, $4, $5}' | tee -a "$out/summary.txt"
+            screencapture -x "$out/$name.png" 2>/dev/null || true
             sample "$pid" 5 -file "$out/$name-sample.txt" > /dev/null 2>&1 || true
             footprint "$pid" > "$out/$name-footprint.txt" 2>&1 || true
             grep -E "phys_footprint:" "$out/$name-footprint.txt" | head -1 | tee -a "$out/summary.txt" || true
@@ -73,6 +75,8 @@ jobs:
           run still still '"warm_hands"' --background
           run live-campfire live '"warm_hands"' --background
           run live-journey live '"broom_journey"' --background
+          # Lighter on Retina screens (the runner's screen counted as one).
+          LIGHTER=true CLAIRLUNE_FORCE_RETINA=1 run live-lighter live '"warm_hands"' --background
           run live-settings-open live '"warm_hands"' ""
           run still-settings-open still '"warm_hands"' ""
           grep -h "usage" "$out"/*-logs/*.log | sed 's/^.*usage //' >> "$out/summary.txt" || true

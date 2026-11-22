@@ -131,6 +131,8 @@ struct App {
     /// again a moment later, it restarts into it.
     exe_stamp: Option<install::ExeStamp>,
     exe_replaced: Option<install::ExeStamp>,
+    /// Lighter on Retina screens as the wallpaper on screen was drawn.
+    lighter: bool,
     busy: bool,
     /// When the schedule next changes the wallpaper (None: only on demand).
     next_change: Option<Instant>,
@@ -1433,6 +1435,14 @@ impl App {
 
     /// Live or Still frame and the live frame rate, from the settings.
     fn follow_display_settings(&mut self) {
+        // Lighter on Retina screens changes the scenes' size: the wallpaper
+        // on screen is drawn again.
+        if self.settings.live.lighter_on_retina != self.lighter {
+            self.lighter = self.settings.live.lighter_on_retina;
+            if self.current.is_some() && !self.restored() {
+                self.reapply(false);
+            }
+        }
         let live = self.settings.display.mode == settings::WallpaperMode::Live;
         self.live.set_fps(self.settings.live.smoothness_fps);
         self.live.set_battery_policy(
@@ -3077,6 +3087,7 @@ fn main() {
     };
     #[cfg(not(windows))]
     drop(metronome_proxy);
+    let lighter = settings.live.lighter_on_retina;
     let mut app = App {
         live,
         #[cfg(windows)]
@@ -3101,6 +3112,7 @@ fn main() {
         removing: false,
         exe_stamp: install::exe_stamp(),
         exe_replaced: None,
+        lighter,
         busy: false,
         next_change: None,
         next_check: Instant::now() + CHECK_EVERY,

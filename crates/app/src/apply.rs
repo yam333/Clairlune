@@ -211,6 +211,24 @@ pub fn resolve_theme_at(t: &ThemeSettings, now: &jiff::ZonedDateTime) -> Theme {
     }
 }
 
+/// The monitor at half its size in pixels when it's a Retina screen (the
+/// scene is drawn for that, and shown pixel-doubled); as it is elsewhere.
+fn lighter(m: Monitor) -> Monitor {
+    // CLAIRLUNE_FORCE_RETINA: every screen counts as one (CI's screens
+    // aren't).
+    #[cfg(target_os = "macos")]
+    if std::env::var_os("CLAIRLUNE_FORCE_RETINA").is_some()
+        || clairlune_platform::macos::backing_scale(&m.id).is_some_and(|s| s >= 2.0)
+    {
+        return Monitor {
+            width: m.width / 2,
+            height: m.height / 2,
+            ..m
+        };
+    }
+    m
+}
+
 /// A monitor's seed: the base seed on the primary, derived from the base seed
 /// and the monitor id elsewhere (PLAN.md section 2.1).
 pub fn monitor_seed(base: u64, m: &Monitor) -> u64 {
@@ -631,6 +649,13 @@ fn apply(
     // Span mode: compose, package and archive one scene the size of all the
     // monitors together; each monitor then shows its part.
     let screens = monitors.clone();
+    // Lighter on Retina screens (macOS, a scene each): those scenes are
+    // drawn at half the size, and the screen shows them pixel-doubled.
+    let monitors = if settings.live.lighter_on_retina && !settings.display.span {
+        monitors.into_iter().map(lighter).collect()
+    } else {
+        monitors
+    };
     let span = (settings.display.span && screens.len() > 1).then(|| span_of(&screens));
     let (monitors, focus_pm) = match &span {
         Some((whole, views)) => {
@@ -760,8 +785,10 @@ fn apply(
             let path = store.write(&m.id, png).map_err(|e| format!("still: {e}"))?;
             host.set_static(m, &path).map_err(|e| e.to_string())?;
             store.prune(&m.id, &path);
+            // The screen as it is (a lighter scene is smaller than it).
+            let screen = screens.iter().find(|s| s.id == m.id).unwrap_or(m);
             live.push(LiveScene {
-                monitor: m.clone(),
+                monitor: screen.clone(),
                 package: packages[i].clone(),
                 theme: themes[i],
                 buddy,
