@@ -47,8 +47,7 @@ jobs:
           for t in 10 20 30 40; do
             sleep 10
             echo "== about $t s after starting it"
-            ioreg -n Root -d1 -a | grep -A1 CGSSessionScreenIsLocked | tr -d '
-	'; echo
+            ioreg -n Root -d1 -a | grep -A1 CGSSessionScreenIsLocked | tr -d '\n\t'; echo
           done
           ps -axo pid,%cpu,command | grep -iE "ScreenSaverEngine|legacyScreenSaver" | grep -v grep
           echo "== the saver's log"
