@@ -1,19 +1,21 @@
-//! Showing a player's frame on macOS through two IOSurfaces: the live
+//! Showing a player's frame on macOS through an IOSurface: the live
 //! wallpaper's windows and the screen saver both draw this way.
 //!
-//! A view hosts a plain Core Animation layer whose contents is one of two
-//! IOSurfaces (BGRA, the view's size in pixels). Each tick writes only the
-//! rectangles that changed into the surface not on screen (plus what it
-//! missed while the other was shown), then shows it. The window server
-//! composites the surface as it is: no GPU device or swapchain in the app,
-//! no drawing or display lists in AppKit, and the CPU touches only the
-//! pixels that changed.
+//! A view hosts a plain Core Animation layer whose contents is an IOSurface
+//! (BGRA, the view's size in pixels). Each tick writes only the rectangles
+//! that changed into it, in place, and tells the layer its contents changed
+//! (`setContentsChanged`, as browsers do for surfaces they draw into); the
+//! window server composites the surface as it is: no GPU device or
+//! swapchain in the app, no drawing or display lists in AppKit, the CPU
+//! touches only the pixels that changed, and a screen costs one surface,
+//! 4 bytes a pixel. Where a layer can't be told that (no such method), two
+//! surfaces take turns instead: the one off screen is written, then shown.
 
 use crate::Player;
 use clairlune_render::PixelRect;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
-use objc2::{MainThreadMarker, MainThreadOnly};
+use objc2::{MainThreadMarker, MainThreadOnly, msg_send, sel};
 use objc2_app_kit::NSView;
 use objc2_core_foundation::{CFDictionary, CFNumber, CFRetained, CFString};
 use objc2_core_graphics::{CGColorSpace, kCGColorSpaceSRGB};
@@ -42,7 +44,8 @@ pub struct SurfaceView {
     view: Retained<NSView>,
     layer: Retained<CALayer>,
     player: Player,
-    buffers: [Buffer; 2],
+    /// One surface written in place, or two taking turns (see the module).
+    buffers: Vec<Buffer>,
     /// The buffer on screen.
     shown: Option<usize>,
 }
@@ -94,9 +97,16 @@ impl SurfaceView {
                 missing: vec![whole],
             })
         };
-        let buffers = [buffer()?, buffer()?];
         let view = NSView::initWithFrame(NSView::alloc(mtm), frame);
         let layer = CALayer::new();
+        // SAFETY: respondsToSelector: is on every object.
+        let in_place: bool =
+            unsafe { msg_send![&*layer, respondsToSelector: sel!(setContentsChanged)] };
+        let buffers = if in_place {
+            vec![buffer()?]
+        } else {
+            vec![buffer()?, buffer()?]
+        };
         layer.setOpaque(true);
         // Pixel for pixel; should the view's size differ, no blur.
         // SAFETY: a constant filter name.
@@ -127,6 +137,11 @@ impl SurfaceView {
         &self.player
     }
 
+    /// How many surfaces it keeps: 1 (written in place) or 2.
+    pub fn surfaces(&self) -> usize {
+        self.buffers.len()
+    }
+
     /// Moves the player to now and shows what changed; returns the pixels
     /// and rectangles that changed.
     pub fn advance(&mut self) -> (u64, usize) {
@@ -147,15 +162,17 @@ impl SurfaceView {
         (pixels, rects.len())
     }
 
-    /// Writes what the surface off screen misses and shows it. When the
-    /// window server still reads that surface, it waits for the next tick.
+    /// Writes what the surface misses and shows it: in place (one
+    /// surface), or the one off screen, which waits for the next tick while
+    /// the window server still reads it (two).
     fn present(&mut self) {
+        let in_place = self.buffers.len() == 1;
         let next = match self.shown {
-            Some(i) => 1 - i,
-            None => 0,
+            Some(i) if !in_place => 1 - i,
+            _ => 0,
         };
         let b = &mut self.buffers[next];
-        if b.missing.is_empty() || (self.shown.is_some() && b.surface.is_in_use()) {
+        if b.missing.is_empty() || (!in_place && self.shown.is_some() && b.surface.is_in_use()) {
             return;
         }
         // SAFETY: locked for writing; the base address and row stride are
@@ -191,11 +208,17 @@ impl SurfaceView {
         CATransaction::begin();
         // No cross-fade: contents swap at once.
         CATransaction::setDisableActions(true);
-        // SAFETY: an IOSurfaceRef is an object (toll-free bridged with
-        // IOSurface), which a layer takes as its contents.
-        unsafe {
-            let obj = &*(&*b.surface as *const IOSurfaceRef).cast::<AnyObject>();
-            self.layer.setContents(Some(obj));
+        if in_place && self.shown.is_some() {
+            // SAFETY: checked at start that the layer has this method; it
+            // takes nothing and returns nothing.
+            let _: () = unsafe { msg_send![&*self.layer, setContentsChanged] };
+        } else {
+            // SAFETY: an IOSurfaceRef is an object (toll-free bridged with
+            // IOSurface), which a layer takes as its contents.
+            unsafe {
+                let obj = &*(&*b.surface as *const IOSurfaceRef).cast::<AnyObject>();
+                self.layer.setContents(Some(obj));
+            }
         }
         CATransaction::commit();
         self.shown = Some(next);
