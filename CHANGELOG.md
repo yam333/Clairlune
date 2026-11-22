@@ -4,6 +4,16 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.17.3 (2026-11-22)
+
+- **Mac: Login Items.** macOS lets you switch Clairlune off in System Settings >
+  General > Login Items, and only you can switch it back on. When start at
+  login is on but switched off there, Clairlune opens that pane for you, and
+  Settings > General says so, with an Open Login Items button.
+- **A proper DMG window:** opening the DMG shows a Clairlune night scene with
+  the app and an arrow to Applications to drag it onto, and the one-time Open
+  Anyway step written underneath.
+
 ## 0.17.2 (2026-11-22)
 
 - **Mac: pause behind a zoomed window.** Pause behind full-screen apps now

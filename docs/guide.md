@@ -165,6 +165,10 @@ General), which also pauses the changes, or pause them from the menu.
 on Battery saver on battery, or use Still frame: a still costs nothing
 between changes.
 
+**Clairlune doesn't start with my Mac.** macOS may have it switched off in
+System Settings > General > Login Items. Settings > General then says so under
+Start at login, with an Open Login Items button: switch Clairlune on there.
+
 **The Mac shows a different screen saver.** Pick Clairlune in System Settings >
 Screen Saver (the Open Screen Saver settings button in Settings > General goes
 there).
