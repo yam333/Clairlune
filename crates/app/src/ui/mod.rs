@@ -312,6 +312,12 @@ impl UiWindow {
         self.window.request_redraw();
     }
 
+    /// Brings the window forward (restoring it when minimized).
+    pub fn focus(&self) {
+        self.window.set_minimized(false);
+        self.window.focus_window();
+    }
+
     /// The page's own state (UI test: a monitor picked, details shown,
     /// scrolled down).
     pub fn page_state(&mut self) -> &mut view::PageState {

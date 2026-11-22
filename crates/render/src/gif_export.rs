@@ -301,6 +301,7 @@ pub fn encode_package_gif<W: Write>(
     buddy: bool,
     loop_ms: u64,
     smoothness: Smoothness,
+    signature: Option<&str>,
     out: W,
 ) -> Result<GifStats, GifError> {
     if !valid_loop_ms(loop_ms) {
@@ -319,6 +320,8 @@ pub fn encode_package_gif<W: Write>(
     let loop_ms = gif_loop(pkg.graph(theme).and_then(|g| g.journey.as_ref()), loop_ms);
     let started = Instant::now();
     let clock = Clock::Loop(loop_ms);
+    // Each frame signed the same way, so unchanged frames still merge.
+    let signature = signature.and_then(|s| crate::Signature::new(pkg.width, pkg.height, s));
     let (rendered, written) = encode_frames(
         pkg.width,
         pkg.height,
@@ -327,9 +330,14 @@ pub fn encode_package_gif<W: Write>(
         smoothness,
         out,
         |t| {
-            pkg.frame(theme, buddy, t, clock)
+            let mut img = pkg
+                .frame(theme, buddy, t, clock)
                 .map(|(img, _)| img)
-                .expect("theme checked above")
+                .expect("theme checked above");
+            if let Some(s) = &signature {
+                s.apply(&mut img);
+            }
+            img
         },
     )?;
     Ok(GifStats {

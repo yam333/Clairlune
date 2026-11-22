@@ -64,6 +64,8 @@ pub enum Job {
         /// The image on the primary monitor right now, when it's the whole
         /// scene (a theme change re-renders it without a new archive entry).
         still: Option<PathBuf>,
+        /// With the signature in a corner.
+        sign: bool,
     },
     /// Export a saved scene as a looping GIF.
     ExportGif {
@@ -71,6 +73,8 @@ pub enum Job {
         source: Option<PathBuf>,
         theme: Theme,
         buddy: bool,
+        /// With the signature in a corner.
+        sign: bool,
     },
     /// Put back the wallpaper the user had before Clairlune.
     Restore,
@@ -742,13 +746,15 @@ fn run(
             dest,
             source,
             still,
-        } => export(archive, &dest, source.as_deref(), still.as_deref()),
+            sign,
+        } => export(archive, &dest, source.as_deref(), still.as_deref(), sign),
         Job::ExportGif {
             dest,
             source,
             theme,
             buddy,
-        } => export_gif(archive, &dest, source.as_deref(), theme, buddy),
+            sign,
+        } => export_gif(archive, &dest, source.as_deref(), theme, buddy, sign),
         Job::Restore => restore(host, store),
         Job::RestoreToRemove => Ok(Done::ReadyToRemove(match restore(host, store) {
             Ok(Done::Failed(e)) | Err(e) => Some(e),
@@ -1071,6 +1077,7 @@ fn export_gif(
     source: Option<&Path>,
     theme: Theme,
     buddy: bool,
+    sign: bool,
 ) -> Result<Done, String> {
     let dir = export_source(archive, source)?;
     let pkg = ScenePackage::load(&dir.join("scene").join("0"))
@@ -1089,6 +1096,7 @@ fn export_gif(
         buddy,
         6000,
         clairlune_render::Smoothness::Balanced,
+        sign.then_some(clairlune_render::SIGNATURE),
         file,
     )
     .map_err(|e| e.to_string())?;
@@ -1096,12 +1104,13 @@ fn export_gif(
     Ok(Done::Exported(out))
 }
 
-/// Copies a saved scene's primary image to `dest`.
+/// Copies a saved scene's primary image to `dest`, signed when asked.
 fn export(
     archive: &Archive,
     dest: &Path,
     source: Option<&Path>,
     still: Option<&Path>,
+    sign: bool,
 ) -> Result<Done, String> {
     let dir = export_source(archive, source)?;
     std::fs::create_dir_all(dest).map_err(|e| e.to_string())?;
@@ -1109,9 +1118,51 @@ fn export(
         .filter(|p| p.is_file())
         .map_or_else(|| dir.join("wallpaper-0.png"), Path::to_path_buf);
     let out = dest.join(format!("{}.png", file_stem(&dir)));
-    std::fs::copy(&src, &out).map_err(|e| format!("{}: {e}", src.display()))?;
-    tracing::info!(target: "clairlune", path = %out.display(), "exported");
+    let bytes = std::fs::read(&src).map_err(|e| format!("{}: {e}", src.display()))?;
+    let signed = sign.then(|| signed_png(&bytes)).flatten();
+    if sign && signed.is_none() {
+        tracing::warn!(target: "clairlune", path = %src.display(), "not an indexed scene image; saved unsigned");
+    }
+    std::fs::write(&out, signed.as_deref().unwrap_or(&bytes))
+        .map_err(|e| format!("{}: {e}", out.display()))?;
+    tracing::info!(target: "clairlune", path = %out.display(), signed = signed.is_some(), "exported");
     Ok(Done::Exported(out))
+}
+
+/// A scene's PNG (8-bit indexed, in the scene palette's layout) with the
+/// signature written in; `None` for any other kind of PNG.
+fn signed_png(bytes: &[u8]) -> Option<Vec<u8>> {
+    let dec = png::Decoder::new(std::io::Cursor::new(bytes));
+    let mut reader = dec.read_info().ok()?;
+    let info = reader.info();
+    if info.color_type != png::ColorType::Indexed || info.bit_depth != png::BitDepth::Eight {
+        return None;
+    }
+    let colors = info
+        .palette
+        .as_ref()?
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .map(|c| clairlune_scene::Rgb {
+            r: c[0],
+            g: c[1],
+            b: c[2],
+        })
+        .collect();
+    let mut buf = vec![0; reader.output_buffer_size()?];
+    let frame = reader.next_frame(&mut buf).ok()?;
+    buf.truncate(frame.buffer_size());
+    let mut img = IndexedImage {
+        width: frame.width,
+        height: frame.height,
+        pixels: buf,
+    };
+    let palette = IndexedPalette::from_colors(colors);
+    let signature =
+        clairlune_render::Signature::new(img.width, img.height, clairlune_render::SIGNATURE)?;
+    signature.apply(&mut img);
+    png_of(&img, &palette).ok()
 }
 
 #[cfg(test)]
@@ -1404,6 +1455,56 @@ mod tests {
         assert_eq!(replayed, 0);
         assert_eq!((resized[0].width, resized[0].height), (800, 450));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn saved_pngs_are_signed_in_a_corner_only() {
+        use clairlune_scene::{BuildOptions, ContentContext};
+        let recipe = compose(7, Aspect::from_size(16, 9), &ContentContext::default());
+        let theme = if recipe.tod_for(Theme::Dark).is_some() {
+            Theme::Dark
+        } else {
+            Theme::Light
+        };
+        let opts = BuildOptions {
+            width: 1280,
+            height: 720,
+            theme,
+            buddy: true,
+        };
+        let still = clairlune_render::render_still(&recipe, &opts, None).unwrap();
+        let plain = png_of(&still.image, &still.palette).unwrap();
+        let signed = signed_png(&plain).expect("a scene's PNG signs");
+        let (size, a) = crate::ui::decode_png_rgba(&plain).unwrap();
+        let (size_b, b) = crate::ui::decode_png_rgba(&signed).unwrap();
+        assert_eq!(size, size_b);
+        let w = size[0];
+        let differ: Vec<usize> = (0..a.len() / 4)
+            .filter(|&i| a[i * 4..i * 4 + 4] != b[i * 4..i * 4 + 4])
+            .collect();
+        assert!(!differ.is_empty(), "nothing was written");
+        assert!(
+            differ
+                .iter()
+                .all(|&i| i % w > w / 2 && i / w > size[1] * 9 / 10),
+            "signed outside the bottom-right corner"
+        );
+        // Not a scene's PNG: left to be copied as it is.
+        let rgba = image_rgba_png();
+        assert!(signed_png(&rgba).is_none());
+    }
+
+    /// A small RGBA PNG (not indexed).
+    fn image_rgba_png() -> Vec<u8> {
+        let mut out = Vec::new();
+        {
+            let mut enc = png::Encoder::new(&mut out, 2, 2);
+            enc.set_color(png::ColorType::Rgba);
+            enc.set_depth(png::BitDepth::Eight);
+            let mut w = enc.write_header().unwrap();
+            w.write_image_data(&[255; 16]).unwrap();
+        }
+        out
     }
 
     #[test]

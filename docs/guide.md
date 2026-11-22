@@ -66,7 +66,8 @@ From the menu you can:
 - switch the **theme**, or **pause** the hourly changes,
 - **save** what's on screen as a PNG or a GIF (into Pictures/Clairlune),
 - open the **Archive** (the last week of wallpapers), the **Library** (the
-  ones you saved for good) and the **Timeline** (a plan for the day).
+  ones you saved for good) and the **Timeline** (a plan for the day),
+- see who made it (**About Clairlune**).
 
 Opening Clairlune again while it runs brings up Settings.
 
@@ -96,11 +97,15 @@ window.
   (line art or dithered), contrast and zoom (Clawd up close, smaller, or tiny
   in a huge landscape).
 - **Archive** and **Export:** how long past wallpapers are kept, and where
-  saved PNGs and GIFs go.
+  saved PNGs and GIFs go. Saved images are signed in a corner, small, in the
+  scene's own text ("clairlune · by yam333"); Sign saved images turns that
+  off. The wallpaper on your desktop is never signed.
 - **General:** start with the computer, the tray icon, Permissions (what to
   allow in the system's settings, each Granted or with an Open Settings
   button), updates, Restore my wallpaper, Report a problem, Remove Clairlune,
   logs and diagnostics.
+- **About:** who made Clairlune (yam333, with links to GitHub), the version,
+  and the fan-project notice.
 
 Changes save as you make them; content changes show from the next wallpaper.
 

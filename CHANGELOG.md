@@ -4,6 +4,19 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.24.0 (2026-11-22)
+
+- **About.** A new section in Settings says who made Clairlune (yam333), with
+  links to their GitHub and the project, the version, and the fan-project
+  notice (moved from General). About Clairlune in the menu opens it.
+- **Saved images are signed.** PNGs and GIFs you save carry a small
+  "clairlune · by yam333" in the bottom-right corner, written into the
+  scene's own grid of text so it sits in the picture. Settings > Export >
+  Sign saved images turns it off. The wallpaper on your desktop is never
+  signed.
+- General's summary says whether Clairlune starts with the computer;
+  Archive's says "kept forever" instead of "kept for 0 days".
+
 ## 0.23.0 (2026-11-22)
 
 - **A wallpaper from its seed.** Settings > Rotation > From a seed brings back

@@ -334,7 +334,16 @@ fn package_gifs_match_recipe_gifs() {
             };
             let (mut a, mut b) = (Vec::new(), Vec::new());
             encode_gif(r, &opts, 6000, Smoothness::BatterySaver, &mut a).unwrap();
-            encode_package_gif(&pkg, theme, buddy, 6000, Smoothness::BatterySaver, &mut b).unwrap();
+            encode_package_gif(
+                &pkg,
+                theme,
+                buddy,
+                6000,
+                Smoothness::BatterySaver,
+                None,
+                &mut b,
+            )
+            .unwrap();
             assert!(a == b, "{theme:?} buddy {buddy}");
         }
     }

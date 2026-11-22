@@ -94,6 +94,7 @@ pub fn gif(args: GifArgs) -> Result<(), String> {
             !args.no_buddy,
             args.loop_s * 1000,
             args.smoothness.into(),
+            None,
             file,
         )
         .map_err(|e| failed(&args.out, e))?;
