@@ -23,14 +23,14 @@ artifact. To make them by hand from downloaded installers:
 python scripts/package_manifests.py --artifacts <folder> --version 1.2.3
 ```
 
-## Status (0.16.0, 2026-11-22)
+## Status (0.17.0, 2026-11-22)
 
 | Channel | State |
 |---|---|
-| GitHub release | live: https://github.com/yam333/Clairlune/releases/tag/v0.16.0 |
+| GitHub release | live: https://github.com/yam333/Clairlune/releases/tag/v0.17.0 |
 | crates.io | live: `cargo install clairlune` |
 | Homebrew, Scoop | live in the tap https://github.com/yam333/homebrew-clairlune, updated by publish.yml on each release |
-| winget | submitted: https://github.com/microsoft/winget-pkgs/pull/485182, carrying 0.12.0 (validation passed; waits for a moderator); 0.16.0 follows as an update once it is in |
+| winget | submitted: https://github.com/microsoft/winget-pkgs/pull/485182, carrying 0.12.0 (validation passed; waits for a moderator); 0.17.0 follows as an update once it is in |
 | AUR | files ready in the tap (`aur/clairlune-bin/`); needs the maintainer's AUR account (registration paused since 2026-11-21) |
 
 For the next releases, publishing the GitHub release runs `.github/workflows/publish.yml`. It updates the tap through the `TAP_DEPLOY_KEY` secret (set 2026-11-21): the private half of a deploy key on yam333/homebrew-clairlune with write access to that repository and nothing else. It could open the winget update with a `WINGET_TOKEN` secret, but that would have to be a classic token with `public_repo` (write access to every public repository of the account), so it is left unset: each release's winget pull request is opened by hand from the fork yam333/winget-pkgs, from the `clairlune-manifests` artifact.

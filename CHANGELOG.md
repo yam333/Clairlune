@@ -4,7 +4,7 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
-## Unreleased
+## 0.17.0 (2026-11-22)
 
 - **A welcome on the first run:** one screen with what Clairlune does and the
   few choices that matter most: live or still, the theme, one scene per
@@ -17,8 +17,8 @@ are on the [releases page](https://github.com/yam333/Clairlune/releases).
   exported stay.
 - **Live by default on the Mac** for new installs, as on Windows (Linux keeps
   the still frame by default until Live is tried on real desktops there).
-- A [user guide](docs/guide.md) with answers to common questions, and this
-  changelog.
+- A [user guide](docs/guide.md) with answers to common questions, this
+  changelog, and a trailer on the project page.
 
 ## 0.16.0 (2026-11-21)
 
