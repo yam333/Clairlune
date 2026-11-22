@@ -37,11 +37,26 @@ jobs:
           brew style --cask local/check/clairlune
           brew audit --cask --new local/check/clairlune 2>&1 | tee audit.txt || true
           ! grep -i "deprecat" audit.txt
-      - name: Install and uninstall
+      - name: Install, reinstall, uninstall and zap
         run: |
           set -euo pipefail
           brew install --cask local/check/clairlune 2>&1 | tee install.txt
           ! grep -i "warning" install.txt
           ls -d /Applications/Clairlune.app
+          # Start at login on, as the app sets it: an upgrade or reinstall
+          # (which runs the cask's uninstall) must leave it, ask for no
+          # password, and not touch launchd.
+          agent=~/Library/LaunchAgents/app.clairlune.plist
+          mkdir -p ~/Library/LaunchAgents
+          printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' '<plist version="1.0"><dict><key>Label</key><string>app.clairlune</string><key>ProgramArguments</key><array><string>/usr/bin/true</string></array></dict></plist>' > "$agent"
+          brew reinstall --cask local/check/clairlune 2>&1 | tee reinstall.txt
+          ! grep -i "launchctl\|password\|sudo" reinstall.txt
+          [ -e "$agent" ]
           brew uninstall --cask local/check/clairlune
+          [ ! -e /Applications/Clairlune.app ]
+          [ -e "$agent" ]
+          # Zap takes the agent away (and the app's data).
+          brew install --cask local/check/clairlune
+          brew uninstall --zap --cask local/check/clairlune 2>&1 | tee zap.txt
+          [ ! -e "$agent" ]
           [ ! -e /Applications/Clairlune.app ]
