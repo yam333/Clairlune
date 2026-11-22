@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "472e5683060b8a8d",
-  "activity": "play_flute",
-  "archetype": "islands",
-  "light_tod": "noon",
-  "dark_tod": "deep_dusk",
-  "platform": "sand_spit",
+  "content_ctx_hash": "da267a8eef87d9ad",
+  "activity": "stargaze",
+  "archetype": "lantern_lake",
+  "light_tod": null,
+  "dark_tod": "night",
+  "platform": "grassy_bank",
   "props": [
-    "music_stand"
+    "telescope"
   ],
-  "weather": "birds",
+  "weather": "none",
   "composition": {
     "horizon_pm": 571,
     "focus_x_pm": 505,

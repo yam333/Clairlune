@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "472e5683060b8a8d",
-  "activity": "read_lantern",
-  "archetype": "bamboo",
-  "light_tod": "golden_hour",
-  "dark_tod": "deep_dusk",
-  "platform": "mossy_bank",
+  "content_ctx_hash": "da267a8eef87d9ad",
+  "activity": "make_coffee",
+  "archetype": "islands",
+  "light_tod": "morning",
+  "dark_tod": "dusk",
+  "platform": "sand_spit",
   "props": [
-    "lantern"
+    "camp_stove"
   ],
   "weather": "none",
   "composition": {

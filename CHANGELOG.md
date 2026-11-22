@@ -4,6 +4,30 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.21.0 (2026-11-22)
+
+- **Six magical landscapes:**
+  - **Giant mushrooms:** towering toadstools with spotted domed caps, spores
+    drifting between them.
+  - **Crystal cave:** clusters of tall glowing crystals on the floor, more
+    hanging from the ceiling.
+  - **The great tree:** a colossal tree with its canopy across the sky, a
+    round door in its trunk, a lit window and lanterns hanging from its
+    boughs.
+  - **Wizard's tower:** a crooked tower on a crag, its roof wrapped in a
+    spiral of sparks, rocks floating around it.
+  - **Standing stones:** a ring of weathered stones with glowing runes, an
+    altar in the middle, mist in the grass.
+  - **Lantern lake:** paper lanterns floating on still water and rising into
+    the sky, a gate standing in the lake, a pagoda on the far shore.
+  Windows, lanterns and runes glow brighter from golden hour on.
+- **Fairer mix of landscapes.** Activities that only happen in one or two
+  landscapes (the ridge hike, ski touring, sledding) made those landscapes
+  come up far more often than the rest; they now give way a little, so every
+  landscape gets closer to its share.
+- Tall things in the scenery (giant mushrooms, towers, crystals, the ruins'
+  columns) now fit small images such as GIFs instead of running off the top.
+
 ## 0.20.0 (2026-11-22)
 
 - **Five new landscapes:** a waterfall pouring into a misty pool, countryside

@@ -5,14 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "472e5683060b8a8d",
-  "activity": "fishing",
-  "archetype": "shore",
+  "content_ctx_hash": "da267a8eef87d9ad",
+  "activity": "yoga",
+  "archetype": "bamboo",
   "light_tod": "noon",
   "dark_tod": "dusk",
-  "platform": "pier",
-  "props": [],
-  "weather": "birds",
+  "platform": "mossy_bank",
+  "props": [
+    "yoga_mat"
+  ],
+  "weather": "leaves",
   "composition": {
     "horizon_pm": 587,
     "focus_x_pm": 355,

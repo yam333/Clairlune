@@ -233,7 +233,7 @@ pub(super) const ZOOMS: [Item; 3] = [
     ("vast", "Vast", "Clawd tiny in a huge landscape"),
 ];
 
-pub(super) const LANDSCAPES: [Item; 21] = [
+pub(super) const LANDSCAPES: [Item; 27] = [
     ("canyon", "Canyon", ""),
     ("mountains", "Mountains", ""),
     ("forest", "Forest", ""),
@@ -263,6 +263,32 @@ pub(super) const LANDSCAPES: [Item; 21] = [
     ("ruins", "Ruins", "Old columns and an arch"),
     ("savanna", "Savanna", "Golden grass and acacias"),
     ("swamp", "Swamp", "Cypress trees in still water"),
+    (
+        "mushrooms",
+        "Giant mushrooms",
+        "A grove of towering toadstools",
+    ),
+    ("crystals", "Crystal cave", "Glowing crystals, no sky"),
+    (
+        "great_tree",
+        "Great tree",
+        "A colossal tree hung with lanterns",
+    ),
+    (
+        "wizard_tower",
+        "Wizard's tower",
+        "A crooked tower on a crag",
+    ),
+    (
+        "standing_stones",
+        "Standing stones",
+        "A ring of stones with glowing runes",
+    ),
+    (
+        "lantern_lake",
+        "Lantern lake",
+        "Floating lanterns, a gate in the water",
+    ),
 ];
 
 pub(super) const ACTIVITIES: [Item; 38] = [

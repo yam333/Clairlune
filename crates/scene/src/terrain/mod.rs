@@ -11,26 +11,32 @@ pub(crate) mod canyon;
 pub(crate) mod cave;
 pub(crate) mod city;
 pub(crate) mod countryside;
+pub(crate) mod crystals;
 pub(crate) mod desert;
 pub(crate) mod details;
 pub(crate) mod forest;
+pub(crate) mod great_tree;
 pub(crate) mod interior;
 pub(crate) mod islands;
 pub(crate) mod lake;
 pub mod landmark;
+pub(crate) mod lantern_lake;
 pub(crate) mod layers;
 pub(crate) mod ledge;
 pub(crate) mod lunar;
 pub(crate) mod meadow;
 pub(crate) mod mountains;
+pub(crate) mod mushrooms;
 pub(crate) mod night_sky;
 pub(crate) mod ruins;
 pub(crate) mod savanna;
 pub(crate) mod shore;
 pub(crate) mod snowfield;
+pub(crate) mod standing_stones;
 pub(crate) mod swamp;
 pub(crate) mod volcano;
 pub(crate) mod waterfall;
+pub(crate) mod wizard_tower;
 
 use crate::graph::{Cell, GridSpec};
 use crate::hash::{hash3, unit_from_hash};
@@ -39,7 +45,7 @@ use crate::recipe::{SceneRecipe, TimeOfDay};
 
 /// Archetypes this generator version can paint. Must match the `implemented`
 /// flags in `archetype::ARCHETYPE_INFO` (checked by a test).
-pub const PAINTED: [&str; 21] = [
+pub const PAINTED: [&str; 27] = [
     "canyon",
     "mountains",
     "desert",
@@ -61,6 +67,12 @@ pub const PAINTED: [&str; 21] = [
     "ruins",
     "savanna",
     "swamp",
+    "mushrooms",
+    "crystals",
+    "great_tree",
+    "wizard_tower",
+    "standing_stones",
+    "lantern_lake",
 ];
 
 /// What an archetype paints for a journey: the still background's sky limit
@@ -142,6 +154,17 @@ impl Ctx<'_> {
         (row * self.cols + col) as usize
     }
 
+    /// How tall this grid is against the usual one (about
+    /// [`crate::graph::TARGET_ROWS`] rows; small images have fewer).
+    pub fn row_scale(&self) -> f64 {
+        f64::from(self.rows) / f64::from(crate::graph::TARGET_ROWS)
+    }
+
+    /// A height given in rows of the usual grid, in rows of this one.
+    pub fn scaled(&self, rows: f64) -> i64 {
+        (rows * self.row_scale()).round() as i64
+    }
+
     /// Where the land starts in each column: the sky limit, without the
     /// shelter given to things standing in the sky.
     pub fn land_line(&self, sky_limit: &[f64]) -> Vec<f64> {
@@ -199,6 +222,12 @@ pub(crate) fn background(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Vec<
         "ruins" => ruins::background(ctx, cells),
         "savanna" => savanna::background(ctx, cells),
         "swamp" => swamp::background(ctx, cells),
+        "mushrooms" => mushrooms::background(ctx, cells),
+        "crystals" => crystals::background(ctx, cells),
+        "great_tree" => great_tree::background(ctx, cells),
+        "wizard_tower" => wizard_tower::background(ctx, cells),
+        "standing_stones" => standing_stones::background(ctx, cells),
+        "lantern_lake" => lantern_lake::background(ctx, cells),
         other => unreachable!("archetype `{other}` is not painted"),
     }
 }
@@ -206,12 +235,12 @@ pub(crate) fn background(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Vec<
 /// The archetype's platform style.
 fn ledge_style(archetype: &str) -> &'static ledge::LedgeStyle {
     match archetype {
-        "canyon" | "mountains" | "cave" | "volcano" | "lunar" | "waterfall" | "ruins" => {
-            &ledge::ROCK
-        }
+        "canyon" | "mountains" | "cave" | "volcano" | "lunar" | "waterfall" | "ruins"
+        | "crystals" | "wizard_tower" => &ledge::ROCK,
         "desert" | "islands" | "savanna" => &ledge::DUNE,
         "snowfield" => &ledge::ICE,
-        "forest" | "meadow" | "lake" | "bamboo" | "countryside" | "swamp" => &ledge::GRASS,
+        "forest" | "meadow" | "lake" | "bamboo" | "countryside" | "swamp" | "mushrooms"
+        | "great_tree" | "standing_stones" | "lantern_lake" => &ledge::GRASS,
         other => unreachable!("archetype `{other}` is not painted"),
     }
 }
