@@ -203,6 +203,37 @@ pub(crate) fn taskbar_is_light() -> Option<bool> {
     status.is_ok().then_some(value == 1)
 }
 
+/// Pop-up menus (the tray's) drawn dark (`Some(true)`), light
+/// (`Some(false)`), or as apps are (`None`). Windows has no public call for
+/// this: uxtheme's SetPreferredAppMode (ordinal 135, Windows 10 1903 and
+/// later; AllowDarkModeForApp on 1809) and FlushMenuThemes (136) are what
+/// File Explorer and other apps use for theirs. Missing: nothing happens.
+pub(crate) fn set_menu_theme(dark: Option<bool>) {
+    use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
+    use windows::core::PCSTR;
+    type SetMode = unsafe extern "system" fn(i32) -> i32;
+    type Flush = unsafe extern "system" fn();
+    // PreferredAppMode: AllowDark 1, ForceDark 2, ForceLight 3.
+    let mode = match dark {
+        None => 1,
+        Some(true) => 2,
+        Some(false) => 3,
+    };
+    unsafe {
+        let Ok(lib) = LoadLibraryW(w!("uxtheme.dll")) else {
+            return;
+        };
+        if let Some(f) = GetProcAddress(lib, PCSTR(135 as *const u8)) {
+            let set = std::mem::transmute::<unsafe extern "system" fn() -> isize, SetMode>(f);
+            set(mode);
+        }
+        if let Some(f) = GetProcAddress(lib, PCSTR(136 as *const u8)) {
+            let flush = std::mem::transmute::<unsafe extern "system" fn() -> isize, Flush>(f);
+            flush();
+        }
+    }
+}
+
 pub(crate) struct WindowsHost {
     dw: IDesktopWallpaper,
 }

@@ -4,6 +4,20 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.28.0 (2026-11-23)
+
+- **A shorter menu** (tray and menu bar): New wallpaper, Previous wallpaper,
+  Theme, Live wallpaper, **Save wallpaper** (as PNG, as GIF, to library),
+  Settings, About and Quit. Pause changes, Library, Timeline and Archive
+  went from it; they open from Settings.
+- **The menu is dark on a dark taskbar** (Windows), light on a light one,
+  and follows it when it changes.
+- **Monitors keep their own mode.** Picking Live or Still frame for one
+  monitor (Display) changed the other too: rows of buttons with the same
+  words answered each other's clicks. Fixed for every such row.
+- The theme schedule's times show in full ("19:00", not "9:00"), with a
+  dash between them.
+
 ## 0.27.0 (2026-11-22)
 
 - **The Timeline, shown rather than told.** With nothing picked, its right

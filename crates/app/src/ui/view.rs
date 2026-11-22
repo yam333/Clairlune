@@ -1690,17 +1690,27 @@ fn theme_schedule(ui: &mut Ui, theme: Theme, s: &mut Settings) {
             "theme-light-from",
             &mut s.theme.light_from,
             "",
-            56.0,
+            CLOCK_W,
             ok,
         );
-        ui.label("and");
-        let dark = settled_text(ui, "theme-dark-from", &mut s.theme.dark_from, "", 56.0, ok);
+        ui.label("\u{2013}");
+        let dark = settled_text(
+            ui,
+            "theme-dark-from",
+            &mut s.theme.dark_from,
+            "",
+            CLOCK_W,
+            ok,
+        );
         valid = ok(&dark) && ok(&light);
     });
     if !valid {
         note(ui, "Use 24-hour times like 19:00 and 07:00.");
     }
 }
+
+/// A time field's width: all of "00:00" with the field's margins.
+const CLOCK_W: f32 = 76.0;
 
 /// A text field whose text reaches the settings once it's done (focus
 /// leaves, or Enter) and `valid` takes it: a half-typed value doesn't
@@ -1814,6 +1824,9 @@ pub(super) fn segmented<T: PartialEq + Copy>(
         })
         .collect();
     let inner: f32 = galleys.iter().map(|g| g.size().x + 2.0 * pad).sum();
+    // This control's own ids, whatever its labels: rows that read the same
+    // (Live / Still frame, a monitor each) mustn't answer each other's clicks.
+    let base = ui.next_auto_id();
     let (track, _) = ui.allocate_exact_size(vec2(inner + 6.0, size::CONTROL + 2.0), Sense::hover());
     let groove = match theme {
         Theme::Dark => Color32::from_black_alpha(80),
@@ -1839,7 +1852,7 @@ pub(super) fn segmented<T: PartialEq + Copy>(
         } else {
             Sense::hover()
         };
-        let resp = ui.interact(seg, ui.scope_id().with(("segment", i, *label)), sense);
+        let resp = ui.interact(seg, base.with(("segment", i, *label)), sense);
         resp.widget_info(|| {
             egui::WidgetInfo::selected(egui::Role::RadioButton, *enabled, on, *label)
         });
@@ -2915,6 +2928,48 @@ fn page(
 mod tests {
     use super::*;
 
+    #[test]
+    fn segmented_rows_with_the_same_labels_change_alone() {
+        // Two monitors' Live / Still frame rows: a click on one changes it,
+        // and only it.
+        let ctx = egui::Context::default();
+        style::apply(&ctx, Theme::Dark);
+        let mut values = [false, false];
+        let mut rows = [Rect::NOTHING; 2];
+        let options = [(false, "Live", true), (true, "Still frame", true)];
+        let frame = |events: Vec<egui::Event>, values: &mut [bool; 2], rows: &mut [Rect; 2]| {
+            let input = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(800.0, 400.0))),
+                events,
+                ..Default::default()
+            };
+            ctx.run_ui(input, |ui| {
+                for k in 0..2 {
+                    let r =
+                        ui.horizontal(|ui| segmented(ui, Theme::Dark, &mut values[k], &options));
+                    rows[k] = r.response.rect;
+                }
+            })
+            .drop_without_applying_deltas();
+        };
+        frame(Vec::new(), &mut values, &mut rows);
+        let at = pos2(rows[0].right() - 12.0, rows[0].center().y);
+        let press = |pressed| egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        frame(
+            vec![egui::Event::PointerMoved(at), press(true)],
+            &mut values,
+            &mut rows,
+        );
+        frame(vec![press(false)], &mut values, &mut rows);
+        frame(Vec::new(), &mut values, &mut rows);
+        assert_eq!(values, [true, false]);
+    }
+
     /// Renders Settings with the first run's question up for `frames`, each
     /// with `events`, and returns the actions asked for.
     fn ask_frames(events: &[egui::Event], frames: usize) -> Vec<UiAction> {
@@ -2994,7 +3049,7 @@ mod tests {
                 ..Default::default()
             };
             ctx.run_ui(input, |ui| {
-                settled_text(ui, "test-clock", value, "", 56.0, |t| {
+                settled_text(ui, "test-clock", value, "", CLOCK_W, |t| {
                     crate::settings::parse_clock(t).is_some()
                 });
             })

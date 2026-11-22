@@ -1015,7 +1015,6 @@ impl App {
                     self.settings = new;
                     if let Some(t) = &self.tray {
                         t.show_theme(self.settings.theme.mode);
-                        t.show_paused(self.settings.schedule.paused);
                     }
                     if display_changed {
                         self.follow_display_settings();
@@ -1093,22 +1092,11 @@ impl App {
                 self.follow_display_settings();
                 self.redraw_windows();
             }
-            Action::TogglePause => {
-                self.settings.schedule.paused = !self.settings.schedule.paused;
-                if let Some(t) = &self.tray {
-                    t.show_paused(self.settings.schedule.paused);
-                }
-                self.save_settings();
-                self.reschedule();
-            }
             Action::SavePng => {
                 self.export_png();
             }
             Action::SaveGif => self.export_gif(),
             Action::SaveToLibrary => self.save_to_library(),
-            Action::OpenLibrary => self.open_library(event_loop),
-            Action::OpenTimeline => self.open_timeline(event_loop),
-            Action::OpenArchive => self.open_archive(event_loop),
             Action::OpenSettings => self.open_settings(event_loop, None),
             Action::About => {
                 self.last_section = ui::view::Section::About;
@@ -1612,7 +1600,6 @@ impl App {
                 self.check_permissions();
                 if let Some(t) = &self.tray {
                     t.show_theme(self.settings.theme.mode);
-                    t.show_paused(self.settings.schedule.paused);
                 }
                 self.follow_display_settings();
                 self.reschedule();
@@ -1639,9 +1626,6 @@ impl App {
             UiAction::ChooseExportFolder => self.choose_export_folder(),
             UiAction::Resume => {
                 self.settings.schedule.paused = false;
-                if let Some(t) = &self.tray {
-                    t.show_paused(false);
-                }
                 self.save_settings();
                 self.reschedule();
             }
@@ -1769,9 +1753,6 @@ impl App {
                 self.settings.schedule.paused = true;
                 self.save_settings();
                 self.reschedule();
-                if let Some(t) = &self.tray {
-                    t.show_paused(true);
-                }
                 self.submit(Job::Restore);
             }
         }
@@ -2252,7 +2233,6 @@ impl App {
         }
         match tray::Tray::new(
             self.settings.theme.mode,
-            self.settings.schedule.paused,
             self.settings.display.mode == settings::WallpaperMode::Live,
         ) {
             Ok(t) => {
