@@ -1,0 +1,66 @@
+name: Mac lock check
+
+# What locking the Mac does with Clairlune as the screen saver, on a macOS
+# runner (a throwaway machine): the saver is installed and picked, the
+# screen locked the way Apple menu > Lock Screen does it, and the saver's
+# own log says whether it started and kept drawing frames. Then the same,
+# starting the screen saver while locked.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/mac-lock.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  lock:
+    runs-on: macos-latest
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: mac-saver
+      - name: Build, install and pick the saver
+        run: |
+          set -eu
+          mkdir -p out "$HOME/Library/Screen Savers"
+          sh scripts/make_saver.sh aarch64-apple-darwin out 0.0.0-check
+          rm -rf "$HOME/Library/Screen Savers/Clairlune.saver"
+          cp -R out/Clairlune.saver "$HOME/Library/Screen Savers/"
+          python3 scripts/ci_pick_saver.py "$HOME/Library/Screen Savers/Clairlune.saver"
+          killall WallpaperAgent 2>/dev/null || true
+          sleep 3
+          sw_vers
+      - name: Lock the screen (as Apple menu > Lock Screen does)
+        run: |
+          set +e
+          log="$HOME/Library/Containers/com.apple.ScreenSaver.Engine.legacyScreenSaver/Data/Library/Logs/Clairlune Saver.log"
+          rm -f "$log"
+          python3 - <<'PY'
+          import ctypes
+          login = ctypes.CDLL("/System/Library/PrivateFrameworks/login.framework/Versions/Current/login")
+          print("SACLockScreenImmediate:", login.SACLockScreenImmediate())
+          PY
+          for t in 5 15 25; do
+            sleep 10
+            echo "== about $t s after locking"
+            ioreg -n Root -d1 -a | grep -A1 CGSSessionScreenIsLocked | tr -d '\n\t'; echo
+            ps -axo pid,%cpu,command | grep -iE "ScreenSaverEngine|legacyScreenSaver" | grep -v grep
+          done
+          echo "== the saver's log"
+          cat "$log" 2>/dev/null || echo "(no log: the saver didn't start)"
+      - name: While locked, start the screen saver
+        run: |
+          set +e
+          log="$HOME/Library/Containers/com.apple.ScreenSaver.Engine.legacyScreenSaver/Data/Library/Logs/Clairlune Saver.log"
+          open -a /System/Library/CoreServices/ScreenSaverEngine.app
+          sleep 25
+          ps -axo pid,%cpu,command | grep -iE "ScreenSaverEngine|legacyScreenSaver" | grep -v grep
+          ioreg -n Root -d1 -a | grep -A1 CGSSessionScreenIsLocked | tr -d '\n\t'; echo
+          echo "== the saver's log"
+          cat "$log" 2>/dev/null || echo "(no log: the saver didn't start)"

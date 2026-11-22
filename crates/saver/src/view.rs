@@ -21,6 +21,9 @@ use std::sync::{Arc, Once};
 #[derive(Default)]
 struct Ivars {
     playing: RefCell<Option<SurfaceView>>,
+    /// Frames played since it started, and when it started, for the log.
+    frames: std::cell::Cell<u64>,
+    started: std::cell::Cell<Option<std::time::Instant>>,
 }
 
 define_class!(
@@ -66,6 +69,7 @@ define_class!(
             let _: () = unsafe { msg_send![super(self), stopAnimation] };
             if let Some(p) = self.ivars().playing.borrow_mut().take() {
                 p.view().removeFromSuperview();
+                self.log_frames("stopped");
             }
         }
 
@@ -134,6 +138,8 @@ impl ClairluneSaverView {
                 );
                 self.addSubview(p.view());
                 *self.ivars().playing.borrow_mut() = Some(p);
+                self.ivars().frames.set(0);
+                self.ivars().started.set(Some(std::time::Instant::now()));
             }
             Err(e) => log(&format!("not playing: {e}")),
         }
@@ -190,7 +196,26 @@ impl ClairluneSaverView {
     fn next_frame(&self) {
         if let Some(p) = self.ivars().playing.borrow_mut().as_mut() {
             p.advance();
+            let n = self.ivars().frames.get() + 1;
+            self.ivars().frames.set(n);
+            // Now and then, how it goes (a frozen saver shows here).
+            if n.is_multiple_of(120) {
+                self.log_frames("playing");
+            }
         }
+    }
+
+    /// "<what>: n frames in s seconds".
+    fn log_frames(&self, what: &str) {
+        let secs = self
+            .ivars()
+            .started
+            .get()
+            .map_or(0.0, |t| t.elapsed().as_secs_f64());
+        log(&format!(
+            "{what}: {} frames in {secs:.0} s",
+            self.ivars().frames.get()
+        ));
     }
 }
 
