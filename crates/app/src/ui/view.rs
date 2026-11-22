@@ -68,6 +68,9 @@ pub struct Status {
     pub ask_start_at_login: bool,
     /// macOS: this copy carries the screen saver (from the DMG or Homebrew).
     pub saver_available: bool,
+    /// macOS: the screen saver doesn't lock at once: after how long it
+    /// asks for the password ("5 minutes"), or "never".
+    pub saver_password_after: Option<String>,
     /// The monitors the wallpaper is on: id and name ("Left (2560x1440,
     /// main)").
     pub monitors: Vec<(String, String)>,
@@ -131,6 +134,12 @@ pub enum UiAction {
     OpenSaverSettings,
     /// macOS: System Settings at General > Login Items.
     OpenLoginItems,
+    /// macOS: start the screen saver now (it locks the Mac).
+    LockScreen,
+    /// macOS: System Settings at Lock Screen, and at Desktop & Dock (Hot
+    /// Corners).
+    OpenLockScreenSettings,
+    OpenHotCorners,
     Quit,
     RestoreWallpaper,
     SaveToLibrary,
@@ -1754,17 +1763,36 @@ fn page(
                         },
                     );
                     if s.general.screen_saver {
-                        ui.horizontal(|ui| {
+                        ui.horizontal_wrapped(|ui| {
                             if ui.button("Open Screen Saver settings").clicked() {
                                 actions.push(UiAction::OpenSaverSettings);
                             }
-                            ui.label(
-                                RichText::new(
-                                    "Pick Clairlune there; start it after, and lock, as you like.",
-                                )
-                                .color(c(t.text_secondary)),
-                            );
+                            if ui.button("Hot Corners\u{2026}").clicked() {
+                                actions.push(UiAction::OpenHotCorners);
+                            }
+                            if ui.button("Lock now").clicked() {
+                                actions.push(UiAction::LockScreen);
+                            }
                         });
+                        ui.label(
+                            RichText::new(
+                                "Pick Clairlune there. To lock with the scene playing until the display turns off, use Lock Screen in Clairlune's menu, or a hot corner set to Start Screen Saver: macOS's own Lock Screen shows a still picture.",
+                            )
+                            .color(c(t.text_secondary)),
+                        );
+                        if let Some(after) = &status.saver_password_after {
+                            ui.horizontal_wrapped(|ui| {
+                                ui.label(
+                                    RichText::new(format!(
+                                        "macOS asks for your password {after} after the screen saver starts, so it doesn't lock at once."
+                                    ))
+                                    .color(c(t.danger)),
+                                );
+                                if ui.button("Lock Screen settings").clicked() {
+                                    actions.push(UiAction::OpenLockScreenSettings);
+                                }
+                            });
+                        }
                         ui.add_space(space::S4);
                     }
                 } else {

@@ -4,12 +4,13 @@ name: Mac lock check
 # runner (a throwaway machine): the saver is installed and picked, the
 # screen locked the way Apple menu > Lock Screen does it, and the saver's
 # own log says whether it started and kept drawing frames. Then the same,
-# starting the screen saver while locked.
+# starting the screen saver while locked. Starting it first, as Lock Screen
+# in Clairlune's menu does, locks the Mac with the scene playing.
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [".github/workflows/mac-lock.yml"]
+    paths: [".github/workflows/mac-lock.yml", "crates/saver/**"]
 
 permissions:
   contents: read
@@ -42,8 +43,8 @@ jobs:
           log="$HOME/Library/Containers/com.apple.ScreenSaver.Engine.legacyScreenSaver/Data/Library/Logs/Clairlune Saver.log"
           rm -f "$log"
           echo "screen lock: $(sysadminctl -screenLock status 2>&1 | tail -1)"
-          defaults -currentHost read com.apple.screensaver 2>/dev/null | head -20
-          open -a /System/Library/CoreServices/ScreenSaverEngine.app
+          # What Lock Screen in Clairlune's menu does (saver::start_now).
+          open -b com.apple.ScreenSaver.Engine
           for t in 10 20 30 40; do
             sleep 10
             echo "== about $t s after starting it"
