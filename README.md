@@ -80,7 +80,7 @@ Design notes, the activity system and the art rules are in [docs/dev](docs/dev).
 
 ## Contributing
 
-Bug reports and ideas are welcome: [open an issue](https://github.com/yam333/Clairlune/issues/new/choose). The app's Settings > General > Report a problem fills one in for you. For code, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Bug reports and ideas are welcome: [open an issue](https://github.com/yam333/Clairlune/issues/new/choose). The app's Settings -> General -> Report a problem fills one in for you. For code, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Generated images
 
