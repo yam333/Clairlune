@@ -1,5 +1,5 @@
 //! The archive: every wallpaper set the app applied, kept for a while
-//! (PLAN.md section 9).
+//!.
 //!
 //! ```text
 //! <data_dir>/archive/
@@ -8,7 +8,7 @@
 //!     ├── recipe.json      one recipe per monitor
 //!     ├── thumb.png        480 px wide, the primary monitor's scene
 //!     ├── wallpaper-0.png  one per monitor, primary first
-//!     └── scene/0/         the frozen scene package per monitor (PLAN.md 9c)
+//!     └── scene/0/         the frozen scene package per monitor
 //! ```
 //!
 //! Retention deletes for good (never to the Trash, which would fill up every

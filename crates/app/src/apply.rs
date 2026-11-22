@@ -237,7 +237,7 @@ fn lighter(m: Monitor) -> Monitor {
 }
 
 /// A monitor's seed: the base seed on the primary, derived from the base seed
-/// and the monitor id elsewhere (PLAN.md section 2.1).
+/// and the monitor id elsewhere.
 pub fn monitor_seed(base: u64, m: &Monitor) -> u64 {
     if m.primary {
         base
@@ -626,7 +626,7 @@ fn pick_seed(
     (seed, r)
 }
 
-/// The most recent picks, newest last (PLAN.md section 4.7): new scenes skip
+/// The most recent picks, newest last: new scenes skip
 /// the last activity and weigh down recent ones and the last landscape, so
 /// wallpapers in a row, and the monitors of one wallpaper, differ. Kept in
 /// `<data>/recent.json` across restarts.

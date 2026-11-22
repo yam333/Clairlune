@@ -1,5 +1,5 @@
-//! A second launch asks the running copy to open Settings (PLAN.md section
-//! 10), over a local socket: a named pipe on Windows, an abstract or file
+//! A second launch asks the running copy to open Settings, over a local
+//! socket: a named pipe on Windows, an abstract or file
 //! socket elsewhere. The name is derived from the user's data folder, so two
 //! users on one machine never reach each other's copy.
 

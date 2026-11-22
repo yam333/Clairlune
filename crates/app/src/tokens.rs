@@ -1,4 +1,4 @@
-//! Design tokens (docs/design.md section 7): every colour, size, radius and
+//! Design tokens (docs/dev/design.md section 7): every colour, size, radius and
 //! duration the UI may use. Toolkit-independent constants; UI code takes its
 //! values from here and nowhere else.
 //!

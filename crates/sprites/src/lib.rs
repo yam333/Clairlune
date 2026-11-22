@@ -1,7 +1,7 @@
 //! Sprite sheets and the `Character` trait.
 //!
 //! All character-specific code and data live here, behind [`Character`]
-//! (PLAN.md section 7.2, step 6). If the character ever has to be replaced, only
+//!. If the character ever has to be replaced, only
 //! this crate and its `assets/clawd/` change.
 
 pub mod aseprite;

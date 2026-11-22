@@ -1,5 +1,5 @@
 //! A landmark: one big, far shape that stays put behind a journey's moving
-//! layers (docs/scrolling-scenes.md). Only the land in front of it scrolls,
+//! layers (docs/dev/scrolling-scenes.md). Only the land in front of it scrolls,
 //! so the eye reads the depth: a granite dome, a lone peak, twin peaks, a
 //! volcano, a mesa, or a moon rising huge behind the land. Composition picks
 //! it (the recipe's `landmark`); recipes without one come out as before.

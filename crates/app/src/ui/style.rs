@@ -1,5 +1,5 @@
 //! egui styled from the design tokens: our fonts, our colours, our spacing.
-//! Nothing of egui's stock look should survive (docs/design.md section 2).
+//! Nothing of egui's stock look should survive (docs/dev/design.md section 2).
 
 use crate::tokens::{self, Colors, Rgb, radius, size, space, text};
 use clairlune_scene::Theme;

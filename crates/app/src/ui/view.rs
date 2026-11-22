@@ -1,4 +1,4 @@
-//! The Settings window's content (Moonglass, docs/design.md): a sidebar of
+//! The Settings window's content (Moonglass, docs/dev/design.md): a sidebar of
 //! sections on reeded glass with the wallpaper on screen at its foot, and
 //! pages on smoked glass: a serif title, then rows of name, one-line
 //! description and control.

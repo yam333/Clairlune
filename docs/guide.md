@@ -28,7 +28,7 @@ Downloads are on the [releases page](https://github.com/yam333/Clairlune/release
   release's `clairlune_<version>_winget.zip`: extract it, allow local
   manifests once with `winget settings --enable LocalManifestFiles` in an
   administrator Terminal, then run `winget install --manifest <the folder>`
-  ([the README](../README.md#winget) has a copy-paste version).
+  ([below](#winget) as a copy-paste version).
 - **macOS 13 or later:** open the DMG (`aarch64` for Apple silicon, `x64` for
   Intel) and drag Clairlune to Applications. The first time you open it, macOS
   refuses: open System Settings > Privacy & Security, scroll down and click
@@ -36,7 +36,36 @@ Downloads are on the [releases page](https://github.com/yam333/Clairlune/release
   `brew install --cask yam333/clairlune/clairlune`.
 - **Linux:** there's no desktop app (0.18.0 was the last). `cargo install
   clairlune-cli` renders the scenes as PNGs and GIFs to set yourself.
-- **From source:** `cargo install clairlune` (Rust 1.90 or newer).
+- **From source:** `cargo install clairlune` (Rust 1.95 or newer).
+
+### winget
+
+Once Microsoft accepts the package, installing is one command:
+`winget install Clairlune.Clairlune`. Until then, winget installs from the
+manifest files attached to each release (`clairlune_<version>_winget.zip`).
+It only does that once local manifests are allowed, so first, in a Terminal
+opened as administrator (once per PC):
+
+```powershell
+winget settings --enable LocalManifestFiles
+```
+
+Then, in a normal PowerShell window (Windows Terminal's default, not Command
+Prompt), fetch the latest release's manifests and install:
+
+```powershell
+$r = Invoke-RestMethod https://api.github.com/repos/yam333/Clairlune/releases/latest
+$a = $r.assets | Where-Object name -like '*_winget.zip'
+Invoke-WebRequest $a.browser_download_url -OutFile "$env:TEMP\clairlune-winget.zip"
+Expand-Archive "$env:TEMP\clairlune-winget.zip" "$env:TEMP\clairlune-winget" -Force
+winget install --manifest "$env:TEMP\clairlune-winget"
+```
+
+winget downloads the setup.exe from the release, checks it against the
+SHA-256 in the manifest and installs it for your account. Installed this way,
+`winget upgrade` doesn't know about it; Clairlune updates itself (Settings >
+General > Update now). Turn the setting back off afterwards with
+`winget settings --disable LocalManifestFiles` (as administrator).
 
 ## The first run
 

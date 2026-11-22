@@ -1,6 +1,6 @@
 # Trademark check: "Clairlune"
 
-Checked 2026-11-19 (PLAN.md section 15.2.1). This is a search record, not legal advice.
+Checked 2026-11-19. This is a search record, not legal advice.
 
 ## Method
 

@@ -3,7 +3,7 @@
 
 Fails when:
 - an exported sheet (crates/sprites/assets/clawd/*.json) has no matching source
-  in assets/clawd/src/ (PLAN.md section 11, M8: only project-drawn sprites ship),
+  in assets/clawd/src/,
 - an export's recorded source_sha256 doesn't match its source (stale export),
 - an export's PNG is missing,
 - a source has no export.

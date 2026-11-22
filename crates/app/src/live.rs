@@ -1,4 +1,4 @@
-//! Live mode in the app (PLAN.md section 2): the scenes on screen play behind
+//! Live mode in the app: the scenes on screen play behind
 //! the desktop icons. Switching Live on or off never makes a new scene: the
 //! still set with each wallpaper is the live frame at the hero time, so going
 //! live starts from exactly what's there, and stopping leaves it.
@@ -150,7 +150,7 @@ impl Live {
         self.fps = fps.clamp(1, 60);
     }
 
-    /// What to do on battery (PLAN.md section 5.3).
+    /// What to do on battery.
     pub fn set_battery_policy(&mut self, saver: bool, pause: bool) {
         self.battery_saver = saver;
         self.battery_pause = pause;

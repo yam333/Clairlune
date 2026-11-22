@@ -1,4 +1,4 @@
-//! Projectile effects (docs/activity-system.md section 3): something thrown
+//! Projectile effects (docs/dev/activity-system.md section 3): something thrown
 //! from an anchor on the character, on its own arc, as a pure function of
 //! the time since the effect's state began.
 //!

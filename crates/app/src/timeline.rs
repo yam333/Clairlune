@@ -1,4 +1,4 @@
-//! The daily timeline (PLAN.md section 9b): a schedule of wallpapers by time
+//! The daily timeline: a schedule of wallpapers by time
 //! of day, one day for every day or one per weekday, in
 //! `<config_dir>/clairlune/timeline.toml`.
 //!

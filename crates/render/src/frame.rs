@@ -7,7 +7,7 @@
 //!
 //! Every draw records the rectangle it writes, so [`IncrementalFrame`] can make
 //! the next frame from the last one by restoring and redrawing only those
-//! rectangles (the live wallpaper, PLAN.md section 5.3), and report what changed.
+//! rectangles (the live wallpaper), and report what changed.
 
 use crate::IndexedImage;
 use crate::art::{BuiltinArt, SceneArt};

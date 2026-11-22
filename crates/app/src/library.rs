@@ -1,4 +1,4 @@
-//! The library (PLAN.md section 9a): wallpapers kept on purpose. Saving copies
+//! The library: wallpapers kept on purpose. Saving copies
 //! an archive entry (recipes, thumbnail, images and the frozen scenes), so the
 //! archive copy can expire while the library copy stays. Nothing here is ever
 //! deleted automatically.

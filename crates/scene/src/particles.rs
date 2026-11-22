@@ -238,7 +238,7 @@ pub fn hero_time(embers: &[Ember]) -> u64 {
     best.1
 }
 
-/// Screen-wide weather (PLAN.md section 4.2, step 6). Every motion completes a
+/// Screen-wide weather. Every motion completes a
 /// whole number of cycles per [`LOOP_MS`], so weather loops seamlessly.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WeatherKind {

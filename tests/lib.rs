@@ -6,7 +6,7 @@ use clairlune_scene::{
 };
 use std::path::PathBuf;
 
-/// Golden test size (PLAN.md section 11, M1).
+/// Golden test size.
 pub const GOLDEN_W: u32 = 640;
 pub const GOLDEN_H: u32 = 360;
 /// The ten fixed golden seeds.

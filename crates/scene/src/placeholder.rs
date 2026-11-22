@@ -1,10 +1,10 @@
 //! Milestone M1 placeholder pixel maps, taken from the Python prototype
-//! (PLAN.md section 13). Milestone M2 replaces them with project-drawn sprite
+//!. Milestone M2 replaces them with project-drawn sprite
 //! sheets behind a `Character` trait in a `sprites` crate.
 //!
 //! `CLAWD_PLACEHOLDER` depicts Clawd, Anthropic's character. It is fan art and is
 //! NOT covered by this crate's MIT/Apache-2.0 licence; see the NOTICE file. To
-//! remove it (docs/takedown.md), delete the constant and render with Buddy off.
+//! remove it (docs/dev/takedown.md), delete the constant and render with Buddy off.
 
 use crate::palette::Rgb;
 

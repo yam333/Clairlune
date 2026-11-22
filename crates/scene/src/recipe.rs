@@ -15,7 +15,7 @@ pub const GENERATOR_VERSION: u32 = 4;
 /// the original particle pace).
 pub const OLDEST_GENERATOR_VERSION: u32 = 3;
 
-/// Every archetype id (PLAN.md section 4.2).
+/// Every archetype id.
 pub const ARCHETYPES: [&str; crate::archetype::ARCHETYPE_INFO.len()] = {
     let mut ids = [""; crate::archetype::ARCHETYPE_INFO.len()];
     let mut i = 0;
@@ -220,7 +220,7 @@ impl SceneRecipe {
         }
     }
 
-    /// True when the scene can only render in one theme (PLAN.md section 1.2).
+    /// True when the scene can only render in one theme.
     pub fn is_theme_locked(&self) -> bool {
         self.light_tod.is_none() || self.dark_tod.is_none()
     }

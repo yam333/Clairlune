@@ -1,6 +1,6 @@
 //! Platform layer: finding the monitors and setting the desktop wallpaper.
 //!
-//! The OS wallpaper APIs only set static images (PLAN.md section 2). A
+//! The OS wallpaper APIs only set static images. A
 //! [`WallpaperHost`] wraps one OS's API: list the monitors with stable ids and
 //! physical sizes, read and set each monitor's wallpaper. [`detect`] picks the
 //! host for the running system. [`StillStore`] writes each still under a new
@@ -35,7 +35,7 @@ use std::path::{Path, PathBuf};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Monitor {
     /// Stable id that survives reboots and re-plugging: the device path on
-    /// Windows. Per-monitor seeds and saved scenes key on it (PLAN.md 2.1).
+    /// Windows. Per-monitor seeds and saved scenes key on it.
     pub id: String,
     /// Position on the virtual screen (the origin can be negative).
     pub x: i32,

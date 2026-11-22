@@ -408,7 +408,7 @@ pub struct ScrollLayer {
     pub cells: Vec<Cell>,
 }
 
-/// A scene whose camera travels (docs/scrolling-scenes.md): layers slide
+/// A scene whose camera travels (docs/dev/scrolling-scenes.md): layers slide
 /// past at their own speeds over the still background (sky, far peaks) and
 /// all come around again after `loop_ms`. Integer arithmetic only, so every
 /// frame is the same everywhere.

@@ -1,4 +1,4 @@
-//! Property tests over random seeds and sizes (PLAN.md section 12).
+//! Property tests over random seeds and sizes.
 
 use clairlune_render::palette::TRANSPARENT_INDEX;
 use clairlune_render::{GlyphAtlas, bake_static, render_still};
@@ -284,7 +284,7 @@ fn theme_toggle_keeps_the_layout_on_every_landscape() {
     }
 }
 
-/// Variety (PLAN.md section 12): over 1,000 seeds with default weights, no
+/// Variety: over 1,000 seeds with default weights, no
 /// activity exceeds twice its expected share and every activity appears.
 #[test]
 fn no_activity_dominates() {

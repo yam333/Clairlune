@@ -70,7 +70,7 @@ pub fn monitors() -> Result<(), String> {
 }
 
 /// A monitor's seed: the base seed on the primary monitor, derived from the
-/// base seed and the monitor id elsewhere (PLAN.md section 2.1).
+/// base seed and the monitor id elsewhere.
 pub fn monitor_seed(base: u64, m: &Monitor) -> u64 {
     if m.primary {
         base

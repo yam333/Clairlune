@@ -1,6 +1,6 @@
 //! Archetypes declare the capabilities they offer. Activities declare the
 //! capabilities they need. Neither names the other, so a new archetype works with
-//! existing activities and vice versa (PLAN.md section 4.7).
+//! existing activities and vice versa.
 
 /// Terrain capabilities an archetype can offer.
 pub const TERRAINS: [&str; 14] = [
@@ -58,8 +58,8 @@ pub struct ArchetypeInfo {
     pub sky: bool,
 }
 
-/// The archetypes (PLAN.md section 4.2, and the interior from
-/// docs/activity-system.md). Unimplemented ones carry their
+/// The archetypes (the interior is described in
+/// docs/dev/activity-system.md). Unimplemented ones carry their
 /// intended capabilities so activity files can be written against them now.
 pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
     ArchetypeInfo {

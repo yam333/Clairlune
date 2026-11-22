@@ -36,7 +36,7 @@ For the next releases, publishing the GitHub release runs `.github/workflows/pub
 ## Channels
 
 Windows and macOS only: the Linux packages (`.deb`, AppImage, AUR) stopped
-with 0.19.0, when the Linux app was dropped (docs/platform-support.md).
+with 0.19.0, when the Linux app was dropped (docs/dev/platform-support.md).
 
 | Channel | Manifest | Publishing, once public | Needs |
 |---|---|---|---|

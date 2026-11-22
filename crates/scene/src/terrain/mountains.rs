@@ -95,7 +95,7 @@ const RIDGE: Layer = Layer {
 /// Cairns, rocks and the odd signpost along the way.
 const WAYMARKS: [&[&str]; 4] = [&["o"], &["oO"], &[" o", "oOo"], &["-=>", " | "]];
 
-/// A journey along the range (docs/scrolling-scenes.md): the far peaks are
+/// A journey along the range (docs/dev/scrolling-scenes.md): the far peaks are
 /// far enough to stay put, so they go with the sky; the middle range slides
 /// by one screen per loop and the ridge underfoot, two screens wide, once,
 /// twice as fast.

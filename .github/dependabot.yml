@@ -1,0 +1,19 @@
+# Dependency updates, once a month, one pull request per ecosystem. CI (and
+# its golden images) decides whether an update changes anything it shouldn't.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      cargo:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

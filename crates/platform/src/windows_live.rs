@@ -1,4 +1,4 @@
-//! Live wallpaper windows behind the desktop icons (PLAN.md section 2).
+//! Live wallpaper windows behind the desktop icons.
 //!
 //! The shell has two layouts, told apart at runtime:
 //! - **Classic** (Windows 10, Windows 11 before 24H2): asked with message
@@ -460,7 +460,7 @@ pub fn process_memory() -> u64 {
 /// For each monitor: is its work area hidden behind one window (a maximized
 /// or full-screen app)? Live frames there are wasted, and DWM throttles a
 /// covered window's presents (a 300 ms stall per frame here), so the live
-/// wallpaper pauses on those monitors (PLAN.md section 2, pause rules).
+/// wallpaper pauses on those monitors.
 ///
 /// Only opaque, ordinary windows count: minimized, cloaked (other virtual
 /// desktops), click-through and layered windows (possibly translucent

@@ -1,5 +1,5 @@
 //! GIF export: decoded frames equal the renderer's frames, the loop closes with
-//! no seam, delays sum to the loop, and sizes stay small (PLAN.md section 6.4).
+//! no seam, delays sum to the loop, and sizes stay small.
 
 use clairlune_render::{
     Clock, GlyphAtlas, IndexedPalette, Smoothness, bake_static, encode_gif, render_frame_clocked,

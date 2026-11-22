@@ -1,4 +1,4 @@
-//! Journeys (docs/scrolling-scenes.md): the layers that scroll past, baked
+//! Journeys (docs/dev/scrolling-scenes.md): the layers that scroll past, baked
 //! once into strips and laid over the still background at each frame's
 //! offsets. A strip holds ink levels, not colours: ink takes its colour
 //! from the background band under it (vignette, glow), and the bands stay
