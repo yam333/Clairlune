@@ -862,7 +862,10 @@ fn row(ui: &mut Ui, theme: Theme, name: &str, description: &str, control: impl F
         ui.label(RichText::new(name).font(style::body_strong()));
         ui.with_layout(Layout::right_to_left(Align::Center), control);
     });
-    ui.label(RichText::new(description).color(c(t.text_secondary)));
+    // A setting that says it all in its name has no line under it.
+    if !description.is_empty() {
+        ui.label(RichText::new(description).color(c(t.text_secondary)));
+    }
     ui.add_space(space::S4);
 }
 
@@ -1666,15 +1669,9 @@ fn page(
                     toggle(ui, theme, &mut s.general.show_tray_icon, icon_name);
                 },
             );
-            row(
-                ui,
-                theme,
-                "Check for updates",
-                "Once a day, Clairlune asks GitHub whether a newer version is out. Nothing about you is sent.",
-                |ui| {
-                    toggle(ui, theme, &mut s.general.check_updates, "Check for updates");
-                },
-            );
+            row(ui, theme, "Check for updates", "Once a day", |ui| {
+                toggle(ui, theme, &mut s.general.check_updates, "Check for updates");
+            });
             ui.horizontal_wrapped(|ui| {
                 let busy = status.checking_updates || status.installing.is_some();
                 let label = if status.checking_updates {
@@ -1764,39 +1761,21 @@ fn page(
                     );
                 }
             }
-            row(
-                ui,
-                theme,
-                "Quit Clairlune",
-                "Stops it until you open it again. The wallpaper on screen stays.",
-                |ui| {
-                    if ui.button("Quit").clicked() {
-                        actions.push(UiAction::Quit);
-                    }
-                },
-            );
-            row(
-                ui,
-                theme,
-                "Restore my wallpaper",
-                "Puts back the wallpaper you had before Clairlune and pauses the schedule.",
-                |ui| {
-                    if ui.button("Restore").clicked() {
-                        actions.push(UiAction::RestoreWallpaper);
-                    }
-                },
-            );
-            row(
-                ui,
-                theme,
-                "Remove Clairlune",
-                "Puts your old wallpaper back and removes everything Clairlune added. Asks first.",
-                |ui| {
-                    if ui.button("Remove\u{2026}").clicked() {
-                        ps.remove_confirm = !ps.remove_confirm;
-                    }
-                },
-            );
+            row(ui, theme, "Quit Clairlune", "", |ui| {
+                if ui.button("Quit").clicked() {
+                    actions.push(UiAction::Quit);
+                }
+            });
+            row(ui, theme, "Restore my wallpaper", "", |ui| {
+                if ui.button("Restore").clicked() {
+                    actions.push(UiAction::RestoreWallpaper);
+                }
+            });
+            row(ui, theme, "Remove Clairlune", "", |ui| {
+                if ui.button("Remove\u{2026}").clicked() {
+                    ps.remove_confirm = !ps.remove_confirm;
+                }
+            });
             if ps.remove_confirm {
                 egui::Frame::new()
                     .fill(c(t.bg_sidebar))
