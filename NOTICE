@@ -25,6 +25,13 @@ Clawd artwork (fan art)
 Other original art (props such as the campfire, icons, UI)
   CC BY 4.0.
 
+The trailer (docs/media/trailer.mp4)
+  Made from the app's own renders and Settings screenshots by
+  scripts/trailer/. Its music is original, composed and synthesised from
+  scratch by scripts/trailer/music.py (no samples or other recordings), and
+  is under CC BY 4.0 like the other original art. The Clawd drawings in it
+  are the fan art described above.
+
 Fonts
   JetBrains Mono, Copyright 2020 The JetBrains Mono Project Authors,
   SIL Open Font License 1.1 (crates/render/assets/fonts/OFL.txt).
