@@ -10,8 +10,8 @@ use windows::Win32::System::Com::{
     CLSCTX_ALL, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx, CoTaskMemFree,
 };
 use windows::Win32::System::Registry::{
-    HKEY_CURRENT_USER, REG_SZ, RRF_RT_REG_DWORD, RRF_RT_REG_SZ, RegDeleteKeyValueW, RegGetValueW,
-    RegSetKeyValueW,
+    HKEY_CURRENT_USER, REG_SZ, RRF_RT_REG_BINARY, RRF_RT_REG_DWORD, RRF_RT_REG_SZ,
+    RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW,
 };
 use windows::Win32::UI::HiDpi::{
     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext,
@@ -117,6 +117,27 @@ pub(crate) fn start_at_login_command() -> Option<String> {
     }
     let end = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
     Some(String::from_utf16_lossy(&buf[..end]))
+}
+
+/// Whether Settings > Apps > Startup has Clairlune switched off: Windows
+/// keeps that beside the Run key, a binary value whose first byte is odd
+/// (3) when off and even (2) when on.
+pub(crate) fn startup_switched_off() -> bool {
+    let name = run_value_name();
+    let mut data = [0u8; 12];
+    let mut size = data.len() as u32;
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            w!(r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"),
+            &name,
+            RRF_RT_REG_BINARY,
+            None,
+            Some(data.as_mut_ptr() as *mut core::ffi::c_void),
+            Some(&mut size),
+        )
+    };
+    status.is_ok() && size > 0 && data[0] & 1 == 1
 }
 
 /// Registers (or with `None` removes) the command started at login.

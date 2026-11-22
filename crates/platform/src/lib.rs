@@ -250,25 +250,34 @@ pub fn login_entry_outdated(exe: &Path) -> bool {
     }
 }
 
-/// macOS: start at login is registered but turned off in System Settings >
-/// General > Login Items, where only the user can turn it on. `false`
-/// elsewhere.
+/// Start at login is registered but switched off where only the user can
+/// switch it on: macOS's System Settings > General > Login Items, or
+/// Windows' Settings > Apps > Startup. `false` elsewhere.
 pub fn start_at_login_needs_approval(exe: &Path) -> bool {
     #[cfg(target_os = "macos")]
     {
         login::needs_approval(exe)
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(windows)]
+    {
+        let _ = exe;
+        windows::startup_switched_off()
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
     {
         let _ = exe;
         false
     }
 }
 
-/// macOS: opens System Settings at General > Login Items. Nothing elsewhere.
+/// Opens where the user switches start at login on: System Settings >
+/// General > Login Items (macOS), Settings > Apps > Startup (Windows).
+/// Nothing elsewhere.
 pub fn open_login_items_settings() {
     #[cfg(target_os = "macos")]
     login::open_login_items();
+    #[cfg(windows)]
+    let _ = windows::open_url("ms-settings:startupapps");
 }
 
 /// Registers or removes `exe` as a login item (per user, no admin rights),
