@@ -30,10 +30,36 @@ Or use a package manager:
 
 - Homebrew: `brew install --cask yam333/clairlune/clairlune`
 - Scoop: `scoop bucket add clairlune https://github.com/yam333/homebrew-clairlune`, then `scoop install clairlune`
-- winget: `winget install Clairlune.Clairlune` (once Microsoft accepts the package)
+- winget: see [below](#winget)
 - Cargo: `cargo install clairlune`, or `cargo install --path crates/app` from a checkout
 
 Clairlune lives in the notification area (Windows) or the menu bar (macOS) as a moon icon. The first time you open it, it asks whether to start quietly when you sign in.
+
+### winget
+
+Clairlune isn't in winget's catalog yet: the package is waiting for Microsoft's review. Once it's in, installing is one command:
+
+```powershell
+winget install Clairlune.Clairlune
+```
+
+Until then, winget can install it from the manifest files attached to each release (`clairlune_<version>_winget.zip`). winget only installs from local manifests once they're allowed, so first, in a Terminal opened as administrator (once per PC):
+
+```powershell
+winget settings --enable LocalManifestFiles
+```
+
+Then, in a normal Terminal, fetch the latest release's manifests and install:
+
+```powershell
+$r = Invoke-RestMethod https://api.github.com/repos/yam333/Clairlune/releases/latest
+$a = $r.assets | Where-Object name -like '*_winget.zip'
+Invoke-WebRequest $a.browser_download_url -OutFile "$env:TEMP\clairlune-winget.zip"
+Expand-Archive "$env:TEMP\clairlune-winget.zip" "$env:TEMP\clairlune-winget" -Force
+winget install --manifest "$env:TEMP\clairlune-winget"
+```
+
+winget downloads the setup.exe from the release, checks it against the SHA-256 in the manifest and installs it for your account. Installed this way, `winget upgrade` doesn't know about it; Clairlune updates itself (Settings -> General -> Update now). You can turn the setting back off afterwards with `winget settings --disable LocalManifestFiles` (as administrator).
 
 ## Using the app
 

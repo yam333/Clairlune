@@ -12,6 +12,7 @@ each release; the first published release starts the channels below.
 | `clairlune_<v>_x64-setup.exe` | Windows: per-user NSIS installer (no admin rights); winget |
 | `clairlune_<v>_x64-portable.zip` | Windows: the exe and licences; Scoop |
 | `Clairlune_<v>_aarch64.dmg`, `Clairlune_<v>_x64.dmg` | macOS 13+, Apple Silicon and Intel; Homebrew |
+| `clairlune_<v>_winget.zip` | The winget manifests, for `winget install --manifest` until the package is in winget's catalog |
 
 The `manifests` job then runs `scripts/package_manifests.py`, which hashes
 those files and writes every manifest below into the `clairlune-manifests`

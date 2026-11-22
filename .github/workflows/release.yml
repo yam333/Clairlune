@@ -132,6 +132,13 @@ jobs:
           pattern: clairlune-*
           path: packages
           merge-multiple: true
+      # The winget manifests as a download of their own, for
+      # `winget install --manifest` until the package is in winget's catalog.
+      - name: The winget manifests, zipped
+        run: |
+          set -euo pipefail
+          v="${GITHUB_REF_NAME#v}"
+          zip -j "packages/clairlune_${v}_winget.zip" packages/winget/manifests/c/Clairlune/Clairlune/"$v"/*.yaml
       - uses: softprops/action-gh-release@v2
         with:
           files: |
