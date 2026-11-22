@@ -100,8 +100,9 @@ impl SurfaceView {
         let view = NSView::initWithFrame(NSView::alloc(mtm), frame);
         let layer = CALayer::new();
         // SAFETY: respondsToSelector: is on every object.
-        let in_place: bool =
-            unsafe { msg_send![&*layer, respondsToSelector: sel!(setContentsChanged)] };
+        let can: bool = unsafe { msg_send![&*layer, respondsToSelector: sel!(setContentsChanged)] };
+        // CLAIRLUNE_SURFACES=2 keeps two (to compare the two ways).
+        let in_place = can && std::env::var_os("CLAIRLUNE_SURFACES").is_none_or(|v| v != "2");
         let buffers = if in_place {
             vec![buffer()?]
         } else {
