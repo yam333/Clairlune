@@ -1,4 +1,4 @@
-// For CI (.github/workflows/mac-cover.yml): opens an ordinary window the
+// For CI (.github/workflows/check-mac-cover.yml): opens an ordinary window the
 // size a zoomed window takes (the main screen without the menu bar and the
 // Dock) for 10 s, then shrinks it to 60% for 10 s, then quits. Clairlune,
 // playing live meanwhile, should pause and then play again.

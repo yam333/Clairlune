@@ -79,3 +79,6 @@ installer-icon = "packaging/icons/clairlune.ico"
 [package.metadata.packager.macos]
 minimum-system-version = "13.0"
 info-plist-path = "packaging/macos/Info.plist"
+
+[lints]
+workspace = true

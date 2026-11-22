@@ -55,3 +55,6 @@ path = "package.rs"
 [[test]]
 name = "journey"
 path = "journey.rs"
+
+[lints]
+workspace = true

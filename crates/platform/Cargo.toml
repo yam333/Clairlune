@@ -30,3 +30,6 @@ objc2-core-graphics.workspace = true
 dispatch2.workspace = true
 block2.workspace = true
 objc2-service-management.workspace = true
+
+[lints]
+workspace = true

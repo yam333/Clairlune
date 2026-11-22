@@ -1,4 +1,4 @@
-name: Update check
+name: "Check: update and removal"
 
 # One-click updates for real (crates/app/src/install.rs): on each OS the
 # latest release is installed the way people install it, this build is put
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["crates/app/src/install.rs", "crates/app/src/update.rs", "crates/app/src/apply.rs", ".github/workflows/update-check.yml"]
+    paths: ["crates/app/src/install.rs", "crates/app/src/update.rs", "crates/app/src/apply.rs", ".github/workflows/check-update.yml"]
 
 permissions:
   contents: read

@@ -1,4 +1,4 @@
-name: DMG check
+name: "Check: DMG window"
 
 # The DMG window as people see it: the latest release's app, packed by
 # scripts/make_dmg.py, opened in Finder on a macOS runner, with screenshots
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["scripts/make_dmg.py", "packaging/macos/**", ".github/workflows/dmg-check.yml"]
+    paths: ["scripts/make_dmg.py", "packaging/macos/**", ".github/workflows/check-dmg.yml"]
 
 permissions:
   contents: read

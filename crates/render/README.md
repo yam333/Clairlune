@@ -2,7 +2,7 @@
 
 Rendering for [Clairlune](https://crates.io/crates/clairlune) ASCII-art wallpapers: glyph atlas, palette-index compositor, frame compositing and indexed PNG export.
 
-Every pixel is a palette index. Colours are looked up, never blended at render time, so a scene has at most 255 colours and stills, GIF frames and the live renderer can match exactly. The glyph rasterizer is self-contained (outlines from `ttf-parser`, 8×8 supersampled coverage using only IEEE-exact arithmetic), so output is byte-identical across operating systems and CPUs.
+Every pixel is a palette index. Colours are looked up, never blended at render time, so a scene has at most 255 colours and stills, GIF frames and the live renderer can match exactly. The glyph rasterizer is self-contained (outlines from `skrifa`, 8×8 supersampled coverage using only IEEE-exact arithmetic), so output is byte-identical across operating systems and CPUs.
 
 ```rust,no_run
 use clairlune_render::{render_still, save_png};
