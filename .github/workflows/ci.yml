@@ -1,8 +1,9 @@
 name: CI
 
 # Every push and pull request: format, sprite exports, clippy and the tests
-# on Linux, Windows and macOS, and the golden hashes in release on each (the
-# same pixels on every OS). Pushes that touch only docs or the plan skip it,
+# on Windows, macOS and Linux, and the golden hashes in release on each (the
+# same pixels on every OS). The app runs on Windows and macOS only; Linux
+# checks everything else (the scenes, rendering, the CLI). Pushes that touch only docs or the plan skip it,
 # and a new push cancels the run still going for the previous one.
 on:
   push:
@@ -47,10 +48,10 @@ jobs:
         run: python3 scripts/check_sprites.py
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets ${{ matrix.os == 'ubuntu-latest' && '--exclude clairlune' || '' }} -- -D warnings
 
       - name: Tests (debug)
-        run: cargo test --workspace
+        run: cargo test --workspace ${{ matrix.os == 'ubuntu-latest' && '--exclude clairlune' || '' }}
 
       # Same golden hashes in release: catches optimisation-dependent float drift.
       - name: Golden images and determinism (release)

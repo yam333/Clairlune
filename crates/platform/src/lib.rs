@@ -6,11 +6,10 @@
 //! host for the running system. [`StillStore`] writes each still under a new
 //! file name, because some systems don't reload an unchanged path.
 //!
-//! Windows (`IDesktopWallpaper`, per monitor) and Linux (GNOME, Cinnamon,
-//! MATE, KDE Plasma, XFCE, Sway; one image for all monitors) are implemented;
+//! Windows (`IDesktopWallpaper`, per monitor) and macOS (`NSWorkspace`, per
+//! screen) are implemented. Elsewhere [`detect`] says the wallpaper isn't
+//! set here: the scenes still render (`clairlune-cli render`, `gif`).
 
-#[cfg(target_os = "linux")]
-mod linux;
 mod login;
 /// macOS: the wallpaper per screen, and Space changes.
 #[cfg(target_os = "macos")]
@@ -24,21 +23,10 @@ mod windows;
 /// Live wallpaper windows in the desktop layer (Windows).
 #[cfg(windows)]
 pub mod windows_live;
-/// Compositors with wlr layer-shell: our own background surfaces.
-#[cfg(target_os = "linux")]
-pub mod wlr;
 
 pub use login::BACKGROUND_ARG;
 pub use power::on_battery;
 pub use store::{Snapshot, StillStore};
-
-/// Linux: the whole desktop as the one monitor wallpapers are made for (its
-/// largest output's size), without a wallpaper host (window managers with
-/// none can still play live).
-#[cfg(target_os = "linux")]
-pub fn linux_desktop_monitor() -> Monitor {
-    linux::desktop_monitor()
-}
 
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -120,18 +108,14 @@ pub fn detect() -> Result<Box<dyn WallpaperHost>, PlatformError> {
     {
         Ok(Box::new(windows::WindowsHost::new()?))
     }
-    #[cfg(target_os = "linux")]
-    {
-        Ok(Box::new(linux::LinuxHost::new()?))
-    }
     #[cfg(target_os = "macos")]
     {
         Ok(Box::new(macos::MacHost::new()?))
     }
-    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         Err(PlatformError::Unsupported(format!(
-            "setting the wallpaper on {} arrives in a later milestone",
+            "Clairlune sets the wallpaper on Windows and macOS, not on {}; `render` and `gif` make the images",
             std::env::consts::OS
         )))
     }
@@ -224,11 +208,11 @@ pub fn start_at_login(exe: &Path) -> Option<bool> {
                 .is_some_and(|c| c.eq_ignore_ascii_case(&want) || c.eq_ignore_ascii_case(&old)),
         )
     }
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[cfg(target_os = "macos")]
     {
         Some(login::registered(exe))
     }
-    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = exe;
         None
@@ -288,11 +272,11 @@ pub fn set_start_at_login(exe: &Path, enable: bool) -> Result<(), PlatformError>
         let cmd = login_command(exe);
         windows::set_start_at_login_command(enable.then_some(cmd.as_str()))
     }
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[cfg(target_os = "macos")]
     {
         login::set(exe, enable)
     }
-    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = (exe, enable);
         Err(PlatformError::Unsupported(

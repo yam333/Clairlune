@@ -4,8 +4,8 @@ name: Publish
 # the package managers get it (docs/distribution.md):
 # - the manifests are made from the release's own files (an artifact);
 # - with a TAP_DEPLOY_KEY secret (the private half of a deploy key that can
-#   write to yam333/homebrew-clairlune and nothing else), the Homebrew cask,
-#   the Scoop manifest and the AUR files are pushed to the tap;
+#   write to yam333/homebrew-clairlune and nothing else), the Homebrew cask
+#   and the Scoop manifest are pushed to the tap;
 # - with a WINGET_TOKEN secret (a classic token with public_repo), komac
 #   opens the winget-pkgs pull request for the new version.
 # Without the secrets, publish the artifact's files by hand.
@@ -44,7 +44,7 @@ jobs:
           path: manifests
           include-hidden-files: true
 
-      - name: Homebrew cask, Scoop manifest and AUR files to the tap
+      - name: Homebrew cask and Scoop manifest to the tap
         if: env.TAP_DEPLOY_KEY != ''
         run: |
           key="$RUNNER_TEMP/tap_key"
@@ -52,10 +52,11 @@ jobs:
           chmod 600 "$key"
           export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
           git clone git@github.com:yam333/homebrew-clairlune.git tap
-          mkdir -p tap/Casks tap/bucket tap/aur/clairlune-bin
+          mkdir -p tap/Casks tap/bucket
           cp manifests/homebrew/Casks/clairlune.rb tap/Casks/
           cp manifests/scoop/clairlune.json tap/bucket/
-          cp manifests/aur/clairlune-bin/PKGBUILD manifests/aur/clairlune-bin/.SRCINFO tap/aur/clairlune-bin/
+          # The AUR files went with the Linux app (0.19).
+          rm -rf tap/aur
           cd tap
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

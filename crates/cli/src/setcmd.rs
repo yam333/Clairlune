@@ -173,16 +173,6 @@ pub fn set(args: SetArgs) -> Result<(), String> {
         );
         println!("    {}  [{note}]", path.display());
     }
-    // Wayland compositors with no wallpaper tool of their own show our own
-    // background surface, which lasts only as long as this process.
-    if host.name() == "linux-wlroots" && !args.dry_run {
-        println!(
-            "showing until Ctrl-C (this compositor keeps a wallpaper only while a program holds it)"
-        );
-        loop {
-            std::thread::park();
-        }
-    }
     Ok(())
 }
 

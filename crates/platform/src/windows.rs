@@ -306,11 +306,7 @@ impl WallpaperHost for WindowsHost {
             }
         }
         let position = unsafe { self.dw.GetPosition() }.ok().map(|p| p.0);
-        Ok(Snapshot {
-            monitors,
-            position,
-            settings: Vec::new(),
-        })
+        Ok(Snapshot { monitors, position })
     }
 
     fn restore(&self, snapshot: &Snapshot) -> Result<(), PlatformError> {

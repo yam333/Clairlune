@@ -19,11 +19,6 @@ pub struct Snapshot {
     pub monitors: Vec<(String, Option<PathBuf>)>,
     /// The OS fit mode (on Windows a `DESKTOP_WALLPAPER_POSITION` value).
     pub position: Option<i32>,
-    /// The desktop's own wallpaper settings, word for word (Linux: each
-    /// `gsettings` key and its value, such as GNOME's separate dark-mode
-    /// picture and the picture options), put back as they were.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub settings: Vec<(String, String)>,
 }
 
 const SNAPSHOT_FILE: &str = "previous-wallpaper.json";
@@ -96,20 +91,6 @@ impl StillStore {
             }
         }
         merged.monitors.retain(|(_, p)| !ours(p));
-        // The desktop's settings, but none naming one of Clairlune's stills.
-        let dir = self.dir.to_string_lossy();
-        let theirs: Vec<_> = snapshot
-            .settings
-            .iter()
-            .filter(|(_, v)| !v.contains(dir.as_ref()))
-            .cloned()
-            .collect();
-        for (k, v) in theirs {
-            match merged.settings.iter_mut().find(|(m, _)| *m == k) {
-                Some(entry) => entry.1 = v,
-                None => merged.settings.push((k, v)),
-            }
-        }
         // The fit mode is the system's, for all monitors: it's the user's only
         // when none shows Clairlune's (or nothing was saved yet).
         if snapshot.monitors.iter().all(|(_, p)| !ours(p)) || merged.position.is_none() {
@@ -222,7 +203,6 @@ mod tests {
                 ("m2".into(), None),
             ],
             position: Some(4),
-            settings: Vec::new(),
         };
         let ours = Snapshot {
             monitors: vec![
@@ -230,12 +210,10 @@ mod tests {
                 ("m2".into(), Some(s.dir().join("b.png"))),
             ],
             position: Some(4),
-            settings: Vec::new(),
         };
         let later = Snapshot {
             monitors: vec![("m1".into(), Some(PathBuf::from(r"C:\pics\new.jpg")))],
             position: Some(2),
-            settings: Vec::new(),
         };
         assert!(s.remember_if_users(&original).unwrap());
         assert!(!s.remember_if_users(&ours).unwrap());
@@ -248,7 +226,6 @@ mod tests {
                 ("m2".into(), None),
             ],
             position: Some(2),
-            settings: Vec::new(),
         };
         assert_eq!(s.original().unwrap(), Some(both.clone()));
         // Nothing to save from no monitors.
@@ -267,7 +244,6 @@ mod tests {
         let first = Snapshot {
             monitors: vec![("A".into(), Some(a.clone())), ("B".into(), Some(b.clone()))],
             position: Some(4),
-            settings: Vec::new(),
         };
         assert!(s.remember_if_users(&first).unwrap());
         // Clairlune on A only (`set --monitor A`), then remembered again.
@@ -275,7 +251,6 @@ mod tests {
         let mixed = Snapshot {
             monitors: vec![("A".into(), Some(still)), ("B".into(), Some(b.clone()))],
             position: Some(10),
-            settings: Vec::new(),
         };
         assert!(!s.remember_if_users(&mixed).unwrap());
         assert_eq!(s.original().unwrap(), Some(first));
@@ -285,7 +260,6 @@ mod tests {
         let only_ours = Snapshot {
             monitors: vec![("A".into(), Some(mine))],
             position: None,
-            settings: Vec::new(),
         };
         assert!(!rel.remember_if_users(&only_ours).unwrap());
         fs::remove_dir_all(rel.dir()).unwrap();

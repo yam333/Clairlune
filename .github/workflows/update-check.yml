@@ -100,38 +100,6 @@ jobs:
           [ "$(defaults read "$app/Contents/Info.plist" CFBundleShortVersionString)" = "$VERSION" ]
           ls -la /Applications | grep -i clairlune
 
-  linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: update-check
-      - name: Build
-        run: cargo build --release -p clairlune
-      # An AppImage's runtime names the file it runs from in APPIMAGE; here
-      # this build stands in for it, beside a copy of the old file.
-      - name: Update an AppImage in place
-        run: |
-          set -euo pipefail
-          v=$(gh release view --repo yam333/Clairlune --json tagName --jq .tagName); v=${v#v}
-          gh release download "v$v" --repo yam333/Clairlune --pattern "clairlune_${v}_x86_64.AppImage" --dir rel
-          want=$(sha256sum "rel/clairlune_${v}_x86_64.AppImage" | cut -d' ' -f1)
-          mkdir -p apps
-          printf 'old' > apps/Clairlune.AppImage
-          APPIMAGE="$PWD/apps/Clairlune.AppImage" ./target/release/clairlune --install-latest
-          h=""
-          for i in $(seq 1 60); do
-            sleep 2
-            h=$(sha256sum apps/Clairlune.AppImage | cut -d' ' -f1)
-            [ "$h" = "$want" ] && break
-          done
-          [ "$h" = "$want" ] || { echo "the AppImage wasn't replaced by the release's"; exit 1; }
-          [ -x apps/Clairlune.AppImage ]
-          ls -la apps
-          echo "updated in place after about $((i * 2)) s"
-
   # Remove Clairlune for real: the release installed the usual way, this
   # build in its place, run once (it sets a wallpaper and makes its
   # folders), then `--remove-everything`: the old wallpaper must be back

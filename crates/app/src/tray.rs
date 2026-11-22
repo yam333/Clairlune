@@ -1,7 +1,5 @@
 //! The tray (menu-bar) icon and its menu (PLAN.md section 10): the
-//! notification area on Windows, the menu bar on macOS, a StatusNotifierItem
-//! over D-Bus on Linux (ksni; desktops without a tray host, such as stock
-//! GNOME, fall back to the Settings window).
+//! notification area on Windows, the menu bar on macOS.
 
 use crate::settings::ThemeMode;
 use clairlune_platform::Monitor;
@@ -92,12 +90,7 @@ impl Tray {
         theme
             .append_items(&[&follow, &light, &dark, &scheduled])
             .map_err(|e| e.to_string())?;
-        let live = CheckMenuItem::new(
-            "Live wallpaper",
-            crate::live::supported().is_ok(),
-            live_on,
-            None,
-        );
+        let live = CheckMenuItem::new("Live wallpaper", true, live_on, None);
         let pause = CheckMenuItem::new("Pause changes", true, paused, None);
         let save = MenuItem::new("Save current as PNG", true, None);
         let save_gif = MenuItem::new("Save current as GIF", true, None);

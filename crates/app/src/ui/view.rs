@@ -103,8 +103,6 @@ pub struct Status {
     pub timeline_problems: Vec<String>,
     /// What the live wallpaper does, or why it can't run.
     pub live: Option<String>,
-    /// Why Live can't be chosen in this build (`None` where it can).
-    pub live_supported: Option<String>,
     /// How many crash reports there are.
     pub crash_reports: usize,
     /// Detailed logging is on until this local time ("18:40 tomorrow").
@@ -450,7 +448,6 @@ fn welcome(
                 });
                 ui.add_space(space::S2);
             };
-            let can_live = status.live_supported.is_none();
             line(ui, "Wallpaper", &mut |ui| {
                 segmented(
                     ui,
@@ -458,7 +455,7 @@ fn welcome(
                     &mut s.display.mode,
                     &[
                         (WallpaperMode::Still, "Still frame", true),
-                        (WallpaperMode::Live, "Live", can_live),
+                        (WallpaperMode::Live, "Live", true),
                     ],
                 );
             });
@@ -1221,7 +1218,6 @@ fn page(
         }
         Section::Display => {
             use crate::settings::WallpaperMode;
-            let can_live = status.live_supported.is_none();
             row(
                 ui,
                 theme,
@@ -1234,15 +1230,12 @@ fn page(
                         &mut s.display.mode,
                         &[
                             (WallpaperMode::Still, "Still frame", true),
-                            (WallpaperMode::Live, "Live", can_live),
+                            (WallpaperMode::Live, "Live", true),
                         ],
                     );
                 },
             );
-            if let Some(why) = &status.live_supported {
-                ui.label(RichText::new(why).color(c(t.text_secondary)));
-                ui.add_space(space::S4);
-            } else if s.display.mode == WallpaperMode::Live
+            if s.display.mode == WallpaperMode::Live
                 && let Some(live) = &status.live
             {
                 ui.label(
@@ -1266,7 +1259,7 @@ fn page(
                     );
                 },
             );
-            if status.monitors.len() > 1 && s.display.mode == WallpaperMode::Live && can_live {
+            if status.monitors.len() > 1 && s.display.mode == WallpaperMode::Live {
                 group(ui, "Each monitor");
                 ui.label(
                     RichText::new(

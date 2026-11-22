@@ -84,8 +84,7 @@ pub struct LiveScene {
     pub buddy: bool,
     /// The still set as this monitor's wallpaper (the live frame at the hero
     /// time), set again when live playback stops (Windows) or the Space
-    /// changes (macOS). Linux's own surfaces never cover it, so it isn't read.
-    #[cfg_attr(target_os = "linux", allow(dead_code))]
+    /// changes (macOS).
     pub still: Option<PathBuf>,
     /// Span mode: the part of the scene this monitor shows. `None`: all of it.
     pub view: Option<PixelRect>,
@@ -1318,7 +1317,6 @@ mod tests {
             Ok(clairlune_platform::Snapshot {
                 monitors: Vec::new(),
                 position: None,
-                settings: Vec::new(),
             })
         }
         fn restore(

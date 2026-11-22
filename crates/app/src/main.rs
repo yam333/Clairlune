@@ -78,9 +78,6 @@ const TIMELINE_LEAD: jiff::SignedDuration = jiff::SignedDuration::from_secs(4);
 
 /// How long the monitor layout must stay still before the wallpaper follows.
 const MONITOR_SETTLE: Duration = Duration::from_millis(1500);
-/// Where no system message says the monitors changed (Linux), how often to
-/// look.
-const MONITOR_POLL: Duration = Duration::from_secs(5);
 
 enum AppEvent {
     Menu(tray_icon::menu::MenuEvent),
@@ -178,12 +175,10 @@ struct App {
     /// Hears Space changes: a picture is set on the current Space only (macOS).
     #[cfg(target_os = "macos")]
     spaces: clairlune_platform::macos::SpaceWatcher,
-    /// The monitor layout the wallpaper was made for, when a change was
-    /// noticed (it settles before anything is redone), and when to look for
-    /// changes where nothing tells us (not Windows).
+    /// The monitor layout the wallpaper was made for, and when a change was
+    /// noticed (it settles before anything is redone).
     monitor_layout: Option<Vec<MonitorKey>>,
     monitors_changed_at: Option<Instant>,
-    next_monitor_poll: Instant,
     /// The daily timeline (Timeline rotation mode), its file and state.
     timeline: timeline::Timeline,
     timeline_path: PathBuf,
@@ -381,11 +376,6 @@ fn open(path: &Path, text: bool) {
             c.arg("-t");
         }
         c
-    };
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let mut cmd = {
-        let _ = text;
-        std::process::Command::new("xdg-open")
     };
     if let Err(e) = cmd.arg(path).spawn() {
         tracing::warn!(target: "clairlune", path = %path.display(), error = %e, "could not open");
@@ -1391,11 +1381,6 @@ impl App {
             }
             noticed |= self.spaces.take_screens_changed();
         }
-        // Linux has no such message here: it looks now and then.
-        if cfg!(target_os = "linux") && now >= self.next_monitor_poll {
-            self.next_monitor_poll = now + MONITOR_POLL;
-            noticed = self.monitor_layout.as_ref() != Some(&monitor_layout(event_loop));
-        }
         if self.monitor_layout.is_none() {
             self.monitor_layout = Some(monitor_layout(event_loop));
         }
@@ -1447,7 +1432,7 @@ impl App {
         self.live.set_still_monitors(self.settings.still_monitors());
         self.live.set_enabled(live);
         if let Some(t) = &self.tray {
-            t.show_live(live && live::supported().is_ok());
+            t.show_live(live);
         }
     }
 
@@ -1479,7 +1464,6 @@ impl App {
                 .unwrap_or_default()
         });
         s.live = self.live.status.clone();
-        s.live_supported = live::supported().err();
         s.timeline_next = self
             .timeline_next
             .filter(|_| self.timeline_mode())
@@ -2128,8 +2112,7 @@ impl App {
         match tray::Tray::new(
             self.settings.theme.mode,
             self.settings.schedule.paused,
-            self.settings.display.mode == settings::WallpaperMode::Live
-                && live::supported().is_ok(),
+            self.settings.display.mode == settings::WallpaperMode::Live,
         ) {
             Ok(t) => {
                 t.set_monitors(&self.tray_monitors);
@@ -2515,9 +2498,6 @@ impl ApplicationHandler<AppEvent> for App {
                 wake = wake.min(t);
             }
         }
-        if cfg!(target_os = "linux") {
-            wake = wake.min(self.next_monitor_poll);
-        }
         if let Some(t) = self.ui_test.as_ref().and_then(|t| t.wake()) {
             wake = wake.min(t);
         }
@@ -2841,8 +2821,7 @@ fn main() {
     #[cfg(target_os = "macos")]
     let moved_to_live = {
         let was_moved = settings.general.mac_live_moved;
-        let moved =
-            ui_test_out.is_none() && live::supported().is_ok() && settings.move_to_live_once();
+        let moved = ui_test_out.is_none() && settings.move_to_live_once();
         if settings.general.mac_live_moved != was_moved
             && let Err(e) = settings.save(&settings_path)
         {
@@ -2981,7 +2960,6 @@ fn main() {
         spaces: clairlune_platform::macos::SpaceWatcher::new(),
         monitor_layout: None,
         monitors_changed_at: None,
-        next_monitor_poll: Instant::now(),
         settings_stamp: file_stamp(&settings_path),
         settings,
         settings_path,

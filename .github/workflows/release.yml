@@ -1,8 +1,8 @@
 name: Release
 
 # Installers for people who don't use a terminal: a per-user Windows setup.exe
-# (plus a portable zip for Scoop), macOS DMGs (Apple Silicon and Intel), and a
-# Linux .deb and AppImage. Then the package-manager manifests for those files
+# (plus a portable zip for Scoop) and macOS DMGs (Apple Silicon and Intel).
+# Then the package-manager manifests for those files
 # (docs/distribution.md), as an artifact: nothing is published to a package
 # manager from here yet. Runs on version tags (v1.2.3) and by hand; a tag also
 # attaches the installers to a draft GitHub release.
@@ -39,17 +39,10 @@ jobs:
             target: x86_64-apple-darwin
             formats: app
             arch: x64
-          # The oldest glibc supported (docs/platform-support.md): 2.35.
-          - name: linux
-            os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            formats: deb,appimage
     runs-on: ${{ matrix.os }}
     env:
       # The oldest macOS supported (docs/platform-support.md).
       MACOSX_DEPLOYMENT_TARGET: "13.0"
-      # linuxdeploy is itself an AppImage; runners have no FUSE.
-      APPIMAGE_EXTRACT_AND_RUN: "1"
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -106,8 +99,6 @@ jobs:
             target/packages/*.exe
             target/packages/*.zip
             target/packages/*.dmg
-            target/packages/*.deb
-            target/packages/*.AppImage
           if-no-files-found: error
 
   manifests:
@@ -147,6 +138,4 @@ jobs:
             packages/*.exe
             packages/*.zip
             packages/*.dmg
-            packages/*.deb
-            packages/*.AppImage
           draft: true

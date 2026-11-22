@@ -18,7 +18,7 @@ The product in one line: the wallpaper is the hero, and the app around it is a q
 - Settings open from the app menu with Cmd-, ; the window title follows the visible pane; the window reopens on the last pane viewed.
 - Minimize and zoom are disabled for settings; switches carry a short description; consequential changes confirm.
 - A stable layout: people learn where things are.
-- *Decision:* Cmd-, (and Ctrl-, on Windows/Linux) opens Settings; the title reads "Clairlune Settings: Schedule"; the last section is restored; no minimize/maximize on Settings. Destructive actions (clear archive, restore original wallpaper) get an inline undo, not a modal.
+- *Decision:* Cmd-, (and Ctrl-, on Windows) opens Settings; the title reads "Clairlune Settings: Schedule"; the last section is restored; no minimize/maximize on Settings. Destructive actions (clear archive, restore original wallpaper) get an inline undo, not a modal.
 
 **GNOME HIG** ([boxed lists](https://developer.gnome.org/hig/patterns/containers/boxed-lists.html))
 - Preferences as boxed lists: rows that hold a label, a description and a control, grouped in sections with headings; link rows end in a go-next arrow.
