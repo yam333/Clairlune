@@ -94,6 +94,12 @@ impl JourneyBake {
         Some(JourneyBake { strips, bands, y0 })
     }
 
+    /// Bytes it holds: each moving layer over its whole period, and the
+    /// bands.
+    pub fn bytes(&self) -> usize {
+        self.strips.iter().map(|s| s.levels.len()).sum::<usize>() + self.bands.len()
+    }
+
     /// The first row the moving layers reach: above it the frame is the
     /// still background's.
     pub fn band_top(&self) -> u32 {

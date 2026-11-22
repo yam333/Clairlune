@@ -214,3 +214,40 @@ fn a_long_journey_gif_is_an_excerpt() {
     let stats = encode_gif(&r, &opts, 6_000, Smoothness::BatterySaver, &mut bytes).unwrap();
     assert_eq!(stats.loop_ms, 6_000);
 }
+
+/// What a journey's baked layers cost at screen sizes (printed):
+/// `cargo test --release -p clairlune-tests --test journey bake_sizes -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn bake_sizes() {
+    let ids = [
+        "hike_ridge",
+        "ski_tour",
+        "sledding",
+        "forest_walk",
+        "desert_trek",
+        "broom_journey",
+        "balloon_journey",
+    ];
+    for (w, h) in [(3024u32, 1964u32), (5120, 2880)] {
+        for id in ids {
+            let ctx = ContentContext {
+                enabled_activities: vec![id.into()],
+                ..ContentContext::default()
+            };
+            let r = compose(1, Aspect::from_size(w, h), &ctx);
+            if r.activity.as_deref() != Some(id) {
+                continue;
+            }
+            let pkg = ScenePackage::capture(&r, w, h).unwrap();
+            let theme = pkg.themes()[0];
+            let bake = pkg.journey_bytes(theme);
+            let px = (w * h) as usize;
+            eprintln!(
+                "{w}x{h} {id:16} bake {:5} MB = {:.1} bytes a screen pixel",
+                bake >> 20,
+                bake as f64 / px as f64
+            );
+        }
+    }
+}
