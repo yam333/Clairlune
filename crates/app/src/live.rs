@@ -3,26 +3,15 @@
 //! still set with each wallpaper is the live frame at the hero time, so going
 //! live starts from exactly what's there, and stopping leaves it.
 
-// Playback runs on Windows, macOS and Linux (where a surface of our own can
-// sit under everything); elsewhere this only reports why.
-#![cfg_attr(
-    not(any(windows, target_os = "macos", target_os = "linux")),
-    allow(dead_code)
-)]
-
 use crate::apply::LiveScene;
 use std::time::{Duration, Instant};
 
 /// The live host: windows in the desktop layer (Windows), or desktop-level
-/// windows on every screen (macOS, untried).
+/// windows on every screen (macOS).
 #[cfg(windows)]
 type Host = clairlune_live::desktop::Desktop;
 #[cfg(target_os = "macos")]
 type Host = clairlune_live::mac::MacDesktop;
-/// Background surfaces (Wayland, wlr layer shell) or bottom windows (X11
-/// without a desktop of its own), untried.
-#[cfg(target_os = "linux")]
-type Host = clairlune_live::linux::LinuxDesktop;
 
 /// How often to check that the desktop layer is still there (Explorer
 /// restarts take it, and the windows in it, away).
@@ -42,7 +31,6 @@ pub struct Live {
     battery_saver: bool,
     battery_pause: bool,
     on_battery: bool,
-    #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
     desktop: Option<Host>,
     next: Option<Instant>,
     checked: Option<Instant>,
@@ -64,44 +52,17 @@ pub struct FrameUse {
     pub fps: u32,
 }
 
-/// Whether this build can play live wallpapers here, with the reason if not.
-#[cfg(not(target_os = "linux"))]
-pub fn supported() -> Result<(), String> {
-    if cfg!(any(windows, target_os = "macos")) {
-        Ok(())
-    } else {
-        Err(
-            "Live wallpapers run on Windows, macOS and Linux so far; here the still frame is used."
-                .into(),
-        )
-    }
-}
-
-/// Whether this session can play live wallpapers, with the reason if not:
-/// asked once (it opens a connection to the display).
-#[cfg(target_os = "linux")]
-pub fn supported() -> Result<(), String> {
-    static ANSWER: std::sync::OnceLock<Result<(), String>> = std::sync::OnceLock::new();
-    ANSWER
-        .get_or_init(|| {
-            clairlune_live::linux::available()
-                .map_err(|e| format!("Live isn't available here: {e}. The still frame is used."))
-        })
-        .clone()
-}
-
 impl Live {
     pub fn new(enabled: bool, fps: u32) -> Live {
         Live {
             scenes: Vec::new(),
             still_monitors: Vec::new(),
-            enabled: enabled && supported().is_ok(),
+            enabled,
             fps: fps.clamp(1, 60),
             cover_pause: crate::settings::CoverPause::default(),
             battery_saver: true,
             battery_pause: false,
             on_battery: false,
-            #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
             desktop: None,
             next: None,
             checked: None,
@@ -114,10 +75,7 @@ impl Live {
 
     /// What was drawn since the last call (and resets the count).
     pub fn take_use(&mut self) -> FrameUse {
-        #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
         let playing = self.desktop.is_some();
-        #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
-        let playing = false;
         let out = FrameUse {
             frames: self.frames,
             busy: self.busy,
@@ -131,7 +89,6 @@ impl Live {
         out
     }
 
-    #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
     fn count(&mut self, busy: Duration) {
         self.frames += 1;
         self.busy += busy;
@@ -168,7 +125,6 @@ impl Live {
 
     /// Live or Still frame, from the setting.
     pub fn set_enabled(&mut self, on: bool) {
-        let on = on && supported().is_ok();
         if on != self.enabled {
             self.enabled = on;
             self.restart();
@@ -203,7 +159,6 @@ impl Live {
     /// What a maximized or full-screen app pauses.
     pub fn set_cover_pause(&mut self, pause: crate::settings::CoverPause) {
         self.cover_pause = pause;
-        #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
         if let Some(d) = &mut self.desktop {
             d.cover_policy = cover_policy(pause);
         }
@@ -212,10 +167,7 @@ impl Live {
     /// The frame rate now: Battery saver's 6 fps on battery when asked, and
     /// no more than the presenter is worth (GDI: Balanced).
     fn effective_fps(&self) -> u32 {
-        #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
         let cap = self.desktop.as_ref().map_or(60, |d| d.max_fps());
-        #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
-        let cap = 60;
         let fps = self.fps.min(cap);
         if self.on_battery && self.battery_saver {
             fps.min(6)
@@ -251,12 +203,6 @@ impl Live {
         self.start();
     }
 
-    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
-    fn start(&mut self) {
-        self.status = supported().err();
-    }
-
-    #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
     fn start(&mut self) {
         use clairlune_live::Player;
         if self.playing().next().is_none() {
@@ -308,7 +254,7 @@ impl Live {
     /// live frame, so the stills are set again.
     fn stop(&mut self) {
         self.next = None;
-        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        #[cfg(target_os = "macos")]
         if self.desktop.take().is_some() {
             tracing::info!(target: "clairlune", "live wallpaper stopped");
         }
@@ -370,9 +316,8 @@ impl Live {
             self.next
         }
         // macOS: a covered, locked or sleeping screen reports its window
-        // occluded, which the host checks every frame. Linux: the
-        // compositor asks for frames when it shows them (Wayland).
-        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        // occluded, which the host checks every frame.
+        #[cfg(target_os = "macos")]
         {
             let desktop = self.desktop.as_mut()?;
             if self.checked.is_none_or(|t| now >= t + HEALTH_CHECK) {
@@ -403,16 +348,10 @@ impl Live {
             }
             self.next
         }
-        #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
-        {
-            let _ = now;
-            None
-        }
     }
 }
 
 /// On battery now (logged when it changes from `was`).
-#[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 fn power_source(was: bool) -> bool {
     let now = clairlune_platform::on_battery();
     if now != was {
@@ -421,7 +360,6 @@ fn power_source(was: bool) -> bool {
     now
 }
 
-#[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 fn cover_policy(p: crate::settings::CoverPause) -> clairlune_live::CoverPolicy {
     use crate::settings::CoverPause;
     use clairlune_live::CoverPolicy;

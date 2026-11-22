@@ -1,8 +1,8 @@
 //! Checking for a new version: once a day (when Settings allows it) and on
 //! request, the app asks GitHub for its latest release, the way most tray
 //! apps do (Sparkle on the Mac checks daily by default). The request goes
-//! through the system's own `curl` (on Windows 10 and later, macOS and
-//! Linux alike), so the app carries no networking code; it sends nothing
+//! through the system's own `curl` (on Windows 10 and later and macOS
+//! alike), so the app carries no networking code; it sends nothing
 //! but the request itself. A newer version shows in Settings and the tray
 //! menu: one click installs it ([`crate::install`]), or opens its release
 //! page where Clairlune can't install it itself.

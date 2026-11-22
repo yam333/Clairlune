@@ -7,12 +7,13 @@ all-features = false
 yanked = "deny"
 # zvariant, zbus_names and zvariant_derive were merged into zbus 6 and get no
 # more releases (informational "unmaintained", no vulnerability). They come
-# in on Linux only, through zbus 5 in accesskit_unix (egui-winit) and ksni
-# (tray-icon). Drop these once both move to zbus 6.
+# in through zbus 5 in accesskit_unix, egui-winit's Linux side: the app
+# isn't built for Linux, but the lockfile lists it. Drop these once
+# accesskit moves to zbus 6.
 ignore = [
-    { id = "RUSTSEC-2026-0370", reason = "zvariant merged into zbus 6; via accesskit_unix and ksni" },
-    { id = "RUSTSEC-2026-0371", reason = "zbus_names merged into zbus 6; via accesskit_unix and ksni" },
-    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive merged into zbus 6; via accesskit_unix and ksni" },
+    { id = "RUSTSEC-2026-0370", reason = "zvariant merged into zbus 6; via accesskit_unix" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names merged into zbus 6; via accesskit_unix" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive merged into zbus 6; via accesskit_unix" },
 ]
 
 [licenses]
@@ -34,8 +35,6 @@ allow = [
     # Boost: permissive, no attribution needed in binaries. clipboard-win and
     # error-code (copy and paste in the Settings window on Windows, via arboard).
     "BSL-1.0",
-    # Public-domain dedication: ksni (the Linux StatusNotifier tray).
-    "Unlicense",
 ]
 confidence-threshold = 0.9
 

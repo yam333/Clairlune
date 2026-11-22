@@ -68,19 +68,6 @@ fn ask_system() -> Option<String> {
             String::from_utf8_lossy(&out.stdout).trim()
         ))
     }
-    #[cfg(not(any(windows, target_os = "macos")))]
-    {
-        let text = std::fs::read_to_string("/etc/os-release").ok()?;
-        let line = text.lines().find(|l| l.starts_with("PRETTY_NAME="))?;
-        let name = line["PRETTY_NAME=".len()..].trim_matches('"');
-        let desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
-        let session = std::env::var("XDG_SESSION_TYPE").unwrap_or_default();
-        Some(
-            format!("{name}, {desktop} {session}")
-                .trim_end()
-                .to_string(),
-        )
-    }
 }
 
 /// The details, as Markdown, with at most `log_lines` of the log.

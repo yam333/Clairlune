@@ -74,23 +74,12 @@ impl Default for Schedule {
 
 /// Live: the scene plays behind the desktop icons. Still: one image, set
 /// through the system, and no work between changes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WallpaperMode {
+    #[default]
     Live,
     Still,
-}
-
-impl Default for WallpaperMode {
-    /// Live where it has been tried on real machines (Windows, macOS); on
-    /// Linux Still until then, with Live one switch away in Settings.
-    fn default() -> Self {
-        if cfg!(any(windows, target_os = "macos")) {
-            WallpaperMode::Live
-        } else {
-            WallpaperMode::Still
-        }
-    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -519,12 +508,7 @@ mod tests {
         assert_eq!(s.schedule.change_every_minutes, 60);
         assert_eq!(s.theme.mode, ThemeMode::FollowSystem);
         assert!(s.buddy.show);
-        let mode = if cfg!(any(windows, target_os = "macos")) {
-            WallpaperMode::Live
-        } else {
-            WallpaperMode::Still
-        };
-        assert_eq!(s.display.mode, mode);
+        assert_eq!(s.display.mode, WallpaperMode::Live);
         assert_eq!(s.live.smoothness_fps, 12);
     }
 

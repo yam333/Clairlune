@@ -29,8 +29,8 @@ Downloads are on the [releases page](https://github.com/yam333/Clairlune/release
   refuses: open System Settings > Privacy & Security, scroll down and click
   Open Anyway. Updates from inside the app don't ask again. With Homebrew:
   `brew install --cask yam333/clairlune/clairlune`.
-- **Linux:** the `.deb` (`sudo apt install ./clairlune_<version>_amd64.deb`) or
-  the AppImage (make it executable and run it).
+- **Linux:** there's no desktop app (0.18.0 was the last). `cargo install
+  clairlune-cli` renders the scenes as PNGs and GIFs to set yourself.
 - **From source:** `cargo install clairlune` (Rust 1.90 or newer).
 
 ## The first run
@@ -110,17 +110,17 @@ Once a day Clairlune asks GitHub whether a newer version is out (Settings >
 General; it can be turned off, and **Check now** asks right away). When there
 is one, **Update now** in Settings or **Update to ...** in the menu downloads
 it, checks it against the checksum GitHub lists for it, installs it and starts
-Clairlune again. Copies installed with Scoop, cargo or the `.deb` show the
-command to update them instead. After `brew upgrade`, or a new copy dragged over from the
+Clairlune again. Copies installed with Scoop or cargo show the command to
+update them instead. After `brew upgrade`, or a new copy dragged over from the
 DMG, Clairlune restarts into the new version on its own.
 
 ## Where things are kept
 
-| | Windows | macOS | Linux |
-|---|---|---|---|
-| Settings (`settings.toml`, `timeline.toml`) | `%APPDATA%\clairlune` | `~/Library/Application Support/clairlune` | `~/.config/clairlune` |
-| Archive, library, stills, logs | `%LOCALAPPDATA%\clairlune` | `~/Library/Application Support/clairlune` | `~/.local/share/clairlune` |
-| Saved PNGs and GIFs | `Pictures\Clairlune` | `~/Pictures/Clairlune` | `~/Pictures/Clairlune` |
+| | Windows | macOS |
+|---|---|---|
+| Settings (`settings.toml`, `timeline.toml`) | `%APPDATA%\clairlune` | `~/Library/Application Support/clairlune` |
+| Archive, library, stills, logs | `%LOCALAPPDATA%\clairlune` | `~/Library/Application Support/clairlune` |
+| Saved PNGs and GIFs | `Pictures\Clairlune` | `~/Pictures/Clairlune` |
 
 `settings.toml` can be edited by hand; Clairlune picks up the change. A typo
 keeps the settings as they were and says so in Settings.
@@ -146,9 +146,7 @@ Terminal and open it again.
 note under it, which says what plays or why not. Live pauses while an app
 fills the screen, maximized, zoomed or full screen (Settings > Live > Pause
 behind full-screen apps), on battery if you asked for that, and while the
-computer is locked. On Linux, GNOME, KDE Plasma,
-XFCE, Cinnamon, MATE and LXQt draw their own desktop, so they keep the still
-frame.
+computer is locked.
 
 **The wallpaper changed back to Clairlune's after I set my own.** Clairlune
 changes the wallpaper every hour. Use Restore my wallpaper (Settings >
@@ -172,9 +170,8 @@ a zip with the logs and settings to attach.
 Settings > General > **Remove Clairlune** does it all after asking: your
 wallpaper from before comes back, starting with the computer is turned off,
 Clairlune's settings, archive, library and logs are deleted, and the app itself is removed where Clairlune can do it (the Windows
-uninstaller runs, the Mac app goes to the Trash, an AppImage is deleted). PNGs
-and GIFs you saved stay in Pictures/Clairlune.
+uninstaller runs, the Mac app goes to the Trash). PNGs and GIFs you saved
+stay in Pictures/Clairlune.
 
-Installed with Scoop, cargo or the `.deb`? Remove the app afterwards with
-`scoop uninstall clairlune`, `cargo uninstall clairlune` or
-`sudo apt remove clairlune`.
+Installed with Scoop or cargo? Remove the app afterwards with
+`scoop uninstall clairlune` or `cargo uninstall clairlune`.

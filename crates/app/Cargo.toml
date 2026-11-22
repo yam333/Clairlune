@@ -16,7 +16,9 @@ categories = ["graphics", "multimedia::images"]
 name = "clairlune"
 path = "src/main.rs"
 
-[dependencies]
+# The app runs on Windows and macOS; build.rs stops a build anywhere else
+# (clairlune-cli renders the scenes there).
+[target.'cfg(any(windows, target_os = "macos"))'.dependencies]
 clairlune-scene.workspace = true
 clairlune-render.workspace = true
 clairlune-platform.workspace = true
@@ -37,15 +39,7 @@ jiff.workspace = true
 zip.workspace = true
 png.workspace = true
 sha2.workspace = true
-
-[target.'cfg(any(windows, target_os = "macos"))'.dependencies]
 tray-icon.workspace = true
-clairlune-live.workspace = true
-
-# Linux: the StatusNotifierItem tray over D-Bus (no GTK), and live
-# wallpapers where a surface of our own can sit under everything.
-[target.'cfg(target_os = "linux")'.dependencies]
-tray-icon = { workspace = true, features = ["ksni"] }
 clairlune-live.workspace = true
 
 [target.'cfg(windows)'.build-dependencies]
@@ -55,8 +49,7 @@ embed-resource = "3.0.12"
 
 # Installers (cargo-packager). Build first, then package:
 #   cargo build --release -p clairlune && cargo packager --release -p clairlune
-# Windows: a per-user setup.exe (no admin rights); macOS: a .app in a DMG;
-# Linux: a .deb and an AppImage.
+# Windows: a per-user setup.exe (no admin rights); macOS: a .app in a DMG.
 # CI does both on version tags (.github/workflows/release.yml).
 [package.metadata.packager]
 product-name = "Clairlune"
@@ -81,12 +74,6 @@ formats = ["nsis", "dmg"]
 installer-mode = "currentUser"
 # The moon on setup.exe and in the installer's header, not NSIS's own icon.
 installer-icon = "packaging/icons/clairlune.ico"
-
-# Linux: the rest (X11, Wayland, GL or Vulkan) is opened at run time and is
-# on every desktop; the keyboard map library isn't on minimal installs.
-[package.metadata.packager.deb]
-depends = ["libxkbcommon0"]
-section = "graphics"
 
 [package.metadata.packager.macos]
 minimum-system-version = "13.0"

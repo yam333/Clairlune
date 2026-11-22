@@ -186,7 +186,6 @@ impl WallpaperHost for MacHost {
         Ok(Snapshot {
             monitors,
             position: None,
-            settings: Vec::new(),
         })
     }
 

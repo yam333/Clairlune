@@ -7,10 +7,9 @@ hashes them, and writes ready-to-publish manifests:
     <out>/homebrew/Casks/clairlune.rb          Homebrew cask (own tap)
     <out>/scoop/clairlune.json                 Scoop bucket manifest
     <out>/winget/manifests/c/Clairlune/Clairlune/<version>/*.yaml   winget
-    <out>/aur/clairlune-bin/PKGBUILD, .SRCINFO  AUR binary package
 
-Nothing is published: these files are what a tap, a bucket, a winget-pkgs
-pull request or the AUR receive once the repository is public.
+Nothing is published from here: these files are what the tap, the bucket and
+a winget-pkgs pull request receive (publish.yml pushes the first two).
 
 Usage:
     python scripts/package_manifests.py --artifacts <dir> [--version 1.2.3]
@@ -60,8 +59,6 @@ ARTIFACTS = {
     "portable": "clairlune_{v}_x64-portable.zip",
     "dmg_arm": "clairlune_{v}_aarch64.dmg",
     "dmg_intel": "clairlune_{v}_x64.dmg",
-    "deb": "clairlune_{v}_amd64.deb",
-    "appimage": "clairlune_{v}_x86_64.AppImage",
 }
 
 
@@ -198,54 +195,6 @@ ManifestVersion: {WINGET_SCHEMA}
     }
 
 
-AUR_DEPENDS = ["glibc", "gcc-libs", "libxkbcommon"]
-AUR_OPTDEPENDS = ["vulkan-icd-loader: GPU drawing for the windows"]
-
-
-def aur(v: str, base: str, h: dict[str, str], n: dict[str, str]) -> dict[str, str]:
-    depends = " ".join(f"'{d}'" for d in AUR_DEPENDS)
-    optdepends = "\n".join(f"  '{d}'" for d in AUR_OPTDEPENDS)
-    pkgbuild = f"""# Maintainer: Clairlune contributors
-pkgname=clairlune-bin
-pkgver={v}
-pkgrel=1
-pkgdesc="{DESC}"
-arch=('x86_64')
-url="{REPO}"
-license=('MIT' 'Apache-2.0')
-provides=('clairlune')
-conflicts=('clairlune')
-depends=({depends})
-optdepends=(
-{optdepends}
-)
-source_x86_64=("{f"{base}/{n['deb']}".replace(v, "${pkgver}")}")
-sha256sums_x86_64=('{h["deb"]}')
-
-package() {{
-  bsdtar -xf data.tar.* -C "$pkgdir"
-}}
-"""
-    srcinfo = f"""pkgbase = clairlune-bin
-\tpkgdesc = {DESC}
-\tpkgver = {v}
-\tpkgrel = 1
-\turl = {REPO}
-\tarch = x86_64
-\tlicense = MIT
-\tlicense = Apache-2.0
-""" + "".join(f"\tdepends = {d}\n" for d in AUR_DEPENDS) + "".join(
-        f"\toptdepends = {d}\n" for d in AUR_OPTDEPENDS
-    ) + f"""\tprovides = clairlune
-\tconflicts = clairlune
-\tsource_x86_64 = {base}/{n["deb"]}
-\tsha256sums_x86_64 = {h["deb"]}
-
-pkgname = clairlune-bin
-"""
-    return {"PKGBUILD": pkgbuild, ".SRCINFO": srcinfo}
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--artifacts", required=True, type=Path)
@@ -283,9 +232,6 @@ def main() -> int:
         d = out / "winget" / "manifests" / "c" / "Clairlune" / "Clairlune" / v
         for name, text in winget(v, base, hashes, names).items():
             write(d / name, text)
-    if "deb" in hashes:
-        for name, text in aur(v, base, hashes, names).items():
-            write(out / "aur" / "clairlune-bin" / name, text)
     return 0
 
 

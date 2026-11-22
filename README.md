@@ -16,7 +16,7 @@ Each wallpaper is a landscape made of text characters, with a small pixel-art Cl
 
 ## Status
 
-Usable every day on Windows and macOS, where the tray or menu bar app is the main way to use it. The Linux build hasn't been tried on real desktops yet, so reports are welcome. There are sixteen landscapes (from canyons and snowfields to a volcano, palm islands, a bamboo grove and the Moon), thirty-two things Clawd can be doing, eleven kinds of weather (petals, fog, blizzards and falling ash among them), and two looks: line art, or a dithered version built from dots and bars. Seven of the activities are journeys, where the land in front scrolls past a big still landmark (a dome, a peak, a volcano, a mesa, a rising moon): a ridge hike, ski touring, sledding, a forest walk, a desert trek, and flights on the broom or in the balloon. The roadmap is in [PLAN.md](PLAN.md).
+Usable every day on Windows and macOS, where the tray or menu bar app is the main way to use it. There's no Linux app; on Linux, `clairlune-cli` renders the same scenes as PNGs and GIFs. There are sixteen landscapes (from canyons and snowfields to a volcano, palm islands, a bamboo grove and the Moon), thirty-two things Clawd can be doing, eleven kinds of weather (petals, fog, blizzards and falling ash among them), and two looks: line art, or a dithered version built from dots and bars. Seven of the activities are journeys, where the land in front scrolls past a big still landmark (a dome, a peak, a volcano, a mesa, a rising moon): a ridge hike, ski touring, sledding, a forest walk, a desert trek, and flights on the broom or in the balloon. The roadmap is in [PLAN.md](PLAN.md).
 
 ## Install
 
@@ -24,7 +24,7 @@ Get the installer for your system from the [Releases](https://github.com/yam333/
 
 - Windows: `clairlune_<version>_x64-setup.exe`. It installs for your account only, so it doesn't need administrator rights. Uninstall it from Settings > Apps.
 - macOS: `Clairlune_<version>_aarch64.dmg` (Apple Silicon) or `Clairlune_<version>_x64.dmg` (Intel). Drag Clairlune to Applications. The app isn't notarized, so macOS refuses to open it the first time; go to System Settings > Privacy & Security and click Open Anyway.
-- Linux: the `.deb` (`sudo apt install ./clairlune_<version>_amd64.deb`) or the AppImage. An AUR package is on the way.
+- Linux: no desktop app (0.18.0 was the last, never tried on a real Linux desktop). `cargo install clairlune-cli` makes the wallpapers as images to set yourself (see [the command-line tool](#the-command-line-tool)).
 
 Or use a package manager:
 
@@ -45,13 +45,11 @@ The Archive keeps the last week of wallpapers so you can reuse, pin or export th
 
 Settings also covers which landscapes, activities and weather to use, the look and contrast, the zoom (Clawd up close, smaller, or tiny in a huge landscape), Clawd on or off, start at login, hiding the moon icon (open Clairlune again to get back to Settings), and Restore my wallpaper, which puts back the wallpaper you had before Clairlune. With more than one monitor, each can keep the still frame while the others play live (Display), or pick from its own landscapes and activities (Content).
 
-When a newer version is out, Settings -> General and the menu offer it: Update now downloads it from GitHub, checks it against the checksum GitHub lists, installs it and starts Clairlune again (installs from Scoop, cargo or the .deb update the usual way instead). Report a problem, next to it, opens a new GitHub issue with the version, system, monitors and recent log lines filled in; you see them in Settings first, and nothing is sent until you send the issue. Settings live in `%APPDATA%\clairlune\settings.toml` and logs in `%LOCALAPPDATA%\clairlune\logs`.
-
-On Linux the app sets the wallpaper on GNOME, Cinnamon, MATE, KDE Plasma, XFCE and Sway, and on other Wayland compositors with the wlr layer shell (Hyprland, river, Wayfire, labwc) it shows the wallpaper itself while it runs. Live wallpapers work there and on X11 window managers without a desktop of their own (i3, Openbox, bspwm). GNOME, KDE, XFCE, Cinnamon, MATE and LXQt draw their own desktop icons, so they get the still frame. On macOS it sets a scene on each screen. On Linux, Live is off by default until it's tried on more desktops; turn it on in Settings.
+When a newer version is out, Settings -> General and the menu offer it: Update now downloads it from GitHub, checks it against the checksum GitHub lists, installs it and starts Clairlune again (installs from Scoop or cargo update the usual way instead). Report a problem, next to it, opens a new GitHub issue with the version, system, monitors and recent log lines filled in; you see them in Settings first, and nothing is sent until you send the issue. Settings live in `%APPDATA%\clairlune\settings.toml` and logs in `%LOCALAPPDATA%\clairlune\logs`.
 
 ## The command-line tool
 
-`clairlune-cli` renders wallpapers without the app:
+`clairlune-cli` renders wallpapers without the app, on Windows, macOS and Linux (`cargo install clairlune-cli`):
 
 ```sh
 cargo run --release -p clairlune-cli -- generate --seed 7 --theme dark --size 3840x2160 --out wallpaper.png
@@ -104,13 +102,13 @@ clairlune-cli restore                  # put back the wallpaper you had before
 
 The main monitor gets the seed you give and the others get seeds derived from it, so the same seed always gives the same set. The first `set` remembers your wallpaper so `restore` can bring it back.
 
-Play live wallpapers for a while and see what they cost (Windows, Linux):
+Play live wallpapers for a while and see what they cost (Windows):
 
 ```sh
 clairlune-cli live --seconds 30 --fps 12
 ```
 
-On Windows this leaves the still frame as your wallpaper when it ends; `clairlune-cli restore` undoes that. On Linux it never touches the wallpaper.
+This leaves the still frame as your wallpaper when it ends; `clairlune-cli restore` undoes that.
 
 ## Workspace
 

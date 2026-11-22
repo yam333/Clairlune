@@ -1,10 +1,10 @@
 //! Installing a newer version in place, the one-click way: the download
-//! for this kind of install (the Windows setup.exe, the Mac DMG, the
-//! AppImage) is fetched from the GitHub release with the system's `curl`,
-//! checked against the SHA-256 GitHub lists for it, and readied; then a
-//! small helper script waits for Clairlune to quit, puts the new version in
-//! place and starts it again. Installs that something else manages (Scoop,
-//! cargo, the .deb) say how to update instead.
+//! for this kind of install (the Windows setup.exe, the Mac DMG) is fetched
+//! from the GitHub release with the system's `curl`, checked against the
+//! SHA-256 GitHub lists for it, and readied; then a small helper script
+//! waits for Clairlune to quit, puts the new version in place and starts it
+//! again. Installs that something else manages (Scoop, cargo) say how to
+//! update instead.
 //!
 //! Removing Clairlune works the same way: a helper waits for it to quit,
 //! deletes its folders and, where Clairlune can, the app itself.
@@ -19,8 +19,6 @@ pub enum Install {
     WindowsSetup { exe: PathBuf },
     /// macOS: this app bundle, in a folder Clairlune can write to.
     MacApp { bundle: PathBuf },
-    /// Linux: this AppImage file.
-    AppImage { file: PathBuf },
     /// Something else: what it is, and how to update it.
     Manual { name: String, how: String },
 }
@@ -31,7 +29,6 @@ impl Install {
         match self {
             Install::WindowsSetup { .. } => "the Windows installer".into(),
             Install::MacApp { .. } => "the app (DMG or Homebrew)".into(),
-            Install::AppImage { .. } => "an AppImage".into(),
             Install::Manual { name, .. } => name.clone(),
         }
     }
@@ -55,11 +52,9 @@ impl Install {
         match self {
             Install::WindowsSetup { .. } => Ok("the app (its uninstaller runs)"),
             Install::MacApp { .. } => Ok("the app (moved to the Trash)"),
-            Install::AppImage { .. } => Ok("the AppImage file"),
             Install::Manual { name, .. } => Err(match name.as_str() {
                 "Scoop" => "Then remove the app with: scoop uninstall clairlune".into(),
                 "cargo install" => "Then remove the app with: cargo uninstall clairlune".into(),
-                "the .deb" => "Then remove the app with: sudo apt remove clairlune".into(),
                 _ => "Then delete the app where you keep it.".into(),
             }),
         }
@@ -77,7 +72,6 @@ impl Install {
                 };
                 Some(format!("Clairlune_{version}_{arch}.dmg"))
             }
-            Install::AppImage { .. } => Some(format!("clairlune_{version}_x86_64.AppImage")),
             Install::Manual { .. } => None,
         }
     }
@@ -88,14 +82,7 @@ pub fn detect() -> Install {
     let Ok(exe) = std::env::current_exe() else {
         return manual_download("an unknown kind of install");
     };
-    let appimage = std::env::var_os("APPIMAGE").map(PathBuf::from);
-    classify(
-        &exe,
-        std::env::consts::OS,
-        appimage.as_deref(),
-        &|p| p.exists(),
-        &writable,
-    )
+    classify(&exe, std::env::consts::OS, &|p| p.exists(), &writable)
 }
 
 fn manual_download(name: &str) -> Install {
@@ -109,7 +96,6 @@ fn manual_download(name: &str) -> Install {
 fn classify(
     exe: &Path,
     os: &str,
-    appimage: Option<&Path>,
     exists: &dyn Fn(&Path) -> bool,
     writable: &dyn Fn(&Path) -> bool,
 ) -> Install {
@@ -138,7 +124,7 @@ fn classify(
                 manual_download("a portable copy")
             }
         }
-        "macos" => match exe
+        _ => match exe
             .ancestors()
             .find(|p| p.extension().is_some_and(|e| e == "app"))
         {
@@ -147,17 +133,6 @@ fn classify(
             },
             Some(_) => manual_download("the app, in a folder Clairlune can't write to"),
             None => manual_download("a copy outside an app bundle"),
-        },
-        _ => match appimage {
-            Some(file) if file.parent().is_some_and(writable) => Install::AppImage {
-                file: file.to_path_buf(),
-            },
-            Some(_) => manual_download("an AppImage in a folder Clairlune can't write to"),
-            None if text.starts_with("/usr/") => Install::Manual {
-                name: "the .deb".into(),
-                how: "Download the new .deb from its release page, or update it with your package manager.".into(),
-            },
-            None => manual_download("a copy of its own"),
         },
     }
 }
@@ -175,7 +150,7 @@ fn writable(dir: &Path) -> bool {
 pub struct Prepared {
     pub install: Install,
     pub version: String,
-    /// The download (setup.exe, DMG or AppImage).
+    /// The download (setup.exe or DMG).
     pub file: PathBuf,
     /// macOS: the new app, copied out of the DMG next to the old one.
     pub staged: Option<PathBuf>,
@@ -198,10 +173,7 @@ pub fn prepare(
         .sha256
         .as_deref()
         .ok_or("the release lists no checksum for the download")?;
-    // An AppImage is downloaded next to the old one, so it can be swapped
-    // in by a rename; the rest go to a folder of their own.
     let file = match install {
-        Install::AppImage { file } => file.with_file_name(".clairlune-update.AppImage"),
         Install::Manual { .. } => return Err("this install updates another way".into()),
         _ => {
             let dir = work_dir();
@@ -218,15 +190,6 @@ pub fn prepare(
     }
     let staged = match install {
         Install::MacApp { bundle } => Some(stage_mac_app(&file, bundle, version)?),
-        Install::AppImage { .. } => {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755))
-                    .map_err(|e| e.to_string())?;
-            }
-            None
-        }
         _ => None,
     };
     Ok(Prepared {
@@ -402,16 +365,8 @@ pub fn finish(p: &Prepared, pid: u32, relaunch: Option<&[&str]>) -> Result<(), S
         Install::MacApp { bundle } => {
             let staged = p.staged.as_ref().ok_or("the new app isn't ready")?;
             let mut c = std::process::Command::new("/bin/sh");
-            c.arg("-c").arg(unix_swap_script(
-                pid, staged, bundle, &p.file, relaunch, true,
-            ));
-            c
-        }
-        Install::AppImage { file } => {
-            let mut c = std::process::Command::new("/bin/sh");
-            c.arg("-c").arg(unix_swap_script(
-                pid, &p.file, file, &p.file, relaunch, false,
-            ));
+            c.arg("-c")
+                .arg(mac_swap_script(pid, staged, bundle, &p.file, relaunch));
             c
         }
         Install::Manual { .. } => return Err("this install updates another way".into()),
@@ -470,25 +425,19 @@ pub fn remove_after_exit(install: &Install, pid: u32, dirs: &[PathBuf]) -> Resul
         for d in &dirs {
             s.push_str(&format!("rm -rf {}; ", sh_quote(&d.to_string_lossy())));
         }
-        match install {
-            Install::MacApp { bundle } => {
-                // To the Trash, under a name of its own there.
-                let name = format!(
-                    "Clairlune {}.app",
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .map_or(0, |d| d.as_secs())
-                );
-                s.push_str(&format!(
-                    "mkdir -p \"$HOME/.Trash\" && mv {} \"$HOME/.Trash/\"{}; ",
-                    sh_quote(&bundle.to_string_lossy()),
-                    sh_quote(&name)
-                ));
-            }
-            Install::AppImage { file } => {
-                s.push_str(&format!("rm -f {}; ", sh_quote(&file.to_string_lossy())));
-            }
-            _ => {}
+        if let Install::MacApp { bundle } = install {
+            // To the Trash, under a name of its own there.
+            let name = format!(
+                "Clairlune {}.app",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0, |d| d.as_secs())
+            );
+            s.push_str(&format!(
+                "mkdir -p \"$HOME/.Trash\" && mv {} \"$HOME/.Trash/\"{}; ",
+                sh_quote(&bundle.to_string_lossy()),
+                sh_quote(&name)
+            ));
         }
         let mut c = std::process::Command::new("/bin/sh");
         c.arg("-c").arg(s);
@@ -509,7 +458,7 @@ fn is_clairlune_dir(dir: &Path) -> bool {
 }
 
 /// What identifies the program file on disk: a new copy put in its place
-/// (Homebrew, a new DMG copy dragged over, an AppImage update) has another
+/// (Homebrew, a new DMG copy dragged over) has another
 /// file underneath the same path.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExeStamp {
@@ -519,12 +468,10 @@ pub struct ExeStamp {
     node: Option<(u64, u64)>,
 }
 
-/// The stamp of the program file this process runs from (its path, or
-/// the AppImage file), or `None` while it can't be read (mid-update).
+/// The stamp of the program file this process runs from, or `None` while
+/// it can't be read (mid-update).
 pub fn exe_stamp() -> Option<ExeStamp> {
-    let path = std::env::var_os("APPIMAGE")
-        .map(PathBuf::from)
-        .or_else(|| std::env::current_exe().ok())?;
+    let path = std::env::current_exe().ok()?;
     let m = std::fs::metadata(path).ok()?;
     #[cfg(unix)]
     let node = {
@@ -544,10 +491,7 @@ pub fn exe_stamp() -> Option<ExeStamp> {
 /// process (`pid`) is gone, with `args` (a new copy was put in its place).
 /// The caller quits right after.
 pub fn restart_after_exit(pid: u32, args: &[&str]) -> Result<(), String> {
-    let exe = std::env::var_os("APPIMAGE")
-        .map(PathBuf::from)
-        .or_else(|| std::env::current_exe().ok())
-        .ok_or("no program path")?;
+    let exe = std::env::current_exe().map_err(|e| format!("no program path: {e}"))?;
     let mut cmd = if cfg!(windows) {
         let mut s = format!(
             "$ErrorActionPreference = 'SilentlyContinue'; Wait-Process -Id {pid} -Timeout 60; Start-Process -FilePath {}",
@@ -636,16 +580,15 @@ fn sh_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
 
-/// macOS and Linux: wait for Clairlune to quit, move the old copy aside,
-/// the new one in (putting the old back if that fails), then start it
-/// again (`open` for a Mac app) and tidy up.
-fn unix_swap_script(
+/// macOS: wait for Clairlune to quit, move the old app aside, the new one
+/// in (putting the old back if that fails), then start it again with
+/// `open` and tidy up.
+fn mac_swap_script(
     pid: u32,
     new: &Path,
     target: &Path,
     download: &Path,
     relaunch: Option<&[&str]>,
-    mac: bool,
 ) -> String {
     let new = sh_quote(&new.to_string_lossy());
     let target_q = sh_quote(&target.to_string_lossy());
@@ -661,17 +604,10 @@ fn unix_swap_script(
     );
     if let Some(args) = relaunch {
         let args: Vec<String> = args.iter().map(|a| sh_quote(a)).collect();
-        if mac {
-            if args.is_empty() {
-                s.push_str(&format!("open {target_q}"));
-            } else {
-                s.push_str(&format!("open {target_q} --args {}", args.join(" ")));
-            }
+        if args.is_empty() {
+            s.push_str(&format!("open {target_q}"));
         } else {
-            s.push_str(&format!(
-                "nohup {target_q} {} >/dev/null 2>&1 &",
-                args.join(" ")
-            ));
+            s.push_str(&format!("open {target_q} --args {}", args.join(" ")));
         }
     }
     s
@@ -735,12 +671,11 @@ pub fn install_latest_now() -> i32 {
 mod tests {
     use super::*;
 
-    fn kind(exe: &str, os: &str, appimage: Option<&str>, files: &[&str]) -> Install {
+    fn kind(exe: &str, os: &str, files: &[&str]) -> Install {
         let files: Vec<String> = files.iter().map(|f| f.to_string()).collect();
         classify(
             Path::new(exe),
             os,
-            appimage.map(Path::new),
             &|p| files.iter().any(|f| Path::new(f) == p),
             &|_| true,
         )
@@ -754,46 +689,28 @@ mod tests {
             kind(
                 setup,
                 "windows",
-                None,
                 &["C:/Users/a/AppData/Local/Clairlune/uninstall.exe"]
             ),
             Install::WindowsSetup { .. }
         ));
-        assert_eq!(kind(setup, "windows", None, &[]).name(), "a portable copy");
+        assert_eq!(kind(setup, "windows", &[]).name(), "a portable copy");
         let scoop = kind(
             r"C:\Users\a\scoop\apps\clairlune\current\clairlune.exe",
             "windows",
-            None,
             &[],
         );
         assert_eq!(scoop.how(), Some("Update it with: scoop update clairlune"));
-        let cargo = kind(r"C:\Users\a\.cargo\bin\clairlune.exe", "windows", None, &[]);
+        let cargo = kind(r"C:\Users\a\.cargo\bin\clairlune.exe", "windows", &[]);
         assert_eq!(cargo.name(), "cargo install");
         assert_eq!(
             kind(
                 "/Applications/Clairlune.app/Contents/MacOS/clairlune",
                 "macos",
-                None,
                 &[]
             ),
             Install::MacApp {
                 bundle: PathBuf::from("/Applications/Clairlune.app")
             }
-        );
-        assert_eq!(
-            kind(
-                "/tmp/.mount_x/usr/bin/clairlune",
-                "linux",
-                Some("/home/a/Clairlune.AppImage"),
-                &[]
-            ),
-            Install::AppImage {
-                file: PathBuf::from("/home/a/Clairlune.AppImage")
-            }
-        );
-        assert_eq!(
-            kind("/usr/bin/clairlune", "linux", None, &[]).name(),
-            "the .deb"
         );
     }
 
@@ -805,13 +722,6 @@ mod tests {
         assert_eq!(
             w.asset_name("0.16.0").as_deref(),
             Some("clairlune_0.16.0_x64-setup.exe")
-        );
-        let a = Install::AppImage {
-            file: PathBuf::from("x"),
-        };
-        assert_eq!(
-            a.asset_name("0.16.0").as_deref(),
-            Some("clairlune_0.16.0_x86_64.AppImage")
         );
         let m = Install::MacApp {
             bundle: PathBuf::from("x"),
@@ -831,13 +741,12 @@ mod tests {
         assert!(ps.contains(r"'C:\Temp\it''s\setup.exe'"), "{ps}");
         assert!(ps.contains("Wait-Process -Id 42"), "{ps}");
         assert!(ps.ends_with("-ArgumentList '--background'"), "{ps}");
-        let sh = unix_swap_script(
+        let sh = mac_swap_script(
             7,
             Path::new("/Apps/.new.app"),
             Path::new("/Apps/Jo's Clairlune.app"),
             Path::new("/tmp/x.dmg"),
             Some(&[]),
-            true,
         );
         assert!(sh.contains(r"'/Apps/Jo'\''s Clairlune.app'"), "{sh}");
         assert!(sh.ends_with(r"open '/Apps/Jo'\''s Clairlune.app'"), "{sh}");
@@ -906,13 +815,9 @@ mod tests {
             Install::WindowsSetup {
                 exe: PathBuf::from("clairlune.exe"),
             }
-        } else if cfg!(target_os = "macos") {
+        } else {
             Install::MacApp {
                 bundle: std::env::temp_dir().join("Clairlune.app"),
-            }
-        } else {
-            Install::AppImage {
-                file: std::env::temp_dir().join("Clairlune.AppImage"),
             }
         };
         let name = install.asset_name(&r.version).unwrap();

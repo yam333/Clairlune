@@ -9,7 +9,7 @@ pub fn process_cpu_time() -> Duration {
     {
         crate::windows_live::process_cpu_time()
     }
-    #[cfg(unix)]
+    #[cfg(target_os = "macos")]
     {
         // SAFETY: getrusage fills the struct it is given.
         let mut r: libc::rusage = unsafe { std::mem::zeroed() };
@@ -22,7 +22,7 @@ pub fn process_cpu_time() -> Duration {
         };
         tv(r.ru_utime) + tv(r.ru_stime)
     }
-    #[cfg(not(any(windows, unix)))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         Duration::ZERO
     }
@@ -47,24 +47,13 @@ pub fn process_memory() -> u64 {
         } == 0;
         if ok { info.ri_phys_footprint } else { 0 }
     }
-    #[cfg(target_os = "linux")]
-    {
-        // Resident pages, the second field of /proc/self/statm.
-        let pages = std::fs::read_to_string("/proc/self/statm")
-            .ok()
-            .and_then(|s| s.split_whitespace().nth(1)?.parse::<u64>().ok())
-            .unwrap_or(0);
-        // SAFETY: sysconf has no preconditions.
-        let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) }.max(0) as u64;
-        pages * page
-    }
-    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         0
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, any(windows, target_os = "macos")))]
 mod tests {
     use super::*;
 

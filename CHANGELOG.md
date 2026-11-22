@@ -4,6 +4,24 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.19.0 (2026-11-22)
+
+- **No more Linux app.** Clairlune's desktop app is for Windows and macOS
+  only now. Its Linux side (setting the wallpaper on GNOME, KDE, XFCE,
+  Cinnamon, MATE and Sway, live wallpapers on Wayland and X11, the Linux tray
+  and start at login) had never run on a real Linux desktop, so it's gone, and
+  so are the `.deb`, the AppImage and the AUR files. 0.18.0 stays on the
+  releases page; a Linux copy of it will keep offering this update, which has
+  nothing for Linux, so turn off Check for updates there. On Linux,
+  `cargo install clairlune-cli` still renders the scenes as PNGs and GIFs,
+  and the scene and render crates are still tested on Linux.
+- **Homebrew no longer asks for a password on upgrades.** The cask's
+  uninstall step ran on every upgrade: it asked for an admin password, turned
+  start at login off and stopped Clairlune if it had started at login. The
+  start-at-login entry now goes only with `brew uninstall --zap`. One last
+  upgrade from 0.18.0 still asks, because Homebrew uses the cask that was
+  installed.
+
 ## 0.18.0 (2026-11-22)
 
 - **The Mac screen saver is gone**, with Lock Screen in the menu, the Screen
