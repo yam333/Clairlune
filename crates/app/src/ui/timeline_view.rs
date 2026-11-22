@@ -907,11 +907,11 @@ fn copy_picker(
     actions: &mut Vec<UiAction>,
 ) {
     ui.horizontal(|ui| {
-        for d in 0..7 {
-            let on = d == day || st.copy_to[d];
-            let replaced = d != day && st.copy_to[d] && !tl.slots(d).is_empty();
+        for (d, picked) in st.copy_to.iter_mut().enumerate() {
+            let on = d == day || *picked;
+            let replaced = d != day && *picked && !tl.slots(d).is_empty();
             if day_chip(ui, theme, short_day(d), on, replaced, d != day).clicked() {
-                st.copy_to[d] = !st.copy_to[d];
+                *picked = !*picked;
             }
         }
     });
