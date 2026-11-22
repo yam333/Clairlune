@@ -4,6 +4,15 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.17.2 (2026-11-22)
+
+- **Mac: pause behind a zoomed window.** Pause behind full-screen apps now
+  also pauses a screen when a window fills it but for the menu bar and the
+  Dock (a double click on the title bar), or when windows tiled side by side
+  fill it.
+- Settings > General is quieter: Check for updates just says once a day, and
+  Quit, Restore my wallpaper and Remove Clairlune need no explanation.
+
 ## 0.17.1 (2026-11-22)
 
 - **Live on every Mac:** a Mac still on the old default (the still frame)

@@ -151,8 +151,9 @@ Terminal and open it again.
 
 **Live doesn't move.** Check Settings > Display (Live, not Still frame) and the
 note under it, which says what plays or why not. Live pauses while an app
-covers the screen (Settings > Live > Pause behind full-screen apps), on
-battery if you asked for that, and while the computer is locked. On Linux, GNOME, KDE Plasma,
+fills the screen, maximized, zoomed or full screen (Settings > Live > Pause
+behind full-screen apps), on battery if you asked for that, and while the
+computer is locked. On Linux, GNOME, KDE Plasma,
 XFCE, Cinnamon, MATE and LXQt draw their own desktop, so they keep the still
 frame.
 
