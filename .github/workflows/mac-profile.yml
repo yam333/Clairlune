@@ -72,9 +72,12 @@ jobs:
           }
           run still still '"warm_hands"' --background
           run live-campfire live '"warm_hands"' --background
+          CLAIRLUNE_SURFACES=2 run live-campfire-2surfaces live '"warm_hands"' --background
           run live-journey live '"broom_journey"' --background
+          CLAIRLUNE_SURFACES=2 run live-journey-2surfaces live '"broom_journey"' --background
           run live-settings-open live '"warm_hands"' ""
           run still-settings-open still '"warm_hands"' ""
+          grep -h "usage" "$out"/*-logs/*.log | sed 's/^.*usage //' >> "$out/summary.txt" || true
           cat "$out/summary.txt"
       - uses: actions/upload-artifact@v5
         if: always()
