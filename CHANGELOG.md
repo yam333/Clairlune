@@ -4,6 +4,22 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.25.0 (2026-11-22)
+
+- **Sharper text.** Settings draws letters on whole pixels; small text was
+  soft before.
+- **Theme moved into Display**, as Appearance, with the theme schedule.
+- **Export folder** is picked in the system's folder picker (Choose…), and
+  shown under it; Pictures goes back to the default.
+- **About:** embers drift up off the signature, more and quicker under the
+  pointer, to say it's a link; the two GitHub buttons went.
+- **What's on now:** a name too long for the sidebar drifts slowly by
+  instead of being cut short; "next one in 55 min" reads "next: 55 min".
+- **From a seed** empties its box once the wallpaper is on its way.
+- Fewer lines of explanation: under From a seed, Keep wallpapers for, Sign
+  saved images, Logs, Detailed logging and Diagnostics, at the top of
+  Content, at the foot of Live, and for a scene spread across monitors.
+
 ## 0.24.0 (2026-11-22)
 
 - **About.** A new section in Settings says who made Clairlune (yam333), with

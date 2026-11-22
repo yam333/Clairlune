@@ -133,6 +133,9 @@ pub fn apply(ctx: &egui::Context, theme: Theme) {
     v.code_bg_color = c(t.bg_raised);
     v.hyperlink_color = c(t.accent_text);
     v.override_text_color = Some(c(t.text));
+    // Glyphs on whole pixels: egui's quarter-pixel placement evens out the
+    // spacing but softens small text.
+    v.text_options.subpixel_binning = false;
     v.window_corner_radius = CornerRadius::same(radius::PANEL as u8);
     v.menu_corner_radius = control;
     v.window_stroke = Stroke::new(size::HAIRLINE, c(t.hairline));

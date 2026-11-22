@@ -312,6 +312,11 @@ impl UiWindow {
         self.window.request_redraw();
     }
 
+    /// The window itself (a dialog's parent).
+    pub fn window(&self) -> &winit::window::Window {
+        &self.window
+    }
+
     /// Brings the window forward (restoring it when minimized).
     pub fn focus(&self) {
         self.window.set_minimized(false);

@@ -91,6 +91,8 @@ enum AppEvent {
     /// More of Content's landscape tiles have been drawn; `true` when the
     /// last one is.
     LandsDrawn(bool),
+    /// The folder picked for saved images (`None`: the picker was closed).
+    FolderPicked(Option<PathBuf>),
     /// The live metronome: a frame may be due. It arrives even while one
     /// of the app's windows is dragged or resized (Windows runs its own
     /// message loop then, and winit's timers stop; user events still come).
@@ -116,6 +118,8 @@ struct App {
     proxy: EventLoopProxy<AppEvent>,
     /// Content's landscape tiles are being drawn (`land_thumbs`).
     drawing_lands: bool,
+    /// The folder picker is open.
+    picking_folder: bool,
     /// What the last update check found, and whether one is running (and
     /// was asked for by hand: then its answer shows even when it's "up to
     /// date").
@@ -270,7 +274,7 @@ impl UiTest {
         let cycles = [
             (Theme::Dark, Section::Rotation, "settings-dark-rotation.png"),
             (Theme::Light, Section::About, "settings-light-about.png"),
-            (Theme::Dark, Section::Live, "settings-dark-live.png"),
+            (Theme::Dark, Section::Export, "settings-dark-export.png"),
             (Theme::Dark, Section::Content, "settings-dark-content.png"),
         ];
         for (i, (theme, section, shot)) in cycles.into_iter().enumerate() {
@@ -296,7 +300,7 @@ impl UiTest {
         steps.push((ms(12400), UiStep::Screenshot("archive.png")));
         steps.push((ms(12900), UiStep::CloseArchive));
         // The theme schedule, following the sun (seeded in settings.toml).
-        steps.push((ms(13400), UiStep::Open(Theme::Light, Section::Theme)));
+        steps.push((ms(13400), UiStep::Open(Theme::Light, Section::Display)));
         steps.push((ms(14100), UiStep::Screenshot("settings-light-theme.png")));
         steps.push((ms(14600), UiStep::Close));
         // General (start at login, the tray icon, quit), then the first
@@ -1583,6 +1587,7 @@ impl App {
                 .unwrap_or_default()
         });
         s.live = self.live.status.clone();
+        s.export_dir = self.export_dir().display().to_string();
         s.timeline_next = self
             .timeline_next
             .filter(|_| self.timeline_mode())
@@ -1631,6 +1636,7 @@ impl App {
             UiAction::NewWallpaper => self.new_wallpaper_by_hand(),
             UiAction::FromSeed(seed) => self.wallpaper_from_seed(seed),
             UiAction::OpenLink(url) => open_url(url),
+            UiAction::ChooseExportFolder => self.choose_export_folder(),
             UiAction::Resume => {
                 self.settings.schedule.paused = false;
                 if let Some(t) = &self.tray {
@@ -2281,6 +2287,32 @@ impl App {
         });
     }
 
+    /// Opens the system's folder picker for where saved images go: a sheet
+    /// on Settings on macOS, a dialog on Windows. It's waited for on a
+    /// thread of its own; the answer comes back as an event.
+    fn choose_export_folder(&mut self) {
+        if self.picking_folder {
+            return;
+        }
+        let mut dialog = rfd::AsyncFileDialog::new().set_title("Where saved images go");
+        let current = self.export_dir();
+        if current.is_dir() {
+            dialog = dialog.set_directory(&current);
+        }
+        if let Some(w) = &self.settings_window {
+            dialog = dialog.set_parent(w.window());
+        }
+        let picking = dialog.pick_folder();
+        let proxy = self.proxy.clone();
+        let started = std::thread::Builder::new()
+            .name("clairlune-folder".into())
+            .spawn(move || {
+                let picked = pollster::block_on(picking).map(|f| f.path().to_path_buf());
+                let _ = proxy.send_event(AppEvent::FolderPicked(picked));
+            });
+        self.picking_folder = started.is_ok();
+    }
+
     /// The export folder: the setting, or `Pictures/Clairlune`.
     fn export_dir(&self) -> PathBuf {
         if self.settings.export.folder.trim().is_empty() {
@@ -2568,6 +2600,14 @@ impl ApplicationHandler<AppEvent> for App {
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: AppEvent) {
         match event {
+            AppEvent::FolderPicked(picked) => {
+                self.picking_folder = false;
+                if let Some(dir) = picked {
+                    self.settings.export.folder = dir.display().to_string();
+                    self.save_settings();
+                    self.redraw_windows();
+                }
+            }
             AppEvent::LandsDrawn(done) => {
                 if done {
                     self.drawing_lands = false;
@@ -3110,6 +3150,7 @@ fn main() {
         jobs,
         proxy: app_proxy,
         drawing_lands: false,
+        picking_folder: false,
         update: update_state,
         checking_updates: None,
         install: install::detect(),
