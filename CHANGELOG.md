@@ -4,6 +4,15 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.17.4 (2026-11-22)
+
+- **Mac: lock with the scene playing.** macOS's own Lock Screen shows a still
+  picture for any wallpaper that isn't Apple's, and runs no other screen saver
+  once locked. Lock Screen in Clairlune's menu (and Lock now in Settings)
+  starts the screen saver instead: macOS locks behind it and the scene plays
+  until the display turns off. Settings also opens Hot Corners, and says when
+  macOS asks for the password only minutes after the screen saver starts.
+
 ## 0.17.3 (2026-11-22)
 
 - **Mac: Login Items.** macOS lets you switch Clairlune off in System Settings >
