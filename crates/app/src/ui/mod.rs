@@ -132,9 +132,9 @@ impl UiWindow {
         let (title, w, h, min) = match kind {
             Kind::Settings => (
                 format!("{APP_NAME} Settings: {}", section.name()),
-                1000.0,
+                1000.0_f64.max(f64::from(view::SETTINGS_MIN_WIDTH)),
                 720.0,
-                (880.0, 640.0),
+                (f64::from(view::SETTINGS_MIN_WIDTH), 640.0),
             ),
             Kind::Library => (format!("{APP_NAME} Library"), 980.0, 660.0, (820.0, 540.0)),
             Kind::Archive => (format!("{APP_NAME} Archive"), 980.0, 660.0, (820.0, 540.0)),

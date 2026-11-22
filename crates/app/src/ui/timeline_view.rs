@@ -1091,7 +1091,8 @@ fn inspector(
         ui.horizontal(|ui| {
             let field = ui.add(
                 egui::TextEdit::singleline(&mut st.start_text)
-                    .desired_width(64.0)
+                    // "00:00" in full, with the field's own margins.
+                    .desired_width(76.0)
                     .font(FontId::new(text::BODY.size, FontFamily::Monospace)),
             );
             if field.lost_focus() {
