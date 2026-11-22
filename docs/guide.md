@@ -108,12 +108,28 @@ window.
 
 Changes save as you make them; content changes show from the next wallpaper.
 
+## The Timeline
+
+A plan for the day, or for each day of the week (the menu's Timeline…; the
+switch beside its title turns it on). With nothing picked, its right side
+plays how it works:
+
+- **Drag** a saved wallpaper, or the die (a random scene), onto a day.
+- **Click** empty time (hatched: new scenes come on the Generate schedule
+  there) to add a slot where the outline shows; double-click inside a slot
+  to split it.
+- **Drag a slot's edge** (the grip) to move its start; Shift for single
+  minutes.
+- **Click a slot** to choose what it shows, its theme and Clawd.
+- Keys: arrows pick slots, Delete removes one, Ctrl+Z (Cmd+Z) undoes, Esc
+  lets go. A day's marks add a slot, copy the day to others, or clear it.
+
 ## More than one monitor
 
 Each monitor gets its own scene at its own resolution, or one wide scene spread
 across all of them (Display > Monitors). With a scene each:
 
-- **Display > Each monitor:** a monitor can keep the still frame while live
+- **Display:** under Monitors, a monitor can keep the still frame while live
   plays on the others (for example live on the big screen, still on the
   laptop).
 - **Content:** pick a monitor at the top and turn on **Its own choices** to

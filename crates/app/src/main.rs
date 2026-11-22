@@ -287,7 +287,7 @@ impl UiTest {
         steps.push((ms(7100), UiStep::Screenshot("library.png")));
         steps.push((ms(7600), UiStep::CloseLibrary));
         let timelines = [
-            (Theme::Dark, 0, 1, "timeline-dark.png"),
+            (Theme::Dark, 0, usize::MAX, "timeline-dark.png"),
             (Theme::Light, 0, 4, "timeline-light.png"),
         ];
         for (i, (theme, day, index, shot)) in timelines.into_iter().enumerate() {
@@ -1852,7 +1852,10 @@ impl App {
                     self.open_timeline(event_loop);
                     if let Some(w) = &mut self.timeline_window {
                         w.set_theme(theme);
-                        w.select_slot(day, index);
+                        // usize::MAX: nothing selected (the demo shows).
+                        if index != usize::MAX {
+                            w.select_slot(day, index);
+                        }
                     }
                     tracing::info!(target: "clairlune", memory_mb = memory_mb(), "ui test: timeline opened");
                 }
@@ -2683,6 +2686,21 @@ impl ApplicationHandler<AppEvent> for App {
         }
         if let Some(t) = self.ui_test.as_ref().and_then(|t| t.wake()) {
             wake = wake.min(t);
+        }
+        // Windows with an animation running get their next frame on time.
+        let now = Instant::now();
+        for w in [
+            &mut self.settings_window,
+            &mut self.library_window,
+            &mut self.timeline_window,
+            &mut self.archive_window,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if let Some(t) = w.redraw_due(now) {
+                wake = wake.min(t);
+            }
         }
         event_loop.set_control_flow(ControlFlow::WaitUntil(wake));
     }

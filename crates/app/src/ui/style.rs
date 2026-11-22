@@ -214,6 +214,9 @@ pub fn apply(ctx: &egui::Context, theme: Theme) {
         // Scroll bars float over the content, but always with room kept
         // for them: nothing ends up underneath one.
         sp.scroll.floating_allocated_width = sp.scroll.bar_width + sp.scroll.bar_inner_margin;
+        // Titles, names and notes are an app's, not a document's: dragging
+        // over them doesn't select them.
+        s.interaction.selectable_labels = false;
         s.animation_time = tokens::motion::BASE as f32 / 1000.0;
     });
 }
