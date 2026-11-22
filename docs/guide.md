@@ -73,12 +73,14 @@ Opening Clairlune again while it runs brings up Settings.
 ## Settings
 
 The sections are down the left, over a glass pane that lets the wallpaper
-through. Under them is what's on screen now (its name, Live or Still, the
-seed and when it changes next) with New wallpaper, Previous and Save to
-library.
+through. Under them is what's on screen now (its name, Live or Still, when it
+changes next and its seed: click the seed to copy it) with New wallpaper,
+Previous and Save to library. Esc closes a menu or the welcome, never the
+window.
 
 - **Rotation:** how often the wallpaper changes (every hour by default), or a
-  Timeline that follows a plan for each day of the week.
+  Timeline that follows a plan for each day of the week; Resume when changes
+  are paused; and From a seed: type a wallpaper's seed to get it back.
 - **Theme:** light, dark, like the system, or on a schedule (set times, or
   sunrise and sunset for your location).
 - **Display:** Live or Still frame, and one scene per monitor or one across
@@ -161,7 +163,14 @@ computer is locked.
 
 **The wallpaper changed back to Clairlune's after I set my own.** Clairlune
 changes the wallpaper every hour. Use Restore my wallpaper (Settings >
-General), which also pauses the changes, or pause them from the menu.
+General), which also pauses the changes, or pause them from the menu. Resume
+them from the menu or with Resume in Settings > Rotation.
+
+**How do I get a wallpaper back?** Copy its seed (click it under the
+sections in Settings) and type it into Settings > Rotation > From a seed. A
+wallpaper still in the archive or the library comes back exactly as it was;
+one that isn't is made again from the seed, the same as before as long as
+the choices under Content and the theme are the same.
 
 **It uses more power than I'd like.** Lower Settings > Live > Smoothness, turn
 on Battery saver on battery, or use Still frame: a still costs nothing

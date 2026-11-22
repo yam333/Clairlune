@@ -89,6 +89,9 @@ pub struct Glass {
     pub card: Rgb,
     pub card_alpha: f32,
     pub chosen: f32,
+    /// The small pane of smoke under each sidebar section (`pane` at this
+    /// opacity), so its name reads clearly over the flutes.
+    pub nav: f32,
     /// The grain over the glass.
     pub grain: f32,
 }
@@ -125,6 +128,7 @@ pub const LIGHT: Colors = Colors {
         card: Rgb::hex(0xFFFFFF),
         card_alpha: 0.55,
         chosen: 0.75,
+        nav: 0.5,
         grain: 0.035,
     },
 };
@@ -155,6 +159,7 @@ pub const DARK: Colors = Colors {
         card: Rgb::hex(0xECE6D8),
         card_alpha: 0.06,
         chosen: 0.12,
+        nav: 0.42,
         grain: 0.05,
     },
 };

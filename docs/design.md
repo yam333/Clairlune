@@ -197,7 +197,7 @@ Library follows the Archive grid without time grouping, plus user-given names. T
 - [ ] One accent, only on primary action, selection, focus and "now".
 - [ ] Glass only on Settings' sidebar and page; no gradients elsewhere, no glow, emoji, badges on everything, card-in-card, centred layouts.
 - [ ] Every control has a one-line description; sentence case; no exclamation marks.
-- [ ] Keyboard: every action reachable, focus ring visible, Esc closes.
+- [ ] Keyboard: every action reachable, focus ring visible, Esc closes menus and dialogs (never the window).
 - [ ] Contrast test passes for every token pair used.
 - [ ] Every state in section 5 handled for this screen.
 - [ ] Screenshot in light and dark on each OS reviewed against section 2.

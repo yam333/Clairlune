@@ -4,6 +4,26 @@ What changed in each release of Clairlune, newest first. Saved scenes and
 recipes from earlier versions always look the same as before. The downloads
 are on the [releases page](https://github.com/yam333/Clairlune/releases).
 
+## 0.23.0 (2026-11-22)
+
+- **A wallpaper from its seed.** Settings > Rotation > From a seed brings back
+  the wallpaper with that seed: exactly as it was when it's in the archive or
+  the library, otherwise made again (the same scenes, on every monitor, for
+  the same Content choices and theme). Seeds now always mean that: the recent
+  wallpapers decide which seeds come up instead of changing what a seed makes.
+- The seed under the sections sits in a small box: hover it and it offers to
+  copy, click it to copy the seed.
+- Each section in the sidebar sits on a small pane of smoked glass, easier to
+  read over the flutes.
+- Shorter Settings: most settings lose the line under them; Smoothness shows
+  its frame rate in its menu; Also change at login is now Change at login.
+- Pause is gone from Settings (it stays in the menu); while changes are
+  paused, Rotation shows Resume.
+- Esc no longer closes Settings or the other windows (it still closes an open
+  menu).
+- On a short window the picture of the wallpaper in the sidebar shrinks, or
+  goes, instead of crowding the sections.
+
 ## 0.22.0 (2026-11-22)
 
 - **Settings, redesigned** ("Moonglass"), the same on Windows and macOS:
