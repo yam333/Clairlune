@@ -310,6 +310,7 @@ mod tests {
             width: w,
             height: h,
             primary,
+            scale: 1,
         }
     }
 

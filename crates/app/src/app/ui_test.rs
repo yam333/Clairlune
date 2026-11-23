@@ -20,6 +20,8 @@ pub(crate) enum UiStep {
     OpenAsking(Theme),
     /// The tray icon hidden or shown again, as the setting does it.
     Tray(bool),
+    /// Spread across on or off (the arrangement shows on Display).
+    Span(bool),
     OpenLibrary,
     /// The Timeline window in a theme, with a slot (day, index) selected.
     OpenTimeline(Theme, usize, usize),
@@ -107,7 +109,17 @@ impl UiTest {
         steps.push((ms(24100), UiStep::Page(None, false, true, 380.0)));
         steps.push((ms(24600), UiStep::Screenshot("settings-light-remove.png")));
         steps.push((ms(25100), UiStep::Close));
-        steps.push((ms(25400), UiStep::Exit));
+        // Spread across: the monitors' arrangement.
+        steps.push((ms(25400), UiStep::Span(true)));
+        steps.push((ms(25600), UiStep::Open(Theme::Dark, Section::Display)));
+        steps.push((ms(25900), UiStep::Page(None, false, false, 320.0)));
+        steps.push((
+            ms(26400),
+            UiStep::Screenshot("settings-dark-arrangement.png"),
+        ));
+        steps.push((ms(26800), UiStep::Close));
+        steps.push((ms(27000), UiStep::Span(false)));
+        steps.push((ms(27300), UiStep::Exit));
         UiTest {
             out,
             steps,
@@ -153,6 +165,12 @@ impl App {
                         ps.remove_confirm = remove;
                         ps.scroll_to = Some(scroll);
                     }
+                }
+                UiStep::Span(on) => {
+                    self.settings.display.span = on;
+                    // Shown as if the wallpaper on screen were a spread.
+                    self.span_shown = on;
+                    self.redraw_windows();
                 }
                 UiStep::Tray(on) => {
                     self.settings.general.show_tray_icon = on;

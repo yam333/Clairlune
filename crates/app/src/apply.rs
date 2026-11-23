@@ -98,42 +98,42 @@ pub struct LiveScene {
     pub view: Option<PixelRect>,
 }
 
-/// Span mode: the monitors' bounding box as one virtual monitor, and each
-/// real monitor's rectangle inside it.
-pub fn span_of(monitors: &[Monitor]) -> (Monitor, Vec<(Monitor, PixelRect)>) {
-    let x0 = monitors.iter().map(|m| m.x).min().unwrap_or(0);
-    let y0 = monitors.iter().map(|m| m.y).min().unwrap_or(0);
-    let x1 = monitors
-        .iter()
-        .map(|m| m.x + m.width as i32)
-        .max()
-        .unwrap_or(0);
-    let y1 = monitors
-        .iter()
-        .map(|m| m.y + m.height as i32)
-        .max()
-        .unwrap_or(0);
+/// Span mode: one virtual monitor the size of the shared scene, each real
+/// monitor with the part it shows, and where across the scene the main
+/// monitor's middle is (thousandths of its width). See [`crate::span`].
+pub fn span_of(
+    monitors: &[Monitor],
+    display: &crate::settings::DisplaySettings,
+) -> (Monitor, Vec<(Monitor, PixelRect)>, u32) {
+    let spread = crate::span::spread(&crate::span::arrange(monitors, display));
     let whole = Monitor {
         id: "span".into(),
-        x: x0,
-        y: y0,
-        width: (x1 - x0) as u32,
-        height: (y1 - y0) as u32,
+        x: 0,
+        y: 0,
+        width: spread.width,
+        height: spread.height,
         primary: true,
+        scale: 1,
     };
-    let views = monitors
-        .iter()
-        .map(|m| {
-            let r = PixelRect {
-                x: (m.x - x0) as u32,
-                y: (m.y - y0) as u32,
-                w: m.width,
-                h: m.height,
-            };
-            (m.clone(), r)
-        })
-        .collect();
-    (whole, views)
+    let views = monitors.iter().cloned().zip(spread.views).collect();
+    (whole, views, spread.focus_pm)
+}
+
+/// Each pixel of `img` as a 2x2 block: a Retina screen's part of a scene
+/// drawn at a 1x screen's density, crisp.
+fn doubled(img: &IndexedImage) -> IndexedImage {
+    let (w, h) = (img.width as usize, img.height as usize);
+    let mut pixels = Vec::with_capacity(w * h * 4);
+    for row in img.pixels.chunks_exact(w.max(1)) {
+        let wide: Vec<u8> = row.iter().flat_map(|&p| [p, p]).collect();
+        pixels.extend_from_slice(&wide);
+        pixels.extend_from_slice(&wide);
+    }
+    IndexedImage {
+        width: img.width * 2,
+        height: img.height * 2,
+        pixels,
+    }
 }
 
 /// The part of an image inside `r`.
@@ -849,6 +849,7 @@ fn apply(
             width: 1920,
             height: 1080,
             primary: true,
+            scale: 1,
         }],
     };
     if monitors.is_empty() {
@@ -864,14 +865,10 @@ fn apply(
     } else {
         monitors
     };
-    let span = (settings.display.span && screens.len() > 1).then(|| span_of(&screens));
+    let span =
+        (settings.display.span && screens.len() > 1).then(|| span_of(&screens, &settings.display));
     let (monitors, focus_pm) = match &span {
-        Some((whole, views)) => {
-            let primary = views.iter().find(|(m, _)| m.primary).unwrap_or(&views[0]).1;
-            let centre =
-                u64::from(primary.x + primary.w / 2) * 1000 / u64::from(whole.width.max(1));
-            (vec![whole.clone()], Some(centre as u32))
-        }
+        Some((whole, _, focus)) => (vec![whole.clone()], Some(*focus)),
         None => (monitors, None),
     };
     let wanted = saved
@@ -971,10 +968,17 @@ fn apply(
         }
     }
     let mut live = Vec::new();
-    if let (Some(host), Some((_, views)), Some((img, palette))) = (host, &span, &span_still) {
-        // Each monitor gets its part of the one scene.
+    if let (Some(host), Some((_, views, _)), Some((img, palette))) = (host, &span, &span_still) {
+        // Each monitor gets its part of the one scene: a Retina screen beside
+        // 1x ones, its part pixel-doubled (live plays it so too).
         for (m, view) in views {
-            let png = png_of(&crop(img, *view), palette)?;
+            let part = crop(img, *view);
+            let part = if m.width >= view.w * 2 - 1 && view.w > 0 {
+                doubled(&part)
+            } else {
+                part
+            };
+            let png = png_of(&part, palette)?;
             let path = store
                 .write(&m.id, &png)
                 .map_err(|e| format!("still: {e}"))?;
@@ -1177,6 +1181,7 @@ mod tests {
             width: w,
             height: h,
             primary: true,
+            scale: 1,
         }
     }
 
@@ -1198,6 +1203,7 @@ mod tests {
                 id: "second".into(),
                 x: 640,
                 primary: false,
+                scale: 1,
                 ..monitor(640, 360)
             },
         ]
@@ -1519,6 +1525,7 @@ mod tests {
                 id: "second".into(),
                 x: 640,
                 primary: false,
+                scale: 1,
                 ..monitor(640, 360)
             },
         ];
@@ -1576,6 +1583,7 @@ mod tests {
                 id: "second".into(),
                 x: 640,
                 primary: false,
+                scale: 1,
                 ..monitor(640, 360)
             },
         ];
@@ -1617,16 +1625,20 @@ mod tests {
             width: w,
             height: h,
             primary,
+            scale: 1,
         };
         // A taller primary and a smaller monitor to its right, lower down.
-        let (whole, views) = span_of(&[
-            m("a", 0, 0, 2560, 1440, true),
-            m("b", 2560, 180, 1920, 1080, false),
-        ]);
-        assert_eq!(
-            (whole.x, whole.y, whole.width, whole.height),
-            (0, 0, 4480, 1440)
+        let display = crate::settings::DisplaySettings::default();
+        let (whole, views, focus) = span_of(
+            &[
+                m("a", 0, 0, 2560, 1440, true),
+                m("b", 2560, 180, 1920, 1080, false),
+            ],
+            &display,
         );
+        assert_eq!((whole.width, whole.height), (4480, 1440));
+        // The scene centres on the primary.
+        assert_eq!(focus, 1280 * 1000 / 4480);
         assert_eq!(
             views[0].1,
             PixelRect {
@@ -1646,11 +1658,14 @@ mod tests {
             }
         );
         // A monitor to the left of the primary (negative coordinates).
-        let (whole, views) = span_of(&[
-            m("a", 0, 0, 1920, 1080, true),
-            m("b", -1920, 0, 1920, 1080, false),
-        ]);
-        assert_eq!((whole.x, whole.width), (-1920, 3840));
+        let (whole, views, _) = span_of(
+            &[
+                m("a", 0, 0, 1920, 1080, true),
+                m("b", -1920, 0, 1920, 1080, false),
+            ],
+            &display,
+        );
+        assert_eq!(whole.width, 3840);
         assert_eq!(views[0].1.x, 1920);
         assert_eq!(views[1].1.x, 0);
     }
@@ -1707,6 +1722,79 @@ mod tests {
         }
     }
 
+    #[test]
+    fn a_retina_screen_in_a_spread_gets_its_part_doubled() {
+        // A 1x monitor, and a Retina one under it (macOS: positions in
+        // points). The scene is drawn at 1x; the Retina screen's still is its
+        // part, pixel-doubled to its own size, and live plays the part.
+        let dir = std::env::temp_dir().join(format!("clairlune-retina-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let host = FakeHost {
+            monitors: vec![
+                Monitor {
+                    id: "main".into(),
+                    x: 0,
+                    y: 0,
+                    width: 640,
+                    height: 360,
+                    primary: true,
+                    scale: 1,
+                },
+                Monitor {
+                    id: "laptop".into(),
+                    x: 80,
+                    y: 360,
+                    width: 960,
+                    height: 600,
+                    primary: false,
+                    scale: 2,
+                },
+            ],
+            set: std::sync::Mutex::new(Vec::new()),
+        };
+        let store = StillStore::new(dir.join("current")).unwrap();
+        let archive = Archive::open(dir.join("archive")).unwrap();
+        let mut settings = Settings::default();
+        settings.display.span = true;
+        let done = apply(
+            None,
+            (5, false),
+            &settings,
+            true,
+            Some(&host),
+            &store,
+            &archive,
+            &mut Recent::default(),
+            None,
+            true,
+        )
+        .unwrap();
+        let Done::Applied { live, .. } = done else {
+            panic!("applied")
+        };
+        assert_eq!((live[0].package.width, live[0].package.height), (640, 660));
+        assert_eq!(
+            live[1].view,
+            Some(PixelRect {
+                x: 80,
+                y: 360,
+                w: 480,
+                h: 300
+            })
+        );
+        let set = host.set.lock().unwrap();
+        let size = |path: &Path| {
+            let dec =
+                png::Decoder::new(std::io::BufReader::new(std::fs::File::open(path).unwrap()));
+            let info = dec.read_info().unwrap().info().clone();
+            (info.width, info.height)
+        };
+        assert_eq!(size(&set[0].1), (640, 360));
+        assert_eq!(size(&set[1].1), (960, 600));
+        drop(set);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// Span mode end to end: one scene the size of both monitors, archived
     /// once; each monitor gets a still of its own size cut from it, and a live
     /// scene showing its part, with the focal group on the primary monitor.
@@ -1723,6 +1811,7 @@ mod tests {
                     width: 640,
                     height: 360,
                     primary: true,
+                    scale: 1,
                 },
                 Monitor {
                     id: "right".into(),
@@ -1731,6 +1820,7 @@ mod tests {
                     width: 480,
                     height: 270,
                     primary: false,
+                    scale: 1,
                 },
             ],
             set: std::sync::Mutex::new(Vec::new()),

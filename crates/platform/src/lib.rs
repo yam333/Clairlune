@@ -31,18 +31,33 @@ pub use store::{Snapshot, StillStore};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-/// One monitor, in physical pixels.
+/// One monitor: its size in physical pixels, and where it sits in the
+/// system's display arrangement.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Monitor {
     /// Stable id that survives reboots and re-plugging: the device path on
     /// Windows. Per-monitor seeds and saved scenes key on it.
     pub id: String,
-    /// Position on the virtual screen (the origin can be negative).
+    /// Its top-left corner in the system's display arrangement (the origin
+    /// can be negative), in the arrangement's units: pixels on Windows,
+    /// points on macOS.
     pub x: i32,
     pub y: i32,
+    /// Its size in physical pixels.
     pub width: u32,
     pub height: u32,
     pub primary: bool,
+    /// Physical pixels per arrangement unit: 2 on a Retina screen, 1
+    /// elsewhere (and always on Windows, which arranges in pixels).
+    pub scale: u32,
+}
+
+impl Monitor {
+    /// Its size in the arrangement's units (points on macOS).
+    pub fn arranged_size(&self) -> (u32, u32) {
+        let s = self.scale.max(1);
+        (self.width.div_ceil(s), self.height.div_ceil(s))
+    }
 }
 
 /// What a host can do.
@@ -381,6 +396,7 @@ mod tests {
             width: 1920,
             height: 1080,
             primary,
+            scale: 1,
         }
     }
 
