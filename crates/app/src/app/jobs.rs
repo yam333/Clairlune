@@ -51,6 +51,7 @@ impl App {
                 // One scene per monitor: each can get a new one. (A span is
                 // one scene.)
                 let span = live.iter().any(|s| s.view.is_some());
+                self.span_shown = span;
                 self.screens = live.iter().map(|s| s.monitor.clone()).collect();
                 self.tray_monitors = if span {
                     Vec::new()

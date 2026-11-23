@@ -60,6 +60,15 @@ impl App {
         match action {
             UiAction::SettingsChanged => {
                 self.save_settings();
+                // Spread across turned on or off, a monitor moved, another
+                // made main: the wallpaper on screen is drawn again for it.
+                let key = span::settings_key(&self.settings.display);
+                if key != self.span_key {
+                    self.span_key = key;
+                    if self.current.is_some() && !self.restored() && !self.busy {
+                        self.reapply(false);
+                    }
+                }
                 self.sync_tray();
                 self.check_permissions();
                 if let Some(t) = &self.tray {

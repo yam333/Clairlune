@@ -88,6 +88,9 @@ pub struct DisplaySettings {
     pub mode: WallpaperMode,
     /// One scene spread across all monitors instead of one each.
     pub span: bool,
+    /// The monitor a spread scene centres on (its id); none: the system's
+    /// main monitor.
+    pub span_main: Option<String>,
     /// Monitors set apart from the rest (by id); the others follow the
     /// settings for all.
     pub monitors: Vec<MonitorSettings>,
@@ -106,12 +109,15 @@ pub struct MonitorSettings {
     pub still: bool,
     /// What its new scenes pick from, instead of the choices for all.
     pub content: Option<Content>,
+    /// Where it sits for a spread scene, in the display arrangement's units
+    /// (points on macOS, pixels on Windows); none: where the system has it.
+    pub span_at: Option<[i32; 2]>,
 }
 
 impl MonitorSettings {
     /// Nothing set apart: the entry can go.
     fn is_plain(&self) -> bool {
-        !self.still && self.content.is_none()
+        !self.still && self.content.is_none() && self.span_at.is_none()
     }
 }
 

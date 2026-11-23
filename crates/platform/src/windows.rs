@@ -296,6 +296,8 @@ impl WallpaperHost for WindowsHost {
                 height: h as u32,
                 // The primary monitor's top-left is the virtual screen origin.
                 primary: r.left == 0 && r.top == 0,
+                // Windows arranges displays in physical pixels.
+                scale: 1,
             });
         }
         sort_monitors(&mut out);

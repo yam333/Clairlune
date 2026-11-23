@@ -8,6 +8,32 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-23
+
+### Added
+
+- **The monitors' arrangement** (Display, with Spread across): each monitor
+  drawn where it sits, showing its part of the wallpaper. Drag one to line it
+  up with the others (it snaps to their edges; a gap stays in the scene, as
+  the frames between screens do). The bar on the main monitor, where the scene
+  centres, drags to another one, or double-click a monitor; the back arrow
+  returns to the system's arrangement.
+
+### Changed
+
+- Switching between One each and Spread across, or moving a monitor, draws
+  the wallpaper on screen again right away instead of at the next change.
+- With Spread across, monitors no longer have their own Live or Still frame:
+  the scene is one picture.
+
+### Fixed
+
+- **Spread across on a Mac with a Retina screen and ordinary monitors** left
+  the picture broken up, with parts missing between monitors: positions were
+  measured at the Retina density and sizes at each screen's own. Monitors are
+  now laid out in points, as macOS arranges them, and a Retina screen shows
+  its part pixel-doubled.
+
 ## [0.28.0] - 2026-11-23
 
 ### Changed
@@ -497,7 +523,8 @@ earlier versions always look the same as before. The downloads are on the
 - The same calm pace at every smoothness; Direct3D 11 live wallpapers on
   Windows that copy only what changed; windows give their memory back.
 
-[Unreleased]: https://github.com/yam333/Clairlune/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/yam333/Clairlune/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/yam333/Clairlune/releases/tag/v0.29.0
 [0.28.0]: https://github.com/yam333/Clairlune/releases/tag/v0.28.0
 [0.27.0]: https://github.com/yam333/Clairlune/releases/tag/v0.27.0
 [0.26.0]: https://github.com/yam333/Clairlune/releases/tag/v0.26.0

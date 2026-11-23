@@ -221,7 +221,12 @@ impl App {
         );
         self.live
             .set_cover_pause(self.settings.live.pause_when_covered);
-        self.live.set_still_monitors(self.settings.still_monitors());
+        // A spread scene is one picture: no monitor keeps a still part of it.
+        self.live.set_still_monitors(if self.settings.display.span {
+            Vec::new()
+        } else {
+            self.settings.still_monitors()
+        });
         self.live.set_enabled(live);
         if let Some(t) = &self.tray {
             t.show_live(live);
@@ -337,7 +342,11 @@ impl App {
         let d = &self.settings.display;
         let wallpaper = match d.mode {
             WallpaperMode::Live => {
-                let still = d.monitors.iter().filter(|m| m.still).count();
+                let still = if d.span {
+                    0
+                } else {
+                    d.monitors.iter().filter(|m| m.still).count()
+                };
                 format!(
                     "Live at {} fps, {}{}",
                     self.settings.live.smoothness_fps,

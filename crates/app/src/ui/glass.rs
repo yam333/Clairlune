@@ -20,6 +20,11 @@ pub struct Backdrop {
 }
 
 impl Backdrop {
+    /// The wallpaper itself, sharp.
+    pub fn image(&self) -> &TextureHandle {
+        &self.sharp
+    }
+
     /// From an RGBA image (the wallpaper on screen): a copy at most 1600 px
     /// wide for the flutes, and a small blurred one for the pane.
     pub fn new(ctx: &egui::Context, size: [usize; 2], rgba: &[u8]) -> Option<Backdrop> {

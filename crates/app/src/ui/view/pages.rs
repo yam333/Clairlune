@@ -163,6 +163,7 @@ pub(crate) fn page(
     section: Section,
     ps: &mut PageState,
     lands: &mut LandThumbs,
+    wallpaper: Option<&egui::TextureHandle>,
     s: &mut Settings,
     status: &Status,
     actions: &mut Vec<UiAction>,
@@ -318,7 +319,16 @@ pub(crate) fn page(
                     &[(false, "One each", true), (true, "Spread across", true)],
                 );
             });
-            if status.monitors.len() > 1 && s.display.mode == WallpaperMode::Live {
+            // Spread across: where the monitors sit, and which one the scene
+            // centres on.
+            if s.display.span && status.screens.len() > 1 {
+                arrangement(ui, theme, s, status, ps, wallpaper);
+                ui.add_space(space::S5);
+            }
+            // A scene each: a monitor can keep the still frame. (A spread
+            // scene is one picture: all of it plays, or none.)
+            if status.monitors.len() > 1 && s.display.mode == WallpaperMode::Live && !s.display.span
+            {
                 ui.add_space(space::S2);
                 for (id, label) in &status.monitors {
                     let mut still = s.still_only(id);

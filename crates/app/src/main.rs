@@ -20,6 +20,7 @@ mod live;
 mod old_saver;
 mod report;
 mod settings;
+mod span;
 mod sun;
 mod timefmt;
 mod timeline;
@@ -230,6 +231,11 @@ struct App {
     /// The monitors the tray's "New wallpaper on" lists, for a tray made
     /// again after being hidden.
     tray_monitors: Vec<clairlune_platform::Monitor>,
+    /// What a spread scene depends on in Settings, as the wallpaper on
+    /// screen was made (`span::settings_key`).
+    span_key: String,
+    /// The wallpaper on screen is one scene spread across the monitors.
+    span_shown: bool,
     /// The monitors the wallpaper is on (for Settings: each one's own
     /// settings).
     screens: Vec<clairlune_platform::Monitor>,
@@ -615,6 +621,7 @@ fn main() {
     #[cfg(not(windows))]
     drop(metronome_proxy);
     let lighter = settings.live.lighter_on_retina;
+    let span_key = span::settings_key(&settings.display);
     let mut app = App {
         live,
         #[cfg(windows)]
@@ -680,6 +687,8 @@ fn main() {
         background,
         taskbar_light: clairlune_platform::taskbar_is_light(),
         tray_monitors: Vec::new(),
+        span_key,
+        span_shown: false,
         screens: Vec::new(),
     };
     #[cfg(target_os = "macos")]
@@ -690,17 +699,23 @@ fn main() {
         );
     }
     if app.ui_test.is_some() {
-        let m = |id: &str, x: i32, w: u32, h: u32, primary: bool| clairlune_platform::Monitor {
-            id: id.into(),
-            x,
-            y: 0,
-            width: w,
-            height: h,
-            primary,
+        let m = |id: &str, x: i32, y: i32, w: u32, h: u32, primary: bool, scale: u32| {
+            clairlune_platform::Monitor {
+                id: id.into(),
+                x,
+                y,
+                width: w,
+                height: h,
+                primary,
+                scale,
+            }
         };
+        // A main monitor, one to its right, and a Retina laptop under the
+        // main one (in points, as macOS arranges them).
         app.screens = vec![
-            m("ui-test-1", 0, 2560, 1440, true),
-            m("ui-test-2", 2560, 1920, 1080, false),
+            m("ui-test-1", 0, 0, 2560, 1440, true, 1),
+            m("ui-test-2", 2560, 0, 1920, 1080, false, 1),
+            m("ui-test-3", 524, 1440, 3024, 1964, false, 2),
         ];
         app.settings.display.mode = settings::WallpaperMode::Live;
         // The right one: its own choices, and the still frame.

@@ -14,11 +14,13 @@ use egui::{
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+mod arrangement;
 mod catalog;
 mod pages;
 mod sidebar;
 mod welcome;
 mod widgets;
+pub(crate) use arrangement::*;
 pub(crate) use catalog::*;
 pub(crate) use pages::*;
 pub(crate) use sidebar::*;
@@ -155,6 +157,10 @@ pub struct Status {
     /// The monitors the wallpaper is on: id and name ("Left (2560x1440,
     /// main)").
     pub monitors: Vec<(String, String)>,
+    /// The same monitors as the system arranges them.
+    pub screens: Vec<clairlune_platform::Monitor>,
+    /// The wallpaper on screen is one scene spread across them.
+    pub span_shown: bool,
     /// What the update check says (up to date, a newer version, an error),
     /// and the newer version's page.
     pub update_note: Option<String>,
@@ -288,6 +294,9 @@ pub struct PageState {
     /// Rotation: the seed being typed in, and whether it isn't one.
     pub seed: String,
     pub seed_wrong: bool,
+    /// Display: a monitor (or the main monitor's bar) being dragged on the
+    /// arrangement.
+    pub arrange_drag: Option<ArrangeDrag>,
 }
 
 /// How long a brief note stays.
@@ -365,6 +374,7 @@ pub fn show(
                     st.section,
                     &mut st.page,
                     &mut st.lands,
+                    st.backdrop.as_ref().map(glass::Backdrop::image),
                     settings,
                     status,
                     actions,

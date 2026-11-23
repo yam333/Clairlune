@@ -169,6 +169,18 @@ across all of them (Display > Monitors). With a scene each:
   own choices follow the ones for all.
 - The menu's **New wallpaper on** gives one monitor a new scene.
 
+With one scene spread across them, Display shows the monitors where they sit,
+each with its part of the wallpaper:
+
+- **Drag a monitor** to line it up with the others. It snaps to their edges;
+  a gap you leave stays in the scene, so the picture carries on across the
+  frames between screens. Changes show as soon as you let go.
+- **The bar** on one monitor marks where the scene centres (Clawd and the
+  main view). Drag it to another monitor, or double-click one, to move it.
+- The back arrow in the corner returns to the system's own arrangement.
+- A Retina screen beside ordinary ones shows its part at the same size as the
+  others, each pixel doubled, so the picture lines up across them.
+
 ## Updates
 
 Once a day Clairlune asks GitHub whether a newer version is out (Settings >

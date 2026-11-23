@@ -66,13 +66,6 @@ fn screens(mtm: MainThreadMarker) -> Vec<(Retained<NSScreen>, Monitor)> {
         .firstObject()
         .map(|s| s.frame().size.height)
         .unwrap_or(0.0);
-    // Positions in one pixel space for all screens: points at the highest
-    // scale. (Each screen's own scale would put a 1x screen next to a
-    // Retina one inside it.)
-    let pos_scale = all
-        .iter()
-        .map(|s| s.backingScaleFactor())
-        .fold(1.0, f64::max);
     let mut out: Vec<(Retained<NSScreen>, Monitor)> = Vec::new();
     for (i, screen) in all.iter().enumerate() {
         let Some(display) = display_id(&screen) else {
@@ -81,7 +74,9 @@ fn screens(mtm: MainThreadMarker) -> Vec<(Retained<NSScreen>, Monitor)> {
         let f = screen.frame();
         let scale = screen.backingScaleFactor();
         // AppKit puts the origin at the primary screen's bottom left; the
-        // rest of the app uses top left, in pixels.
+        // rest of the app uses top left. Positions stay in points, the
+        // arrangement's own units (System Settings > Displays): a Retina
+        // screen and a 1x one sit side by side in them.
         let top = main_height - (f.origin.y + f.size.height);
         let mut id = stable_id(display);
         // Two of the same model may report the same serial.
@@ -90,11 +85,12 @@ fn screens(mtm: MainThreadMarker) -> Vec<(Retained<NSScreen>, Monitor)> {
         }
         let monitor = Monitor {
             id,
-            x: (f.origin.x * pos_scale).round() as i32,
-            y: (top * pos_scale).round() as i32,
+            x: f.origin.x.round() as i32,
+            y: top.round() as i32,
             width: (f.size.width * scale).round() as u32,
             height: (f.size.height * scale).round() as u32,
             primary: i == 0,
+            scale: (scale.round() as u32).max(1),
         };
         out.push((screen, monitor));
     }

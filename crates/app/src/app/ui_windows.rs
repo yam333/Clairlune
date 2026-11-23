@@ -376,6 +376,8 @@ impl App {
             .zip(tray::monitor_labels(&self.screens))
             .map(|(m, label)| (m.id.clone(), label))
             .collect();
+        s.screens = self.screens.clone();
+        s.span_shown = self.span_shown;
         s.checking_updates = self.checking_updates.is_some();
         s.update_in_place = self.install.in_place();
         s.update_how = self.install.how().map(str::to_string);
