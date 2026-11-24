@@ -12,6 +12,7 @@ layout directly, without scripting Finder.
 
 import glob
 import os
+import plistlib
 import subprocess
 import sys
 import tempfile
@@ -75,7 +76,12 @@ def main():
         settings["icon"] = icns[0]
     if os.path.exists(out):
         os.remove(out)
-    dmgbuild.build_dmg(out, "Clairlune", settings=settings)
+    # Each version's disk has its own name: Finder finds a window's background
+    # by the disk's name, so with an older Clairlune still mounted it drew that
+    # one's behind these icons (0.30.0).
+    with open(os.path.join(app, "Contents", "Info.plist"), "rb") as f:
+        version = plistlib.load(f)["CFBundleShortVersionString"]
+    dmgbuild.build_dmg(out, f"Clairlune {version}", settings=settings)
     tmp.cleanup()
     print("built", out)
 
