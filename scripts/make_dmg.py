@@ -1,5 +1,6 @@
-"""Builds the Mac DMG: the app and a link to Applications in a styled
-Finder window (packaging/macos/dmg-background.png and its @2x, drawn by
+"""Builds the Mac DMG: the app, a link to Applications and a link to System
+Settings > Privacy & Security (for Open Anyway) in a styled Finder window
+(packaging/macos/dmg-background.png and its @2x, drawn by
 scripts/dmg_background.py), with no toolbar or sidebar, and the app's icon
 on the disk. macOS only.
 
@@ -15,6 +16,8 @@ import sys
 
 import dmgbuild
 
+from dmg_layout import APP, APPLICATIONS, H, ICON, SECURITY, SECURITY_NAME, SECURITY_PANE, TEXT, W
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -25,14 +28,14 @@ def main():
     settings = {
         "format": "UDZO",
         "files": [app],
-        "symlinks": {"Applications": "/Applications"},
+        "symlinks": {"Applications": "/Applications", SECURITY_NAME: SECURITY_PANE},
         "background": os.path.join(ROOT, "packaging", "macos", "dmg-background.png"),
-        # The background is drawn for a 660 x 420 point content area and
-        # these places; the window's height counts its title bar too.
-        "window_rect": ((200, 140), (660, 452)),
-        "icon_locations": {name: (180, 205), "Applications": (480, 205)},
-        "icon_size": 104,
-        "text_size": 13,
+        # The background is drawn for this content area and these places;
+        # the window's height counts its title bar too.
+        "window_rect": ((200, 140), (W, H + 32)),
+        "icon_locations": {name: APP, "Applications": APPLICATIONS, SECURITY_NAME: SECURITY},
+        "icon_size": ICON,
+        "text_size": TEXT,
         "label_pos": "bottom",
         "default_view": "icon-view",
         "show_status_bar": False,
