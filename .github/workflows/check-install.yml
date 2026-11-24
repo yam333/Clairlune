@@ -1,0 +1,83 @@
+name: "Check: Mac installer"
+
+# install.sh as a Mac's owner runs it, for the latest release: the app is
+# installed, isn't quarantined, opens without macOS stopping it, and a second
+# run replaces the running copy. A download that doesn't match the release's
+# checksum installs nothing.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["install.sh", ".github/workflows/check-install.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: shellcheck install.sh
+
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: A checksum that doesn't match installs nothing
+        run: |
+          set -u
+          mkdir fake out
+          printf '#!/bin/sh\necho "0000000000000000000000000000000000000000000000000000000000000000  $3"\n' > fake/shasum
+          chmod +x fake/shasum
+          if PATH="$PWD/fake:$PATH" sh install.sh; then echo "it installed"; exit 1; fi
+          [ ! -e /Applications/Clairlune.app ]
+      - name: A version that doesn't exist installs nothing
+        run: |
+          if CLAIRLUNE_VERSION=0.0.1 sh install.sh; then echo "it installed"; exit 1; fi
+          if CLAIRLUNE_VERSION='0.1/../x' sh install.sh; then echo "it installed"; exit 1; fi
+          [ ! -e /Applications/Clairlune.app ]
+      - name: Install, as piped from curl
+        run: |
+          set -euo pipefail
+          sw_vers; spctl --status
+          cat install.sh | sh
+          app=/Applications/Clairlune.app
+          codesign --verify --deep --strict --verbose=2 "$app"
+          file "$app/Contents/MacOS/"*
+          if xattr -lr "$app" | grep com.apple.quarantine; then echo "quarantined"; exit 1; fi
+      # A process alone proves nothing (macOS holds a blocked app's); the log
+      # is written by the app's own code.
+      - name: It opened
+        run: |
+          set -u
+          logs="$HOME/Library/Application Support/clairlune/logs"
+          for _ in $(seq 30); do ls "$logs"/* >/dev/null 2>&1 && break; sleep 2; done
+          sleep 8
+          screencapture -x "out/${{ matrix.os }}.png"
+          ls -la "$logs"
+          tail -n 20 "$logs"/*
+          pgrep -fl Clairlune.app
+      - name: A second run replaces the running copy
+        run: |
+          set -eu
+          before=$(stat -f %i /Applications/Clairlune.app/Contents/MacOS/*)
+          sh install.sh
+          after=$(stat -f %i /Applications/Clairlune.app/Contents/MacOS/*)
+          [ "$before" != "$after" ]
+          sleep 30
+          pgrep -fl /Applications/Clairlune.app
+          [ "$(pgrep -f /Applications/Clairlune.app/Contents/MacOS | wc -l)" -eq 1 ]
+          # Nothing left behind.
+          ls -a /Applications | grep '^\.Clairlune' && exit 1
+          ls -d "${TMPDIR%/}"/tmp.*/mnt 2>/dev/null && exit 1
+          true
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: install-${{ matrix.os }}
+          path: out/

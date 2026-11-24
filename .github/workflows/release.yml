@@ -139,10 +139,18 @@ jobs:
           set -euo pipefail
           v="${GITHUB_REF_NAME#v}"
           zip -j "packages/clairlune_${v}_winget.zip" packages/winget/manifests/c/Clairlune/Clairlune/"$v"/*.yaml
+      # What install.sh checks its download against.
+      - name: Checksums
+        working-directory: packages
+        run: |
+          set -euo pipefail
+          sha256sum -- *.exe *.zip *.dmg > SHA256SUMS
+          cat SHA256SUMS
       - uses: softprops/action-gh-release@v2
         with:
           files: |
             packages/*.exe
             packages/*.zip
             packages/*.dmg
+            packages/SHA256SUMS
           draft: true

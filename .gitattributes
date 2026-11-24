@@ -4,5 +4,7 @@
 *.aseprite binary
 # Embedded data that feeds hashes: identical bytes on every OS.
 *.toml text eol=lf
+# Run by Unix shells, wherever it was checked out.
+*.sh text eol=lf
 # Golden recipe JSON is compared byte for byte.
 tests/golden/** -text

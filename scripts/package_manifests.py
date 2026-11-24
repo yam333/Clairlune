@@ -109,6 +109,10 @@ def homebrew(v: str, base: str, h: dict[str, str], n: dict[str, str]) -> str:
 
   caveats <<~EOS
     Clairlune runs in the menu bar (the moon icon).
+
+    The first time you open it, macOS blocks it. Click Done (not Move to
+    Trash), then Open Anyway at the bottom of Privacy & Security:
+      open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Security"
   EOS
 end
 '''
