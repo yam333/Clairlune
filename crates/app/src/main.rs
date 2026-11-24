@@ -517,6 +517,13 @@ fn main() {
         memory_mb = memory_mb(),
         "starting"
     );
+    // The new version's icon, where the system remembers the old one's. (Off
+    // the main thread: it waits for Explorer.)
+    if ui_test_out.is_none() && install::first_run_of(env!("CARGO_PKG_VERSION"), &data_dir) {
+        let _ = std::thread::Builder::new()
+            .name("clairlune-icons".into())
+            .spawn(clairlune_platform::refresh_icons);
+    }
 
     let event_loop = match EventLoop::<AppEvent>::with_user_event().build() {
         Ok(l) => l,

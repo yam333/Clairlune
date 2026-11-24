@@ -313,6 +313,14 @@ pub fn taskbar_is_light() -> Option<bool> {
     }
 }
 
+/// Has the system look at apps' icons again: Windows remembers an exe's by its
+/// path, so after an update the taskbar kept the older version's. Elsewhere
+/// there's nothing to do.
+pub fn refresh_icons() {
+    #[cfg(windows)]
+    windows::refresh_icons();
+}
+
 /// Draws pop-up menus (the tray's) dark or light, or as apps are (`None`).
 /// Windows only; macOS menus follow the system by themselves.
 pub fn set_menu_theme(dark: Option<bool>) {

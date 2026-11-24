@@ -19,10 +19,15 @@ use windows::Win32::UI::HiDpi::{
 use windows::Win32::UI::Shell::{
     DESKTOP_WALLPAPER_POSITION, DWPOS_FILL, DesktopWallpaper, FOLDERID_LocalAppData,
     FOLDERID_Pictures, FOLDERID_RoamingAppData, IDesktopWallpaper, KF_FLAG_DEFAULT,
-    SHGetKnownFolderPath,
+    SHCNE_ASSOCCHANGED, SHCNF_FLUSH, SHChangeNotify, SHGetKnownFolderPath,
 };
 use windows::core::{GUID, w};
 use windows::core::{HSTRING, PWSTR};
+
+/// Drops the icons Explorer remembers. It waits for Explorer to take this in.
+pub(crate) fn refresh_icons() {
+    unsafe { SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_FLUSH, None, None) };
+}
 
 /// Writes to the console of the process that started us, if any (a GUI-built
 /// exe has none of its own), so `--version` shows in a terminal.

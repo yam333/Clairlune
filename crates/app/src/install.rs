@@ -23,6 +23,19 @@ pub enum Install {
     Manual { name: String, how: String },
 }
 
+/// Whether this is the first time `version` runs with this data folder, which
+/// remembers it from now on.
+pub fn first_run_of(version: &str, data_dir: &Path) -> bool {
+    let path = data_dir.join("version");
+    if std::fs::read_to_string(&path).is_ok_and(|v| v.trim() == version) {
+        return false;
+    }
+    if let Err(e) = std::fs::write(&path, version) {
+        tracing::warn!(target: "clairlune", error = %e, "couldn't note the version");
+    }
+    true
+}
+
 impl Install {
     /// How it was installed, in a few words (for problem reports).
     pub fn name(&self) -> String {
@@ -670,6 +683,17 @@ pub fn install_latest_now() -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn each_version_has_one_first_run() {
+        let dir = std::env::temp_dir().join(format!("clairlune-first-run-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(first_run_of("0.30.1", &dir));
+        assert!(!first_run_of("0.30.1", &dir));
+        assert!(first_run_of("0.30.2", &dir));
+        assert!(!first_run_of("0.30.2", &dir));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     fn kind(exe: &str, os: &str, files: &[&str]) -> Install {
         let files: Vec<String> = files.iter().map(|f| f.to_string()).collect();

@@ -8,6 +8,10 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+### Fixed
+
+- Windows: after an update the taskbar kept the older version's icon.
+
 ## [0.30.1] - 2026-11-24
 
 ### Fixed
