@@ -8,6 +8,17 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+### Changed
+
+- **A new mark:** a square over a circle, in place of the crescent moon. One
+  colour in the tray and menu bar, with a clear line around the square; an
+  orange square over a pale circle in Settings; and on a dark tile as the app
+  icon.
+
+### Fixed
+
+- The mark beside the name in Settings was a misdrawn crescent.
+
 ## [0.29.1] - 2026-11-24
 
 ### Added

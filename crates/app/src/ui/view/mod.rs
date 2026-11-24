@@ -262,8 +262,6 @@ pub enum UiAction {
 pub struct ViewState {
     pub section: Section,
     pub thumb: Option<egui::TextureHandle>,
-    /// The moon mark for empty states.
-    pub moon: Option<egui::TextureHandle>,
     /// A brief note over the page and when it appeared.
     pub toast: Option<(String, std::time::Instant)>,
     pub page: PageState,
@@ -656,7 +654,6 @@ mod tests {
         let mut st = ViewState {
             section: Section::General,
             thumb: None,
-            moon: None,
             toast: None,
             page: PageState::default(),
             backdrop: None,

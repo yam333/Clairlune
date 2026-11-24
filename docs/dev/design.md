@@ -104,7 +104,7 @@ Revised in 0.22 ("Moonglass"): the same Settings window on Windows and macOS, bu
 - **Motion.** 120 / 160 / 200 ms, ease-out only; respects the system's reduce-motion setting by cutting to 0.
 - **Layout.** Left-aligned on an 8 px rhythm; sidebar 240 px with the sections and, at its foot, what's on screen now (thumbnail, title, LIVE or STILL, seed, next change) and the New wallpaper button; each page opens with its serif title and a one-line mono summary. Landscapes are picked from tiles that show each one.
 - **Copy.** Sentence case, short, specific. Descriptions say what happens, not how good it is. No exclamation marks.
-- **Playfulness budget.** Pixel-art Clawd appears in empty states and the "generating" state only (fan art, so also only when Buddy is on); the moon mark in the title area. Nowhere else.
+- **Playfulness budget.** Pixel-art Clawd appears in empty states and the "generating" state only (fan art, so also only when Buddy is on); the mark (a square over a circle: the moon behind a screen) in the title area. Nowhere else.
 
 ## 4. Low-fidelity wireframes
 
@@ -184,8 +184,8 @@ Library follows the Archive grid without time grouping, plus user-given names. T
 | First run | Settings opens on "Now" with the first wallpaper being generated in the preview; one sentence explains the tray icon. |
 | Generating | Preview dims to 60 %; a one-line status in mono ("rendering 2560x1440...") under it; buttons disabled, not hidden. |
 | Live unavailable here | The Live option is shown disabled with the reason on the row ("GNOME doesn't allow apps behind the desktop icons; Still frame is used"). |
-| Buddy off | Empty states use the moon mark instead of Clawd. |
-| Empty archive / library / timeline day | Pixel-art Clawd (Buddy on) or moon, one sentence, one action. |
+| Buddy off | Empty states use the mark instead of Clawd. |
+| Empty archive / library / timeline day | Pixel-art Clawd (Buddy on) or the mark, one sentence, one action. |
 | Export in progress | Inline progress on the row that started it; result row with "Show in folder". |
 | Error | Inline, under the control that failed: what happened, and the next step. Logs link under General. |
 | Restore original wallpaper | Row in General with an undo toast for 8 s. |

@@ -3,7 +3,7 @@
 //! frames), and one action bar for the selection.
 
 use super::style::{self, c, colors};
-use super::view::{Status, UiAction, hairline, primary_button, segmented};
+use super::view::{Status, UiAction, empty_page, hairline, primary_button, segmented};
 use crate::library::{BuddyChoice, Item, ThemeChoice};
 use crate::tokens::{radius, size, space};
 use clairlune_scene::Theme;
@@ -17,8 +17,6 @@ pub struct LibraryState {
     name_edit: String,
     confirm_delete: bool,
     thumbs: super::Thumbs,
-    /// The moon mark for the empty state (shared with the window).
-    pub moon: Option<egui::TextureHandle>,
 }
 
 impl LibraryState {
@@ -98,7 +96,12 @@ pub fn show(
             hairline(ui, t.hairline);
             ui.add_space(space::S4);
             if items.is_empty() {
-                empty(ui, theme, st.moon.as_ref());
+                empty_page(
+                    ui,
+                    theme,
+                    "Nothing saved yet",
+                    "Keep a wallpaper you like with Save to library, in the tray menu or in Settings.",
+                );
                 return;
             }
             egui::ScrollArea::vertical().show(ui, |ui| {
@@ -110,32 +113,6 @@ pub fn show(
                 });
             });
         });
-}
-
-fn empty(ui: &mut Ui, theme: Theme, moon: Option<&egui::TextureHandle>) {
-    let t = colors(theme);
-    ui.add_space(space::S7);
-    ui.vertical_centered(|ui| {
-        if let Some(m) = moon {
-            let tint = match theme {
-                Theme::Dark => egui::Color32::WHITE,
-                Theme::Light => c(t.text_secondary),
-            };
-            ui.add(
-                egui::Image::new(m)
-                    .fit_to_exact_size(vec2(64.0, 64.0))
-                    .tint(tint),
-            );
-        }
-        ui.add_space(space::S3);
-        ui.label(RichText::new("Nothing saved yet").font(style::body_strong()));
-        ui.label(
-            RichText::new(
-                "Keep a wallpaper you like with Save to library, in the tray menu or in Settings.",
-            )
-            .color(c(t.text_secondary)),
-        );
-    });
 }
 
 /// One thumbnail with its name and facts under it; click to select.

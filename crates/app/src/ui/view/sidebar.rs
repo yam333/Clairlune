@@ -15,11 +15,12 @@ pub(crate) fn sidebar(
     // The wordmark: Clair, and lune in italic.
     ui.horizontal(|ui| {
         ui.add_space(6.0);
-        let (mark, _) = ui.allocate_exact_size(vec2(20.0, 26.0), Sense::hover());
-        moon(
+        let (place, _) = ui.allocate_exact_size(vec2(20.0, 26.0), Sense::hover());
+        mark(
             ui.painter(),
-            Rect::from_center_size(mark.center(), vec2(19.0, 19.0)),
+            Rect::from_center_size(place.center(), vec2(24.0, 24.0)),
             c(t.text),
+            c(t.accent_deep),
         );
         ui.add_space(4.0);
         let mut job = egui::text::LayoutJob::default();
@@ -171,10 +172,11 @@ pub(crate) fn now_showing(
             }
             None => {
                 p.rect_filled(pic, 8.0, alpha(g.card, g.card_alpha * 2.0));
-                moon(
+                mark(
                     &p,
-                    Rect::from_center_size(pic.center(), vec2(30.0, 30.0)),
+                    Rect::from_center_size(pic.center(), vec2(36.0, 36.0)),
                     c(t.text_secondary),
+                    c(t.accent_deep),
                 );
             }
         }

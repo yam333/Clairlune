@@ -16,7 +16,7 @@ fn main() {
         let manifest = std::path::Path::new(&std::env::var("CARGO_MANIFEST_DIR").unwrap())
             .join("res")
             .join("clairlune.manifest");
-        // The moon as the exe's icon (Start menu, taskbar, Apps list).
+        // The app icon on the exe (Start menu, taskbar, Apps list).
         println!("cargo:rerun-if-changed=res/clairlune.rc");
         println!("cargo:rerun-if-changed=packaging/icons/clairlune.ico");
         // The build script runs on the build machine: only a Windows one has

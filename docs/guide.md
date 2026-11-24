@@ -108,7 +108,7 @@ Everything here can be changed later in Settings.
 
 ## Everyday use
 
-Clairlune lives in the notification area on Windows (the moon icon) and the
+Clairlune lives in the notification area on Windows (the square over a circle) and the
 menu bar on the Mac. On Windows, double-click it for Settings; right-click it
 for the menu. On the Mac, click it for the menu.
 
