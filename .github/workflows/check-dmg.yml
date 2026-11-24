@@ -60,15 +60,22 @@ jobs:
           set -u
           # As a browser marks it.
           xattr -w com.apple.quarantine "0081;$(printf %x "$(date +%s)");Safari;$(uuidgen)" out/Clairlune.dmg
-          hdiutil attach out/Clairlune.dmg
-          codesign --verify --deep --strict --verbose=2 /Volumes/Clairlune/Clairlune.app
-          ls -la /Volumes/Clairlune
-          open /Volumes/Clairlune
+          # An older Clairlune's DMG is still open, on a disk called Clairlune:
+          # its background must not show.
+          gh release download v0.29.0 --repo yam333/Clairlune --pattern Clairlune_0.29.0_aarch64.dmg --dir old
+          hdiutil attach old/Clairlune_0.29.0_aarch64.dmg
+          vol=$(hdiutil attach out/Clairlune.dmg | sed -n 's|.*\(/Volumes/.*\)|\1|p')
+          v=$(defaults read "$vol/Clairlune.app/Contents/Info.plist" CFBundleShortVersionString)
+          [ "$vol" = "/Volumes/Clairlune $v" ] || { echo "the disk is at $vol"; exit 1; }
+          echo "VOL=$vol" >> "$GITHUB_ENV"
+          codesign --verify --deep --strict --verbose=2 "$vol/Clairlune.app"
+          ls -la "$vol"
+          open "$vol"
           sleep 6
           screencapture -x out/dmg-light.png
           defaults write -g AppleInterfaceStyle Dark
           killall Finder; sleep 4
-          open /Volumes/Clairlune
+          open "$vol"
           sleep 6
           screencapture -x out/dmg-dark.png
           defaults delete -g AppleInterfaceStyle 2>/dev/null
@@ -76,14 +83,14 @@ jobs:
       - name: The steps it shows
         run: |
           set +e
-          cp -R /Volumes/Clairlune/Clairlune.app /Applications/
+          cp -R "$VOL/Clairlune.app" /Applications/
           xattr -w com.apple.quarantine "0081;$(printf %x "$(date +%s)");Safari;$(uuidgen)" /Applications/Clairlune.app
           # open waits for as long as macOS's message is up.
           open /Applications/Clairlune.app & sleep 12
           screencapture -x out/step-2.png
           osascript -e 'tell application "System Events" to tell process "CoreServicesUIAgent" to click button "Done" of window 1'
           sleep 3
-          open "/Volumes/Clairlune/Privacy & Security" & pid=$!
+          open "$VOL/Privacy & Security" & pid=$!
           sleep 12
           screencapture -x out/step-3.png
           if kill -0 $pid 2>/dev/null; then echo "the shortcut didn't open"; exit 1; fi
@@ -92,7 +99,7 @@ jobs:
           open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Security"
           sleep 5
           screencapture -x out/step-4.png
-          hdiutil detach /Volumes/Clairlune -force || true
+          hdiutil detach "$VOL" -force || true
       - uses: actions/upload-artifact@v5
         if: always()
         with:

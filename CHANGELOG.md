@@ -8,6 +8,11 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+### Fixed
+
+- The Mac DMG's window drew an older version's picture behind its icons while
+  that version's DMG was still open. Each version's disk now has its own name.
+
 ## [0.30.0] - 2026-11-24
 
 ### Changed
