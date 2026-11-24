@@ -19,7 +19,7 @@ jobs:
   cask:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: The cask for the latest release
         run: |
           set -euo pipefail

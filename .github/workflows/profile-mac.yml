@@ -15,7 +15,7 @@ jobs:
     env:
       MACOSX_DEPLOYMENT_TARGET: "13.0"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -81,7 +81,7 @@ jobs:
           run still-settings-open still '"warm_hands"' ""
           grep -h "usage" "$out"/*-logs/*.log | sed 's/^.*usage //' >> "$out/summary.txt" || true
           cat "$out/summary.txt"
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: mac-profile

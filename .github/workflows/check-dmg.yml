@@ -21,7 +21,7 @@ jobs:
   pack:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Pack the latest release's app
         run: |
           set -euo pipefail
@@ -37,7 +37,7 @@ jobs:
           mkdir -p out
           "$RUNNER_TEMP/dmg/bin/python" scripts/make_dmg.py app/Clairlune.app out/Clairlune.dmg
           ls -la out
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: dmg
           path: out/
@@ -51,7 +51,7 @@ jobs:
         os: [macos-15, macos-26, macos-15-intel]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: dmg
           path: out
@@ -100,7 +100,7 @@ jobs:
           sleep 5
           screencapture -x out/step-4.png
           hdiutil detach "$VOL" -force || true
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: dmg-${{ matrix.os }}

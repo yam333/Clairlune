@@ -44,7 +44,7 @@ jobs:
       # The oldest macOS supported (docs/dev/platform-support.md).
       MACOSX_DEPLOYMENT_TARGET: "13.0"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -92,7 +92,7 @@ jobs:
           $dir = New-Item -ItemType Directory -Force target/portable
           Copy-Item target/${{ matrix.target }}/release/clairlune.exe, LICENSE-MIT, LICENSE-APACHE, NOTICE $dir
           Compress-Archive -Path "$dir/*" -DestinationPath "target/packages/clairlune_${v}_x64-portable.zip" -Force
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: clairlune-${{ matrix.name }}
           path: |
@@ -105,8 +105,8 @@ jobs:
     needs: package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v5
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           path: packages
           merge-multiple: true
@@ -115,7 +115,7 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           if [[ "$GITHUB_REF" != refs/tags/v* ]]; then version=""; fi
           python3 scripts/package_manifests.py --artifacts packages --out manifests --strict ${version:+--version "$version"}
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: clairlune-manifests
           path: manifests
@@ -127,7 +127,7 @@ jobs:
     needs: [package, manifests]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           pattern: clairlune-*
           path: packages
@@ -146,7 +146,7 @@ jobs:
           set -euo pipefail
           sha256sum -- *.exe *.zip *.dmg > SHA256SUMS
           cat SHA256SUMS
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             packages/*.exe

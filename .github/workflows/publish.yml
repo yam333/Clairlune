@@ -30,7 +30,7 @@ jobs:
       TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
       WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Download the release's installers
         run: gh release download "$TAG" --dir packages --repo "$GITHUB_REPOSITORY"
@@ -38,7 +38,7 @@ jobs:
       - name: Write the manifests
         run: python3 scripts/package_manifests.py --artifacts packages --version "${TAG#v}" --out manifests --strict
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: manifests-${{ env.TAG }}
           path: manifests
