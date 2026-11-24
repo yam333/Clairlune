@@ -13,6 +13,7 @@ each release; the first published release starts the channels below.
 | `clairlune_<v>_x64-portable.zip` | Windows: the exe and licences; Scoop |
 | `Clairlune_<v>_aarch64.dmg`, `Clairlune_<v>_x64.dmg` | macOS 13+, Apple Silicon and Intel; Homebrew |
 | `clairlune_<v>_winget.zip` | The winget manifests, for `winget install --manifest` until the package is in winget's catalog |
+| `SHA256SUMS` | The checksums of all of these, for `install.sh` |
 
 The `manifests` job then runs `scripts/package_manifests.py`, which hashes
 those files and writes every manifest below into the `clairlune-manifests`
@@ -26,6 +27,7 @@ python scripts/package_manifests.py --artifacts <folder> --version 1.2.3
 
 | Channel | State |
 |---|---|
+| Mac Terminal line | live: `install.sh` on main, always for the latest release |
 | GitHub release | live: https://github.com/yam333/Clairlune/releases/tag/v0.29.0 |
 | crates.io | live: `cargo install clairlune` |
 | Homebrew, Scoop | live in the tap https://github.com/yam333/homebrew-clairlune, updated by publish.yml on each release |
@@ -63,3 +65,24 @@ the bucket or winget. There is none (the maintainer's decision), but
 the Mac app is still signed ad hoc in the Release workflow: that seals the
 bundle, without which an Apple silicon Mac reports a downloaded app as
 damaged instead of offering Open Anyway (0.13.0's first DMGs had this).
+
+## Opening an app Apple doesn't know (checked 2026-11-24, macOS 15 and 26)
+
+macOS marks what a browser or Homebrew downloads as quarantined, and blocks a
+quarantined app that isn't notarized: the message offers Done and, as its
+default, Move to Trash. Open Anyway, in Privacy & Security, allows it. What
+Clairlune does about it:
+
+- **`install.sh`** (the first thing the README offers Mac users) downloads
+  with curl, which doesn't quarantine, so there is nothing to allow. It checks
+  the DMG against the release's `SHA256SUMS` and the app's seal. It never
+  takes a quarantine mark off anything. `check-install.yml` runs it on
+  macOS 15, 26 and Intel.
+- **The DMG** pictures the steps (`scripts/dmg_background.py`) and has a
+  shortcut to Privacy & Security: an alias to the pane, which opens at the top
+  of the page (a symlink does too, but shows a blank document for an icon).
+  A `.webloc` with the page's address fails to open, and an `.inetloc` gets a
+  warning of its own on macOS 26. `check-dmg.yml` goes through the steps.
+- **The Homebrew cask** says the same in its caveats. Homebrew dropped
+  `--no-quarantine`, and a cask that takes the mark off by itself would hide
+  from people a choice that's theirs.

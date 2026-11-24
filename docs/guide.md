@@ -29,14 +29,38 @@ Downloads are on the [releases page](https://github.com/yam333/Clairlune/release
   manifests once with `winget settings --enable LocalManifestFiles` in an
   administrator Terminal, then run `winget install --manifest <the folder>`
   ([below](#winget) as a copy-paste version).
-- **macOS 13 or later:** open the DMG (`aarch64` for Apple silicon, `x64` for
-  Intel) and drag Clairlune to Applications. The first time you open it, macOS
-  refuses: open System Settings > Privacy & Security, scroll down and click
-  Open Anyway. Updates from inside the app don't ask again. With Homebrew:
-  `brew install --cask yam333/clairlune/clairlune`.
+- **macOS 13 or later:** one line in Terminal, which macOS has no questions
+  about ([below](#macos)). Or open the DMG (`aarch64` for Apple silicon, `x64`
+  for Intel) and drag Clairlune to Applications, or with Homebrew
+  `brew install --cask yam333/clairlune/clairlune`: macOS blocks these the
+  first time ([how to open it](#opening-it-the-first-time)). Updates from
+  inside the app don't ask again.
 - **Linux:** there's no desktop app (0.18.0 was the last). `cargo install
   clairlune-cli` renders the scenes as PNGs and GIFs to set yourself.
 - **From source:** `cargo install clairlune` (Rust 1.95 or newer).
+
+### macOS
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/yam333/Clairlune/main/install.sh | sh
+```
+
+[install.sh](../install.sh) downloads the latest release's DMG for your Mac,
+checks it against the release's `SHA256SUMS`, checks the app's seal, puts
+Clairlune in Applications (your own, `~/Applications`, if your account can't
+write to the shared one) and opens it. It asks for no password and changes
+nothing else. Running it again installs the newest version.
+
+#### Opening it the first time
+
+Clairlune isn't registered with Apple (that costs a yearly fee), so macOS
+blocks a copy that came from a browser or Homebrew until you allow it, once:
+
+1. Open Clairlune. macOS says it was not opened: click **Done**, not Move to
+   Trash.
+2. Open System Settings > Privacy & Security. The DMG has a shortcut to it.
+3. Scroll to the bottom and click **Open Anyway** beside Clairlune, then
+   confirm with your password or Touch ID.
 
 ### winget
 
@@ -212,10 +236,11 @@ to read and send yourself.
 
 ## Questions and problems
 
-**macOS says Clairlune "can't be opened" or "is damaged."** Open System
-Settings > Privacy & Security and click Open Anyway (once). If it says
-damaged, run `xattr -dr com.apple.quarantine /Applications/Clairlune.app` in
-Terminal and open it again.
+**macOS says Clairlune was "not opened", "can't be opened" or "is damaged."**
+Click Done (not Move to Trash), then Open Anyway at the bottom of System
+Settings > Privacy & Security, once ([step by step](#opening-it-the-first-time)).
+If there's no Open Anyway, or it says damaged, install with the
+[Terminal line](#macos) instead.
 
 **Windows SmartScreen stops the installer.** Click More info, then Run anyway.
 
