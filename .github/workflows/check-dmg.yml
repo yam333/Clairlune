@@ -18,12 +18,8 @@ env:
   GH_TOKEN: ${{ github.token }}
 
 jobs:
-  dmg:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-15, macos-26]
-    runs-on: ${{ matrix.os }}
+  pack:
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
       - name: Pack the latest release's app
@@ -41,6 +37,24 @@ jobs:
           mkdir -p out
           "$RUNNER_TEMP/dmg/bin/python" scripts/make_dmg.py app/Clairlune.app out/Clairlune.dmg
           ls -la out
+      - uses: actions/upload-artifact@v5
+        with:
+          name: dmg
+          path: out/
+
+  # On other machines than the one that packed it.
+  open:
+    needs: pack
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: dmg
+          path: out
       - name: Open it in Finder and take screenshots
         run: |
           set -u
@@ -83,4 +97,4 @@ jobs:
         if: always()
         with:
           name: dmg-${{ matrix.os }}
-          path: out/
+          path: out/*.png

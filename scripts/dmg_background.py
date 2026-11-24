@@ -2,7 +2,8 @@
 its @2x) over a Clairlune night scene: the four steps to get Clairlune open,
 pictured around the icons Finder shows. One is dragging it into Applications;
 the others are macOS's check of an app it doesn't know, which people meet
-once, the first time they open it.
+once, the first time they open it. And the Privacy & Security shortcut's icon
+(privacy-security.png).
 
     python scripts/dmg_background.py
 
@@ -16,7 +17,7 @@ import tempfile
 
 from PIL import Image, ImageDraw, ImageFont
 
-from dmg_layout import APP, APPLICATIONS, ICON, SECURITY, H, W
+from dmg_layout import APP, APPLICATIONS, BLEED, ICON, SECURITY, H, W
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLI = os.path.join(ROOT, "target", "release", "clairlune-cli" + (".exe" if os.name == "nt" else ""))
@@ -56,7 +57,7 @@ class Pen:
     """Draws in points on a canvas SUPER times as large."""
 
     def __init__(self):
-        self.img = Image.new("RGBA", (W * SUPER, H * SUPER), (0, 0, 0, 0))
+        self.img = Image.new("RGBA", (W * SUPER, (H + BLEED) * SUPER), (0, 0, 0, 0))
         self.d = ImageDraw.Draw(self.img)
         self.fonts = {}
 
@@ -204,15 +205,42 @@ def scene(s):
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, "scene.png")
         subprocess.run([CLI, "generate", "--seed", "5", "--archetype", "mountains", "--theme", "dark",
-                        "--look", "line", "--zoom", "vast", "--no-buddy", "--size", f"{W * s}x{H * s}",
+                        "--look", "line", "--zoom", "vast", "--no-buddy", "--size", f"{W * s}x{(H + BLEED) * s}",
                         "--out", path], check=True, capture_output=True)
         img = Image.open(path).convert("RGB")
     # A little brighter, so the landscape shows behind the icons.
     return Image.eval(img, lambda v: min(255, int(v * 1.35)))
 
 
+def icon(size=512):
+    """An open padlock."""
+    n = size * SUPER
+    k = n / 512
+    grad = Image.new("RGB", (1, n))
+    for y in range(n):
+        t = y / n
+        grad.putpixel((0, y), tuple(round(a + (b - a) * t) for a, b in zip((250, 186, 130), (219, 116, 66))))
+    mask = Image.new("L", (n, n), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([36 * k, 36 * k, 476 * k, 476 * k], radius=104 * k, fill=255)
+    img = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    img.paste(grad.resize((n, n)), (0, 0), mask)
+    d = ImageDraw.Draw(img)
+    metal, hole = (255, 250, 241), (64, 34, 20)
+    w, x0, x1, top = 34 * k, 196 * k, 316 * k, 104 * k
+    bend = top + (x1 - x0) / 2
+    d.arc([x0, top, x1, top + (x1 - x0)], 180, 360, fill=metal, width=round(w))
+    d.rectangle([x0, bend, x0 + w, 262 * k], fill=metal)
+    d.rectangle([x1 - w, bend - 2 * k, x1, 180 * k], fill=metal)
+    d.ellipse([x1 - w, 180 * k - w / 2, x1, 180 * k + w / 2], fill=metal)
+    d.rounded_rectangle([154 * k, 236 * k, 358 * k, 400 * k], radius=34 * k, fill=metal)
+    d.ellipse([234 * k, 280 * k, 278 * k, 324 * k], fill=hole)
+    d.rounded_rectangle([247 * k, 308 * k, 265 * k, 358 * k], radius=9 * k, fill=hole)
+    return img.resize((size, size), Image.Resampling.LANCZOS)
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
+    icon().save(os.path.join(OUT, "privacy-security.png"), optimize=True)
     over = overlay()
     for s, name in ((1, "dmg-background.png"), (2, "dmg-background@2x.png")):
         img = scene(s).convert("RGBA")

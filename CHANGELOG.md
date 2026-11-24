@@ -8,6 +8,19 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+### Added
+
+- **A Terminal line that installs Clairlune on a Mac**, with nothing to allow
+  afterwards: `curl -fsSL https://raw.githubusercontent.com/yam333/Clairlune/main/install.sh | sh`.
+  It checks the download against the release's checksums, which releases now
+  list in `SHA256SUMS`.
+
+### Changed
+
+- The Mac DMG shows how to open Clairlune the first time, step by step, with a
+  shortcut to System Settings > Privacy & Security, where Open Anyway is. The
+  Homebrew cask says how, too.
+
 ## [0.29.0] - 2026-11-23
 
 ### Added
