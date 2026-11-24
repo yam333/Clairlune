@@ -135,44 +135,33 @@ pub(crate) fn icon(p: &Painter, icon: Icon, r: Rect, ink: Color32) {
     }
 }
 
-/// The crescent moon, filled.
-pub(crate) fn moon(p: &Painter, r: Rect, ink: Color32) {
-    // A disc with a second, offset disc taken out: drawn as the lit part's
-    // outline, a full arc and the shadow's inner arc.
-    let c0 = r.center();
-    let rad = r.width() / 2.0;
-    let inner = c0 + vec2(rad * 0.42, -rad * 0.38);
-    let inner_r = rad * 0.86;
-    let mut pts = Vec::new();
-    for i in 0..=48 {
-        let a = std::f32::consts::TAU * i as f32 / 48.0;
-        let q = c0 + vec2(a.cos(), a.sin()) * rad;
-        if (q - inner).length() > inner_r {
-            pts.push(q);
-        }
-    }
-    // Close the crescent along the shadow's edge.
-    let start = pts.first().copied();
-    let end = pts.last().copied();
-    if let (Some(a), Some(b)) = (start, end) {
-        let (aa, ab) = ((a - inner).angle(), (b - inner).angle());
-        let mut sweep = aa - ab;
-        if sweep < 0.0 {
-            sweep += std::f32::consts::TAU;
-        }
-        for i in 1..24 {
-            let ang = ab + sweep * i as f32 / 24.0;
-            pts.push(inner + vec2(ang.cos(), ang.sin()) * inner_r);
-        }
-    }
-    if pts.len() > 2 {
-        p.add(egui::Shape::Path(egui::epaint::PathShape {
-            points: pts,
-            closed: true,
-            fill: ink,
-            stroke: egui::epaint::PathStroke::NONE,
-        }));
-    }
+/// The app's mark (crate::icon): a square over a circle, its lower left corner
+/// the circle's centre.
+pub(crate) fn mark(p: &Painter, r: Rect, circle: Color32, square: Color32) {
+    let k = r.width() / 32.0;
+    let ppp = p.pixels_per_point();
+    let px = |v: f32| (v * ppp).round() / ppp;
+    let at = pos2(px(r.min.x + 14.0 * k), px(r.min.y + 18.0 * k));
+    let side = px(16.0 * k);
+    p.circle_filled(at, 12.0 * k, circle);
+    p.rect_filled(
+        Rect::from_min_max(at - vec2(0.0, side), at + vec2(side, 0.0)),
+        2.0 * k,
+        square,
+    );
+}
+
+/// A page with nothing on it yet: the mark, and what will be here.
+pub(crate) fn empty_page(ui: &mut Ui, theme: Theme, title: &str, what: &str) {
+    let t = colors(theme);
+    ui.add_space(space::S7);
+    ui.vertical_centered(|ui| {
+        let (rect, _) = ui.allocate_exact_size(vec2(64.0, 64.0), Sense::hover());
+        mark(ui.painter(), rect, c(t.text_secondary), c(t.accent_deep));
+        ui.add_space(space::S3);
+        ui.label(RichText::new(title).font(style::body_strong()));
+        ui.label(RichText::new(what).color(c(t.text_secondary)));
+    });
 }
 
 /// A square button with a drawn icon.

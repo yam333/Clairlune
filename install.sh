@@ -103,7 +103,7 @@ main() {
   say "Installed $app"
   if [ "${CLAIRLUNE_OPEN:-1}" != 0 ]; then
     open "$app"
-    say "It's in the menu bar (the moon)."
+    say "It's in the menu bar (the square over a circle)."
   fi
 }
 

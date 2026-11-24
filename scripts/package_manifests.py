@@ -108,7 +108,7 @@ def homebrew(v: str, base: str, h: dict[str, str], n: dict[str, str]) -> str:
   ]
 
   caveats <<~EOS
-    Clairlune runs in the menu bar (the moon icon).
+    Clairlune runs in the menu bar (the square over a circle).
 
     The first time you open it, macOS blocks it. Click Done (not Move to
     Trash), then Open Anyway at the bottom of Privacy & Security:
@@ -124,7 +124,7 @@ def scoop(v: str, base: str, h: dict[str, str], n: dict[str, str]) -> str:
         "description": DESC,
         "homepage": REPO,
         "license": LICENSE,
-        "notes": "Clairlune runs in the notification area (the moon icon).",
+        "notes": "Clairlune runs in the notification area (the square over a circle).",
         "architecture": {
             "64bit": {
                 "url": f"{base}/{n['portable']}",

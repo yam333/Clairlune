@@ -152,9 +152,9 @@ impl UiWindow {
             .with_inner_size(winit::dpi::LogicalSize::new(w, h))
             .with_min_inner_size(winit::dpi::LogicalSize::new(min.0, min.1))
             .with_enabled_buttons(winit::window::WindowButtons::CLOSE)
-            // The moon in the title bar and the taskbar button.
+            // In the title bar and the taskbar button.
             .with_window_icon(
-                winit::window::Icon::from_rgba(crate::icon::moon_rgba(32), 32, 32).ok(),
+                winit::window::Icon::from_rgba(crate::icon::app_icon_rgba(32), 32, 32).ok(),
             )
             .with_theme(Some(match theme {
                 Theme::Light => winit::window::Theme::Light,
@@ -231,7 +231,6 @@ impl UiWindow {
             view: ViewState {
                 section,
                 thumb: None,
-                moon: None,
                 toast: None,
                 page: Default::default(),
                 backdrop: None,
@@ -402,11 +401,6 @@ impl UiWindow {
     fn paint(&mut self, model: &mut Model, actions: &mut Vec<UiAction>) -> bool {
         let input = self.state.take_egui_input(&self.window);
         let ctx = self.state.egui_ctx().clone();
-        if self.view.moon.is_none() {
-            let img =
-                egui::ColorImage::from_rgba_unmultiplied([96, 96], &crate::icon::moon_rgba(96));
-            self.view.moon = Some(ctx.load_texture("moon", img, egui::TextureOptions::NEAREST));
-        }
         let shown = self.view.section;
         let theme = self.theme;
         let kind = self.kind;
@@ -414,12 +408,6 @@ impl UiWindow {
         let library = &mut self.library;
         let timeline = &mut self.timeline;
         let archive = &mut self.archive;
-        if library.moon.is_none() {
-            library.moon = view.moon.clone();
-        }
-        if archive.moon.is_none() {
-            archive.moon = view.moon.clone();
-        }
         let mut full = ctx.run_ui(input, |ui| match kind {
             Kind::Settings => view::show(ui, theme, view, model.settings, model.status, actions),
             Kind::Library => library_view::show(ui, theme, library, model, actions),

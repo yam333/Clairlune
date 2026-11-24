@@ -42,7 +42,7 @@ Each wallpaper is a landscape drawn in text characters, with a small pixel-art C
   Or `Clairlune_<version>_aarch64.dmg` (Apple Silicon) or `_x64.dmg` (Intel) from the [latest release](https://github.com/yam333/Clairlune/releases/latest), or `brew install --cask yam333/clairlune/clairlune`. macOS blocks these the first time: click **Done** (not Move to Trash), then **Open Anyway** at the bottom of System Settings > Privacy & Security.
 - **Linux:** the command-line tool only: `cargo install clairlune-cli`.
 
-winget, building from source and removing Clairlune are covered in the [user guide](docs/guide.md#install). Clairlune lives in the notification area (Windows) or the menu bar (macOS) as a moon. The [guide](docs/guide.md) covers everything in Settings.
+winget, building from source and removing Clairlune are covered in the [user guide](docs/guide.md#install). Clairlune lives in the notification area (Windows) or the menu bar (macOS) as a square over a circle. The [guide](docs/guide.md) covers everything in Settings.
 
 ## Command-line tool
 

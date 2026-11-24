@@ -3,7 +3,7 @@
 //! selection. Thumbnails are the content; there are no per-tile buttons.
 
 use super::style::{self, c, colors};
-use super::view::{Status, UiAction, hairline, primary_button};
+use super::view::{Status, UiAction, empty_page, hairline, primary_button};
 use crate::archive::Entry;
 use crate::tokens::{radius, size, space};
 use clairlune_scene::Theme;
@@ -15,8 +15,6 @@ pub struct ArchiveState {
     selected: Option<String>,
     confirm_delete: bool,
     thumbs: super::Thumbs,
-    /// The moon mark for the empty state (shared with the window).
-    pub moon: Option<egui::TextureHandle>,
 }
 
 impl ArchiveState {
@@ -155,7 +153,12 @@ pub fn show(
             hairline(ui, t.hairline);
             ui.add_space(space::S4);
             if m.entries.is_empty() {
-                empty(ui, theme, st.moon.as_ref());
+                empty_page(
+                    ui,
+                    theme,
+                    "Nothing archived yet",
+                    "Every wallpaper the app sets is kept here for a while.",
+                );
                 return;
             }
             let today = jiff::ZonedDateTime::now().date();
@@ -183,30 +186,6 @@ pub fn show(
                 }
             });
         });
-}
-
-fn empty(ui: &mut Ui, theme: Theme, moon: Option<&egui::TextureHandle>) {
-    let t = colors(theme);
-    ui.add_space(space::S7);
-    ui.vertical_centered(|ui| {
-        if let Some(moon) = moon {
-            let tint = match theme {
-                Theme::Dark => egui::Color32::WHITE,
-                Theme::Light => c(t.text_secondary),
-            };
-            ui.add(
-                egui::Image::new(moon)
-                    .fit_to_exact_size(vec2(64.0, 64.0))
-                    .tint(tint),
-            );
-        }
-        ui.add_space(space::S3);
-        ui.label(RichText::new("Nothing archived yet").font(style::body_strong()));
-        ui.label(
-            RichText::new("Every wallpaper the app sets is kept here for a while.")
-                .color(c(t.text_secondary)),
-        );
-    });
 }
 
 /// One thumbnail with its time and scene under it; click to select.

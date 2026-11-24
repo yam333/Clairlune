@@ -73,7 +73,7 @@ formats = ["nsis", "dmg"]
 
 [package.metadata.packager.nsis]
 installer-mode = "currentUser"
-# The moon on setup.exe and in the installer's header, not NSIS's own icon.
+# The app icon on setup.exe and in the installer's header, not NSIS's own icon.
 installer-icon = "packaging/icons/clairlune.ico"
 
 [package.metadata.packager.macos]
