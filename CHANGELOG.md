@@ -8,6 +8,8 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-11-24
+
 ### Added
 
 - **A Terminal line that installs Clairlune on a Mac**, with nothing to allow
@@ -536,7 +538,8 @@ earlier versions always look the same as before. The downloads are on the
 - The same calm pace at every smoothness; Direct3D 11 live wallpapers on
   Windows that copy only what changed; windows give their memory back.
 
-[Unreleased]: https://github.com/yam333/Clairlune/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/yam333/Clairlune/compare/v0.29.1...HEAD
+[0.29.1]: https://github.com/yam333/Clairlune/releases/tag/v0.29.1
 [0.29.0]: https://github.com/yam333/Clairlune/releases/tag/v0.29.0
 [0.28.0]: https://github.com/yam333/Clairlune/releases/tag/v0.28.0
 [0.27.0]: https://github.com/yam333/Clairlune/releases/tag/v0.27.0
