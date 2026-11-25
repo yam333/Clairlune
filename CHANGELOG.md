@@ -8,6 +8,8 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+## [0.31.1] - 2026-11-25
+
 ### Changed
 
 - On macOS 26 the menu bar turns solid and clear again at once, as a window
@@ -582,7 +584,8 @@ earlier versions always look the same as before. The downloads are on the
 - The same calm pace at every smoothness; Direct3D 11 live wallpapers on
   Windows that copy only what changed; windows give their memory back.
 
-[Unreleased]: https://github.com/yam333/Clairlune/compare/v0.31.0...HEAD
+[Unreleased]: https://github.com/yam333/Clairlune/compare/v0.31.1...HEAD
+[0.31.1]: https://github.com/yam333/Clairlune/releases/tag/v0.31.1
 [0.31.0]: https://github.com/yam333/Clairlune/releases/tag/v0.31.0
 [0.30.2]: https://github.com/yam333/Clairlune/releases/tag/v0.30.2
 [0.30.1]: https://github.com/yam333/Clairlune/releases/tag/v0.30.1
