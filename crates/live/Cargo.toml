@@ -26,12 +26,12 @@ windows.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2.workspace = true
-objc2-foundation = { workspace = true, features = ["NSGeometry", "NSArray", "NSDictionary", "NSString", "NSValue"] }
-objc2-app-kit = { workspace = true, features = ["NSWindow", "NSResponder", "NSView", "NSGraphics", "NSScreen", "objc2-quartz-core"] }
-objc2-core-graphics = { workspace = true, features = ["CGWindowLevel", "CGColorSpace", "CGWindow"] }
+objc2-foundation = { workspace = true, features = ["NSGeometry", "NSArray", "NSDictionary", "NSProcessInfo", "NSString", "NSValue"] }
+objc2-app-kit = { workspace = true, features = ["NSAppearance", "NSButton", "NSColor", "NSControl", "NSGraphics", "NSResponder", "NSScreen", "NSStatusBarButton", "NSStatusItem", "NSView", "NSWindow", "objc2-quartz-core"] }
+objc2-core-graphics = { workspace = true, features = ["CGWindowLevel", "CGColor", "CGColorSpace", "CGWindow"] }
 objc2-core-foundation = { workspace = true, features = ["CFDictionary", "CFNumber", "CFString", "CFData"] }
 objc2-io-surface = { workspace = true, features = ["IOSurfaceRef", "IOSurfaceTypes", "objc2-core-foundation", "libc", "objc2"] }
-objc2-quartz-core = { workspace = true, features = ["CALayer", "CATransaction"] }
+objc2-quartz-core = { workspace = true, features = ["CALayer", "CATransaction", "objc2-core-foundation", "objc2-core-graphics"] }
 
 [lints]
 workspace = true

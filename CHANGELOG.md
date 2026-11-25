@@ -8,6 +8,17 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+### Changed
+
+- On macOS 26, where the wallpaper shows through the menu bar, the bar turns
+  one solid colour while windows almost fill the screen: dark grey over a dark
+  wallpaper, white over a light one.
+
+### Fixed
+
+- On the Mac, with Live, the menu bar's text kept the colour for the other
+  theme after the theme changed (white on a light wallpaper).
+
 ## [0.30.2] - 2026-11-24
 
 ### Fixed

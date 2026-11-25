@@ -47,14 +47,34 @@ struct Output {
 pub struct MacDesktop {
     outputs: Vec<Output>,
     pub cover_policy: CoverPolicy,
-    /// Per output: other apps' windows all but fill its screen; and when
-    /// that was last asked.
+    /// Per output: other apps' windows all but fill its screen.
     filled: Vec<bool>,
-    windows_checked: Option<Instant>,
+    /// When that was last worked out.
+    checked: Option<Instant>,
 }
 
 /// How often to ask where the other apps' windows are.
-const WINDOW_CHECK: Duration = Duration::from_millis(500);
+pub(crate) const WINDOW_CHECK: Duration = Duration::from_millis(500);
+
+/// Where the other apps' windows are, asked at most twice a second however
+/// many want to know.
+#[derive(Default)]
+pub struct AppWindows {
+    rects: Vec<Rect>,
+    asked: Option<Instant>,
+}
+
+impl AppWindows {
+    pub(crate) fn look(&mut self) -> &[Rect] {
+        // A little early rather than late: two that ask in turn share one.
+        let fresh = WINDOW_CHECK * 9 / 10;
+        if self.asked.is_none_or(|t| t.elapsed() >= fresh) {
+            self.asked = Some(Instant::now());
+            self.rects = app_windows();
+        }
+        &self.rects
+    }
+}
 
 /// The on-screen windows of other apps at the normal level (no menus,
 /// panels or the Dock), in the window server's points (top-left origin).
@@ -124,18 +144,38 @@ fn number(d: &NSDictionary<AnyObject, AnyObject>, key: &str) -> Option<f64> {
         .then(|| unsafe { &*(&*v as *const AnyObject as *const NSNumber) }.doubleValue())
 }
 
-/// The usable part of the screen a window is on (without the menu bar and
-/// the Dock), in the window server's points: AppKit's origin is the main
-/// screen's bottom left, y up; the window server's its top left, y down.
-fn usable_area(mtm: MainThreadMarker, window: &NSWindow) -> Option<Rect> {
+/// The usable part of a screen (without the menu bar and the Dock), in the
+/// window server's points: AppKit's origin is the main screen's bottom left,
+/// y up; the window server's its top left, y down.
+pub(crate) fn usable_area(mtm: MainThreadMarker, screen: &NSScreen) -> Option<Rect> {
     let main = NSScreen::screens(mtm).firstObject()?.frame();
-    let v = window.screen()?.visibleFrame();
+    let v = screen.visibleFrame();
     Some(Rect {
         x: v.origin.x,
         y: main.size.height - (v.origin.y + v.size.height),
         w: v.size.width,
         h: v.size.height,
     })
+}
+
+/// The desktop picture's window level.
+pub(crate) fn desktop_level() -> isize {
+    CGWindowLevelForKey(CGWindowLevelKey::DesktopWindowLevelKey) as isize
+}
+
+/// Makes a window part of the desktop: on every Space, out of the way of the
+/// mouse and of Mission Control.
+pub(crate) fn join_desktop(window: &NSWindow, level: isize) {
+    // Owned by the Retained handle, not released again on close.
+    unsafe { window.setReleasedWhenClosed(false) };
+    window.setLevel(level);
+    window.setCollectionBehavior(
+        NSWindowCollectionBehavior::CanJoinAllSpaces
+            | NSWindowCollectionBehavior::Stationary
+            | NSWindowCollectionBehavior::IgnoresCycle,
+    );
+    window.setIgnoresMouseEvents(true);
+    window.setHasShadow(false);
 }
 
 /// A borderless window covering the screen, at the desktop picture's level.
@@ -152,17 +192,7 @@ fn desktop_window(mtm: MainThreadMarker, monitor: &Monitor) -> Result<Retained<N
             false,
         )
     };
-    // Owned by the Retained handle, not released again on close.
-    unsafe { window.setReleasedWhenClosed(false) };
-    let level = CGWindowLevelForKey(CGWindowLevelKey::DesktopWindowLevelKey);
-    window.setLevel(level as isize);
-    window.setCollectionBehavior(
-        NSWindowCollectionBehavior::CanJoinAllSpaces
-            | NSWindowCollectionBehavior::Stationary
-            | NSWindowCollectionBehavior::IgnoresCycle,
-    );
-    window.setIgnoresMouseEvents(true);
-    window.setHasShadow(false);
+    join_desktop(&window, desktop_level());
     window.setOpaque(true);
     window.setFrame_display(frame, false);
     Ok(window)
@@ -215,7 +245,7 @@ impl MacDesktop {
             outputs,
             cover_policy: CoverPolicy::default(),
             filled: vec![false; n],
-            windows_checked: None,
+            checked: None,
         })
     }
 
@@ -240,21 +270,24 @@ impl MacDesktop {
     }
 
     /// Draws the current time on every screen that shows.
-    pub fn tick(&mut self) -> Result<FrameStats, String> {
+    pub fn tick(&mut self, windows: &mut AppWindows) -> Result<FrameStats, String> {
         let started = Instant::now();
         if self.cover_policy == CoverPolicy::Off {
             self.filled.fill(false);
-        } else if self
-            .windows_checked
-            .is_none_or(|t| t.elapsed() >= WINDOW_CHECK)
+        } else if self.checked.is_none_or(|t| t.elapsed() >= WINDOW_CHECK)
             && let Some(mtm) = MainThreadMarker::new()
         {
-            self.windows_checked = Some(Instant::now());
-            let windows = app_windows();
+            self.checked = Some(Instant::now());
+            let windows = windows.look();
             self.filled = self
                 .outputs
                 .iter()
-                .map(|o| usable_area(mtm, &o.window).is_some_and(|a| cover::filled(a, &windows)))
+                .map(|o| {
+                    o.window
+                        .screen()
+                        .and_then(|s| usable_area(mtm, &s))
+                        .is_some_and(|a| cover::filled(a, windows))
+                })
                 .collect();
         }
         let shown: Vec<bool> = self

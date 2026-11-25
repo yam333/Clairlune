@@ -231,6 +231,12 @@ impl Tray {
         }
     }
 
+    /// Whether macOS takes the menu bar for a dark one, as its icon there tells.
+    #[cfg(target_os = "macos")]
+    pub fn menu_bar_dark(&self) -> Option<bool> {
+        clairlune_live::menu_bar::is_dark(&*self._icon.ns_status_item()?)
+    }
+
     /// Draws the mark again for the taskbar's colour now (Windows: the
     /// taskbar turned light or dark), and the menu with it.
     pub fn refresh_mark(&self) {

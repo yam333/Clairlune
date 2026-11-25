@@ -24,6 +24,8 @@ pub mod gpu;
 #[cfg(target_os = "macos")]
 pub mod mac;
 #[cfg(target_os = "macos")]
+pub mod menu_bar;
+#[cfg(target_os = "macos")]
 pub mod surface;
 
 /// What a maximized or full-screen app pauses.

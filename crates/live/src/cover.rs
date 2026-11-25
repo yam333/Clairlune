@@ -50,6 +50,37 @@ pub fn filled(area: Rect, windows: &[Rect]) -> bool {
     covered_share(area, windows) >= FILLED
 }
 
+/// From this share covered, the menu bar above the windows is made solid: an
+/// almost maximized window too, with some desktop around it.
+pub const ALMOST_FILLED: f64 = 0.85;
+
+/// How far below the menu bar a window's rounded corners reach, in points.
+pub const CORNERS: f64 = 24.0;
+
+/// What goes behind a screen's menu bar.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Backing {
+    /// Nothing: the wallpaper shows.
+    Clear,
+    /// One colour behind the menu bar.
+    Bar,
+    /// And in the corners of the windows right below it.
+    BarAndCorners,
+}
+
+/// The backing for windows so, on a screen whose usable part is `area`.
+pub fn backing(area: Rect, windows: &[Rect]) -> Backing {
+    if covered_share(area, windows) < ALMOST_FILLED {
+        return Backing::Clear;
+    }
+    let top = Rect { h: CORNERS, ..area };
+    if covered_share(top, windows) >= 0.97 {
+        Backing::BarAndCorners
+    } else {
+        Backing::Bar
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -85,6 +116,27 @@ mod tests {
         };
         assert!(!filled(VISIBLE, &[big]));
         assert!(!filled(VISIBLE, &[]));
+    }
+
+    #[test]
+    fn the_menu_bar_is_solid_above_windows_that_almost_fill_the_screen() {
+        assert_eq!(backing(VISIBLE, &[]), Backing::Clear);
+        assert_eq!(backing(VISIBLE, &[VISIBLE]), Backing::BarAndCorners);
+        // Some desktop all around: the bar, and not a band below it.
+        let almost = Rect {
+            x: 30.0,
+            y: 60.0,
+            w: 1452.0,
+            h: 830.0,
+        };
+        assert!(!filled(VISIBLE, &[almost]));
+        assert_eq!(backing(VISIBLE, &[almost]), Backing::Bar);
+        // Full width, right under the bar, but only half the height.
+        let half = Rect {
+            h: 440.0,
+            ..VISIBLE
+        };
+        assert_eq!(backing(VISIBLE, &[half]), Backing::Clear);
     }
 
     #[test]

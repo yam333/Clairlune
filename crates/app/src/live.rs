@@ -18,6 +18,13 @@ type Host = clairlune_live::mac::MacDesktop;
 #[cfg_attr(not(windows), allow(dead_code))]
 const HEALTH_CHECK: Duration = Duration::from_secs(1);
 
+/// macOS picks the menu bar's colours from the wallpaper, and only while it
+/// sees it: after the theme changed under a live window, the menus kept the
+/// other theme's colour. The still it sees is the live frame, so Live only
+/// starts this much later.
+#[cfg(target_os = "macos")]
+const MENU_BAR_SETTLE: Duration = Duration::from_secs(2);
+
 pub struct Live {
     /// What's on screen, to play (and to play again after a restart).
     scenes: Vec<LiveScene>,
@@ -32,6 +39,16 @@ pub struct Live {
     battery_pause: bool,
     on_battery: bool,
     desktop: Option<Host>,
+    /// Where the other apps' windows are, and the menu bars that are solid
+    /// while those all but fill a screen (Live or Still frame).
+    #[cfg(target_os = "macos")]
+    windows: clairlune_live::mac::AppWindows,
+    #[cfg(target_os = "macos")]
+    pub menu_bars: clairlune_live::menu_bar::MenuBars,
+    /// Live starts again then: the still shows until macOS has picked the
+    /// menu bar's colours from it ([`MENU_BAR_SETTLE`]).
+    #[cfg(target_os = "macos")]
+    start_at: Option<Instant>,
     next: Option<Instant>,
     checked: Option<Instant>,
     /// For Settings: what plays, or why live isn't available.
@@ -64,6 +81,12 @@ impl Live {
             battery_pause: false,
             on_battery: false,
             desktop: None,
+            #[cfg(target_os = "macos")]
+            windows: Default::default(),
+            #[cfg(target_os = "macos")]
+            menu_bars: Default::default(),
+            #[cfg(target_os = "macos")]
+            start_at: None,
             next: None,
             checked: None,
             status: None,
@@ -119,7 +142,27 @@ impl Live {
 
     /// A wallpaper was applied: play its scenes.
     pub fn show(&mut self, scenes: Vec<LiveScene>) {
+        #[cfg(target_os = "macos")]
+        let new_theme = scenes.first().map(|s| s.theme) != self.scenes.first().map(|s| s.theme);
         self.scenes = scenes;
+        #[cfg(target_os = "macos")]
+        self.menu_bars.set(
+            self.scenes
+                .iter()
+                .map(|s| {
+                    (
+                        s.monitor.id.clone(),
+                        s.theme == clairlune_scene::Theme::Dark,
+                    )
+                })
+                .collect(),
+        );
+        #[cfg(target_os = "macos")]
+        if new_theme && self.enabled && !self.scenes.is_empty() {
+            self.stop();
+            self.start_at = Some(Instant::now() + MENU_BAR_SETTLE);
+            return;
+        }
         self.restart();
     }
 
@@ -196,6 +239,10 @@ impl Live {
     }
 
     fn restart(&mut self) {
+        #[cfg(target_os = "macos")]
+        {
+            self.start_at = None;
+        }
         self.stop();
         if !self.enabled || self.scenes.is_empty() {
             return;
@@ -278,6 +325,20 @@ impl Live {
 
     /// Draws a frame when one is due; returns when to come back.
     pub fn tick(&mut self, now: Instant) -> Option<Instant> {
+        #[cfg(target_os = "macos")]
+        {
+            if self.start_at.is_some_and(|t| now >= t) {
+                self.restart();
+            }
+            let bars = self.menu_bars.tick(now, &mut self.windows);
+            let frame = self.start_at.or_else(|| self.tick_frame(now));
+            [bars, frame].into_iter().flatten().min()
+        }
+        #[cfg(not(target_os = "macos"))]
+        self.tick_frame(now)
+    }
+
+    fn tick_frame(&mut self, now: Instant) -> Option<Instant> {
         #[cfg(windows)]
         {
             let desktop = self.desktop.as_mut()?;
@@ -331,7 +392,7 @@ impl Live {
                 return self.checked.map(|t| t + HEALTH_CHECK);
             }
             if now >= next {
-                let drawn = desktop.tick();
+                let drawn = desktop.tick(&mut self.windows);
                 if let Ok(stats) = &drawn {
                     let busy = stats.busy;
                     self.count(busy);

@@ -222,6 +222,14 @@ impl ApplicationHandler<AppEvent> for App {
             }
         }
         self.log_usage(now);
+        #[cfg(target_os = "macos")]
+        if self.live.menu_bars.due(now) {
+            let dark = self
+                .tray
+                .as_ref()
+                .and_then(crate::tray::Tray::menu_bar_dark);
+            self.live.menu_bars.see(dark);
+        }
         let live_next = self.live.tick(Instant::now());
         self.set_metronome(live_next.is_some());
         let mut wake = match self.next_change {

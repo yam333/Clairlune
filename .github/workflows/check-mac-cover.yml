@@ -1,22 +1,27 @@
 name: "Check: macOS cover pause"
 
-# Pause behind a window that fills the screen, on a macOS runner (a throwaway
-# machine): Clairlune plays live, scripts/cover_check.swift opens a window
-# the size a zoomed one takes (the menu bar and the Dock still showing),
-# then makes it smaller. The log must say the screen was covered and paused,
-# then played again.
+# Windows that fill the screen, on macOS runners (throwaway machines):
+# Clairlune runs, scripts/cover_check.swift opens a window the size a zoomed
+# one takes (the menu bar and the Dock still showing), then makes it smaller.
+# Live must pause and play again, and where the menu bar is clear (macOS 26)
+# it must turn solid and clear again: dark and light, Live and Still frame,
+# in the colour macOS gives a menu bar over that wallpaper.
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["crates/live/src/mac.rs", "crates/live/src/cover.rs", "scripts/cover_check.swift", ".github/workflows/check-mac-cover.yml"]
+    paths: ["crates/live/src/mac.rs", "crates/live/src/menu_bar.rs", "crates/live/src/cover.rs", "scripts/cover_check.swift", ".github/workflows/check-mac-cover.yml"]
 
 permissions:
   contents: read
 
 jobs:
   cover:
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
     env:
       MACOSX_DEPLOYMENT_TARGET: "13.0"
     steps:
@@ -26,34 +31,60 @@ jobs:
         with:
           key: mac-cover
       - name: Build
-        run: cargo build --release -p clairlune
-      - name: Play live, cover the screen, uncover it
         run: |
-          set -u
+          cargo build --release -p clairlune
+          swiftc scripts/cover_check.swift -o "$RUNNER_TEMP/cover_check"
+      # Runners reduce transparency, which makes every menu bar solid.
+      - name: A clear menu bar
+        run: |
+          defaults write com.apple.universalaccess reduceTransparency -bool false
+          killall universalaccessd cfprefsd Dock SystemUIServer ControlCenter Finder 2>/dev/null || true
+          sleep 6
+      - name: Cover the screen, almost cover it, uncover it
+        run: |
+          set +e -u
+          mkdir -p out
           dir="$HOME/Library/Application Support/clairlune"
-          mkdir -p "$dir"
-          cat > "$dir/settings.toml" <<EOF
-          [general]
-          asked_start_at_login = true
-          check_updates = false
-
-          [display]
-          mode = "live"
-
-          [live]
-          pause_when_covered = "that_monitor"
-          EOF
-          ./target/release/clairlune --background &
-          pid=$!
-          sleep 25
-          swift scripts/cover_check.swift
-          sleep 3
-          kill "$pid" 2>/dev/null
-          log=$(ls "$dir"/logs/*.log | head -1)
-          grep -E "live|usage" "$log" | tail -20
-          grep -q "live: covered, paused" "$log" || { echo "it didn't pause behind the zoomed-size window"; exit 1; }
-          grep -q "live: showing again, playing" "$log" || { echo "it didn't play again once the window shrank"; exit 1; }
-          paused=$(grep -n "live: covered, paused" "$log" | head -1 | cut -d: -f1)
-          again=$(grep -n "live: showing again, playing" "$log" | tail -1 | cut -d: -f1)
-          [ "$again" -gt "$paused" ] || { echo "the order is wrong"; exit 1; }
-          echo "paused behind the window, and played again after"
+          fail=0
+          for mode in live still; do
+            for theme in dark light; do
+              echo "== $mode, $theme"
+              rm -rf "$dir"
+              mkdir -p "$dir"
+              printf '%s\n' '[general]' 'asked_start_at_login = true' 'check_updates = false' 'mac_live_moved = true' \
+                '[theme]' "mode = \"$theme\"" \
+                '[display]' "mode = \"$mode\"" \
+                '[live]' 'pause_when_covered = "that_monitor"' > "$dir/settings.toml"
+              ./target/release/clairlune --background &
+              pid=$!
+              sleep 25
+              "$RUNNER_TEMP/cover_check" &
+              check=$!
+              sleep 6;  screencapture -x "out/$mode-$theme-1-zoomed.png"
+              sleep 10; screencapture -x "out/$mode-$theme-2-almost.png"
+              sleep 10; screencapture -x "out/$mode-$theme-3-small.png"
+              wait $check
+              sleep 2
+              kill "$pid" 2>/dev/null
+              wait "$pid" 2>/dev/null
+              log=$(ls "$dir"/logs/*.log | head -1)
+              grep -E "live:|menu bar|usage" "$log" | tail -20
+              if [ $mode = live ]; then
+                paused=$(grep -n "live: covered, paused" "$log" | head -1 | cut -d: -f1)
+                again=$(grep -n "live: showing again, playing" "$log" | tail -1 | cut -d: -f1)
+                [ -n "$paused" ] || { echo "it didn't pause behind the zoomed-size window"; fail=1; }
+                [ -n "$again" ] && [ "${again:-0}" -gt "${paused:-0}" ] || { echo "it didn't play again once the window shrank"; fail=1; }
+              fi
+              dark=$([ $theme = dark ] && echo true || echo false)
+              changes=$(grep "menu bar" "$log" | grep -o "solid=[a-z]* dark=[a-z]*" | tr '\n' ' ')
+              want=""
+              [ "${{ matrix.os }}" = macos-26 ] && want="solid=true dark=$dark solid=false dark=$dark "
+              [ "$changes" = "$want" ] || { echo "the menu bar: '$changes', not '$want'"; fail=1; }
+            done
+          done
+          exit $fail
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: cover-${{ matrix.os }}
+          path: out/
