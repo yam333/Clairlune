@@ -9,22 +9,28 @@
 //! ([`is_dark`]) where that is known, so the menus always read. Earlier
 //! systems blur the bar into one colour themselves.
 //!
+//! It comes and goes with the windows, in one frame. Nothing tells an app of
+//! other apps' windows without a permission, so it looks: twice a second, and
+//! [`FAST`] for a moment after a click or a modifier key (what minimizing,
+//! zooming, closing and switching start with) and while windows move.
+//!
 //! Everything here runs on the main thread (AppKit's rule).
 
-use crate::cover::{self, Backing, CORNERS};
+use crate::cover::{Backing, CORNERS, Rect, Watch};
 use crate::mac::{AppWindows, WINDOW_CHECK, desktop_level, join_desktop, usable_area};
 use clairlune_platform::macos::find_screen;
 use objc2::rc::Retained;
+use objc2::runtime::{NSObjectProtocol, ProtocolObject};
 use objc2::{MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSAppearanceCustomization, NSBackingStoreType, NSColor, NSScreen, NSStatusItem, NSView,
     NSWindow, NSWindowStyleMask,
 };
 use objc2_core_foundation::CFRetained;
-use objc2_core_graphics::CGColor;
-use objc2_foundation::{NSPoint, NSProcessInfo, NSRect, NSSize};
+use objc2_core_graphics::{CGColor, CGEventSource, CGEventSourceStateID, CGEventType};
+use objc2_foundation::{NSActivityOptions, NSPoint, NSProcessInfo, NSRect, NSSize, NSString};
 use objc2_quartz_core::{CALayer, CATransaction};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 define_class!(
     // SAFETY: NSWindow asks nothing of its subclasses, and this one has no
@@ -56,10 +62,40 @@ struct Bar {
     /// The monitor's id, and whether its wallpaper is dark.
     monitor: String,
     dark: bool,
+    /// The screen's usable part, and where the strip goes: none on a screen
+    /// without a menu bar.
+    place: Option<(Rect, NSRect)>,
     /// What is behind the menu bar, and whether that is dark.
-    backing: Backing,
-    shown_dark: bool,
+    watch: Watch,
+    shown: (Backing, bool),
     strip: Option<Strip>,
+}
+
+/// How often to look while something may be moving: each frame, of fast
+/// displays too.
+const FAST: Duration = Duration::from_millis(8);
+/// For how long after a click or a modifier key, and after windows moved.
+const FAST_FOR: Duration = Duration::from_millis(700);
+/// How often to look for new windows too, meanwhile.
+const FIND: Duration = Duration::from_millis(40);
+/// How often to ask whether there was a click or a modifier key. (A click
+/// acts as the button is let go, a moment after it's pressed.)
+const INPUT_CHECK: Duration = Duration::from_millis(100);
+
+/// How many clicks, drags, gestures and modifier key presses there were.
+/// Counting them needs no permission; which they were isn't known.
+fn input_count() -> u32 {
+    const GESTURE: CGEventType = CGEventType(29);
+    [
+        CGEventType::LeftMouseDown,
+        CGEventType::LeftMouseUp,
+        CGEventType::LeftMouseDragged,
+        CGEventType::FlagsChanged,
+        GESTURE,
+    ]
+    .into_iter()
+    .map(|t| CGEventSource::counter_for_event_type(CGEventSourceStateID::CombinedSessionState, t))
+    .fold(0, u32::wrapping_add)
 }
 
 /// The menu bars of the screens with a wallpaper of ours.
@@ -68,7 +104,16 @@ pub struct MenuBars {
     bars: Vec<Bar>,
     /// Whether macOS takes the menu bar for a dark one, when known.
     seen_dark: Option<bool>,
+    /// When the windows, the screens and the input were last looked at.
     checked: Option<Instant>,
+    measured: Option<Instant>,
+    found: Option<Instant>,
+    asked_input: Option<Instant>,
+    input: u32,
+    fast_until: Option<Instant>,
+    /// Held while a menu bar is solid: macOS slows down (App Nap) an app
+    /// whose wallpaper nobody sees, and then it would clear late.
+    awake: Option<Retained<ProtocolObject<dyn NSObjectProtocol>>>,
 }
 
 /// Whether the menu bar is clear here. An app built for an older system is
@@ -115,19 +160,30 @@ impl MenuBars {
                 .map(|(monitor, dark)| Bar {
                     monitor,
                     dark,
-                    backing: Backing::Clear,
-                    shown_dark: dark,
+                    place: None,
+                    watch: Watch::default(),
+                    shown: (Backing::Clear, dark),
                     strip: None,
                 })
                 .collect();
         }
         self.checked = None;
+        self.measured = None;
+        self.stay_awake();
     }
 
     /// Whether [`MenuBars::tick`] would look now, so wants to be told of the
     /// menu bar first.
     pub fn due(&self, now: Instant) -> bool {
-        !self.bars.is_empty() && self.checked.is_none_or(|t| now >= t + WINDOW_CHECK)
+        !self.bars.is_empty() && self.checked.is_none_or(|t| now >= t + self.pace(now))
+    }
+
+    /// How long from one look at the windows to the next.
+    fn pace(&self, now: Instant) -> Duration {
+        match self.fast_until {
+            Some(t) if now < t => FAST,
+            _ => WINDOW_CHECK,
+        }
     }
 
     /// Whether macOS takes the menu bar for a dark one ([`is_dark`]).
@@ -141,49 +197,104 @@ impl MenuBars {
         if self.bars.is_empty() {
             return None;
         }
-        if self.due(now) {
-            self.checked = Some(now);
-            if let Some(mtm) = MainThreadMarker::new() {
-                let windows = windows.look();
-                for bar in &mut self.bars {
-                    bar.update(mtm, windows, self.seen_dark);
-                }
+        if self.asked_input.is_none_or(|t| now >= t + INPUT_CHECK) {
+            self.asked_input = Some(now);
+            let input = input_count();
+            if std::mem::replace(&mut self.input, input) != input {
+                self.fast_until = Some(now + FAST_FOR);
             }
         }
-        self.checked.map(|t| t + WINDOW_CHECK)
+        if self.due(now)
+            && let Some(mtm) = MainThreadMarker::new()
+        {
+            self.checked = Some(now);
+            if self.measured.is_none_or(|t| now >= t + WINDOW_CHECK) {
+                self.measured = Some(now);
+                for bar in &mut self.bars {
+                    bar.measure(mtm);
+                }
+            }
+            let windows = if self.found.is_none_or(|t| now >= t + FIND) {
+                self.found = Some(now);
+                windows.look_now()
+            } else {
+                windows.look_again()
+            };
+            let mut moved = false;
+            for bar in &mut self.bars {
+                moved |= bar.update(mtm, now, windows, self.seen_dark);
+            }
+            if moved {
+                self.fast_until = Some(now + FAST_FOR);
+            }
+            self.stay_awake();
+        }
+        let look = self.checked.map(|t| t + self.pace(now));
+        let ask = self.asked_input.map(|t| t + INPUT_CHECK);
+        [look, ask].into_iter().flatten().min()
+    }
+
+    fn stay_awake(&mut self) {
+        let solid = self.bars.iter().any(|b| b.shown.0 != Backing::Clear);
+        if solid == self.awake.is_some() {
+            return;
+        }
+        let process = NSProcessInfo::processInfo();
+        match self.awake.take() {
+            // SAFETY: what beginActivity gave.
+            Some(activity) => unsafe { process.endActivity(&activity) },
+            None => {
+                self.awake = Some(process.beginActivityWithOptions_reason(
+                    NSActivityOptions::UserInitiatedAllowingIdleSystemSleep,
+                    &NSString::from_str("The menu bar follows the windows"),
+                ));
+            }
+        }
     }
 }
 
 impl Bar {
-    fn update(&mut self, mtm: MainThreadMarker, windows: &[cover::Rect], seen: Option<bool>) {
-        let screen = find_screen(mtm, &self.monitor);
-        let place = screen.as_ref().and_then(|s| strip_frame(s));
+    /// Where the screen and its menu bar are.
+    fn measure(&mut self, mtm: MainThreadMarker) {
+        self.place = find_screen(mtm, &self.monitor)
+            .and_then(|s| Some((usable_area(mtm, &s)?, strip_frame(&s)?)));
         // Another resolution, or the menu bar or the screen went.
-        if self.strip.as_ref().is_some_and(|s| Some(s.frame) != place) {
+        let frame = self.place.map(|(_, f)| f);
+        if self.strip.as_ref().is_some_and(|s| Some(s.frame) != frame) {
             self.strip = None;
-            self.backing = Backing::Clear;
+            self.watch = Watch::default();
+            self.shown.0 = Backing::Clear;
         }
-        let (Some(screen), Some(frame)) = (screen, place) else {
-            return;
+    }
+
+    /// Looks, and shows what it finds; whether windows moved.
+    fn update(
+        &mut self,
+        mtm: MainThreadMarker,
+        now: Instant,
+        windows: &[Rect],
+        seen: Option<bool>,
+    ) -> bool {
+        let Some((area, frame)) = self.place else {
+            return false;
         };
-        let backing =
-            usable_area(mtm, &screen).map_or(Backing::Clear, |a| cover::backing(a, windows));
-        let dark = if backing == Backing::Clear {
-            self.shown_dark
-        } else {
-            seen.unwrap_or(self.dark)
-        };
-        if (backing, dark) == (self.backing, self.shown_dark) {
-            return;
-        }
+        let (backing, moved) = self.watch.look(now, area, windows);
         let solid = backing != Backing::Clear;
-        if solid != (self.backing != Backing::Clear) || dark != self.shown_dark {
-            tracing::info!(target: "clairlune", screen = %self.monitor, solid, dark, "menu bar");
+        let dark = if solid {
+            seen.unwrap_or(self.dark)
+        } else {
+            self.shown.1
+        };
+        if (backing, dark) != self.shown {
+            if solid != (self.shown.0 != Backing::Clear) || dark != self.shown.1 {
+                tracing::info!(target: "clairlune", screen = %self.monitor, solid, dark, "menu bar");
+            }
+            self.shown = (backing, dark);
+            self.strip
+                .get_or_insert_with(|| Strip::new(mtm, frame, dark))
+                .show(backing, dark);
         }
-        (self.backing, self.shown_dark) = (backing, dark);
-        self.strip
-            .get_or_insert_with(|| Strip::new(mtm, frame, dark))
-            .show(backing, dark);
+        moved
     }
 }
 
@@ -239,8 +350,6 @@ impl Strip {
         window.setContentView(Some(&view));
         window.setFrame_display(frame, false);
         window.orderFrontRegardless();
-        // Clear first, so that showing it fades it in.
-        CATransaction::flush();
         Strip {
             frame,
             layer,
@@ -248,16 +357,12 @@ impl Strip {
         }
     }
 
-    /// Fades to the backing (Core Animation's own quarter of a second).
+    /// Shows the backing, in the next frame.
     fn show(&self, backing: Backing, dark: bool) {
         let size = self.frame.size;
         let below = match backing {
-            Backing::Clear => {
-                self.layer.setOpacity(0.0);
-                return;
-            }
-            Backing::Bar => CORNERS,
             Backing::BarAndCorners => 0.0,
+            Backing::Bar | Backing::Clear => CORNERS,
         };
         CATransaction::begin();
         CATransaction::setDisableActions(true);
@@ -265,9 +370,11 @@ impl Strip {
             NSPoint::new(0.0, below),
             NSSize::new(size.width, size.height - below),
         ));
-        CATransaction::commit();
         self.layer.setBackgroundColor(Some(&colour(dark)));
-        self.layer.setOpacity(1.0);
+        self.layer
+            .setOpacity(if backing == Backing::Clear { 0.0 } else { 1.0 });
+        CATransaction::commit();
+        CATransaction::flush();
     }
 }
 

@@ -8,6 +8,11 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+### Changed
+
+- On macOS 26 the menu bar turns solid and clear again at once, as a window
+  reaches it or starts to leave it, instead of up to a second later.
+
 ## [0.31.0] - 2026-11-25
 
 ### Changed

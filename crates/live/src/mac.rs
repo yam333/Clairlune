@@ -28,10 +28,13 @@ use objc2_app_kit::{
     NSBackingStoreType, NSScreen, NSWindow, NSWindowCollectionBehavior, NSWindowOcclusionState,
     NSWindowStyleMask,
 };
+use objc2_core_foundation::{CFArray, CFRetained};
 use objc2_core_graphics::{
-    CGWindowLevelForKey, CGWindowLevelKey, CGWindowListCopyWindowInfo, CGWindowListOption,
+    CGWindowLevelForKey, CGWindowLevelKey, CGWindowListCopyWindowInfo,
+    CGWindowListCreateDescriptionFromArray, CGWindowListOption,
 };
 use objc2_foundation::{NSArray, NSDictionary, NSNumber, NSPoint, NSRect, NSString};
+use std::ffi::c_void;
 use std::time::{Duration, Instant};
 
 /// One screen's window and the view that shows it. The view goes before
@@ -56,67 +59,100 @@ pub struct MacDesktop {
 /// How often to ask where the other apps' windows are.
 pub(crate) const WINDOW_CHECK: Duration = Duration::from_millis(500);
 
-/// Where the other apps' windows are, asked at most twice a second however
-/// many want to know.
+/// Where the other apps' windows are, shared by all that want to know.
 #[derive(Default)]
 pub struct AppWindows {
     rects: Vec<Rect>,
+    /// The windows' numbers, to ask about those alone.
+    ids: Vec<u32>,
     asked: Option<Instant>,
 }
 
 impl AppWindows {
+    /// As they were, at most [`WINDOW_CHECK`] ago.
     pub(crate) fn look(&mut self) -> &[Rect] {
         // A little early rather than late: two that ask in turn share one.
         let fresh = WINDOW_CHECK * 9 / 10;
         if self.asked.is_none_or(|t| t.elapsed() >= fresh) {
-            self.asked = Some(Instant::now());
-            self.rects = app_windows();
+            self.look_now();
         }
         &self.rects
     }
-}
 
-/// The on-screen windows of other apps at the normal level (no menus,
-/// panels or the Dock), in the window server's points (top-left origin).
-/// Their bounds need no permission; their titles aren't read.
-fn app_windows() -> Vec<Rect> {
-    let options =
-        CGWindowListOption::OptionOnScreenOnly | CGWindowListOption::ExcludeDesktopElements;
-    let Some(list) = CGWindowListCopyWindowInfo(options, 0) else {
-        return Vec::new();
-    };
-    // SAFETY: a CFArray is an NSArray (toll-free bridged), and the window
-    // list holds dictionaries; each item is checked before it's read.
-    let list: &NSArray<AnyObject> = unsafe { &*(&*list as *const _ as *const NSArray<AnyObject>) };
-    let me = f64::from(std::process::id());
-    let mut out = Vec::new();
-    for i in 0..list.count() {
-        let item = list.objectAtIndex(i);
-        let Some(d) = dict(&item) else {
-            continue;
-        };
-        if number(d, "kCGWindowLayer") != Some(0.0)
-            || number(d, "kCGWindowOwnerPID") == Some(me)
-            || number(d, "kCGWindowAlpha").unwrap_or(1.0) < 0.05
-        {
-            continue;
+    /// As they are.
+    pub(crate) fn look_now(&mut self) -> &[Rect] {
+        self.asked = Some(Instant::now());
+        let options =
+            CGWindowListOption::OptionOnScreenOnly | CGWindowListOption::ExcludeDesktopElements;
+        self.keep(CGWindowListCopyWindowInfo(options, 0));
+        &self.rects
+    }
+
+    /// Where the same windows are now, which costs a fraction of finding them
+    /// among everything on screen. New ones aren't seen.
+    pub(crate) fn look_again(&mut self) -> &[Rect] {
+        if self.ids.is_empty() {
+            return &self.rects;
         }
-        let Some(bounds) = value(d, "kCGWindowBounds") else {
-            continue;
+        let mut ids: Vec<*const c_void> = self
+            .ids
+            .iter()
+            .map(|id| *id as usize as *const c_void)
+            .collect();
+        // SAFETY: an array of window numbers, kept as they are (no callbacks),
+        // is what the window list takes.
+        let info = unsafe {
+            CFArray::new(None, ids.as_mut_ptr(), ids.len() as isize, std::ptr::null())
+                .and_then(|a| CGWindowListCreateDescriptionFromArray(Some(&a)))
         };
-        let Some(b) = dict(&bounds) else {
-            continue;
+        self.keep(info);
+        &self.rects
+    }
+
+    /// Keeps the on-screen windows of other apps at the normal level (no
+    /// menus, panels or the Dock), in the window server's points (top-left
+    /// origin). Their bounds need no permission; their titles aren't read.
+    fn keep(&mut self, info: Option<CFRetained<CFArray>>) {
+        self.rects.clear();
+        self.ids.clear();
+        let Some(info) = info else {
+            return;
         };
-        if let (Some(x), Some(y), Some(w), Some(h)) = (
-            number(b, "X"),
-            number(b, "Y"),
-            number(b, "Width"),
-            number(b, "Height"),
-        ) {
-            out.push(Rect { x, y, w, h });
+        // SAFETY: a CFArray is an NSArray (toll-free bridged), and the window
+        // list holds dictionaries; each item is checked before it's read.
+        let list: &NSArray<AnyObject> =
+            unsafe { &*(&*info as *const _ as *const NSArray<AnyObject>) };
+        let me = f64::from(std::process::id());
+        for i in 0..list.count() {
+            let item = list.objectAtIndex(i);
+            let Some(d) = dict(&item) else {
+                continue;
+            };
+            if number(d, "kCGWindowLayer") != Some(0.0)
+                || number(d, "kCGWindowOwnerPID") == Some(me)
+                || number(d, "kCGWindowAlpha").unwrap_or(1.0) < 0.05
+                || number(d, "kCGWindowIsOnscreen") != Some(1.0)
+            {
+                continue;
+            }
+            let Some(bounds) = value(d, "kCGWindowBounds") else {
+                continue;
+            };
+            let Some(b) = dict(&bounds) else {
+                continue;
+            };
+            if let (Some(id), Some(x), Some(y), Some(w), Some(h)) = (
+                number(d, "kCGWindowNumber"),
+                number(b, "X"),
+                number(b, "Y"),
+                number(b, "Width"),
+                number(b, "Height"),
+            ) {
+                self.ids.push(id as u32);
+                self.rects.push(Rect { x, y, w, h });
+            }
         }
     }
-    out
 }
 
 fn is_kind(obj: &AnyObject, class: &objc2::runtime::AnyClass) -> bool {

@@ -4,6 +4,8 @@
 //! where the other apps' windows are and treats a screen whose usable area
 //! they all but fill (one zoomed window, or tiles side by side) as covered.
 
+use std::time::{Duration, Instant};
+
 /// A rectangle in one coordinate system (the Mac host: points, top-left
 /// origin, as the window server gives window bounds).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -68,7 +70,8 @@ pub enum Backing {
     BarAndCorners,
 }
 
-/// The backing for windows so, on a screen whose usable part is `area`.
+/// The backing for windows so, at rest, on a screen whose usable part is
+/// `area`.
 pub fn backing(area: Rect, windows: &[Rect]) -> Backing {
     if covered_share(area, windows) < ALMOST_FILLED {
         return Backing::Clear;
@@ -78,6 +81,65 @@ pub fn backing(area: Rect, windows: &[Rect]) -> Backing {
         Backing::BarAndCorners
     } else {
         Backing::Bar
+    }
+}
+
+/// How long windows that don't reach the menu bar must hold still before it
+/// turns solid above them.
+pub const REST: Duration = Duration::from_millis(80);
+
+/// A menu bar's backing from one look at the windows to the next. It changes
+/// as a window reaches the menu bar or starts to leave it (the window server
+/// tells where a window is all through its minimizing), not once it is still.
+#[derive(Clone, Copy, Debug)]
+pub struct Watch {
+    backing: Backing,
+    /// The share covered at the last look, since when it has been that, and
+    /// what it was when the backing went up.
+    share: f64,
+    since: Option<Instant>,
+    rest: f64,
+}
+
+impl Default for Watch {
+    fn default() -> Watch {
+        Watch {
+            backing: Backing::Clear,
+            share: 0.0,
+            since: None,
+            rest: 0.0,
+        }
+    }
+}
+
+impl Watch {
+    pub fn backing(&self) -> Backing {
+        self.backing
+    }
+
+    /// The backing now; and whether windows moved since the last look.
+    pub fn look(&mut self, now: Instant, area: Rect, windows: &[Rect]) -> (Backing, bool) {
+        let share = covered_share(area, windows);
+        let moved = (share - self.share).abs() > 1e-6;
+        if moved || self.since.is_none() {
+            self.since = Some(now);
+        }
+        self.share = share;
+        let still = self.since.is_some_and(|t| now >= t + REST);
+        self.backing = match (self.backing, backing(area, windows)) {
+            (_, Backing::Clear) => Backing::Clear,
+            // A window has the menu bar right above it, or just had.
+            (_, Backing::BarAndCorners) => Backing::BarAndCorners,
+            (Backing::BarAndCorners, Backing::Bar) => Backing::Clear,
+            (Backing::Bar, Backing::Bar) if share >= self.rest - 0.01 => Backing::Bar,
+            (Backing::Bar, Backing::Bar) => Backing::Clear,
+            (Backing::Clear, Backing::Bar) if still => {
+                self.rest = share;
+                Backing::Bar
+            }
+            (Backing::Clear, Backing::Bar) => Backing::Clear,
+        };
+        (self.backing, moved)
     }
 }
 
@@ -137,6 +199,74 @@ mod tests {
             ..VISIBLE
         };
         assert_eq!(backing(VISIBLE, &[half]), Backing::Clear);
+    }
+
+    /// A window minimizing and coming back, as macOS 26 reported one (the
+    /// screen's usable part is 31 points down), a look every 16 ms.
+    #[test]
+    fn the_menu_bar_clears_as_a_window_starts_to_minimize() {
+        let area = Rect {
+            x: 0.0,
+            y: 31.0,
+            w: 1024.0,
+            h: 674.0,
+        };
+        let at = |x: f64, y: f64, w: f64, h: f64| [Rect { x, y, w, h }];
+        let start = Instant::now();
+        let ms = |n: u64| start + Duration::from_millis(n);
+        let mut watch = Watch::default();
+        let full = at(0.0, 31.0, 1024.0, 674.0);
+        // Solid at the first look at a window right under it.
+        assert_eq!(watch.look(ms(0), area, &full).0, Backing::BarAndCorners);
+        assert_eq!(
+            watch.look(ms(16), area, &at(0.0, 31.0, 1024.0, 675.0)).0,
+            Backing::BarAndCorners
+        );
+        // Three points down: clear, and it stays so all the way, though the
+        // window still almost fills the screen and two looks see the same.
+        let away = [
+            at(0.0, 34.0, 1024.0, 675.0),
+            at(0.0, 34.0, 1024.0, 675.0),
+            at(5.0, 64.0, 1019.0, 675.0),
+            at(22.0, 99.0, 1001.0, 646.0),
+            at(245.0, 267.0, 759.0, 478.0),
+        ];
+        for (i, w) in away.iter().enumerate() {
+            let (backing, _) = watch.look(ms(32 + 16 * i as u64), area, w);
+            assert_eq!(backing, Backing::Clear, "look {i}");
+        }
+        // Coming back: clear until it is there, then solid at once.
+        assert_eq!(
+            watch.look(ms(300), area, &at(12.0, 81.0, 1011.0, 664.0)).0,
+            Backing::Clear
+        );
+        assert_eq!(
+            watch.look(ms(316), area, &at(0.0, 41.0, 1024.0, 675.0)).0,
+            Backing::Clear
+        );
+        assert_eq!(watch.look(ms(332), area, &full).0, Backing::BarAndCorners);
+        // Closed: clear.
+        assert_eq!(watch.look(ms(348), area, &[]), (Backing::Clear, true));
+        assert_eq!(watch.look(ms(364), area, &[]), (Backing::Clear, false));
+    }
+
+    #[test]
+    fn a_window_with_desktop_around_it_waits_to_hold_still() {
+        let start = Instant::now();
+        let ms = |n: u64| start + Duration::from_millis(n);
+        let almost = Rect {
+            x: 30.0,
+            y: 60.0,
+            w: 1452.0,
+            h: 830.0,
+        };
+        let mut watch = Watch::default();
+        assert_eq!(watch.look(ms(0), VISIBLE, &[almost]).0, Backing::Clear);
+        assert_eq!(watch.look(ms(16), VISIBLE, &[almost]).0, Backing::Clear);
+        assert_eq!(watch.look(ms(96), VISIBLE, &[almost]).0, Backing::Bar);
+        // It starts to leave the screen: clear, though it still almost fills.
+        let moved = Rect { y: 110.0, ..almost };
+        assert_eq!(watch.look(ms(112), VISIBLE, &[moved]).0, Backing::Clear);
     }
 
     #[test]

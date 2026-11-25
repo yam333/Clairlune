@@ -77,8 +77,9 @@ jobs:
               fi
               dark=$([ $theme = dark ] && echo true || echo false)
               changes=$(grep "menu bar" "$log" | grep -o "solid=[a-z]* dark=[a-z]*" | tr '\n' ' ')
+              # Clear for a moment as the window leaves the bar to almost fill.
               want=""
-              [ "${{ matrix.os }}" = macos-26 ] && want="solid=true dark=$dark solid=false dark=$dark "
+              [ "${{ matrix.os }}" = macos-26 ] && want="solid=true dark=$dark solid=false dark=$dark solid=true dark=$dark solid=false dark=$dark "
               [ "$changes" = "$want" ] || { echo "the menu bar: '$changes', not '$want'"; fail=1; }
             done
           done
