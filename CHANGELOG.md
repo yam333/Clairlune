@@ -8,12 +8,15 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-11-27
+
 ### Changed
 
 - **Much lighter on the Mac, in Live and Still frame:**
   - Scenes with snow, sandstorms, sea spray, spindrift or campfire embers now
     copy only the small tiles that changed each frame instead of the whole
-    Retina screen.
+    Retina screen, and IOSurfaces tag sRGB by name instead of re-parsing an
+    ICC profile on every frame.
   - Watching for window changes behind a clear menu bar (macOS 26) ignores
     trackpad scrolling, backs off while the Mac is untouched, stops while the
     displays sleep, and makes no temporary allocations per window.
@@ -650,7 +653,8 @@ earlier versions always look the same as before. The downloads are on the
 - The same calm pace at every smoothness; Direct3D 11 live wallpapers on
   Windows that copy only what changed; windows give their memory back.
 
-[Unreleased]: https://github.com/yam333/Clairlune/compare/v0.33.0...HEAD
+[Unreleased]: https://github.com/yam333/Clairlune/compare/v0.33.1...HEAD
+[0.33.1]: https://github.com/yam333/Clairlune/releases/tag/v0.33.1
 [0.33.0]: https://github.com/yam333/Clairlune/releases/tag/v0.33.0
 [0.32.0]: https://github.com/yam333/Clairlune/releases/tag/v0.32.0
 [0.31.1]: https://github.com/yam333/Clairlune/releases/tag/v0.31.1
