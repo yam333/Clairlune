@@ -16,7 +16,7 @@ use objc2::runtime::AnyObject;
 use objc2::{MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::NSView;
 use objc2_core_foundation::{CFDictionary, CFNumber, CFRetained, CFString};
-use objc2_core_graphics::{CGColorSpace, kCGColorSpaceSRGB};
+use objc2_core_graphics::kCGColorSpaceSRGB;
 use objc2_foundation::NSRect;
 use objc2_io_surface::{
     IOSurfaceLockOptions, IOSurfaceRef, kIOSurfaceBytesPerElement, kIOSurfaceColorSpace,
@@ -65,15 +65,12 @@ fn new_surface(w: u32, h: u32) -> Option<CFRetained<IOSurfaceRef>> {
     };
     // SAFETY: a dictionary of IOSurface properties.
     let surface = unsafe { IOSurfaceRef::new(props.as_opaque()) }?;
-    // Its pixels are sRGB, like the still: tagged, so the screen shows them
-    // the same.
-    // SAFETY: a constant colour space name; the value is its ICC profile.
+    // Its pixels are sRGB, like the still: tagged by name (so QuartzCore
+    // resolves the cached sRGB space directly instead of hashing and
+    // validating an ICC blob on every present).
+    // SAFETY: both constants are static CoreFoundation strings.
     unsafe {
-        if let Some(icc) = CGColorSpace::with_name(Some(kCGColorSpaceSRGB))
-            .and_then(|s| CGColorSpace::icc_data(Some(&s)))
-        {
-            surface.set_value(kIOSurfaceColorSpace, &icc);
-        }
+        surface.set_value(kIOSurfaceColorSpace, kCGColorSpaceSRGB);
     }
     Some(surface)
 }

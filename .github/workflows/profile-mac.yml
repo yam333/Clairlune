@@ -38,6 +38,8 @@ jobs:
             cat > "$dir/settings.toml" <<EOF
           [general]
           asked_start_at_login = true
+          check_updates = false
+          mac_live_moved = true
           detailed_logging_until = 0
 
           [schedule]

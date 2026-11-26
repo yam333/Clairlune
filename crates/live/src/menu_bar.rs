@@ -78,6 +78,8 @@ const FAST: Duration = Duration::from_millis(16);
 const FAST_FOR: Duration = Duration::from_millis(550);
 /// How often to look for new windows too, meanwhile.
 const FIND: Duration = Duration::from_millis(80);
+/// How often to re-measure screen and Dock frames when nothing notified us.
+const MEASURE_CHECK: Duration = Duration::from_secs(5);
 /// How often to ask whether there was a click or a modifier key while active
 /// (backing off to [`WINDOW_CHECK`] once idle).
 const INPUT_ACTIVE: Duration = Duration::from_millis(100);
@@ -194,6 +196,7 @@ impl MenuBars {
             return;
         }
         self.checked = None;
+        self.measured = None;
         self.found = None;
         self.last_input = Some(now);
         self.fast_until = Some(now + FAST_FOR);
@@ -249,7 +252,7 @@ impl MenuBars {
             && let Some(mtm) = MainThreadMarker::new()
         {
             self.checked = Some(now);
-            if self.measured.is_none_or(|t| now >= t + WINDOW_CHECK) {
+            if self.measured.is_none_or(|t| now >= t + MEASURE_CHECK) {
                 self.measured = Some(now);
                 for bar in &mut self.bars {
                     bar.measure(mtm);
