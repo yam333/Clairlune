@@ -172,8 +172,13 @@ fn smooth_particles_sit_between_cells() {
                 .advance(&mut frame, theme, false, hero + k * 1000 / 60, clock)
                 .unwrap();
             for r in rects.iter().filter(|r| (r.w, r.h) == (g.cell_w, g.cell_h)) {
-                let aligned = (r.x - g.origin_x).is_multiple_of(g.cell_w)
-                    && (r.y - g.origin_y).is_multiple_of(g.cell_h);
+                // (Signed: a particle at the very edge may start left of
+                // the grid.)
+                let on_grid = |v: u32, origin: u32, cell: u32| {
+                    (i64::from(v) - i64::from(origin)).rem_euclid(i64::from(cell)) == 0
+                };
+                let aligned =
+                    on_grid(r.x, g.origin_x, g.cell_w) && on_grid(r.y, g.origin_y, g.cell_h);
                 if aligned { on += 1 } else { off += 1 }
             }
         }
