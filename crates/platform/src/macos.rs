@@ -38,7 +38,7 @@ fn on_main<R: Send>(f: impl FnOnce(MainThreadMarker) -> R + Send) -> R {
 /// The display a screen shows on (`NSScreenNumber`).
 fn display_id(screen: &NSScreen) -> Option<u32> {
     let desc = screen.deviceDescription();
-    let value = desc.objectForKey(&NSString::from_str("NSScreenNumber"))?;
+    let value = desc.objectForKey(objc2_foundation::ns_string!("NSScreenNumber"))?;
     let number = value.downcast::<NSNumber>().ok()?;
     Some(number.unsignedIntValue())
 }
@@ -202,46 +202,91 @@ impl WallpaperHost for MacHost {
 static SPACE_CHANGED: AtomicBool = AtomicBool::new(false);
 /// Set when screens come, go or change size.
 static SCREENS_CHANGED: AtomicBool = AtomicBool::new(false);
+/// Whether the displays are asleep (`NSWorkspace` notifications).
+static SCREENS_ASLEEP: AtomicBool = AtomicBool::new(false);
+/// Set when apps activate, hide or unhide, or Spaces/screens change.
+static WINDOWS_CHANGED: AtomicBool = AtomicBool::new(false);
+
+/// Whether the displays are asleep right now.
+pub fn screens_asleep() -> bool {
+    SCREENS_ASLEEP.load(Ordering::Relaxed)
+}
+
+/// Whether an app was activated, hidden or unhidden (or Spaces/screens changed)
+/// since the last call, so window bounds may have changed without a click.
+pub fn take_windows_changed() -> bool {
+    WINDOWS_CHANGED.swap(false, Ordering::Relaxed)
+}
 
 type Token = Retained<objc2::runtime::ProtocolObject<dyn objc2_foundation::NSObjectProtocol>>;
 
-/// Hears Space changes and screen changes (so nothing polls for them).
-/// Create it on the main thread and keep it.
+/// Hears Space, screen, display-sleep and app-visibility notifications (so
+/// nothing polls for them). Create it on the main thread and keep it.
 pub struct SpaceWatcher {
-    _tokens: [Token; 2],
+    _tokens: Vec<Token>,
 }
 
 impl SpaceWatcher {
     pub fn new() -> SpaceWatcher {
         use block2::RcBlock;
         use objc2_app_kit::NSWorkspaceActiveSpaceDidChangeNotification;
-        use objc2_foundation::NSNotification;
-        let block = RcBlock::new(|_: std::ptr::NonNull<NSNotification>| {
+        use objc2_foundation::{NSNotification, ns_string};
+        let ws_center = NSWorkspace::sharedWorkspace().notificationCenter();
+        let mut tokens = Vec::with_capacity(7);
+        let on_ws = |name: &NSString, f: fn()| -> Token {
+            let block = RcBlock::new(move |_: std::ptr::NonNull<NSNotification>| f());
+            unsafe {
+                ws_center.addObserverForName_object_queue_usingBlock(Some(name), None, None, &block)
+            }
+        };
+        let space_block = RcBlock::new(|_: std::ptr::NonNull<NSNotification>| {
             SPACE_CHANGED.store(true, Ordering::Relaxed);
+            WINDOWS_CHANGED.store(true, Ordering::Relaxed);
         });
-        let center = NSWorkspace::sharedWorkspace().notificationCenter();
-        let spaces = unsafe {
-            center.addObserverForName_object_queue_usingBlock(
+        tokens.push(unsafe {
+            ws_center.addObserverForName_object_queue_usingBlock(
                 Some(NSWorkspaceActiveSpaceDidChangeNotification),
                 None,
                 None,
-                &block,
+                &space_block,
             )
-        };
-        let block = RcBlock::new(|_: std::ptr::NonNull<NSNotification>| {
-            SCREENS_CHANGED.store(true, Ordering::Relaxed);
         });
-        // NSApplication posts it (its name is its value).
-        let name = objc2_foundation::NSString::from_str(
-            "NSApplicationDidChangeScreenParametersNotification",
-        );
-        let screens = unsafe {
-            objc2_foundation::NSNotificationCenter::defaultCenter()
-                .addObserverForName_object_queue_usingBlock(Some(&name), None, None, &block)
-        };
-        SpaceWatcher {
-            _tokens: [spaces, screens],
+        tokens.push(on_ws(
+            ns_string!("NSWorkspaceScreensDidSleepNotification"),
+            || SCREENS_ASLEEP.store(true, Ordering::Relaxed),
+        ));
+        tokens.push(on_ws(
+            ns_string!("NSWorkspaceScreensDidWakeNotification"),
+            || {
+                SCREENS_ASLEEP.store(false, Ordering::Relaxed);
+                WINDOWS_CHANGED.store(true, Ordering::Relaxed);
+            },
+        ));
+        for name in [
+            ns_string!("NSWorkspaceDidActivateApplicationNotification"),
+            ns_string!("NSWorkspaceDidHideApplicationNotification"),
+            ns_string!("NSWorkspaceDidUnhideApplicationNotification"),
+        ] {
+            tokens.push(on_ws(name, || {
+                WINDOWS_CHANGED.store(true, Ordering::Relaxed);
+            }));
         }
+        let screen_block = RcBlock::new(|_: std::ptr::NonNull<NSNotification>| {
+            SCREENS_CHANGED.store(true, Ordering::Relaxed);
+            WINDOWS_CHANGED.store(true, Ordering::Relaxed);
+        });
+        tokens.push(unsafe {
+            objc2_foundation::NSNotificationCenter::defaultCenter()
+                .addObserverForName_object_queue_usingBlock(
+                    Some(ns_string!(
+                        "NSApplicationDidChangeScreenParametersNotification"
+                    )),
+                    None,
+                    None,
+                    &screen_block,
+                )
+        });
+        SpaceWatcher { _tokens: tokens }
     }
 
     /// Whether the active Space changed since the last call.

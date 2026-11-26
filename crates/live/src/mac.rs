@@ -33,7 +33,7 @@ use objc2_core_graphics::{
     CGWindowLevelForKey, CGWindowLevelKey, CGWindowListCopyWindowInfo,
     CGWindowListCreateDescriptionFromArray, CGWindowListOption,
 };
-use objc2_foundation::{NSArray, NSDictionary, NSNumber, NSPoint, NSRect, NSString};
+use objc2_foundation::{NSArray, NSDictionary, NSNumber, NSPoint, NSRect, NSString, ns_string};
 use std::ffi::c_void;
 use std::time::{Duration, Instant};
 
@@ -65,6 +65,7 @@ pub struct AppWindows {
     rects: Vec<Rect>,
     /// The windows' numbers, to ask about those alone.
     ids: Vec<u32>,
+    raw_ids: Vec<*const c_void>,
     asked: Option<Instant>,
 }
 
@@ -94,16 +95,19 @@ impl AppWindows {
         if self.ids.is_empty() {
             return &self.rects;
         }
-        let mut ids: Vec<*const c_void> = self
-            .ids
-            .iter()
-            .map(|id| *id as usize as *const c_void)
-            .collect();
+        self.raw_ids.clear();
+        self.raw_ids
+            .extend(self.ids.iter().map(|id| *id as usize as *const c_void));
         // SAFETY: an array of window numbers, kept as they are (no callbacks),
         // is what the window list takes.
         let info = unsafe {
-            CFArray::new(None, ids.as_mut_ptr(), ids.len() as isize, std::ptr::null())
-                .and_then(|a| CGWindowListCreateDescriptionFromArray(Some(&a)))
+            CFArray::new(
+                None,
+                self.raw_ids.as_mut_ptr(),
+                self.raw_ids.len() as isize,
+                std::ptr::null(),
+            )
+            .and_then(|a| CGWindowListCreateDescriptionFromArray(Some(&a)))
         };
         self.keep(info);
         &self.rects
@@ -128,25 +132,25 @@ impl AppWindows {
             let Some(d) = dict(&item) else {
                 continue;
             };
-            if number(d, "kCGWindowLayer") != Some(0.0)
-                || number(d, "kCGWindowOwnerPID") == Some(me)
-                || number(d, "kCGWindowAlpha").unwrap_or(1.0) < 0.05
-                || number(d, "kCGWindowIsOnscreen") != Some(1.0)
+            if number(d, ns_string!("kCGWindowLayer")) != Some(0.0)
+                || number(d, ns_string!("kCGWindowOwnerPID")) == Some(me)
+                || number(d, ns_string!("kCGWindowAlpha")).unwrap_or(1.0) < 0.05
+                || number(d, ns_string!("kCGWindowIsOnscreen")) != Some(1.0)
             {
                 continue;
             }
-            let Some(bounds) = value(d, "kCGWindowBounds") else {
+            let Some(bounds) = value(d, ns_string!("kCGWindowBounds")) else {
                 continue;
             };
             let Some(b) = dict(&bounds) else {
                 continue;
             };
             if let (Some(id), Some(x), Some(y), Some(w), Some(h)) = (
-                number(d, "kCGWindowNumber"),
-                number(b, "X"),
-                number(b, "Y"),
-                number(b, "Width"),
-                number(b, "Height"),
+                number(d, ns_string!("kCGWindowNumber")),
+                number(b, ns_string!("X")),
+                number(b, ns_string!("Y")),
+                number(b, ns_string!("Width")),
+                number(b, ns_string!("Height")),
             ) {
                 self.ids.push(id as u32);
                 self.rects.push(Rect { x, y, w, h });
@@ -167,13 +171,12 @@ fn dict(obj: &AnyObject) -> Option<&NSDictionary<AnyObject, AnyObject>> {
     })
 }
 
-fn value(d: &NSDictionary<AnyObject, AnyObject>, key: &str) -> Option<Retained<AnyObject>> {
-    let key = NSString::from_str(key);
-    let key: &AnyObject = &key;
+fn value(d: &NSDictionary<AnyObject, AnyObject>, key: &NSString) -> Option<Retained<AnyObject>> {
+    let key: &AnyObject = key;
     d.objectForKey(key)
 }
 
-fn number(d: &NSDictionary<AnyObject, AnyObject>, key: &str) -> Option<f64> {
+fn number(d: &NSDictionary<AnyObject, AnyObject>, key: &NSString) -> Option<f64> {
     let v = value(d, key)?;
     // SAFETY: checked to be a number first.
     is_kind(&v, NSNumber::class())
@@ -185,13 +188,17 @@ fn number(d: &NSDictionary<AnyObject, AnyObject>, key: &str) -> Option<f64> {
 /// y up; the window server's its top left, y down.
 pub(crate) fn usable_area(mtm: MainThreadMarker, screen: &NSScreen) -> Option<Rect> {
     let main = NSScreen::screens(mtm).firstObject()?.frame();
+    Some(usable_area_in(main.size.height, screen))
+}
+
+fn usable_area_in(main_height: f64, screen: &NSScreen) -> Rect {
     let v = screen.visibleFrame();
-    Some(Rect {
+    Rect {
         x: v.origin.x,
-        y: main.size.height - (v.origin.y + v.size.height),
+        y: main_height - (v.origin.y + v.size.height),
         w: v.size.width,
         h: v.size.height,
-    })
+    }
 }
 
 /// The desktop picture's window level.
@@ -305,8 +312,21 @@ impl MacDesktop {
         self.outputs.iter().map(|o| &o.monitor)
     }
 
+    /// Re-checks window cover on the next tick (an app activated, hid or
+    /// unhid, or Spaces changed).
+    pub fn note_windows_changed(&mut self) {
+        self.checked = None;
+    }
+
     /// Draws the current time on every screen that shows.
     pub fn tick(&mut self, windows: &mut AppWindows) -> Result<FrameStats, String> {
+        if clairlune_platform::macos::screens_asleep() {
+            return Ok(FrameStats {
+                covered: self.outputs.len(),
+                away: true,
+                ..Default::default()
+            });
+        }
         let started = Instant::now();
         if self.cover_policy == CoverPolicy::Off {
             self.filled.fill(false);
@@ -314,17 +334,16 @@ impl MacDesktop {
             && let Some(mtm) = MainThreadMarker::new()
         {
             self.checked = Some(Instant::now());
+            let main_height = NSScreen::screens(mtm)
+                .firstObject()
+                .map(|s| s.frame().size.height);
             let windows = windows.look();
-            self.filled = self
-                .outputs
-                .iter()
-                .map(|o| {
-                    o.window
-                        .screen()
-                        .and_then(|s| usable_area(mtm, &s))
-                        .is_some_and(|a| cover::filled(a, windows))
-                })
-                .collect();
+            for (o, dst) in self.outputs.iter().zip(&mut self.filled) {
+                *dst = match (main_height, o.window.screen()) {
+                    (Some(mh), Some(s)) => cover::filled(usable_area_in(mh, &s), windows),
+                    _ => false,
+                };
+            }
         }
         let shown: Vec<bool> = self
             .outputs

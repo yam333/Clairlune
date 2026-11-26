@@ -53,6 +53,25 @@ pub fn process_memory() -> u64 {
     }
 }
 
+/// Gives unused heap pages back to the system after a burst of work
+/// (closing a window, making a wallpaper).
+pub fn trim_memory() {
+    #[cfg(windows)]
+    {
+        crate::windows_live::trim_memory();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        unsafe extern "C" {
+            fn malloc_zone_pressure_relief(zone: *mut std::ffi::c_void, goal: usize) -> usize;
+        }
+        // SAFETY: null asks every allocator zone to give back free pages.
+        unsafe {
+            let _ = malloc_zone_pressure_relief(std::ptr::null_mut(), 0);
+        }
+    }
+}
+
 #[cfg(all(test, any(windows, target_os = "macos")))]
 mod tests {
     use super::*;
@@ -69,5 +88,6 @@ mod tests {
         }
         assert!(process_cpu_time() > Duration::ZERO);
         assert!(process_memory() > 0);
+        trim_memory();
     }
 }

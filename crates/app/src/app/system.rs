@@ -236,6 +236,9 @@ impl App {
     /// With no window open, gives the memory a closed window or a finished
     /// render touched back to the system, so the app idles small.
     pub(crate) fn trim_if_idle(&self) {
+        if self.busy || self.drawing_lands {
+            return;
+        }
         let open = [
             &self.settings_window,
             &self.library_window,
@@ -245,8 +248,7 @@ impl App {
         .iter()
         .any(|w| w.is_some());
         if !open {
-            #[cfg(windows)]
-            clairlune_platform::windows_live::trim_memory();
+            clairlune_platform::usage::trim_memory();
         }
     }
 
@@ -263,7 +265,7 @@ impl App {
         .iter()
         .filter(|w| w.is_some())
         .count();
-        let busy = windows > 0 || self.live.frame_interval() < Duration::from_secs(1);
+        let busy = windows > 0 || self.live.is_playing();
         let every = if busy {
             Duration::from_secs(60)
         } else {

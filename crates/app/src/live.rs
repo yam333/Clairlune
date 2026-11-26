@@ -229,7 +229,13 @@ impl Live {
         !self.enabled || self.effective_fps() >= Self::SCROLL_MIN_FPS
     }
 
+    /// Whether live wallpaper windows are currently running.
+    pub fn is_playing(&self) -> bool {
+        self.desktop.is_some()
+    }
+
     /// How long one frame lasts now.
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub fn frame_interval(&self) -> Duration {
         self.frame()
     }
@@ -256,16 +262,23 @@ impl Live {
             self.status = Some("Every monitor shows the still frame (Settings, Display).".into());
             return;
         }
-        let players: Option<Vec<_>> = self
-            .playing()
-            .map(|s| {
-                match s.view {
-                    Some(v) => Player::new_view(s.package.clone(), s.theme, s.buddy, v),
+        let players = (|| {
+            let mut list: Vec<(clairlune_platform::Monitor, Player)> = Vec::new();
+            for s in self.playing() {
+                let player = match s.view {
+                    Some(v) => match list
+                        .iter()
+                        .find(|(_, p)| p.shares_scene(&s.package, s.theme, s.buddy))
+                    {
+                        Some((_, first)) => first.with_view(v),
+                        None => Player::new_view(s.package.clone(), s.theme, s.buddy, v),
+                    },
                     None => Player::new(s.package.clone(), s.theme, s.buddy),
-                }
-                .map(|p| (s.monitor.clone(), p))
-            })
-            .collect();
+                }?;
+                list.push((s.monitor.clone(), player));
+            }
+            Some(list)
+        })();
         let Some(players) = players else {
             self.status = Some("Live isn't available: a scene lacks its theme.".into());
             return;
@@ -327,8 +340,17 @@ impl Live {
     pub fn tick(&mut self, now: Instant) -> Option<Instant> {
         #[cfg(target_os = "macos")]
         {
+            if clairlune_platform::macos::screens_asleep() {
+                return None;
+            }
             if self.start_at.is_some_and(|t| now >= t) {
                 self.restart();
+            }
+            if clairlune_platform::macos::take_windows_changed() {
+                self.menu_bars.note_windows_changed(now);
+                if let Some(d) = &mut self.desktop {
+                    d.note_windows_changed();
+                }
             }
             let bars = self.menu_bars.tick(now, &mut self.windows);
             let frame = self.start_at.or_else(|| self.tick_frame(now));

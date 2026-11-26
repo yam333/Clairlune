@@ -84,6 +84,8 @@ pub struct UiWindow {
     pub screenshot_to: Option<std::path::PathBuf>,
     /// When egui wants its next frame (an animation running), if not now.
     repaint_at: Option<std::time::Instant>,
+    /// Hidden behind other windows or on another Space.
+    occluded: bool,
 }
 
 /// The graphics API the system is built around.
@@ -241,6 +243,7 @@ impl UiWindow {
             theme,
             screenshot_to: None,
             repaint_at: None,
+            occluded: false,
         })
     }
 
@@ -317,6 +320,9 @@ impl UiWindow {
     /// Asks for the frame egui wanted by now; returns when the next one is
     /// due, for the event loop to wake then.
     pub fn redraw_due(&mut self, now: std::time::Instant) -> Option<std::time::Instant> {
+        if self.occluded && self.screenshot_to.is_none() {
+            return None;
+        }
         match self.repaint_at {
             Some(at) if at <= now => {
                 self.repaint_at = None;
@@ -373,6 +379,14 @@ impl UiWindow {
     ) -> Outcome {
         match event {
             WindowEvent::CloseRequested => return Outcome::Close,
+            WindowEvent::Occluded(occluded) => {
+                self.occluded = *occluded;
+                if !occluded && self.repaint_at.is_some() {
+                    self.repaint_at = None;
+                    self.window.request_redraw();
+                }
+                return Outcome::Nothing;
+            }
             WindowEvent::Resized(size) => {
                 if let (Some(w), Some(h)) = (
                     std::num::NonZeroU32::new(size.width),
@@ -483,7 +497,14 @@ impl UiWindow {
             .map(|v| v.repaint_delay);
         self.repaint_at = None;
         match delay {
-            Some(d) if d.is_zero() => self.window.request_redraw(),
+            Some(d) if d.is_zero() => {
+                if self.occluded && self.screenshot_to.is_none() {
+                    self.repaint_at =
+                        Some(std::time::Instant::now() + std::time::Duration::from_millis(250));
+                } else {
+                    self.window.request_redraw();
+                }
+            }
             Some(d) if d < std::time::Duration::from_secs(3600) => {
                 self.repaint_at = Some(std::time::Instant::now() + d);
             }

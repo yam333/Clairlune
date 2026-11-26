@@ -146,6 +146,10 @@ struct App {
     /// When the schedule next changes the wallpaper (None: only on demand).
     next_change: Option<Instant>,
     next_check: Instant,
+    /// Last `WaitUntil` deadline handed to winit (varied by 1 ns on repeats so
+    /// macOS's `CFRunLoopTimer` always resets its next fire date instead of
+    /// falling back to winit's 0.1 us repeat interval).
+    last_wake: Option<Instant>,
     /// When the last usage line was logged, and the CPU time then.
     usage_at: Instant,
     usage_cpu: Duration,
@@ -658,6 +662,7 @@ fn main() {
         busy: false,
         next_change: None,
         next_check: Instant::now() + CHECK_EVERY,
+        last_wake: None,
         usage_at: Instant::now(),
         usage_cpu: clairlune_platform::usage::process_cpu_time(),
         shown_theme: None,

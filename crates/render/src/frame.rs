@@ -57,10 +57,35 @@ pub fn render_frame_with_art(
     clock: Clock,
     art: &dyn SceneArt,
 ) -> IndexedImage {
+    render_frame_for(
+        background,
+        graph,
+        graph.buddy,
+        atlas,
+        palette,
+        t_ms,
+        clock,
+        art,
+    )
+}
+
+/// [`render_frame_with_art`] with an explicit Buddy toggle, so a package need
+/// not hold a second copy of its [`SceneGraph`].
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn render_frame_for(
+    background: &IndexedImage,
+    graph: &SceneGraph,
+    buddy: bool,
+    atlas: &GlyphAtlas,
+    palette: &IndexedPalette,
+    t_ms: u64,
+    clock: Clock,
+    art: &dyn SceneArt,
+) -> IndexedImage {
     let mut img = background.clone();
     let mut drawn = Vec::new();
     compose(
-        &mut img, &mut drawn, graph, atlas, palette, t_ms, clock, art,
+        &mut img, &mut drawn, graph, buddy, atlas, palette, t_ms, clock, art,
     );
     img
 }
@@ -123,6 +148,11 @@ impl IncrementalFrame {
         &self.image
     }
 
+    /// Rectangles drawn over the background on the current frame.
+    pub fn drawn(&self) -> &[PixelRect] {
+        &self.drawn
+    }
+
     /// Moves to `t_ms` and returns the rectangles whose pixels may have
     /// changed (sorted, without repeats): the only ones a copy of the last
     /// frame needs, such as a GPU texture.
@@ -131,6 +161,30 @@ impl IncrementalFrame {
         &mut self,
         background: &IndexedImage,
         graph: &SceneGraph,
+        atlas: &GlyphAtlas,
+        palette: &IndexedPalette,
+        t_ms: u64,
+        clock: Clock,
+        art: &dyn SceneArt,
+    ) -> Vec<PixelRect> {
+        self.advance_for(
+            background,
+            graph,
+            graph.buddy,
+            atlas,
+            palette,
+            t_ms,
+            clock,
+            art,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn advance_for(
+        &mut self,
+        background: &IndexedImage,
+        graph: &SceneGraph,
+        buddy: bool,
         atlas: &GlyphAtlas,
         palette: &IndexedPalette,
         t_ms: u64,
@@ -154,6 +208,7 @@ impl IncrementalFrame {
             &mut self.image,
             &mut drawn,
             graph,
+            buddy,
             atlas,
             palette,
             t_ms,
@@ -184,6 +239,32 @@ impl IncrementalFrame {
         clock: Clock,
         art: &dyn SceneArt,
     ) -> Vec<PixelRect> {
+        self.advance_journey_for(
+            journey,
+            still,
+            graph,
+            graph.buddy,
+            atlas,
+            palette,
+            t_ms,
+            clock,
+            art,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn advance_journey_for(
+        &mut self,
+        journey: &crate::JourneyBake,
+        still: &IndexedImage,
+        graph: &SceneGraph,
+        buddy: bool,
+        atlas: &GlyphAtlas,
+        palette: &IndexedPalette,
+        t_ms: u64,
+        clock: Clock,
+        art: &dyn SceneArt,
+    ) -> Vec<PixelRect> {
         // Only the rows the land moves through change on their own; above
         // them, what the last frame drew (the character, particles) goes
         // back to the still background.
@@ -206,6 +287,7 @@ impl IncrementalFrame {
             &mut self.image,
             &mut drawn,
             graph,
+            buddy,
             atlas,
             palette,
             t_ms,
@@ -236,6 +318,7 @@ fn compose(
     img: &mut IndexedImage,
     drawn: &mut Vec<PixelRect>,
     graph: &SceneGraph,
+    buddy: bool,
     atlas: &GlyphAtlas,
     palette: &IndexedPalette,
     t_ms: u64,
@@ -253,13 +336,16 @@ fn compose(
             );
         }
     }
-    for sprite in graph.sprites_at(t_ms) {
-        if sprite.kind == SpriteKind::Character {
-            let sprite = match (clock, graph.character) {
-                (Clock::Loop(loop_ms), Some(track)) => {
-                    graph.on_ground(loop_track(track, loop_ms).at(t_ms), t_ms)
-                }
-                _ => sprite,
+    for sprite in &graph.props {
+        if sprite.kind != SpriteKind::Character {
+            draw_sprite(img, drawn, sprite, art, palette);
+        }
+    }
+    if buddy {
+        if let Some(track) = graph.character {
+            let sprite = match clock {
+                Clock::Loop(loop_ms) => graph.on_ground(loop_track(track, loop_ms).at(t_ms), t_ms),
+                _ => graph.on_ground(track.at(t_ms), t_ms),
             };
             if let Some(pose) = character_pose(graph, art, &sprite, t_ms, clock) {
                 // Effects go on top as an overlay (only the glyph's own pixels),
@@ -267,9 +353,13 @@ fn compose(
                 draw_pose(img, drawn, &pose, palette);
                 draw_effects(img, drawn, graph, art, atlas, palette, &pose, t_ms, clock);
             }
-            continue;
         }
-        draw_sprite(img, drawn, &sprite, art, palette);
+    } else {
+        for sprite in &graph.unattended {
+            if sprite.kind != SpriteKind::Character {
+                draw_sprite(img, drawn, sprite, art, palette);
+            }
+        }
     }
 }
 

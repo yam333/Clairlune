@@ -12,7 +12,7 @@
 use clairlune_render::clock::Clock;
 use clairlune_render::{IncrementalFrame, IndexedImage, PixelRect, ScenePackage};
 use clairlune_scene::Theme;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 pub mod cover;
@@ -20,6 +20,7 @@ pub mod cover;
 pub mod d3d11;
 #[cfg(windows)]
 pub mod desktop;
+pub mod dirty;
 pub mod gpu;
 #[cfg(target_os = "macos")]
 pub mod mac;
@@ -61,12 +62,38 @@ pub struct FrameStats {
     pub present: Duration,
 }
 
+/// Shared full-scene compositor when one [`ScenePackage`] is spread across
+/// several monitors: composites once per tick instead of once per monitor.
+struct SharedSpread {
+    frame: IncrementalFrame,
+    /// `(t_ms, clock)` currently in `frame`.
+    at: Option<(u64, Clock)>,
+    /// Incremented whenever `frame` advances to a new instant.
+    seq: u64,
+    journey_top: Option<u32>,
+}
+
+enum FrameSource {
+    /// Whole-package player (one scene per monitor): composites directly.
+    Direct(IncrementalFrame),
+    /// One monitor's crop of a spread scene.
+    Shared {
+        shared: Arc<Mutex<SharedSpread>>,
+        own: IndexedImage,
+        /// Rectangles (in package coordinates) drawn onto `own` on this
+        /// monitor's last `advance`.
+        drawn: Vec<PixelRect>,
+        seen_seq: u64,
+        synced: bool,
+    },
+}
+
 /// Plays one saved scene, one frame at a time.
 pub struct Player {
     pkg: Arc<ScenePackage>,
     theme: Theme,
     buddy: bool,
-    frame: IncrementalFrame,
+    source: FrameSource,
     /// Palette index to 0RGB.
     colors: [u32; 256],
     /// Scene time when playback started (the hero time, so the first frame
@@ -83,13 +110,29 @@ pub struct Player {
 impl Player {
     /// `None` if the scene has no such theme.
     pub fn new(pkg: Arc<ScenePackage>, theme: Theme, buddy: bool) -> Option<Player> {
+        if pkg.width == 0 || pkg.height == 0 {
+            return None;
+        }
+        let frame = pkg.incremental(theme)?;
+        let colors = palette_colors(&pkg, theme)?;
+        let t0 = pkg.hero_ms(theme)?;
         let view = PixelRect {
             x: 0,
             y: 0,
             w: pkg.width,
             h: pkg.height,
         };
-        Self::new_view(pkg, theme, buddy, view)
+        Some(Player {
+            pkg,
+            theme,
+            buddy,
+            source: FrameSource::Direct(frame),
+            colors,
+            t0,
+            started: Instant::now(),
+            clock: Clock::Live,
+            view,
+        })
     }
 
     /// A player showing only `view` of the scene's frame (span mode: each
@@ -102,6 +145,16 @@ impl Player {
         buddy: bool,
         view: PixelRect,
     ) -> Option<Player> {
+        Self::build_view(pkg, theme, buddy, view, None)
+    }
+
+    fn build_view(
+        pkg: Arc<ScenePackage>,
+        theme: Theme,
+        buddy: bool,
+        view: PixelRect,
+        existing: Option<Arc<Mutex<SharedSpread>>>,
+    ) -> Option<Player> {
         let inside =
             |at: u32, len: u32, room: u32| at.checked_add(len).is_some_and(|end| end <= room);
         if view.w == 0
@@ -111,23 +164,50 @@ impl Player {
         {
             return None;
         }
-        let frame = pkg.incremental(theme)?;
-        let mut colors = [0u32; 256];
-        for (i, c) in pkg.palette(theme)?.colors().iter().enumerate() {
-            colors[i] = (u32::from(c.r) << 16) | (u32::from(c.g) << 8) | u32::from(c.b);
-        }
+        let colors = palette_colors(&pkg, theme)?;
         let t0 = pkg.hero_ms(theme)?;
+        let shared = match existing {
+            Some(s) => s,
+            None => {
+                let frame = pkg.incremental(theme)?;
+                let journey_top = pkg.journey_band_top(theme);
+                Arc::new(Mutex::new(SharedSpread {
+                    frame,
+                    at: None,
+                    seq: 0,
+                    journey_top,
+                }))
+            }
+        };
+        let (own, synced) = {
+            let guard = shared.lock().unwrap_or_else(|e| e.into_inner());
+            let mut own = IndexedImage::new(view.w, view.h);
+            copy_crop(guard.frame.image(), view, &whole_rect(view), &mut own);
+            (own, guard.at.is_none())
+        };
         Some(Player {
             pkg,
             theme,
             buddy,
-            frame,
+            source: FrameSource::Shared {
+                shared,
+                own,
+                drawn: Vec::new(),
+                seen_seq: 0,
+                synced,
+            },
             colors,
             t0,
             started: Instant::now(),
             clock: Clock::Live,
             view,
         })
+    }
+
+    /// Whether this player plays the same `(package, theme, buddy)` scene, so
+    /// another monitor can share its spread compositor via [`Player::with_view`].
+    pub fn shares_scene(&self, pkg: &Arc<ScenePackage>, theme: Theme, buddy: bool) -> bool {
+        Arc::ptr_eq(&self.pkg, pkg) && self.theme == theme && self.buddy == buddy
     }
 
     /// Particles at sub-cell positions (`Clock::Smooth`), for presenters on
@@ -139,10 +219,15 @@ impl Player {
     }
 
     /// Another player of the same scene at the same moment, showing `view`
-    /// of it (one scene on several screens, each showing its part). `None`
-    /// if the view isn't inside the frame.
+    /// of it (one scene on several screens, each showing its part) and sharing
+    /// one full-scene compositor when spread. `None` if the view isn't inside
+    /// the frame.
     pub fn with_view(&self, view: PixelRect) -> Option<Player> {
-        let mut p = Player::new_view(self.pkg.clone(), self.theme, self.buddy, view)?;
+        let existing = match &self.source {
+            FrameSource::Shared { shared, .. } => Some(shared.clone()),
+            FrameSource::Direct(_) => None,
+        };
+        let mut p = Self::build_view(self.pkg.clone(), self.theme, self.buddy, view, existing)?;
         p.t0 = self.t0;
         p.started = self.started;
         p.clock = self.clock;
@@ -161,16 +246,19 @@ impl Player {
         (self.view.w, self.view.h)
     }
 
-    /// The whole current frame as palette indices (not just the view).
+    /// The player's current frame (its view) as palette indices.
     pub fn image(&self) -> &IndexedImage {
-        self.frame.image()
+        match &self.source {
+            FrameSource::Direct(frame) => frame.image(),
+            FrameSource::Shared { own, .. } => own,
+        }
     }
 
     /// Palette indices of `w` pixels of row `y` from column `x`, in the
     /// view's coordinates.
     pub fn index_row(&self, x: u32, y: u32, w: u32) -> &[u8] {
-        let img = self.frame.image();
-        let a = (self.view.y + y) as usize * img.width as usize + (self.view.x + x) as usize;
+        let img = self.image();
+        let a = y as usize * img.width as usize + x as usize;
         &img.pixels[a..a + w as usize]
     }
 
@@ -188,29 +276,87 @@ impl Player {
     /// Moves to `t_ms`; returns the rectangles that changed, in the view's
     /// coordinates (changes outside the view are left out).
     pub fn advance(&mut self, t_ms: u64) -> Vec<PixelRect> {
-        let rects = self
-            .pkg
-            .advance(&mut self.frame, self.theme, self.buddy, t_ms, self.clock)
-            .unwrap_or_default();
         let v = self.view;
-        if (v.x, v.y, v.w, v.h) == (0, 0, self.pkg.width, self.pkg.height) {
-            return rects;
+        match &mut self.source {
+            FrameSource::Direct(frame) => self
+                .pkg
+                .advance(frame, self.theme, self.buddy, t_ms, self.clock)
+                .unwrap_or_default(),
+            FrameSource::Shared {
+                shared,
+                own,
+                drawn,
+                seen_seq,
+                synced,
+            } => {
+                let mut guard = shared.lock().unwrap_or_else(|e| e.into_inner());
+                let reuse = *seen_seq < guard.seq
+                    && guard.at.is_some_and(|(s_t, s_clock)| {
+                        s_clock == self.clock && t_ms.abs_diff(s_t) <= 4
+                    });
+                if !reuse {
+                    let _ = self.pkg.advance(
+                        &mut guard.frame,
+                        self.theme,
+                        self.buddy,
+                        t_ms,
+                        self.clock,
+                    );
+                    guard.at = Some((t_ms, self.clock));
+                    guard.seq = guard.seq.wrapping_add(1);
+                }
+                *seen_seq = guard.seq;
+                let now_drawn = guard.frame.drawn();
+                if !*synced {
+                    let all = whole_rect(v);
+                    copy_crop(guard.frame.image(), v, &all, own);
+                    drawn.clear();
+                    drawn.extend(now_drawn.iter().copied().filter(|r| overlaps(*r, v)));
+                    *synced = true;
+                    return vec![all];
+                }
+                let mut changed: Vec<PixelRect> = match guard.journey_top {
+                    Some(top) => {
+                        let top = top.min(self.pkg.height);
+                        let above = |r: &PixelRect| -> Option<PixelRect> {
+                            let y1 = (r.y + r.h).min(top);
+                            (r.y < y1).then(|| PixelRect { h: y1 - r.y, ..*r })
+                        };
+                        let mut list: Vec<PixelRect> = drawn
+                            .iter()
+                            .chain(now_drawn)
+                            .filter_map(above)
+                            .filter_map(|r| clip_to_view(r, v))
+                            .collect();
+                        if top < self.pkg.height {
+                            let band = PixelRect {
+                                x: 0,
+                                y: top,
+                                w: self.pkg.width,
+                                h: self.pkg.height - top,
+                            };
+                            if let Some(b) = clip_to_view(band, v) {
+                                list.push(b);
+                            }
+                        }
+                        list
+                    }
+                    None => drawn
+                        .iter()
+                        .chain(now_drawn)
+                        .filter_map(|&r| clip_to_view(r, v))
+                        .collect(),
+                };
+                changed.sort_unstable();
+                changed.dedup();
+                for r in &changed {
+                    copy_crop(guard.frame.image(), v, r, own);
+                }
+                drawn.clear();
+                drawn.extend(now_drawn.iter().copied().filter(|r| overlaps(*r, v)));
+                changed
+            }
         }
-        rects
-            .iter()
-            .filter_map(|r| {
-                let x0 = r.x.max(v.x);
-                let y0 = r.y.max(v.y);
-                let x1 = (r.x + r.w).min(v.x + v.w);
-                let y1 = (r.y + r.h).min(v.y + v.h);
-                (x1 > x0 && y1 > y0).then(|| PixelRect {
-                    x: x0 - v.x,
-                    y: y0 - v.y,
-                    w: x1 - x0,
-                    h: y1 - y0,
-                })
-            })
-            .collect()
     }
 
     /// Writes those rectangles (view coordinates) of the current frame into
@@ -257,6 +403,51 @@ impl Player {
 /// The highest frame rate for a journey: its land moves, so every frame is
 /// the whole screen, and Very smooth already scrolls evenly.
 pub const JOURNEY_MAX_FPS: u32 = 30;
+
+fn palette_colors(pkg: &ScenePackage, theme: Theme) -> Option<[u32; 256]> {
+    let mut colors = [0u32; 256];
+    for (i, c) in pkg.palette(theme)?.colors().iter().enumerate() {
+        colors[i] = (u32::from(c.r) << 16) | (u32::from(c.g) << 8) | u32::from(c.b);
+    }
+    Some(colors)
+}
+
+fn whole_rect(view: PixelRect) -> PixelRect {
+    PixelRect {
+        x: 0,
+        y: 0,
+        w: view.w,
+        h: view.h,
+    }
+}
+
+fn overlaps(a: PixelRect, b: PixelRect) -> bool {
+    a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
+}
+
+fn clip_to_view(r: PixelRect, v: PixelRect) -> Option<PixelRect> {
+    let x0 = r.x.max(v.x);
+    let y0 = r.y.max(v.y);
+    let x1 = (r.x + r.w).min(v.x + v.w);
+    let y1 = (r.y + r.h).min(v.y + v.h);
+    (x1 > x0 && y1 > y0).then(|| PixelRect {
+        x: x0 - v.x,
+        y: y0 - v.y,
+        w: x1 - x0,
+        h: y1 - y0,
+    })
+}
+
+/// Copies `rect` (in `view`'s local coordinates) from `src` into `dst`.
+fn copy_crop(src: &IndexedImage, view: PixelRect, rect: &PixelRect, dst: &mut IndexedImage) {
+    let sw = src.width as usize;
+    let dw = dst.width as usize;
+    for y in rect.y..rect.y + rect.h {
+        let sa = (view.y + y) as usize * sw + (view.x + rect.x) as usize;
+        let da = y as usize * dw + rect.x as usize;
+        dst.pixels[da..da + rect.w as usize].copy_from_slice(&src.pixels[sa..sa + rect.w as usize]);
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -348,5 +539,71 @@ mod tests {
             h: 180,
         };
         assert!(Player::new_view(pkg, theme, true, outside).is_none());
+    }
+
+    #[test]
+    fn shared_spread_views_stay_exact_even_when_one_monitor_pauses() {
+        let (w, h) = (640, 180);
+        for activity in ["warm_hands", "broom_journey"] {
+            let ctx = ContentContext {
+                enabled_activities: vec![activity.into()],
+                ..ContentContext::default()
+            };
+            let r = compose(11, Aspect::from_size(w, h), &ctx);
+            let pkg = Arc::new(ScenePackage::capture(&r, w, h).unwrap());
+            let theme = pkg.themes()[0];
+            let left_v = PixelRect {
+                x: 0,
+                y: 0,
+                w: 320,
+                h: 180,
+            };
+            let right_v = PixelRect {
+                x: 320,
+                y: 0,
+                w: 320,
+                h: 180,
+            };
+            let mut left = Player::new_view(pkg.clone(), theme, true, left_v).unwrap();
+            left.set_smooth(true);
+            let mut right = left.with_view(right_v).unwrap();
+            let mut buf_l = vec![0u32; 320 * 180];
+            let mut buf_r = vec![0u32; 320 * 180];
+            let t0 = left.t0;
+
+            let crop = |t: u64, x0: usize| -> Vec<u32> {
+                let (full, palette) = pkg.frame(theme, true, t, Clock::Smooth).unwrap();
+                let colors: Vec<u32> = palette
+                    .colors()
+                    .iter()
+                    .map(|c| (u32::from(c.r) << 16) | (u32::from(c.g) << 8) | u32::from(c.b))
+                    .collect();
+                (0..180)
+                    .flat_map(|y| (x0..x0 + 320).map(move |x| (x, y)))
+                    .map(|(x, y)| colors[usize::from(full.pixels[y * 640 + x])])
+                    .collect()
+            };
+
+            left.advance(t0);
+            right.advance(t0);
+            left.write_all(&mut buf_l);
+            right.write_all(&mut buf_r);
+            assert_eq!(buf_l, crop(t0, 0), "{activity} hero left");
+            assert_eq!(buf_r, crop(t0, 320), "{activity} hero right");
+
+            for step in 1..=30u64 {
+                let t = t0 + step * 83;
+                let rl = left.advance(t);
+                left.write(&mut buf_l, &rl);
+                assert_eq!(buf_l, crop(t, 0), "{activity} step {step} left");
+                // Pause the right monitor for steps 8..22 while left keeps advancing,
+                // then uncover it and check incremental catch-up!
+                if !(8..22).contains(&step) {
+                    let rr = right.advance(t);
+                    right.write(&mut buf_r, &rr);
+                    assert_eq!(buf_r, crop(t, 320), "{activity} step {step} right");
+                }
+            }
+        }
     }
 }

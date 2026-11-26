@@ -8,6 +8,27 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+### Changed
+
+- **Much lighter on the Mac, in Live and Still frame:**
+  - Scenes with snow, sandstorms, sea spray, spindrift or campfire embers now
+    copy only the small tiles that changed each frame instead of the whole
+    Retina screen.
+  - Watching for window changes behind a clear menu bar (macOS 26) ignores
+    trackpad scrolling, backs off while the Mac is untouched, stops while the
+    displays sleep, and makes no temporary allocations per window.
+  - A scene spread across several monitors is composited once per frame instead
+    of once per monitor, and unused memory is given back to the system after
+    closing a window or finishing a render.
+  - Settings and Timeline pause their animations while unfocused or covered,
+    and app updates keep Content's preview tiles on disk instead of drawing
+    them again.
+
+### Fixed
+
+- On the Mac, the event loop could spin at high CPU when a timer woke early
+  (such as after sleep) or while a new wallpaper was being made.
+
 ## [0.33.0] - 2026-11-26
 
 ### Added

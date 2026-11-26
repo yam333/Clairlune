@@ -10,7 +10,7 @@
 //! pixels that changed.
 
 use crate::Player;
-use clairlune_render::PixelRect;
+use crate::dirty::DirtyGrid;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{MainThreadMarker, MainThreadOnly};
@@ -27,14 +27,10 @@ use objc2_quartz_core::{CALayer, CATransaction, kCAFilterNearest};
 /// 'BGRA': one little-endian 0xAARRGGBB word per pixel.
 const BGRA: i32 = 0x4247_5241;
 
-/// Past this many rectangles a surface misses, it takes their bounding
-/// box instead (one copy beats many tiny ones).
-const MAX_MISSING: usize = 48;
-
 struct Buffer {
     surface: CFRetained<IOSurfaceRef>,
-    /// What changed since this surface was last written.
-    missing: Vec<PixelRect>,
+    /// Tiles that changed since this surface was last written.
+    dirty: DirtyGrid,
 }
 
 /// A view showing a player's frame.
@@ -87,11 +83,10 @@ impl SurfaceView {
     /// in pixels), at its current frame.
     pub fn new(mtm: MainThreadMarker, frame: NSRect, player: Player) -> Option<SurfaceView> {
         let (w, h) = player.size();
-        let whole = PixelRect { x: 0, y: 0, w, h };
         let buffer = || {
             Some(Buffer {
                 surface: new_surface(w, h)?,
-                missing: vec![whole],
+                dirty: DirtyGrid::new_full(w, h),
             })
         };
         let buffers = [buffer()?, buffer()?];
@@ -137,11 +132,7 @@ impl SurfaceView {
         }
         let pixels = rects.iter().map(|r| u64::from(r.w * r.h)).sum();
         for b in &mut self.buffers {
-            b.missing.extend_from_slice(&rects);
-            if b.missing.len() > MAX_MISSING {
-                let all = bounding(&b.missing);
-                b.missing = vec![all];
-            }
+            b.dirty.mark_slice(&rects);
         }
         self.present();
         (pixels, rects.len())
@@ -155,13 +146,16 @@ impl SurfaceView {
             None => 0,
         };
         let b = &mut self.buffers[next];
-        if b.missing.is_empty() || (self.shown.is_some() && b.surface.is_in_use()) {
+        if b.dirty.is_empty() || (self.shown.is_some() && b.surface.is_in_use()) {
             return;
         }
+        let mut lut = *self.player.colors();
+        for c in &mut lut {
+            *c |= 0xFF00_0000;
+        }
         // SAFETY: locked for writing; the base address and row stride are
-        // the surface's, valid until unlock, and every write lands inside
-        // its w x h pixels (the rects are inside the player's frame, which
-        // is the surface's size).
+        // the surface's, valid until unlock, and every dirty tile is clipped
+        // to the player's w x h frame, which is the surface's size.
         unsafe {
             if b.surface
                 .lock(IOSurfaceLockOptions::empty(), std::ptr::null_mut())
@@ -171,23 +165,23 @@ impl SurfaceView {
             }
             let base = b.surface.base_address().as_ptr().cast::<u8>();
             let stride = b.surface.bytes_per_row();
-            let colors = self.player.colors();
-            for r in &b.missing {
+            let player = &self.player;
+            b.dirty.for_each_rect(|r| {
                 for y in r.y..r.y + r.h {
                     let row = base
                         .add(y as usize * stride)
                         .cast::<u32>()
                         .add(r.x as usize);
                     let out = std::slice::from_raw_parts_mut(row, r.w as usize);
-                    for (o, &i) in out.iter_mut().zip(self.player.index_row(r.x, y, r.w)) {
-                        *o = 0xFF00_0000 | colors[usize::from(i)];
+                    for (o, &i) in out.iter_mut().zip(player.index_row(r.x, y, r.w)) {
+                        *o = lut[usize::from(i)];
                     }
                 }
-            }
+            });
             b.surface
                 .unlock(IOSurfaceLockOptions::empty(), std::ptr::null_mut());
         }
-        b.missing.clear();
+        b.dirty.clear();
         CATransaction::begin();
         // No cross-fade: contents swap at once.
         CATransaction::setDisableActions(true);
@@ -199,19 +193,5 @@ impl SurfaceView {
         }
         CATransaction::commit();
         self.shown = Some(next);
-    }
-}
-
-/// The smallest rectangle holding them all.
-fn bounding(rects: &[PixelRect]) -> PixelRect {
-    let x0 = rects.iter().map(|r| r.x).min().unwrap_or(0);
-    let y0 = rects.iter().map(|r| r.y).min().unwrap_or(0);
-    let x1 = rects.iter().map(|r| r.x + r.w).max().unwrap_or(0);
-    let y1 = rects.iter().map(|r| r.y + r.h).max().unwrap_or(0);
-    PixelRect {
-        x: x0,
-        y: y0,
-        w: x1 - x0,
-        h: y1 - y0,
     }
 }

@@ -321,22 +321,19 @@ impl App {
     /// draws the missing ones on a thread of their own (once per generator
     /// version and theme; a second or two the first time).
     pub(crate) fn land_thumbs(&mut self, theme: Theme) {
-        // Drawn again by each version: palettes and letters may change.
+        // Bumped only when the preview tiles themselves (palettes, letter sets
+        // or tile sizing) change, so app updates keep cached tiles on disk.
+        const THUMB_VERSION: u32 = 2;
         let dir = self.data_dir.join("thumbs").join(format!(
-            "g{}-{}-{}",
+            "g{}-t{THUMB_VERSION}-{}",
             clairlune_scene::GENERATOR_VERSION,
-            env!("CARGO_PKG_VERSION"),
             theme.as_str()
         ));
         if let Some(w) = &mut self.settings_window {
             w.set_land_dir(dir.clone());
         }
         // Earlier versions' tiles go.
-        let current = format!(
-            "g{}-{}-",
-            clairlune_scene::GENERATOR_VERSION,
-            env!("CARGO_PKG_VERSION")
-        );
+        let current = format!("g{}-t{THUMB_VERSION}-", clairlune_scene::GENERATOR_VERSION);
         if let Ok(old) = std::fs::read_dir(self.data_dir.join("thumbs")) {
             for e in old.flatten() {
                 if !e.file_name().to_string_lossy().starts_with(&current) {

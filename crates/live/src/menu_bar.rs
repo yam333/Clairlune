@@ -28,7 +28,7 @@ use objc2_app_kit::{
 };
 use objc2_core_foundation::CFRetained;
 use objc2_core_graphics::{CGColor, CGEventSource, CGEventSourceStateID, CGEventType};
-use objc2_foundation::{NSActivityOptions, NSPoint, NSProcessInfo, NSRect, NSSize, NSString};
+use objc2_foundation::{NSActivityOptions, NSPoint, NSProcessInfo, NSRect, NSSize, ns_string};
 use objc2_quartz_core::{CALayer, CATransaction};
 use std::time::{Duration, Instant};
 
@@ -71,27 +71,26 @@ struct Bar {
     strip: Option<Strip>,
 }
 
-/// How often to look while something may be moving: each frame, of fast
-/// displays too.
-const FAST: Duration = Duration::from_millis(8);
-/// For how long after a click or a modifier key, and after windows moved.
-const FAST_FOR: Duration = Duration::from_millis(700);
+/// How often to look while something may be moving: one 60 Hz frame.
+const FAST: Duration = Duration::from_millis(16);
+/// For how long after a click, a modifier key or an app change, and after
+/// windows moved.
+const FAST_FOR: Duration = Duration::from_millis(550);
 /// How often to look for new windows too, meanwhile.
-const FIND: Duration = Duration::from_millis(40);
-/// How often to ask whether there was a click or a modifier key. (A click
-/// acts as the button is let go, a moment after it's pressed.)
-const INPUT_CHECK: Duration = Duration::from_millis(100);
+const FIND: Duration = Duration::from_millis(80);
+/// How often to ask whether there was a click or a modifier key while active
+/// (backing off to [`WINDOW_CHECK`] once idle).
+const INPUT_ACTIVE: Duration = Duration::from_millis(100);
+const INPUT_WARM: Duration = Duration::from_millis(250);
 
-/// How many clicks, drags, gestures and modifier key presses there were.
+/// How many clicks and modifier key presses there were (excluding scroll/trackpad
+/// gestures and drags, so scrolling a page doesn't spin up window polling).
 /// Counting them needs no permission; which they were isn't known.
 fn input_count() -> u32 {
-    const GESTURE: CGEventType = CGEventType(29);
     [
         CGEventType::LeftMouseDown,
         CGEventType::LeftMouseUp,
-        CGEventType::LeftMouseDragged,
         CGEventType::FlagsChanged,
-        GESTURE,
     ]
     .into_iter()
     .map(|t| CGEventSource::counter_for_event_type(CGEventSourceStateID::CombinedSessionState, t))
@@ -104,11 +103,13 @@ pub struct MenuBars {
     bars: Vec<Bar>,
     /// Whether macOS takes the menu bar for a dark one, when known.
     seen_dark: Option<bool>,
+    seen_at: Option<Instant>,
     /// When the windows, the screens and the input were last looked at.
     checked: Option<Instant>,
     measured: Option<Instant>,
     found: Option<Instant>,
     asked_input: Option<Instant>,
+    last_input: Option<Instant>,
     input: u32,
     fast_until: Option<Instant>,
     /// Held while a menu bar is solid: macOS slows down (App Nap) an app
@@ -169,13 +170,33 @@ impl MenuBars {
         }
         self.checked = None;
         self.measured = None;
+        self.seen_at = None;
         self.stay_awake();
     }
 
-    /// Whether [`MenuBars::tick`] would look now, so wants to be told of the
-    /// menu bar first.
+    /// Whether [`MenuBars::see`] wants a fresh look at the menu bar's text
+    /// appearance (twice a second at most, not every animation frame).
+    pub fn appearance_due(&self, now: Instant) -> bool {
+        !self.bars.is_empty()
+            && !clairlune_platform::macos::screens_asleep()
+            && self.seen_at.is_none_or(|t| now >= t + WINDOW_CHECK)
+    }
+
+    /// Whether [`MenuBars::tick`] would look now.
     pub fn due(&self, now: Instant) -> bool {
         !self.bars.is_empty() && self.checked.is_none_or(|t| now >= t + self.pace(now))
+    }
+
+    /// Notes that an app activated, hid or unhid, or Spaces/screens changed,
+    /// so windows are re-checked right away.
+    pub fn note_windows_changed(&mut self, now: Instant) {
+        if self.bars.is_empty() {
+            return;
+        }
+        self.checked = None;
+        self.found = None;
+        self.last_input = Some(now);
+        self.fast_until = Some(now + FAST_FOR);
     }
 
     /// How long from one look at the windows to the next.
@@ -186,21 +207,41 @@ impl MenuBars {
         }
     }
 
+    /// How often to check click/modifier counters: brisk right after input,
+    /// settling to [`WINDOW_CHECK`] once the Mac has been untouched for 30 s.
+    fn input_pace(&self, now: Instant) -> Duration {
+        let Some(last) = self.last_input else {
+            return WINDOW_CHECK;
+        };
+        let idle = now.saturating_duration_since(last);
+        if idle < Duration::from_secs(5) {
+            INPUT_ACTIVE
+        } else if idle < Duration::from_secs(30) {
+            INPUT_WARM
+        } else {
+            WINDOW_CHECK
+        }
+    }
+
     /// Whether macOS takes the menu bar for a dark one ([`is_dark`]).
-    pub fn see(&mut self, dark: Option<bool>) {
+    pub fn see(&mut self, now: Instant, dark: Option<bool>) {
+        self.seen_at = Some(now);
         self.seen_dark = dark;
     }
 
     /// Looks where the windows are when that's due; returns when to come
     /// back.
     pub fn tick(&mut self, now: Instant, windows: &mut AppWindows) -> Option<Instant> {
-        if self.bars.is_empty() {
+        if self.bars.is_empty() || clairlune_platform::macos::screens_asleep() {
             return None;
         }
-        if self.asked_input.is_none_or(|t| now >= t + INPUT_CHECK) {
+        let ask_every = self.input_pace(now);
+        if self.asked_input.is_none_or(|t| now >= t + ask_every) {
             self.asked_input = Some(now);
             let input = input_count();
-            if std::mem::replace(&mut self.input, input) != input {
+            let prev = std::mem::replace(&mut self.input, input);
+            if prev != input {
+                self.last_input = Some(now);
                 self.fast_until = Some(now + FAST_FOR);
             }
         }
@@ -230,7 +271,7 @@ impl MenuBars {
             self.stay_awake();
         }
         let look = self.checked.map(|t| t + self.pace(now));
-        let ask = self.asked_input.map(|t| t + INPUT_CHECK);
+        let ask = self.asked_input.map(|t| t + self.input_pace(now));
         [look, ask].into_iter().flatten().min()
     }
 
@@ -246,7 +287,7 @@ impl MenuBars {
             None => {
                 self.awake = Some(process.beginActivityWithOptions_reason(
                     NSActivityOptions::UserInitiatedAllowingIdleSystemSleep,
-                    &NSString::from_str("The menu bar follows the windows"),
+                    ns_string!("The menu bar follows the windows"),
                 ));
             }
         }

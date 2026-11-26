@@ -174,6 +174,7 @@ impl ApplicationHandler<AppEvent> for App {
             AppEvent::LandsDrawn(done) => {
                 if done {
                     self.drawing_lands = false;
+                    self.trim_if_idle();
                 }
                 if let Some(w) = &mut self.settings_window {
                     w.refresh_lands();
@@ -206,71 +207,87 @@ impl ApplicationHandler<AppEvent> for App {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        self.run_ui_test(event_loop);
-        let now = Instant::now();
-        self.watch_monitors(event_loop, now);
-        if self.next_change.is_some_and(|t| now >= t) && !self.busy {
-            self.new_wallpaper();
-            self.reschedule();
-        }
-        if now >= self.next_check {
-            self.check();
-            self.next_check = now + CHECK_EVERY;
-            if self.watch_exe(event_loop) {
-                // Look again soon, once a copy being put in place settles.
-                self.next_check = now + Duration::from_secs(3);
+        clairlune_platform::with_autoreleasepool(|| {
+            self.run_ui_test(event_loop);
+            let now = Instant::now();
+            self.watch_monitors(event_loop, now);
+            if self.next_change.is_some_and(|t| now >= t) && !self.busy {
+                self.new_wallpaper();
+                self.reschedule();
             }
-        }
-        self.log_usage(now);
-        #[cfg(target_os = "macos")]
-        if self.live.menu_bars.due(now) {
-            let dark = self
-                .tray
-                .as_ref()
-                .and_then(crate::tray::Tray::menu_bar_dark);
-            self.live.menu_bars.see(dark);
-        }
-        let live_next = self.live.tick(Instant::now());
-        self.set_metronome(live_next.is_some());
-        let mut wake = match self.next_change {
-            Some(t) => t.min(self.next_check),
-            None => self.next_check,
-        };
-        if let Some(t) = live_next {
-            wake = wake.min(t);
-        }
-        if let Some(t) = self.monitors_changed_at {
-            wake = wake.min(t + MONITOR_SETTLE);
-        }
-        // Wake in time to prepare the next timeline slot.
-        if let Some(t) = self.timeline_prepare_at() {
-            if Instant::now() >= t {
-                if !self.busy {
-                    self.check_timeline();
+            if now >= self.next_check {
+                self.check();
+                self.next_check = now + CHECK_EVERY;
+                if self.watch_exe(event_loop) {
+                    // Look again soon, once a copy being put in place settles.
+                    self.next_check = now + Duration::from_secs(3);
                 }
-            } else {
+            }
+            self.log_usage(now);
+            #[cfg(target_os = "macos")]
+            if self.live.menu_bars.appearance_due(now) {
+                let dark = self
+                    .tray
+                    .as_ref()
+                    .and_then(crate::tray::Tray::menu_bar_dark);
+                self.live.menu_bars.see(now, dark);
+            }
+            let live_next = self.live.tick(Instant::now());
+            self.set_metronome(live_next.is_some());
+            let mut wake = self.next_check;
+            if !self.busy {
+                if let Some(t) = self.next_change {
+                    wake = wake.min(t);
+                }
+                if let Some(t) = self.monitors_changed_at {
+                    wake = wake.min(t + MONITOR_SETTLE);
+                }
+            }
+            if let Some(t) = live_next {
                 wake = wake.min(t);
             }
-        }
-        if let Some(t) = self.ui_test.as_ref().and_then(|t| t.wake()) {
-            wake = wake.min(t);
-        }
-        // Windows with an animation running get their next frame on time.
-        let now = Instant::now();
-        for w in [
-            &mut self.settings_window,
-            &mut self.library_window,
-            &mut self.timeline_window,
-            &mut self.archive_window,
-        ]
-        .into_iter()
-        .flatten()
-        {
-            if let Some(t) = w.redraw_due(now) {
+            // Wake in time to prepare the next timeline slot.
+            if let Some(t) = self.timeline_prepare_at() {
+                if Instant::now() >= t {
+                    if !self.busy {
+                        self.check_timeline();
+                    }
+                } else {
+                    wake = wake.min(t);
+                }
+            }
+            if let Some(t) = self.ui_test.as_ref().and_then(|t| t.wake()) {
                 wake = wake.min(t);
             }
-        }
-        event_loop.set_control_flow(ControlFlow::WaitUntil(wake));
+            // Windows with an animation running get their next frame on time.
+            let now = Instant::now();
+            for w in [
+                &mut self.settings_window,
+                &mut self.library_window,
+                &mut self.timeline_window,
+                &mut self.archive_window,
+            ]
+            .into_iter()
+            .flatten()
+            {
+                if let Some(t) = w.redraw_due(now) {
+                    wake = wake.min(t);
+                }
+            }
+            // Coalesce sub-millisecond timer slop and ensure every WaitUntil
+            // hands winit a distinct future Instant so macOS's CFRunLoopTimer
+            // resets its fire date instead of repeating at 0.1 us.
+            const MIN_WAIT: Duration = Duration::from_millis(1);
+            let floor = Instant::now() + MIN_WAIT;
+            if wake < floor {
+                wake = floor;
+            }
+            if self.last_wake == Some(wake) {
+                wake += Duration::from_nanos(1);
+            }
+            self.last_wake = Some(wake);
+            event_loop.set_control_flow(ControlFlow::WaitUntil(wake));
+        });
     }
 
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {

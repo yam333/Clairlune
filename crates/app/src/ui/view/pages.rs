@@ -81,8 +81,10 @@ pub(crate) fn embers(
         p.circle_filled(at, r * 3.2, alpha(ink, 0.16 * glow * strength));
         p.circle_filled(at, r, alpha(ink, glow * strength));
     }
-    ui.ctx()
-        .request_repaint_after(std::time::Duration::from_millis(33));
+    if ui.input(|i| i.focused) {
+        ui.ctx()
+            .request_repaint_after(std::time::Duration::from_millis(33));
+    }
 }
 
 /// One setting: name and control on the first line, description under it.

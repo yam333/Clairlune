@@ -20,6 +20,22 @@ impl Rect {
     fn contains(&self, px: f64, py: f64) -> bool {
         px >= self.x && px < self.x + self.w && py >= self.y && py < self.y + self.h
     }
+
+    fn intersects(&self, other: Rect) -> bool {
+        self.w > 0.0
+            && self.h > 0.0
+            && self.x < other.x + other.w
+            && self.x + self.w > other.x
+            && self.y < other.y + other.h
+            && self.y + self.h > other.y
+    }
+
+    fn covers(&self, other: Rect) -> bool {
+        self.x <= other.x
+            && self.y <= other.y
+            && self.x + self.w >= other.x + other.w
+            && self.y + self.h >= other.y + other.h
+    }
 }
 
 /// From this share of a screen's usable area covered, the screen counts as
@@ -31,15 +47,41 @@ pub const FILLED: f64 = 0.92;
 pub fn covered_share(area: Rect, windows: &[Rect]) -> f64 {
     const COLS: usize = 64;
     const ROWS: usize = 36;
-    if area.w <= 0.0 || area.h <= 0.0 {
+    if area.w <= 0.0 || area.h <= 0.0 || windows.is_empty() {
         return 0.0;
     }
+    let mut local = [Rect {
+        x: 0.0,
+        y: 0.0,
+        w: 0.0,
+        h: 0.0,
+    }; 32];
+    let mut n = 0usize;
+    let mut overflow = false;
+    for &w in windows {
+        if !w.intersects(area) {
+            continue;
+        }
+        if w.covers(area) {
+            return 1.0;
+        }
+        if n < local.len() {
+            local[n] = w;
+            n += 1;
+        } else {
+            overflow = true;
+        }
+    }
+    if n == 0 {
+        return 0.0;
+    }
+    let candidates: &[Rect] = if overflow { windows } else { &local[..n] };
     let mut hit = 0usize;
     for r in 0..ROWS {
         let py = area.y + (r as f64 + 0.5) * area.h / ROWS as f64;
         for c in 0..COLS {
             let px = area.x + (c as f64 + 0.5) * area.w / COLS as f64;
-            if windows.iter().any(|w| w.contains(px, py)) {
+            if candidates.iter().any(|w| w.contains(px, py)) {
                 hit += 1;
             }
         }
@@ -73,7 +115,11 @@ pub enum Backing {
 /// The backing for windows so, at rest, on a screen whose usable part is
 /// `area`.
 pub fn backing(area: Rect, windows: &[Rect]) -> Backing {
-    if covered_share(area, windows) < ALMOST_FILLED {
+    backing_with_share(area, windows, covered_share(area, windows))
+}
+
+fn backing_with_share(area: Rect, windows: &[Rect], share: f64) -> Backing {
+    if share < ALMOST_FILLED {
         return Backing::Clear;
     }
     let top = Rect { h: CORNERS, ..area };
@@ -126,7 +172,7 @@ impl Watch {
         }
         self.share = share;
         let still = self.since.is_some_and(|t| now >= t + REST);
-        self.backing = match (self.backing, backing(area, windows)) {
+        self.backing = match (self.backing, backing_with_share(area, windows, share)) {
             (_, Backing::Clear) => Backing::Clear,
             // A window has the menu bar right above it, or just had.
             (_, Backing::BarAndCorners) => Backing::BarAndCorners,

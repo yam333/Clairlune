@@ -197,8 +197,10 @@ pub(crate) fn demo(ui: &mut Ui, look: &Look, st: &mut TimelineState) {
         };
         p.circle_filled(pos2(cx, r.bottom() - 16.0), 3.0, ink);
     }
-    ui.ctx()
-        .request_repaint_after(std::time::Duration::from_millis(33));
+    if ui.input(|i| i.focused) {
+        ui.ctx()
+            .request_repaint_after(std::time::Duration::from_millis(33));
+    }
     ui.add_space(space::S5);
     let undo = if cfg!(target_os = "macos") {
         "Cmd Z"

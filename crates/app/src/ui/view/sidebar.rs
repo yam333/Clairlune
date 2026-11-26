@@ -352,7 +352,8 @@ pub(crate) fn squircle(rect: Rect, r: f32) -> Vec<egui::Pos2> {
 }
 
 /// A line of text in `rect`: as it is when it fits, otherwise drifting
-/// slowly left, resting a moment at the start of each pass.
+/// slowly left while the window is focused, resting a moment at the start of
+/// each pass.
 pub(crate) fn marquee(ui: &Ui, p: &Painter, rect: Rect, text: &str, ink: Color32) {
     const SPEED: f32 = 18.0; // points a second
     const GAP: f32 = 40.0;
@@ -363,15 +364,23 @@ pub(crate) fn marquee(ui: &Ui, p: &Painter, rect: Rect, text: &str, ink: Color32
         p.galley(rect.min, galley, ink);
         return;
     }
+    let clip = p.with_clip_rect(rect.expand2(vec2(0.0, 3.0)).intersect(p.clip_rect()));
+    if !ui.input(|i| i.focused) {
+        clip.galley(rect.min, galley, ink);
+        return;
+    }
     let span = w + GAP;
     let cycle = REST + span / SPEED;
     let phase = (ui.input(|i| i.time) as f32) % cycle;
     let shift = ((phase - REST).max(0.0) * SPEED).round();
-    let clip = p.with_clip_rect(rect.expand2(vec2(0.0, 3.0)).intersect(p.clip_rect()));
     clip.galley(rect.min - vec2(shift, 0.0), galley.clone(), ink);
     clip.galley(rect.min + vec2(span - shift, 0.0), galley, ink);
-    ui.ctx()
-        .request_repaint_after(std::time::Duration::from_millis(40));
+    let next = if phase < REST {
+        std::time::Duration::from_secs_f32((REST - phase).max(0.05))
+    } else {
+        std::time::Duration::from_millis(55)
+    };
+    ui.ctx().request_repaint_after(next);
 }
 
 /// One line of text, cut short with an ellipsis where it doesn't fit.

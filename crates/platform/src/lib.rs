@@ -357,6 +357,19 @@ pub fn init_dpi_awareness() {
     windows::init_dpi_awareness();
 }
 
+/// Runs `f` inside an Objective-C autorelease pool on macOS (winit's timer
+/// callbacks run outside `NSApplication`'s event pool), or directly elsewhere.
+pub fn with_autoreleasepool<R>(f: impl FnOnce() -> R) -> R {
+    #[cfg(target_os = "macos")]
+    {
+        objc2::rc::autoreleasepool(|_| f())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        f()
+    }
+}
+
 /// Opens a web page in the default browser (`&` and `%` in it are safe).
 pub fn open_url(url: &str) -> Result<(), String> {
     #[cfg(windows)]

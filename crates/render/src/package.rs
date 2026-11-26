@@ -26,7 +26,7 @@ use crate::art::{OwnedPixmap, Pixmap, SceneArt};
 use crate::atlas::GlyphAtlas;
 use crate::bake::bake_static;
 use crate::clock::Clock;
-use crate::frame::{IncrementalFrame, PixelRect, hero_time_with_art, render_frame_with_art};
+use crate::frame::{IncrementalFrame, PixelRect, hero_time_with_art, render_frame_for};
 use crate::journey::JourneyBake;
 use crate::palette::IndexedPalette;
 use crate::{IndexedImage, encode_png};
@@ -112,9 +112,7 @@ impl SceneArt for PackageArt {
 #[derive(Clone, Debug)]
 struct ThemeScene {
     theme: Theme,
-    /// Laid out with Clawd; `graph_unattended` is the same with Buddy off.
     graph: SceneGraph,
-    graph_unattended: SceneGraph,
     palette: IndexedPalette,
     atlas: GlyphAtlas,
     background: IndexedImage,
@@ -199,12 +197,9 @@ impl ScenePackage {
             // The background replaces the cells; a loaded package has none.
             graph.cells = Vec::new();
             let hero_ms = hero_time_with_art(&graph, &art);
-            let mut graph_unattended = graph.clone();
-            graph_unattended.buddy = false;
             themes.push(ThemeScene {
                 theme: graph.theme,
                 graph,
-                graph_unattended,
                 palette,
                 atlas,
                 background,
@@ -241,7 +236,14 @@ impl ScenePackage {
     pub fn keep_only(&mut self, theme: Theme) {
         if self.theme(theme).is_some() {
             self.themes.retain(|t| t.theme == theme);
+            self.themes.shrink_to_fit();
         }
+    }
+
+    /// First pixel row a journey's scrolling band covers in `theme`, or `None`
+    /// for a scene that stays put.
+    pub fn journey_band_top(&self, theme: Theme) -> Option<u32> {
+        self.theme(theme)?.journey().map(JourneyBake::band_top)
     }
 
     fn theme(&self, theme: Theme) -> Option<&ThemeScene> {
@@ -262,13 +264,13 @@ impl ScenePackage {
         clock: Clock,
     ) -> Option<(IndexedImage, &IndexedPalette)> {
         let t = self.theme(theme)?;
-        let graph = if buddy { &t.graph } else { &t.graph_unattended };
         let moved = t
             .journey()
-            .map(|j| j.background_at(graph, &t.background, t_ms));
-        let img = render_frame_with_art(
+            .map(|j| j.background_at(&t.graph, &t.background, t_ms));
+        let img = render_frame_for(
             moved.as_ref().unwrap_or(&t.background),
-            graph,
+            &t.graph,
+            buddy,
             &t.atlas,
             &t.palette,
             t_ms,
@@ -296,12 +298,12 @@ impl ScenePackage {
         clock: Clock,
     ) -> Option<Vec<PixelRect>> {
         let t = self.theme(theme)?;
-        let graph = if buddy { &t.graph } else { &t.graph_unattended };
         if let Some(j) = t.journey() {
-            return Some(frame.advance_journey(
+            return Some(frame.advance_journey_for(
                 j,
                 &t.background,
-                graph,
+                &t.graph,
+                buddy,
                 &t.atlas,
                 &t.palette,
                 t_ms,
@@ -309,9 +311,10 @@ impl ScenePackage {
                 &self.art,
             ));
         }
-        Some(frame.advance(
+        Some(frame.advance_for(
             &t.background,
-            graph,
+            &t.graph,
+            buddy,
             &t.atlas,
             &t.palette,
             t_ms,
@@ -482,12 +485,9 @@ impl ScenePackage {
                     return Err(PackageError::Invalid("journey ground or loop".into()));
                 }
             }
-            let mut graph_unattended = graph.clone();
-            graph_unattended.buddy = false;
             themes.push(ThemeScene {
                 theme: t.theme,
                 graph,
-                graph_unattended,
                 palette,
                 atlas: t.atlas,
                 background,
