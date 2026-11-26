@@ -234,6 +234,8 @@ pub struct Content {
     /// How far back the camera may stand: `close`, `wide`, `vast` (empty:
     /// all three, a different one for each wallpaper).
     pub zooms: Vec<String>,
+    /// The palettes scenes may be drawn in (empty: the classic one alone).
+    pub palettes: Vec<String>,
     pub contrast: Contrast,
 }
 
@@ -448,6 +450,7 @@ fn context_of(content: &Content) -> clairlune_scene::ContentContext {
         ctx.enabled_looks = content.looks.clone();
     }
     ctx.contrast = content.contrast.as_str().to_string();
+    ctx.enabled_palettes = content.palettes.clone();
     ctx.enabled_zooms = if content.zooms.is_empty() {
         clairlune_scene::ZOOMS
             .iter()

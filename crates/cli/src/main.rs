@@ -156,6 +156,11 @@ struct GenerateArgs {
     /// Ink contrast: `soft`, `normal`, `high`, or `vary` (one per seed).
     #[arg(long, conflicts_with = "recipe")]
     contrast: Option<String>,
+    /// Force a palette: `classic` (the default), `nord`, `gruvbox`,
+    /// `catppuccin`, `solarized`, `rose_pine`, `tokyo_night`, `phosphor` or
+    /// `amber`.
+    #[arg(long, conflicts_with = "recipe")]
+    palette: Option<String>,
     /// Render without the character (the unattended variant).
     #[arg(long)]
     no_buddy: bool,
@@ -275,6 +280,24 @@ pub(crate) fn restrict_zoom(ctx: &mut ContentContext, zoom: Option<&str>) -> Res
     Ok(())
 }
 
+/// Limits composition to one palette.
+pub(crate) fn restrict_palette(
+    ctx: &mut ContentContext,
+    palette: Option<&str>,
+) -> Result<(), String> {
+    use clairlune_scene::palette::PALETTES;
+    if let Some(p) = palette {
+        if !PALETTES.contains(&p) {
+            return Err(format!(
+                "unknown palette `{p}`; palettes: {}",
+                PALETTES.join(", ")
+            ));
+        }
+        ctx.enabled_palettes = vec![p.to_string()];
+    }
+    Ok(())
+}
+
 pub(crate) fn restrict_look(
     ctx: &mut ContentContext,
     look: Option<&str>,
@@ -335,6 +358,7 @@ fn generate(args: GenerateArgs) -> Result<(), String> {
             }
             restrict_look(&mut ctx, args.look.as_deref(), args.contrast.as_deref())?;
             restrict_zoom(&mut ctx, args.zoom.as_deref())?;
+            restrict_palette(&mut ctx, args.palette.as_deref())?;
             compose(seed, Aspect::from_size(width, height), &ctx)
         }
     };

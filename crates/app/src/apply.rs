@@ -252,18 +252,47 @@ pub fn monitor_seed(base: u64, m: &Monitor) -> u64 {
 /// drawn at a wallpaper's scale and shrunk, so the land reads as shapes
 /// rather than a few large glyphs.
 pub(crate) fn land_thumb(dir: &Path, id: &str, theme: Theme) -> Result<(), String> {
-    use clairlune_render::{render_still, to_rgba};
-    use clairlune_scene::{BuildError, BuildOptions, ContentContext};
-    const DRAWN: [u32; 2] = [960, 540];
-    const SHOWN: usize = 320;
-    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    use clairlune_scene::ContentContext;
     let ctx = ContentContext {
         enabled_archetypes: vec![id.to_string()],
         enabled_zooms: vec!["wide".into()],
         theme: Some(theme),
         ..ContentContext::default()
     };
-    let recipe = compose(7, Aspect::from_size(16, 9), &ctx);
+    thumb(dir, id, &ctx, theme, false)
+}
+
+/// A tile for a palette: one campfire scene, drawn in it.
+pub(crate) fn palette_thumb(dir: &Path, palette: &str, theme: Theme) -> Result<(), String> {
+    use clairlune_scene::ContentContext;
+    let ctx = ContentContext {
+        enabled_archetypes: vec!["mountains".into()],
+        enabled_activities: vec!["warm_hands".into()],
+        enabled_looks: vec!["line".into()],
+        enabled_zooms: vec!["wide".into()],
+        enabled_palettes: vec![palette.to_string()],
+        contrast: "normal".into(),
+        theme: Some(theme),
+        ..ContentContext::default()
+    };
+    thumb(dir, &format!("palette-{palette}"), &ctx, theme, true)
+}
+
+/// Draws a tile's scene into `<dir>/<name>.png`: all of it, or (`close`)
+/// the part around Clawd, so the glyphs and their colours read.
+fn thumb(
+    dir: &Path,
+    id: &str,
+    ctx: &clairlune_scene::ContentContext,
+    theme: Theme,
+    close: bool,
+) -> Result<(), String> {
+    use clairlune_render::{render_still, to_rgba};
+    use clairlune_scene::{BuildError, BuildOptions};
+    const DRAWN: [u32; 2] = [960, 540];
+    const SHOWN: usize = 320;
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    let recipe = compose(7, Aspect::from_size(16, 9), ctx);
     let draw = |theme| {
         let opts = BuildOptions {
             width: DRAWN[0],
@@ -281,12 +310,22 @@ pub(crate) fn land_thumb(dir: &Path, id: &str, theme: Theme) -> Result<(), Strin
         drawn => drawn,
     }
     .map_err(|e| e.to_string())?;
-    let rgba = to_rgba(&still.image, &still.palette);
-    let ([w, h], small) = crate::ui::glass::shrink(
-        [still.image.width as usize, still.image.height as usize],
-        &rgba,
-        SHOWN,
-    );
+    let mut rgba = to_rgba(&still.image, &still.palette);
+    let mut size = [still.image.width as usize, still.image.height as usize];
+    if close {
+        // Half the scene's width, around Clawd and a little above the ground.
+        let [cw, ch] = [size[0] / 2, size[1] / 2];
+        let c = &recipe.composition;
+        let cx = size[0] * c.focus_x_pm as usize / 1000;
+        let cy = (size[1] * c.horizon_pm as usize / 1000).saturating_sub(ch / 3);
+        let x0 = cx.saturating_sub(cw / 2).min(size[0] - cw);
+        let y0 = cy.saturating_sub(ch / 2).min(size[1] - ch);
+        rgba = (y0..y0 + ch)
+            .flat_map(|y| rgba[(y * size[0] + x0) * 4..(y * size[0] + x0 + cw) * 4].to_vec())
+            .collect();
+        size = [cw, ch];
+    }
+    let ([w, h], small) = crate::ui::glass::shrink(size, &rgba, SHOWN);
     let rgb = stretch(
         &small
             .as_chunks::<4>()

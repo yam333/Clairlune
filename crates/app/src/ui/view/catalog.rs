@@ -14,6 +14,19 @@ pub(crate) const LOOKS: [Item; 2] = [
     ),
 ];
 
+/// The palettes, by their ids in the recipe.
+pub(crate) const PALETTES: [Item; 9] = [
+    ("classic", "Clairlune", ""),
+    ("nord", "Nord", ""),
+    ("gruvbox", "Gruvbox", ""),
+    ("catppuccin", "Catppuccin", ""),
+    ("solarized", "Solarized", ""),
+    ("rose_pine", "Rosé Pine", ""),
+    ("tokyo_night", "Tokyo Night", ""),
+    ("phosphor", "Phosphor", ""),
+    ("amber", "Amber", ""),
+];
+
 /// The zooms, by their ids in the recipe.
 pub(crate) const ZOOMS: [Item; 3] = [
     ("close", "Close", "Clawd up close, as he has always been"),

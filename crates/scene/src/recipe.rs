@@ -279,6 +279,10 @@ pub struct ContentContext {
     /// Zooms scenes may use (of [`ZOOMS`]); none means close.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub enabled_zooms: Vec<String>,
+    /// Palettes scenes may be drawn in (of [`crate::palette::PALETTES`]);
+    /// none means the classic one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub enabled_palettes: Vec<String>,
 }
 
 impl Default for ContentContext {
@@ -300,6 +304,7 @@ impl Default for ContentContext {
             contrast: normal(),
             theme: None,
             enabled_zooms: Vec::new(),
+            enabled_palettes: Vec::new(),
         }
     }
 }

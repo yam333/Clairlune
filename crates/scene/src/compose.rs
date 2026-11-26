@@ -8,7 +8,7 @@
 
 use crate::activity::{Activity, Catalog, MotionKind, builtin_catalog, int_weight};
 use crate::archetype::{ARCHETYPE_INFO, ArchetypeInfo};
-use crate::palette::{Theme, families_for};
+use crate::palette::{PALETTES, Theme, families_for, families_in};
 use crate::recipe::{
     Aspect, CONTRASTS, Composition, ContentContext, GENERATOR_VERSION, LOOKS, PalettePick,
     SceneRecipe, TimeOfDay, ZOOMS,
@@ -198,11 +198,36 @@ pub fn compose_with(
         _ => "normal",
     };
 
-    let mut pal = Rng::stream(seed, "palette");
-    let light: Vec<_> = families_for(Theme::Light).collect();
-    let dark: Vec<_> = families_for(Theme::Dark).collect();
-    let light_family = pal.choose(&light).id.to_string();
-    let dark_family = pal.choose(&dark).id.to_string();
+    // The palette, from those allowed (its own stream: the classic one picks
+    // its families as it always has).
+    let palettes: Vec<&str> = PALETTES
+        .iter()
+        .copied()
+        .filter(|p| ctx.enabled_palettes.iter().any(|e| e == p))
+        .collect();
+    let palette = match palettes.as_slice() {
+        [] => "classic",
+        [only] => only,
+        _ => *Rng::stream(seed, "palette_set").choose(&palettes),
+    };
+    let (light_family, dark_family) = if palette == "classic" {
+        let mut pal = Rng::stream(seed, "palette");
+        let light: Vec<_> = families_for(Theme::Light).collect();
+        let dark: Vec<_> = families_for(Theme::Dark).collect();
+        (
+            pal.choose(&light).id.to_string(),
+            pal.choose(&dark).id.to_string(),
+        )
+    } else {
+        let first = |theme| {
+            families_in(palette, theme)
+                .next()
+                .expect("every palette has a family per theme")
+                .id
+                .to_string()
+        };
+        (first(Theme::Light), first(Theme::Dark))
+    };
 
     let recipe = SceneRecipe {
         generator_version: GENERATOR_VERSION,
@@ -481,6 +506,58 @@ mod tests {
                 Some("warm_hands")
             );
         }
+    }
+
+    #[test]
+    fn palettes_are_picked_from_those_allowed_and_classic_keeps_its_picks() {
+        let aspect = Aspect::from_size(1920, 1080);
+        let classic = ContentContext::default();
+        let also = ContentContext {
+            enabled_palettes: vec!["classic".into()],
+            ..ContentContext::default()
+        };
+        for seed in 0..40 {
+            // Asking for the classic palette by name changes nothing but the
+            // context's hash.
+            let (a, b) = (
+                compose(seed, aspect, &classic),
+                compose(seed, aspect, &also),
+            );
+            assert_eq!(a.palette, b.palette);
+        }
+        let nord = ContentContext {
+            enabled_palettes: vec!["nord".into()],
+            ..ContentContext::default()
+        };
+        let r = compose(3, aspect, &nord);
+        assert_eq!(
+            (r.palette.light.as_str(), r.palette.dark.as_str()),
+            ("nord_day", "nord_night")
+        );
+        let two = ContentContext {
+            enabled_palettes: vec!["amber".into(), "phosphor".into()],
+            ..ContentContext::default()
+        };
+        let seen: std::collections::BTreeSet<String> = (0..40)
+            .map(|s| compose(s, aspect, &two).palette.dark)
+            .collect();
+        assert_eq!(
+            seen.into_iter().collect::<Vec<_>>(),
+            ["amber_night", "phosphor_night"]
+        );
+    }
+
+    #[test]
+    fn every_palette_has_a_family_for_each_theme() {
+        for p in PALETTES {
+            for theme in [Theme::Light, Theme::Dark] {
+                assert!(families_in(p, theme).next().is_some(), "{p} {theme:?}");
+            }
+        }
+        // Ids are unique.
+        let ids: std::collections::BTreeSet<_> =
+            crate::palette::FAMILIES.iter().map(|f| f.id).collect();
+        assert_eq!(ids.len(), crate::palette::FAMILIES.len());
     }
 
     #[test]

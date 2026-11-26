@@ -321,22 +321,43 @@ impl App {
     /// draws the missing ones on a thread of their own (once per generator
     /// version and theme; a second or two the first time).
     pub(crate) fn land_thumbs(&mut self, theme: Theme) {
+        // Drawn again by each version: palettes and letters may change.
         let dir = self.data_dir.join("thumbs").join(format!(
-            "g{}-{}",
+            "g{}-{}-{}",
             clairlune_scene::GENERATOR_VERSION,
+            env!("CARGO_PKG_VERSION"),
             theme.as_str()
         ));
         if let Some(w) = &mut self.settings_window {
             w.set_land_dir(dir.clone());
         }
+        // Earlier versions' tiles go.
+        let current = format!(
+            "g{}-{}-",
+            clairlune_scene::GENERATOR_VERSION,
+            env!("CARGO_PKG_VERSION")
+        );
+        if let Ok(old) = std::fs::read_dir(self.data_dir.join("thumbs")) {
+            for e in old.flatten() {
+                if !e.file_name().to_string_lossy().starts_with(&current) {
+                    let _ = std::fs::remove_dir_all(e.path());
+                }
+            }
+        }
         if self.drawing_lands {
             return;
         }
-        let ids: Vec<&'static str> = clairlune_scene::archetype::ARCHETYPE_INFO
+        // The landscapes, then the palettes: (file name, what to draw).
+        let lands = clairlune_scene::archetype::ARCHETYPE_INFO
             .iter()
             .filter(|a| a.implemented)
-            .map(|a| a.id)
-            .filter(|id| !dir.join(format!("{id}.png")).exists())
+            .map(|a| (a.id.to_string(), Tile::Land(a.id)));
+        let palettes = clairlune_scene::palette::PALETTES
+            .iter()
+            .map(|p| (format!("palette-{p}"), Tile::Palette(p)));
+        let ids: Vec<(String, Tile)> = lands
+            .chain(palettes)
+            .filter(|(name, _)| !dir.join(format!("{name}.png")).exists())
             .collect();
         if ids.is_empty() {
             return;
@@ -346,9 +367,13 @@ impl App {
         let spawned = std::thread::Builder::new()
             .name("clairlune-lands".into())
             .spawn(move || {
-                for (i, id) in ids.iter().enumerate() {
-                    if let Err(e) = apply::land_thumb(&dir, id, theme) {
-                        tracing::warn!(target: "clairlune", landscape = id, error = %e, "landscape tile");
+                for (i, (name, tile)) in ids.iter().enumerate() {
+                    let drawn = match tile {
+                        Tile::Land(id) => apply::land_thumb(&dir, id, theme),
+                        Tile::Palette(p) => apply::palette_thumb(&dir, p, theme),
+                    };
+                    if let Err(e) = drawn {
+                        tracing::warn!(target: "clairlune", tile = %name, error = %e, "Content tile");
                     }
                     // Show them in batches as they come.
                     let last = i + 1 == ids.len();
@@ -413,4 +438,10 @@ impl App {
             .map(|t| t.saturating_duration_since(Instant::now()).as_secs() / 60);
         s
     }
+}
+
+/// What a tile in Content shows.
+enum Tile {
+    Land(&'static str),
+    Palette(&'static str),
 }

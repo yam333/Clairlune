@@ -530,22 +530,37 @@ pub(crate) fn picked(all: &[String], on: &[bool], always: &[&str]) -> Vec<String
     }
 }
 
-/// The landscapes as tiles: a small scene of each (drawn once by the app;
-/// a quiet placeholder until it's there), its name, and a tick when on. A
-/// landscape that's off stays in view, dimmed. At least one stays on.
-pub(crate) fn land_tiles(
+/// What an empty list of choices stands for.
+#[derive(Clone, Copy)]
+pub(crate) enum Empty {
+    /// Every one.
+    All,
+    /// This one alone (the default).
+    Only(&'static str),
+}
+
+/// Choices as tiles: a small scene of each (drawn once by the app, as
+/// `<key><id>.png`; a quiet placeholder until it's there), its name, and a
+/// tick when on. One that's off stays in view, dimmed. At least one stays on.
+pub(crate) fn pic_tiles(
     ui: &mut Ui,
     theme: Theme,
     list: &mut Vec<String>,
+    items: &[Item],
+    empty: Empty,
+    key: &str,
     lands: &mut LandThumbs,
 ) {
     let t = colors(theme);
     let g = &t.glass;
-    let items = &LANDSCAPES;
     let all: Vec<String> = items.iter().map(|(id, _, _)| id.to_string()).collect();
     let mut on: Vec<bool> = items
         .iter()
-        .map(|(id, _, _)| list.is_empty() || list.iter().any(|x| x == id))
+        .map(|(id, _, _)| match (list.is_empty(), empty) {
+            (true, Empty::All) => true,
+            (true, Empty::Only(only)) => *id == only,
+            (false, _) => list.iter().any(|x| x == id),
+        })
         .collect();
     let mut changed = false;
     let gap = space::S3;
@@ -584,12 +599,17 @@ pub(crate) fn land_tiles(
                     egui::StrokeKind::Inside,
                 );
                 let pic = Rect::from_min_size(r.min + vec2(6.0, 6.0), vec2(tile_w - 12.0, pic_h));
-                match lands.get(ui.ctx(), id) {
+                match lands.get(ui.ctx(), &format!("{key}{id}")) {
                     Some(tex) => {
-                        let tint = if on[i] {
-                            Color32::WHITE
-                        } else {
-                            Color32::from_rgba_unmultiplied(120, 120, 120, 150)
+                        // Off is dimmed; less so where the tile is a colour.
+                        let tint = match (on[i], empty) {
+                            (true, _) => Color32::WHITE,
+                            (false, Empty::All) => {
+                                Color32::from_rgba_unmultiplied(120, 120, 120, 150)
+                            }
+                            (false, Empty::Only(_)) => {
+                                Color32::from_rgba_unmultiplied(190, 190, 190, 215)
+                            }
                         };
                         egui::Image::new(tex)
                             .uv(cover_uv(tex.size_vec2(), pic.size()))
@@ -652,7 +672,18 @@ pub(crate) fn land_tiles(
         changed = true;
     }
     if changed {
-        *list = picked(&all, &on, &[]);
+        *list = match empty {
+            Empty::All => picked(&all, &on, &[]),
+            Empty::Only(only) => {
+                let chosen: Vec<String> = all
+                    .iter()
+                    .zip(&on)
+                    .filter(|(_, o)| **o)
+                    .map(|(id, _)| id.clone())
+                    .collect();
+                if chosen == [only] { Vec::new() } else { chosen }
+            }
+        };
     }
 }
 

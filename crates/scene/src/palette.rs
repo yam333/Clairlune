@@ -55,6 +55,9 @@ impl Rgb {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PaletteFamily {
     pub id: &'static str,
+    /// The palette it belongs to ([`PALETTES`]): one family per theme, or
+    /// two of each in the classic one.
+    pub set: &'static str,
     pub theme: Theme,
     /// Background at the screen edges (vignette band 0).
     pub bg_edge: Rgb,
@@ -72,11 +75,26 @@ pub struct PaletteFamily {
     pub tint_strength: f64,
 }
 
+/// The palettes a scene can be drawn in: `classic` (Clairlune's own, the
+/// only one before 0.32) and the named ones, each a family per theme.
+pub const PALETTES: [&str; 9] = [
+    "classic",
+    "nord",
+    "gruvbox",
+    "catppuccin",
+    "solarized",
+    "rose_pine",
+    "tokyo_night",
+    "phosphor",
+    "amber",
+];
+
 /// All palette families. Picks are made by index order, so only append.
-pub const FAMILIES: [PaletteFamily; 4] = [
+pub const FAMILIES: [PaletteFamily; 20] = [
     // The prototype's dark palette: warm near-black, cream ink, orange embers.
     PaletteFamily {
         id: "ember_night",
+        set: "classic",
         theme: Theme::Dark,
         bg_edge: Rgb::hex(0x151412),
         bg_center: Rgb::hex(0x211F1C), // #151412 brightened by 55 %
@@ -88,6 +106,7 @@ pub const FAMILIES: [PaletteFamily; 4] = [
     },
     PaletteFamily {
         id: "slate_night",
+        set: "classic",
         theme: Theme::Dark,
         bg_edge: Rgb::hex(0x121416),
         bg_center: Rgb::hex(0x1C1F23),
@@ -100,6 +119,7 @@ pub const FAMILIES: [PaletteFamily; 4] = [
     // Paper and near-black ink: the daytime look.
     PaletteFamily {
         id: "paper_day",
+        set: "classic",
         theme: Theme::Light,
         bg_edge: Rgb::hex(0xE2DFD4),
         bg_center: Rgb::hex(0xF2EFE6),
@@ -111,6 +131,7 @@ pub const FAMILIES: [PaletteFamily; 4] = [
     },
     PaletteFamily {
         id: "sand_day",
+        set: "classic",
         theme: Theme::Light,
         bg_edge: Rgb::hex(0xE4DACA),
         bg_center: Rgb::hex(0xF3EBDD),
@@ -119,6 +140,206 @@ pub const FAMILIES: [PaletteFamily; 4] = [
         ember: Rgb::hex(0xC24E20),
         glow_strength: 0.10,
         tint_strength: 0.50,
+    },
+    // Nord: polar night and snow storm, with the aurora's orange for fire.
+    PaletteFamily {
+        id: "nord_night",
+        set: "nord",
+        theme: Theme::Dark,
+        bg_edge: Rgb::hex(0x242933),
+        bg_center: Rgb::hex(0x2E3440),
+        ink: Rgb::hex(0x88C0D0),
+        accent: Rgb::hex(0xD08770),
+        ember: Rgb::hex(0xEBCB8B),
+        glow_strength: 0.18,
+        tint_strength: 0.60,
+    },
+    PaletteFamily {
+        id: "nord_day",
+        set: "nord",
+        theme: Theme::Light,
+        bg_edge: Rgb::hex(0xD8DEE9),
+        bg_center: Rgb::hex(0xECEFF4),
+        ink: Rgb::hex(0x2E3440),
+        accent: Rgb::hex(0xD08770),
+        ember: Rgb::hex(0xBF616A),
+        glow_strength: 0.10,
+        tint_strength: 0.50,
+    },
+    // Gruvbox: warm retro browns and cream.
+    PaletteFamily {
+        id: "gruvbox_night",
+        set: "gruvbox",
+        theme: Theme::Dark,
+        bg_edge: Rgb::hex(0x1D2021),
+        bg_center: Rgb::hex(0x282828),
+        ink: Rgb::hex(0xEBDBB2),
+        accent: Rgb::hex(0xFE8019),
+        ember: Rgb::hex(0xFABD2F),
+        glow_strength: 0.20,
+        tint_strength: 0.65,
+    },
+    PaletteFamily {
+        id: "gruvbox_day",
+        set: "gruvbox",
+        theme: Theme::Light,
+        bg_edge: Rgb::hex(0xEBDBB2),
+        bg_center: Rgb::hex(0xFBF1C7),
+        ink: Rgb::hex(0x3C3836),
+        accent: Rgb::hex(0xD65D0E),
+        ember: Rgb::hex(0xAF3A03),
+        glow_strength: 0.10,
+        tint_strength: 0.55,
+    },
+    // Catppuccin: Mocha by night, Latte by day; peach for fire.
+    PaletteFamily {
+        id: "catppuccin_night",
+        set: "catppuccin",
+        theme: Theme::Dark,
+        bg_edge: Rgb::hex(0x11111B),
+        bg_center: Rgb::hex(0x1E1E2E),
+        ink: Rgb::hex(0xB4BEFE),
+        accent: Rgb::hex(0xFAB387),
+        ember: Rgb::hex(0xF9E2AF),
+        glow_strength: 0.18,
+        tint_strength: 0.60,
+    },
+    PaletteFamily {
+        id: "catppuccin_day",
+        set: "catppuccin",
+        theme: Theme::Light,
+        bg_edge: Rgb::hex(0xDCE0E8),
+        bg_center: Rgb::hex(0xEFF1F5),
+        ink: Rgb::hex(0x4C4F69),
+        accent: Rgb::hex(0xFE640B),
+        ember: Rgb::hex(0xDF8E1D),
+        glow_strength: 0.10,
+        tint_strength: 0.50,
+    },
+    // Solarized: its blue-green base and its orange.
+    PaletteFamily {
+        id: "solarized_night",
+        set: "solarized",
+        theme: Theme::Dark,
+        bg_edge: Rgb::hex(0x00212B),
+        bg_center: Rgb::hex(0x002B36),
+        ink: Rgb::hex(0x93A1A1),
+        accent: Rgb::hex(0xCB4B16),
+        ember: Rgb::hex(0xB58900),
+        glow_strength: 0.20,
+        tint_strength: 0.60,
+    },
+    PaletteFamily {
+        id: "solarized_day",
+        set: "solarized",
+        theme: Theme::Light,
+        bg_edge: Rgb::hex(0xEEE8D5),
+        bg_center: Rgb::hex(0xFDF6E3),
+        ink: Rgb::hex(0x3B5058),
+        accent: Rgb::hex(0xCB4B16),
+        ember: Rgb::hex(0xB58900),
+        glow_strength: 0.10,
+        tint_strength: 0.50,
+    },
+    // Rosé Pine, and Rosé Pine Dawn by day.
+    PaletteFamily {
+        id: "rose_pine_night",
+        set: "rose_pine",
+        theme: Theme::Dark,
+        bg_edge: Rgb::hex(0x16141F),
+        bg_center: Rgb::hex(0x191724),
+        ink: Rgb::hex(0xEBBCBA),
+        accent: Rgb::hex(0xF6C177),
+        ember: Rgb::hex(0xEB6F92),
+        glow_strength: 0.18,
+        tint_strength: 0.60,
+    },
+    PaletteFamily {
+        id: "rose_pine_day",
+        set: "rose_pine",
+        theme: Theme::Light,
+        bg_edge: Rgb::hex(0xF2E9E1),
+        bg_center: Rgb::hex(0xFAF4ED),
+        ink: Rgb::hex(0x575279),
+        accent: Rgb::hex(0xD7827E),
+        ember: Rgb::hex(0xEA9D34),
+        glow_strength: 0.10,
+        tint_strength: 0.50,
+    },
+    // Tokyo Night, and its Day variant.
+    PaletteFamily {
+        id: "tokyo_night_night",
+        set: "tokyo_night",
+        theme: Theme::Dark,
+        bg_edge: Rgb::hex(0x16161E),
+        bg_center: Rgb::hex(0x1A1B26),
+        ink: Rgb::hex(0xC0CAF5),
+        accent: Rgb::hex(0xFF9E64),
+        ember: Rgb::hex(0xE0AF68),
+        glow_strength: 0.18,
+        tint_strength: 0.60,
+    },
+    PaletteFamily {
+        id: "tokyo_night_day",
+        set: "tokyo_night",
+        theme: Theme::Light,
+        bg_edge: Rgb::hex(0xD0D5E3),
+        bg_center: Rgb::hex(0xE1E2E7),
+        ink: Rgb::hex(0x3760BF),
+        accent: Rgb::hex(0xB15C00),
+        ember: Rgb::hex(0x8C6C3E),
+        glow_strength: 0.10,
+        tint_strength: 0.50,
+    },
+    // Phosphor: a green screen; by day, green ink on pale green paper.
+    PaletteFamily {
+        id: "phosphor_night",
+        set: "phosphor",
+        theme: Theme::Dark,
+        bg_edge: Rgb::hex(0x020A04),
+        bg_center: Rgb::hex(0x061409),
+        ink: Rgb::hex(0x33FF66),
+        accent: Rgb::hex(0xB8FF6A),
+        ember: Rgb::hex(0xD4FF8A),
+        glow_strength: 0.22,
+        tint_strength: 0.50,
+    },
+    PaletteFamily {
+        id: "phosphor_day",
+        set: "phosphor",
+        theme: Theme::Light,
+        bg_edge: Rgb::hex(0xD6ECD8),
+        bg_center: Rgb::hex(0xE9F6EA),
+        ink: Rgb::hex(0x0E3B1A),
+        accent: Rgb::hex(0x2F8F3A),
+        ember: Rgb::hex(0x1F7A2C),
+        glow_strength: 0.10,
+        tint_strength: 0.45,
+    },
+    // Amber: an amber screen; by day, brown ink on cream.
+    PaletteFamily {
+        id: "amber_night",
+        set: "amber",
+        theme: Theme::Dark,
+        bg_edge: Rgb::hex(0x0D0700),
+        bg_center: Rgb::hex(0x160C02),
+        ink: Rgb::hex(0xFFB000),
+        accent: Rgb::hex(0xFFD27A),
+        ember: Rgb::hex(0xFFE0A0),
+        glow_strength: 0.22,
+        tint_strength: 0.50,
+    },
+    PaletteFamily {
+        id: "amber_day",
+        set: "amber",
+        theme: Theme::Light,
+        bg_edge: Rgb::hex(0xF1E1C4),
+        bg_center: Rgb::hex(0xFBF0DC),
+        ink: Rgb::hex(0x4A2A00),
+        accent: Rgb::hex(0xC46A00),
+        ember: Rgb::hex(0xA35400),
+        glow_strength: 0.10,
+        tint_strength: 0.45,
     },
 ];
 
@@ -132,7 +353,14 @@ pub fn family(id: &str) -> Option<&'static PaletteFamily> {
     FAMILIES.iter().find(|f| f.id == id)
 }
 
-/// Families for one theme, in table order.
+/// The classic palette's families for one theme, in table order.
 pub fn families_for(theme: Theme) -> impl Iterator<Item = &'static PaletteFamily> {
-    FAMILIES.iter().filter(move |f| f.theme == theme)
+    families_in("classic", theme)
+}
+
+/// One palette's families for one theme, in table order.
+pub fn families_in(set: &str, theme: Theme) -> impl Iterator<Item = &'static PaletteFamily> {
+    FAMILIES
+        .iter()
+        .filter(move |f| f.set == set && f.theme == theme)
 }

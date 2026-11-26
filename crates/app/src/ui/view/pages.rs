@@ -505,7 +505,15 @@ pub(crate) fn page(
             };
             ui.add_enabled_ui(editable, |ui| {
                 group(ui, "Landscapes");
-                land_tiles(ui, theme, &mut content.archetypes, lands);
+                pic_tiles(
+                    ui,
+                    theme,
+                    &mut content.archetypes,
+                    &LANDSCAPES,
+                    Empty::All,
+                    "",
+                    lands,
+                );
                 ui.add_space(space::S4);
                 group(ui, "What Clawd does");
                 filter_checks(ui, &mut content.activities, &ACTIVITIES, &[]);
@@ -536,6 +544,17 @@ pub(crate) fn page(
                         ],
                     );
                 });
+                ui.add_space(space::S4);
+                group(ui, "Colours");
+                pic_tiles(
+                    ui,
+                    theme,
+                    &mut content.palettes,
+                    &PALETTES,
+                    Empty::Only("classic"),
+                    "palette-",
+                    lands,
+                );
                 ui.add_space(space::S4);
                 group(ui, "Zoom");
                 filter_checks(ui, &mut content.zooms, &ZOOMS, &[]);

@@ -119,7 +119,12 @@ impl UiTest {
         ));
         steps.push((ms(26800), UiStep::Close));
         steps.push((ms(27000), UiStep::Span(false)));
-        steps.push((ms(27300), UiStep::Exit));
+        // Content's palettes and letters, near the foot of the page.
+        steps.push((ms(27300), UiStep::Open(Theme::Dark, Section::Content)));
+        steps.push((ms(27600), UiStep::Page(None, false, false, 4000.0)));
+        steps.push((ms(28300), UiStep::Screenshot("settings-dark-colours.png")));
+        steps.push((ms(28800), UiStep::Close));
+        steps.push((ms(29100), UiStep::Exit));
         UiTest {
             out,
             steps,
