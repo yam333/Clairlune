@@ -347,7 +347,7 @@ impl App {
         if self.drawing_lands {
             return;
         }
-        // The landscapes, then the palettes: (file name, what to draw).
+        // The landscapes, the palettes, the letters: (file name, what to draw).
         let lands = clairlune_scene::archetype::ARCHETYPE_INFO
             .iter()
             .filter(|a| a.implemented)
@@ -355,8 +355,12 @@ impl App {
         let palettes = clairlune_scene::palette::PALETTES
             .iter()
             .map(|p| (format!("palette-{p}"), Tile::Palette(p)));
+        let letters = clairlune_scene::glyphs::LETTERS
+            .iter()
+            .map(|l| (format!("letters-{l}"), Tile::Letters(l)));
         let ids: Vec<(String, Tile)> = lands
             .chain(palettes)
+            .chain(letters)
             .filter(|(name, _)| !dir.join(format!("{name}.png")).exists())
             .collect();
         if ids.is_empty() {
@@ -371,6 +375,7 @@ impl App {
                     let drawn = match tile {
                         Tile::Land(id) => apply::land_thumb(&dir, id, theme),
                         Tile::Palette(p) => apply::palette_thumb(&dir, p, theme),
+                        Tile::Letters(l) => apply::letters_thumb(&dir, l, theme),
                     };
                     if let Err(e) = drawn {
                         tracing::warn!(target: "clairlune", tile = %name, error = %e, "Content tile");
@@ -444,4 +449,5 @@ impl App {
 enum Tile {
     Land(&'static str),
     Palette(&'static str),
+    Letters(&'static str),
 }

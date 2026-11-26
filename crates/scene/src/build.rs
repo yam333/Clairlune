@@ -480,6 +480,11 @@ fn build_scene(
         loop_ms: LOOP_MS,
         pace,
         generator: recipe.generator_version,
+        letters: if recipe.letters == "text" {
+            String::new()
+        } else {
+            recipe.letters.clone()
+        },
         water,
         journey,
         zoom,

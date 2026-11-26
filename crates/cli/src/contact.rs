@@ -45,6 +45,9 @@ pub struct ContactArgs {
     /// Only this palette (see `generate --palette`).
     #[arg(long)]
     palette: Option<String>,
+    /// Only this letter set (see `generate --letters`).
+    #[arg(long)]
+    letters: Option<String>,
     /// Render without the character.
     #[arg(long)]
     no_buddy: bool,
@@ -85,6 +88,7 @@ pub fn contact_sheet(args: ContactArgs) -> Result<(), String> {
     crate::restrict_look(&mut ctx, args.look.as_deref(), args.contrast.as_deref())?;
     crate::restrict_zoom(&mut ctx, args.zoom.as_deref())?;
     crate::restrict_palette(&mut ctx, args.palette.as_deref())?;
+    crate::restrict_letters(&mut ctx, args.letters.as_deref())?;
     if let Some(id) = &args.activity {
         if builtin_catalog().get(id).is_none() {
             return Err(format!("unknown activity `{id}`"));

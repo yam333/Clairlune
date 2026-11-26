@@ -27,6 +27,15 @@ pub(crate) const PALETTES: [Item; 9] = [
     ("amber", "Amber", ""),
 ];
 
+/// The letter sets, by their ids in the recipe.
+pub(crate) const LETTERS: [Item; 5] = [
+    ("text", "Text", ""),
+    ("braille", "Braille", ""),
+    ("blocks", "Blocks", ""),
+    ("lines", "Lines", ""),
+    ("kana", "Kana", ""),
+];
+
 /// The zooms, by their ids in the recipe.
 pub(crate) const ZOOMS: [Item; 3] = [
     ("close", "Close", "Clawd up close, as he has always been"),

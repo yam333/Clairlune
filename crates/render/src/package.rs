@@ -192,7 +192,7 @@ impl ScenePackage {
             activity,
         };
         for mut graph in graphs {
-            let atlas = GlyphAtlas::for_grid(&graph.grid);
+            let atlas = GlyphAtlas::for_graph(&graph);
             let palette = IndexedPalette::for_graph(&graph)
                 .with_sprite_colors(character_colors(&art.character));
             let background = bake_static(&graph, &atlas);

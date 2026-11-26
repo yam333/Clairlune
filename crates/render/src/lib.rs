@@ -95,7 +95,7 @@ pub fn render_still(
     {
         tracing::warn!(target: "clairlune_render", activity = %a.id, "no drawn art for this activity; drawing the placeholder character");
     }
-    let atlas = GlyphAtlas::for_grid(&graph.grid);
+    let atlas = GlyphAtlas::for_graph(&graph);
     let palette = IndexedPalette::for_graph(&graph);
     let mut background = bake_static(&graph, &atlas);
     let t = t_ms.unwrap_or_else(|| hero_time(&graph));

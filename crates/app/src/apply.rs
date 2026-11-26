@@ -259,7 +259,7 @@ pub(crate) fn land_thumb(dir: &Path, id: &str, theme: Theme) -> Result<(), Strin
         theme: Some(theme),
         ..ContentContext::default()
     };
-    thumb(dir, id, &ctx, theme, false)
+    thumb(dir, id, &ctx, theme, 1)
 }
 
 /// A tile for a palette: one campfire scene, drawn in it.
@@ -275,17 +275,34 @@ pub(crate) fn palette_thumb(dir: &Path, palette: &str, theme: Theme) -> Result<(
         theme: Some(theme),
         ..ContentContext::default()
     };
-    thumb(dir, &format!("palette-{palette}"), &ctx, theme, true)
+    thumb(dir, &format!("palette-{palette}"), &ctx, theme, 2)
 }
 
-/// Draws a tile's scene into `<dir>/<name>.png`: all of it, or (`close`)
-/// the part around Clawd, so the glyphs and their colours read.
+/// A tile for a letter set: the same campfire scene, close enough that the
+/// characters show.
+pub(crate) fn letters_thumb(dir: &Path, letters: &str, theme: Theme) -> Result<(), String> {
+    use clairlune_scene::ContentContext;
+    let ctx = ContentContext {
+        enabled_archetypes: vec!["mountains".into()],
+        enabled_activities: vec!["warm_hands".into()],
+        enabled_looks: vec!["line".into()],
+        enabled_zooms: vec!["close".into()],
+        enabled_letters: vec![letters.to_string()],
+        contrast: "normal".into(),
+        theme: Some(theme),
+        ..ContentContext::default()
+    };
+    thumb(dir, &format!("letters-{letters}"), &ctx, theme, 4)
+}
+
+/// Draws a tile's scene into `<dir>/<name>.png`: all of it, or a part
+/// `closer` times smaller around Clawd, so the glyphs and their colours read.
 fn thumb(
     dir: &Path,
     id: &str,
     ctx: &clairlune_scene::ContentContext,
     theme: Theme,
-    close: bool,
+    closer: usize,
 ) -> Result<(), String> {
     use clairlune_render::{render_still, to_rgba};
     use clairlune_scene::{BuildError, BuildOptions};
@@ -312,9 +329,9 @@ fn thumb(
     .map_err(|e| e.to_string())?;
     let mut rgba = to_rgba(&still.image, &still.palette);
     let mut size = [still.image.width as usize, still.image.height as usize];
-    if close {
-        // Half the scene's width, around Clawd and a little above the ground.
-        let [cw, ch] = [size[0] / 2, size[1] / 2];
+    if closer > 1 {
+        // Around Clawd, a little above the ground.
+        let [cw, ch] = [size[0] / closer, size[1] / closer];
         let c = &recipe.composition;
         let cx = size[0] * c.focus_x_pm as usize / 1000;
         let cy = (size[1] * c.horizon_pm as usize / 1000).saturating_sub(ch / 3);

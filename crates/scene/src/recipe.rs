@@ -48,6 +48,12 @@ pub fn zoom_factor(zoom: &str) -> f64 {
 fn close() -> String {
     "close".into()
 }
+fn text() -> String {
+    "text".into()
+}
+fn is_text(v: &str) -> bool {
+    v == "text"
+}
 fn is_close(v: &str) -> bool {
     v == "close"
 }
@@ -204,6 +210,10 @@ pub struct SceneRecipe {
     /// recipes stay as they were).
     #[serde(default = "close", skip_serializing_if = "is_close")]
     pub zoom: String,
+    /// One of [`crate::glyphs::LETTERS`]; text when absent (and then not
+    /// written).
+    #[serde(default = "text", skip_serializing_if = "is_text")]
+    pub letters: String,
 }
 
 impl SceneRecipe {
@@ -283,6 +293,10 @@ pub struct ContentContext {
     /// none means the classic one.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub enabled_palettes: Vec<String>,
+    /// Letter sets scenes may be drawn in (of [`crate::glyphs::LETTERS`]);
+    /// none means text.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub enabled_letters: Vec<String>,
 }
 
 impl Default for ContentContext {
@@ -305,6 +319,7 @@ impl Default for ContentContext {
             theme: None,
             enabled_zooms: Vec::new(),
             enabled_palettes: Vec::new(),
+            enabled_letters: Vec::new(),
         }
     }
 }

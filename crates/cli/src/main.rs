@@ -161,6 +161,10 @@ struct GenerateArgs {
     /// `amber`.
     #[arg(long, conflicts_with = "recipe")]
     palette: Option<String>,
+    /// Force a letter set: `text` (the default), `braille`, `blocks`,
+    /// `lines` or `kana`.
+    #[arg(long, conflicts_with = "recipe")]
+    letters: Option<String>,
     /// Render without the character (the unattended variant).
     #[arg(long)]
     no_buddy: bool,
@@ -298,6 +302,24 @@ pub(crate) fn restrict_palette(
     Ok(())
 }
 
+/// Limits composition to one letter set.
+pub(crate) fn restrict_letters(
+    ctx: &mut ContentContext,
+    letters: Option<&str>,
+) -> Result<(), String> {
+    use clairlune_scene::glyphs::LETTERS;
+    if let Some(l) = letters {
+        if !LETTERS.contains(&l) {
+            return Err(format!(
+                "unknown letter set `{l}`; letter sets: {}",
+                LETTERS.join(", ")
+            ));
+        }
+        ctx.enabled_letters = vec![l.to_string()];
+    }
+    Ok(())
+}
+
 pub(crate) fn restrict_look(
     ctx: &mut ContentContext,
     look: Option<&str>,
@@ -359,6 +381,7 @@ fn generate(args: GenerateArgs) -> Result<(), String> {
             restrict_look(&mut ctx, args.look.as_deref(), args.contrast.as_deref())?;
             restrict_zoom(&mut ctx, args.zoom.as_deref())?;
             restrict_palette(&mut ctx, args.palette.as_deref())?;
+            restrict_letters(&mut ctx, args.letters.as_deref())?;
             compose(seed, Aspect::from_size(width, height), &ctx)
         }
     };

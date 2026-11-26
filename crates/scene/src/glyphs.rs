@@ -15,6 +15,48 @@ pub const GLYPHS: [char; 38] = [
 /// The empty cell.
 pub const EMPTY: u8 = 0;
 
+/// The letter sets a scene can be drawn in: the glyphs as they are (`text`),
+/// or each one swapped for a character of a like shape and weight. The swap
+/// happens when glyphs are rasterized, so everything that draws glyphs
+/// (land, sky, weather, embers) takes the set.
+pub const LETTERS: [&str; 5] = ["text", "braille", "blocks", "lines", "kana"];
+
+/// The characters glyph ids stand for in a letter set (unknown: `text`).
+pub fn letters(set: &str) -> [char; GLYPHS.len()] {
+    match set {
+        "braille" => BRAILLE,
+        "blocks" => BLOCKS,
+        "lines" => LINES,
+        "kana" => KANA,
+        _ => GLYPHS,
+    }
+}
+
+/// Braille: each glyph's shape at two by four dots.
+const BRAILLE: [char; GLYPHS.len()] = [
+    ' ', '⠈', '⠒', '⡜', '⡇', '⢣', '⡀', '⠶', '⠪', '⠕', '⠅', '⠶', '⠭', '⠿', '⡿', '⣟', '⣯', '⣿', '⠺',
+    '⠊', '⠢', '⠁', '⢀', '⠮', '⠆', '⠉', '⢾', '⠼', '⣀', '⠣', '⠇', '⣾', '⠂', '⠆', '⠶', '⠿', '⡿', '⣿',
+];
+
+/// Blocks: quarter blocks for strokes, shades for masses.
+const BLOCKS: [char; GLYPHS.len()] = [
+    ' ', '▝', '▀', '▞', '▌', '▚', '▖', '░', '▙', '▟', '░', '▒', '▒', '▓', '▓', '▓', '▓', '█', '▒',
+    '▀', '░', '▘', '▗', '▪', '▗', '▀', '▙', '▟', '▄', '▞', '▐', '▓', '▖', '░', '▒', '▀', '▓', '█',
+];
+
+/// Lines: box-drawing strokes and crossings.
+const LINES: [char; GLYPHS.len()] = [
+    ' ', '╵', '─', '╱', '│', '╲', '·', '═', '┤', '├', '┊', '┼', '╳', '╋', '╬', '╳', '╪', '╬', '┼',
+    '┴', '∼', '╵', '╷', '┼', '┆', '╵', 'd', 'J', '─', '∨', '╎', '╬', '╴', '─', '┼', '━', '╋', '█',
+];
+
+/// Kana: katakana of a like weight and shape (drawn narrowed to the cell).
+const KANA: [char; GLYPHS.len()] = [
+    ' ', 'ャ', 'ー', 'ノ', 'リ', 'ヽ', '・', 'ニ', 'ク', 'シ', 'ミ', 'ロ', 'メ', 'モ', 'ヰ', 'ヌ',
+    'ム', 'ヲ', 'ナ', 'ヘ', 'ン', 'ッ', 'ュ', 'キ', 'シ', 'ハ', 'd', 'J', 'ー', 'ソ', 'イ', 'ツ',
+    '・', 'ー', 'ニ', 'テ', 'モ', 'ヰ',
+];
+
 /// Index of `c` in [`GLYPHS`]. Panics at compile time if it is missing.
 pub const fn id(c: char) -> u8 {
     let mut i = 0;
@@ -98,6 +140,17 @@ pub const EMBERS: [u8; 5] = [id('*'), id('+'), id('\''), id('.'), id('`')];
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_letter_set_keeps_the_empty_cell_and_draws_the_rest() {
+        for set in LETTERS {
+            let t = letters(set);
+            assert_eq!(t[EMPTY as usize], ' ', "{set}");
+            assert!(t[1..].iter().all(|c| *c != ' '), "{set}");
+        }
+        assert_eq!(letters("text"), GLYPHS);
+        assert_eq!(letters("unknown"), GLYPHS);
+    }
 
     #[test]
     fn table_has_no_duplicates() {

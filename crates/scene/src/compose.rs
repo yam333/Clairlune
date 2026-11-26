@@ -229,6 +229,18 @@ pub fn compose_with(
         (first(Theme::Light), first(Theme::Dark))
     };
 
+    // The letter set, from those allowed (its own stream).
+    let sets: Vec<&str> = crate::glyphs::LETTERS
+        .iter()
+        .copied()
+        .filter(|l| ctx.enabled_letters.iter().any(|e| e == l))
+        .collect();
+    let letters = match sets.as_slice() {
+        [] => "text",
+        [only] => only,
+        _ => *Rng::stream(seed, "letters").choose(&sets),
+    };
+
     let recipe = SceneRecipe {
         generator_version: GENERATOR_VERSION,
         seed,
@@ -265,6 +277,7 @@ pub fn compose_with(
         look: look.to_string(),
         contrast: contrast.to_string(),
         zoom: zoom.to_string(),
+        letters: letters.to_string(),
     };
     log_composed(&recipe, eligible.len());
     recipe

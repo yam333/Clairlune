@@ -556,6 +556,17 @@ pub(crate) fn page(
                     lands,
                 );
                 ui.add_space(space::S4);
+                group(ui, "Letters");
+                pic_tiles(
+                    ui,
+                    theme,
+                    &mut content.letters,
+                    &LETTERS,
+                    Empty::Only("text"),
+                    "letters-",
+                    lands,
+                );
+                ui.add_space(space::S4);
                 group(ui, "Zoom");
                 filter_checks(ui, &mut content.zooms, &ZOOMS, &[]);
             });

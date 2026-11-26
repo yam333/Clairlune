@@ -7,14 +7,18 @@
 //! byte-identical on every OS and CPU. (A SIMD rasterizer with separate x86 and
 //! ARM paths would not guarantee that.)
 
-use clairlune_scene::GridSpec;
 use clairlune_scene::glyphs::GLYPHS;
+use clairlune_scene::{GridSpec, SceneGraph};
 use skrifa::instance::{LocationRef, Size};
 use skrifa::outline::{DrawSettings, OutlinePen};
 use skrifa::{FontRef, MetadataProvider};
 
 /// The bundled monospace font (JetBrains Mono Regular, SIL OFL 1.1).
 pub static FONT_DATA: &[u8] = include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf");
+
+/// The katakana the `kana` letter set is drawn in: M PLUS 1 Code's, cut
+/// down to them (SIL OFL 1.1, assets/fonts/ClairluneKana-OFL.txt).
+pub static KANA_FONT: &[u8] = include_bytes!("../assets/fonts/ClairluneKana.ttf");
 
 /// Samples per pixel along each axis.
 const SUPERSAMPLE: u32 = 8;
@@ -54,6 +58,40 @@ impl GlyphAtlas {
             .expect("bundled font parses")
     }
 
+    /// The atlas a scene's glyphs are drawn with: in its letter set.
+    pub fn for_graph(graph: &SceneGraph) -> Self {
+        Self::for_letters(&graph.grid, &graph.letters)
+    }
+
+    /// Atlas for a grid in a letter set (`clairlune_scene::glyphs::LETTERS`):
+    /// the bundled font's characters, katakana from the kana font, narrowed
+    /// to the cell, and braille drawn as dots.
+    pub fn for_letters(spec: &GridSpec, letters: &str) -> Self {
+        let chars = clairlune_scene::glyphs::letters(letters);
+        let (w, h) = (spec.cell_w, spec.cell_h);
+        let mut atlas = Self::rasterize_chars(FONT_DATA, &chars, w, h, spec.font_px, false)
+            .expect("bundled font parses");
+        let len = (w * h) as usize;
+        let kana: Vec<char> = chars
+            .iter()
+            .map(|&c| if is_kana(c) { c } else { ' ' })
+            .collect();
+        if kana.iter().any(|&c| c != ' ') {
+            let k = Self::rasterize_chars(KANA_FONT, &kana, w, h, spec.font_px, true)
+                .expect("bundled kana font parses");
+            for (i, _) in kana.iter().enumerate().filter(|(_, c)| **c != ' ') {
+                atlas.masks[i * len..(i + 1) * len]
+                    .copy_from_slice(&k.masks[i * len..(i + 1) * len]);
+            }
+        }
+        for (i, &c) in chars.iter().enumerate() {
+            if let Some(dots) = braille_dots(c) {
+                braille(dots, w, h, &mut atlas.masks[i * len..(i + 1) * len]);
+            }
+        }
+        atlas
+    }
+
     /// Atlas from arbitrary font bytes.
     pub fn with_font(
         font: &[u8],
@@ -72,6 +110,18 @@ impl GlyphAtlas {
         cell_w: u32,
         cell_h: u32,
         font_px: f64,
+    ) -> Result<Self, AtlasError> {
+        Self::rasterize_chars(font, chars, cell_w, cell_h, font_px, false)
+    }
+
+    /// With `narrow`, a glyph wider than the cell is narrowed to fit it.
+    fn rasterize_chars(
+        font: &[u8],
+        chars: &[char],
+        cell_w: u32,
+        cell_h: u32,
+        font_px: f64,
+        narrow: bool,
     ) -> Result<Self, AtlasError> {
         let face = FontRef::new(font).map_err(AtlasError::Font)?;
         // Everything in font units; we scale ourselves with f64.
@@ -97,12 +147,20 @@ impl GlyphAtlas {
             let Some(glyph) = outlines.get(id) else {
                 continue;
             };
-            let advance = f64::from(glyph_metrics.advance_width(id).unwrap_or(0.0)) * scale;
+            let mut advance = f64::from(glyph_metrics.advance_width(id).unwrap_or(0.0)) * scale;
+            let room = f64::from(cell_w) * 0.94;
+            let sx = if narrow && advance > room {
+                room / advance
+            } else {
+                1.0
+            };
+            advance *= sx;
             let mut outline = Flattener {
                 segs: Vec::new(),
                 ox: (f64::from(cell_w) - advance) * 0.5,
                 baseline,
                 scale,
+                sx,
                 cur: (0.0, 0.0),
                 start: (0.0, 0.0),
             };
@@ -160,6 +218,8 @@ struct Flattener {
     ox: f64,
     baseline: f64,
     scale: f64,
+    /// How much narrower than the font draws it (1: as drawn).
+    sx: f64,
     cur: (f64, f64),
     start: (f64, f64),
 }
@@ -167,7 +227,7 @@ struct Flattener {
 impl Flattener {
     fn map(&self, x: f32, y: f32) -> (f64, f64) {
         (
-            self.ox + f64::from(x) * self.scale,
+            self.ox + f64::from(x) * self.scale * self.sx,
             self.baseline - f64::from(y) * self.scale,
         )
     }
@@ -275,6 +335,68 @@ fn rasterize(segs: &[Seg], w: u32, h: u32, out: &mut [u8]) {
     }
 }
 
+/// Katakana, drawn from the kana font.
+fn is_kana(c: char) -> bool {
+    ('\u{30A0}'..='\u{30FF}').contains(&c)
+}
+
+/// A braille character's dots (bit 0 is dot 1), if it is one.
+fn braille_dots(c: char) -> Option<u8> {
+    let v = u32::from(c);
+    (0x2801..=0x28FF).contains(&v).then(|| (v - 0x2800) as u8)
+}
+
+/// Draws braille dots as round dots: two columns of four, over the height
+/// the letters take, the same at every size (supersampled, f64 only, so
+/// the same on every machine).
+fn braille(dots: u8, w: u32, h: u32, out: &mut [u8]) {
+    // Dot n's column and row (Unicode's order: 1-3 and 7 down the left, 4-6
+    // and 8 down the right).
+    const PLACE: [(u32, u32); 8] = [
+        (0, 0),
+        (0, 1),
+        (0, 2),
+        (1, 0),
+        (1, 1),
+        (1, 2),
+        (0, 3),
+        (1, 3),
+    ];
+    let (fw, fh) = (f64::from(w), f64::from(h));
+    let r = (fw * 0.14).min(fh * 0.07);
+    let centres: Vec<(f64, f64)> = PLACE
+        .iter()
+        .enumerate()
+        .filter(|(n, _)| dots & (1 << n) != 0)
+        .map(|(_, &(c, row))| {
+            (
+                fw * (0.3 + 0.4 * f64::from(c)),
+                fh * (0.17 + 0.2 * f64::from(row)),
+            )
+        })
+        .collect();
+    let s = f64::from(SUPERSAMPLE);
+    for y in 0..h {
+        for x in 0..w {
+            let mut hit = 0u32;
+            for sy in 0..SUPERSAMPLE {
+                for sx in 0..SUPERSAMPLE {
+                    let px = f64::from(x) + (f64::from(sx) + 0.5) / s;
+                    let py = f64::from(y) + (f64::from(sy) + 0.5) / s;
+                    if centres
+                        .iter()
+                        .any(|&(cx, cy)| (px - cx) * (px - cx) + (py - cy) * (py - cy) <= r * r)
+                    {
+                        hit += 1;
+                    }
+                }
+            }
+            out[(y * w + x) as usize] =
+                ((hit * 255 + SUPERSAMPLE * SUPERSAMPLE / 2) / (SUPERSAMPLE * SUPERSAMPLE)) as u8;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -299,6 +421,23 @@ mod tests {
         // Heavier glyphs carry more ink than light ones.
         assert!(ink(&atlas, id('@')) > ink(&atlas, id('.')));
         assert!(ink(&atlas, id('#')) > ink(&atlas, id('-')));
+    }
+
+    #[test]
+    fn every_letter_set_has_ink_where_its_glyphs_do() {
+        let spec = clairlune_scene::graph::grid_spec(1920, 1080);
+        let text = GlyphAtlas::for_grid(&spec);
+        assert_eq!(GlyphAtlas::for_letters(&spec, "text"), text);
+        for set in clairlune_scene::glyphs::LETTERS {
+            let a = GlyphAtlas::for_letters(&spec, set);
+            for (g, c) in clairlune_scene::glyphs::letters(set).iter().enumerate() {
+                let g = g as u8;
+                assert_eq!(ink(&a, g) == 0, g == EMPTY, "{set}: {c:?} ({g})");
+            }
+        }
+        // Braille is dots: one dot inks less than all eight.
+        let b = GlyphAtlas::for_letters(&spec, "braille");
+        assert!(ink(&b, id('.')) * 4 < ink(&b, id('@')));
     }
 
     #[test]

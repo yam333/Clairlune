@@ -508,6 +508,10 @@ pub struct SceneGraph {
     /// palette follows it, so older scenes keep their colours.
     #[serde(default)]
     pub generator: u32,
+    /// The letter set its glyphs are drawn in (`glyphs::LETTERS`); empty
+    /// for text, and then not written.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub letters: String,
     /// A point on open water near the focal group, in pixels (the shore:
     /// just past the pier's end), for effects that reach the water.
     #[serde(default)]

@@ -167,7 +167,7 @@ pub fn encode_gif<W: Write>(
     let started = Instant::now();
     let graph = build(recipe, opts).map_err(GifError::Build)?;
     let loop_ms = gif_loop(graph.journey.as_ref(), loop_ms);
-    let atlas = GlyphAtlas::for_grid(&graph.grid);
+    let atlas = GlyphAtlas::for_graph(&graph);
     let palette = IndexedPalette::for_graph(&graph);
     let background = bake_static(&graph, &atlas);
     let journey = crate::JourneyBake::new(&graph, &atlas);

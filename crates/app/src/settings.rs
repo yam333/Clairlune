@@ -236,6 +236,8 @@ pub struct Content {
     pub zooms: Vec<String>,
     /// The palettes scenes may be drawn in (empty: the classic one alone).
     pub palettes: Vec<String>,
+    /// The letter sets scenes may be drawn in (empty: text alone).
+    pub letters: Vec<String>,
     pub contrast: Contrast,
 }
 
@@ -451,6 +453,7 @@ fn context_of(content: &Content) -> clairlune_scene::ContentContext {
     }
     ctx.contrast = content.contrast.as_str().to_string();
     ctx.enabled_palettes = content.palettes.clone();
+    ctx.enabled_letters = content.letters.clone();
     ctx.enabled_zooms = if content.zooms.is_empty() {
         clairlune_scene::ZOOMS
             .iter()
