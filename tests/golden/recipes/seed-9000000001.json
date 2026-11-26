@@ -5,7 +5,7 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "b3608e3fff5732c6",
+  "content_ctx_hash": "aa1aa1248f4d7a25",
   "activity": "meditate",
   "archetype": "savanna",
   "light_tod": "golden_hour",
@@ -14,7 +14,7 @@
   "props": [
     "stone_pile"
   ],
-  "weather": "shooting_stars",
+  "weather": "tumbleweed",
   "composition": {
     "horizon_pm": 624,
     "focus_x_pm": 348,

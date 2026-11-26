@@ -198,7 +198,7 @@ pub(crate) const ACTIVITIES: [Item; 38] = [
 
 /// Weather that shows as particles. Clear weather ("none", "stars") is
 /// always allowed so every scene has something to fall back to.
-pub(crate) const WEATHER: [Item; 15] = [
+pub(crate) const WEATHER: [Item; 26] = [
     ("snow", "Snow", ""),
     ("rain", "Rain", ""),
     ("fireflies", "Fireflies", ""),
@@ -217,6 +217,21 @@ pub(crate) const WEATHER: [Item; 15] = [
         "shooting_stars",
         "Shooting stars",
         "Streaking by after dark",
+    ),
+    ("spray", "Sea spray", "Thrown up by the waves"),
+    ("sandstorm", "Sandstorm", "Sand on the wind"),
+    ("tumbleweed", "Tumbleweed", "Rolling across dry land"),
+    ("cinders", "Cinders", "Rising from a volcano"),
+    ("sky_lanterns", "Sky lanterns", "Rising after dark"),
+    ("fireworks", "Fireworks", "Over the town after dark"),
+    ("spores", "Glowing spores", "Drifting up in damp places"),
+    ("wisps", "Wisps", "Lights in the dark that come and go"),
+    ("bats", "Bats", "Flitting about after dark"),
+    ("spindrift", "Spindrift", "Snow blown off the peaks"),
+    (
+        "dragonflies",
+        "Dragonflies",
+        "Darting over the water by day",
     ),
 ];
 pub(crate) const CLEAR_WEATHER: [&str; 2] = ["none", "stars"];

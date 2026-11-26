@@ -16,7 +16,7 @@ clairlune-cli generate --seed 7 --theme dark --size 3840x2160 --out wallpaper.pn
 | `--out <path>` | Output PNG (indexed, at most 255 colours). |
 | `--activity <id>` | Force an activity, such as `stroll` or `hike_ridge`. An unknown id lists them all. |
 | `--archetype <id>` | Force a landscape: `canyon`, `mountains`, `forest`, `desert`, `snowfield`, `shore`, `city_rooftops`, `night_sky`, `cave`, `interior`, `meadow`, `lake`, `volcano`, `islands`, `lunar`, `bamboo`, `waterfall`, `countryside`, `ruins`, `savanna`, `swamp`, `mushrooms`, `crystals`, `great_tree`, `wizard_tower`, `standing_stones`, `lantern_lake`, `lighthouse`, `harbour`, `zen_garden`, `observatory`, `oasis`, `windmills`. |
-| `--weather <id>` | Force the weather where the scene allows it, such as `rain`, `fog`, `birds`, `butterflies`, `seeds` or `shooting_stars`. An unknown id lists them all. |
+| `--weather <id>` | Force the weather where the scene allows it, such as `rain`, `fog`, `birds`, `seeds`, `shooting_stars`, or a landscape's own: `spray`, `sandstorm`, `tumbleweed`, `cinders`, `sky_lanterns`, `fireworks`, `spores`, `wisps`, `bats`, `spindrift`, `dragonflies`. An unknown id lists them all. |
 | `--look <look>` | `line` or `dither`. |
 | `--contrast <c>` | `soft`, `normal`, `high`, or `vary` (one per seed). |
 | `--palette <p>` | `classic` (the default), `nord`, `gruvbox`, `catppuccin`, `solarized`, `rose_pine`, `tokyo_night`, `phosphor` or `amber`. |

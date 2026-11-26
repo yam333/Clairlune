@@ -267,6 +267,29 @@ pub enum WeatherKind {
     Seeds,
     /// Shooting stars streaking down the sky now and then (after dark).
     ShootingStars,
+    // A landscape's own (crate::local_weather):
+    /// Sea spray thrown up by the waves.
+    Spray,
+    /// Sand driven across in long streaks.
+    Sandstorm,
+    /// Tumbleweed bowling along the ground.
+    Tumbleweed,
+    /// Glowing cinders rising from a volcano.
+    Cinders,
+    /// Sky lanterns rising after dark.
+    SkyLanterns,
+    /// Fireworks bursting over the town after dark.
+    Fireworks,
+    /// Glowing spores drifting up.
+    Spores,
+    /// Will-o'-the-wisps, lights that come and go low over the ground.
+    Wisps,
+    /// Bats flitting about after dark.
+    Bats,
+    /// Snow blown off the ridges in gusts.
+    Spindrift,
+    /// Dragonflies darting and hovering, by day.
+    Dragonflies,
 }
 
 impl WeatherKind {
@@ -288,6 +311,17 @@ impl WeatherKind {
             "butterflies" => Some(WeatherKind::Butterflies),
             "seeds" => Some(WeatherKind::Seeds),
             "shooting_stars" => Some(WeatherKind::ShootingStars),
+            "spray" => Some(WeatherKind::Spray),
+            "sandstorm" => Some(WeatherKind::Sandstorm),
+            "tumbleweed" => Some(WeatherKind::Tumbleweed),
+            "cinders" => Some(WeatherKind::Cinders),
+            "sky_lanterns" => Some(WeatherKind::SkyLanterns),
+            "fireworks" => Some(WeatherKind::Fireworks),
+            "spores" => Some(WeatherKind::Spores),
+            "wisps" => Some(WeatherKind::Wisps),
+            "bats" => Some(WeatherKind::Bats),
+            "spindrift" => Some(WeatherKind::Spindrift),
+            "dragonflies" => Some(WeatherKind::Dragonflies),
             _ => None,
         }
     }
@@ -306,6 +340,11 @@ impl WeatherKind {
                 | WeatherKind::Birds
                 | WeatherKind::Seeds
                 | WeatherKind::ShootingStars
+                | WeatherKind::Spray
+                | WeatherKind::Sandstorm
+                | WeatherKind::Tumbleweed
+                | WeatherKind::Bats
+                | WeatherKind::Spindrift
         )
     }
 
@@ -315,8 +354,13 @@ impl WeatherKind {
         use crate::recipe::TimeOfDay as T;
         let dark = matches!(tod, T::Dusk | T::DeepDusk | T::Night);
         match self {
-            WeatherKind::Fireflies | WeatherKind::ShootingStars => dark,
-            WeatherKind::Birds | WeatherKind::Butterflies => !dark,
+            WeatherKind::Fireflies
+            | WeatherKind::ShootingStars
+            | WeatherKind::SkyLanterns
+            | WeatherKind::Fireworks
+            | WeatherKind::Wisps
+            | WeatherKind::Bats => dark,
+            WeatherKind::Birds | WeatherKind::Butterflies | WeatherKind::Dragonflies => !dark,
             _ => true,
         }
     }
@@ -325,19 +369,19 @@ impl WeatherKind {
 /// One weather particle, in normalised screen coordinates.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Drop {
-    x0: f64,
-    y0: f64,
+    pub(crate) x0: f64,
+    pub(crate) y0: f64,
     /// Whole vertical (or horizontal, for dust) wraps per loop.
-    wraps: u32,
-    sway: f64,
-    cycles: u32,
-    phase: f64,
-    glyph: u8,
-    level: u8,
+    pub(crate) wraps: u32,
+    pub(crate) sway: f64,
+    pub(crate) cycles: u32,
+    pub(crate) phase: f64,
+    pub(crate) glyph: u8,
+    pub(crate) level: u8,
     /// Calm pace: how far it falls (or drifts) over one life, in screen
     /// heights (widths for dust). 0 in older scenes.
     #[serde(default)]
-    fall: f64,
+    pub(crate) fall: f64,
 }
 
 /// Calm pace: each weather particle's life, by kind (each divides LOOP_MS).
@@ -350,6 +394,9 @@ fn calm_life_ms(kind: WeatherKind) -> u64 {
 
 /// The weather particles for a seed; the count scales with the aspect ratio.
 pub fn weather_set(kind: WeatherKind, seed: u64, aspect: f64, pace: u8) -> Vec<Drop> {
+    if let Some(drops) = crate::local_weather::set(kind, seed, aspect) {
+        return drops;
+    }
     let mut drops = old_weather_set(kind, seed, aspect);
     if pace >= CALM_PACE {
         // Separate draws, so the older pace's particles stay exactly as they
@@ -372,6 +419,17 @@ pub fn weather_set(kind: WeatherKind, seed: u64, aspect: f64, pace: u8) -> Vec<D
                 // A streak's drop, set per star (see `shooting_stars`).
                 WeatherKind::ShootingStars => d.fall,
                 WeatherKind::Fireflies | WeatherKind::Sparkle => 0.0,
+                WeatherKind::Spray
+                | WeatherKind::Sandstorm
+                | WeatherKind::Tumbleweed
+                | WeatherKind::Cinders
+                | WeatherKind::SkyLanterns
+                | WeatherKind::Fireworks
+                | WeatherKind::Spores
+                | WeatherKind::Wisps
+                | WeatherKind::Bats
+                | WeatherKind::Spindrift
+                | WeatherKind::Dragonflies => d.fall,
             };
         }
     }
@@ -426,6 +484,19 @@ fn old_weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
         WeatherKind::Butterflies => 8.0,
         WeatherKind::Seeds => 24.0,
         WeatherKind::ShootingStars => 0.0,
+        WeatherKind::Spray
+        | WeatherKind::Sandstorm
+        | WeatherKind::Tumbleweed
+        | WeatherKind::Cinders
+        | WeatherKind::SkyLanterns
+        | WeatherKind::Fireworks
+        | WeatherKind::Spores
+        | WeatherKind::Wisps
+        | WeatherKind::Bats
+        | WeatherKind::Spindrift
+        | WeatherKind::Dragonflies => {
+            unreachable!("made by local_weather")
+        }
     };
     let count = (per * aspect).round() as u32;
     (0..count)
@@ -603,6 +674,19 @@ fn old_weather_set(kind: WeatherKind, seed: u64, aspect: f64) -> Vec<Drop> {
                     fall: 0.0,
                 },
                 WeatherKind::ShootingStars => unreachable!("made by `shooting_stars`"),
+                WeatherKind::Spray
+                | WeatherKind::Sandstorm
+                | WeatherKind::Tumbleweed
+                | WeatherKind::Cinders
+                | WeatherKind::SkyLanterns
+                | WeatherKind::Fireworks
+                | WeatherKind::Spores
+                | WeatherKind::Wisps
+                | WeatherKind::Bats
+                | WeatherKind::Spindrift
+                | WeatherKind::Dragonflies => {
+                    unreachable!("made by local_weather")
+                }
             }
         })
         .collect()
@@ -739,6 +823,19 @@ fn drop_state(kind: WeatherKind, d: &Drop, t_ms: u64) -> (f64, f64, u8, u8) {
             let p = frac(u * f64::from(d.wraps) + d.phase);
             streak(d, p).unwrap_or((d.x0, d.y0, d.glyph, 0))
         }
+        WeatherKind::Spray
+        | WeatherKind::Sandstorm
+        | WeatherKind::Tumbleweed
+        | WeatherKind::Cinders
+        | WeatherKind::SkyLanterns
+        | WeatherKind::Fireworks
+        | WeatherKind::Spores
+        | WeatherKind::Wisps
+        | WeatherKind::Bats
+        | WeatherKind::Spindrift
+        | WeatherKind::Dragonflies => crate::local_weather::state(kind, d, t_ms)
+            .flatten()
+            .unwrap_or((d.x0, d.y0, d.glyph, 0)),
         WeatherKind::Sparkle => {
             // Still; each crystal catches the light now and then.
             let glint = sin(TAU * (f64::from(d.wraps) * u + d.phase)).max(0.0);
@@ -758,6 +855,9 @@ fn drop_state(kind: WeatherKind, d: &Drop, t_ms: u64) -> (f64, f64, u8, u8) {
 /// life while swaying, and fades out, then starts again. `None` while fully
 /// faded. Fireflies keep their wandering (already slow).
 fn calm_drop_state(kind: WeatherKind, d: &Drop, t_ms: u64) -> Option<(f64, f64, u8, u8)> {
+    if let Some(s) = crate::local_weather::state(kind, d, t_ms) {
+        return s;
+    }
     if matches!(kind, WeatherKind::Fireflies | WeatherKind::Sparkle) {
         let s = drop_state(kind, d, t_ms);
         return (s.3 > 0).then_some(s);

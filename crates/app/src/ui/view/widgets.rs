@@ -703,6 +703,17 @@ pub(crate) fn weather_glyph(id: &str) -> Option<&'static str> {
         "butterflies" => "x",
         "seeds" => "*",
         "shooting_stars" => "\\",
+        "spray" => ".",
+        "sandstorm" => "=",
+        "tumbleweed" => "@",
+        "cinders" => "*",
+        "sky_lanterns" => "o",
+        "fireworks" => "*",
+        "spores" => "'",
+        "wisps" => "o",
+        "bats" => "^",
+        "spindrift" => "-",
+        "dragonflies" => "+",
         _ => return None,
     })
 }

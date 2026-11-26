@@ -363,7 +363,12 @@ impl Activity {
             .iter()
             .copied()
             .filter(|w| {
-                self.requires.weather.is_empty() || self.requires.weather.iter().any(|r| r == w)
+                let fine = |x: &str| self.requires.weather.iter().any(|r| r == x);
+                // A landscape's own weather comes with any activity that is
+                // fine with none.
+                self.requires.weather.is_empty()
+                    || fine(w)
+                    || (crate::archetype::LOCAL_WEATHERS.contains(w) && fine("none"))
             })
             .filter(|w| enabled.iter().any(|e| e == w))
             .collect()

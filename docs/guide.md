@@ -148,7 +148,9 @@ window.
   displays especially).
 - **Clawd:** Clawd on or off.
 - **Content:** which landscapes (each tile shows that landscape), activities
-  and weather to pick from, the look
+  and weather to pick from (some weather only comes with the landscapes it
+  belongs to: sea spray, sandstorms, tumbleweed, cinders, sky lanterns,
+  fireworks, glowing spores, wisps, bats, spindrift, dragonflies), the look
   (line art or dithered), contrast, the colours (Clairlune's own, or one or
   more palettes such as Nord, Gruvbox or green phosphor, each with a light and
   a dark version), the letters the scenes are drawn in (text, braille, blocks,

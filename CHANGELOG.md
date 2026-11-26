@@ -8,6 +8,26 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+### Added
+
+- **Weather that belongs to its landscape**, eleven kinds: sea spray at the
+  shore, the lighthouse, the islands and the waterfall; sandstorms in the
+  desert, the oasis and the savanna; tumbleweed through the canyon, desert and
+  savanna; cinders rising over the volcano; sky lanterns over the lantern
+  lake, the harbour and the great tree; fireworks over the harbour and the
+  rooftops; glowing spores among the mushrooms, in the swamp and the crystal
+  cave; wisps in the swamp and round the standing stones; bats about the cave,
+  the ruins and the wizard's tower; spindrift off the mountains, the
+  snowfield and the observatory's peak; dragonflies over the lake, meadow,
+  swamp, waterfall, zen garden, windmills and countryside. They come with any
+  activity that's fine with no weather, and each can be turned off under
+  Content > Weather.
+
+### Changed
+
+- With the new weather in the mix, some seeds now come with other weather
+  than before. Saved wallpapers look as they did.
+
 ## [0.32.0] - 2026-11-26
 
 ### Added
