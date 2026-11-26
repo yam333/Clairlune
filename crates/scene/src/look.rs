@@ -87,6 +87,9 @@ pub(crate) struct Dither<'a> {
     /// Cells of the ground the group stands on (a ledge, a pier, a roof):
     /// drawn as a lighter foreground, so the feet are on something.
     pub ground: &'a [bool],
+    /// Where things standing in the sky start, per column (normalised y),
+    /// when the landscape draws them as dark shapes against it.
+    pub standing: Option<&'a [f64]>,
 }
 
 /// Columns either side over which the land line is taken at its lowest, so
@@ -159,7 +162,14 @@ pub(crate) fn dither(ctx: &Ctx, cells: &mut [Cell], d: &Dither) {
                 };
                 continue;
             }
-            let mut ink = if let Some(sea) = water {
+            let row_h = 1.0 / f64::from(ctx.rows);
+            let standing = d
+                .standing
+                .is_some_and(|s| cell.glyph != EMPTY && ny >= s[col as usize] - row_h && ny < top);
+            let mut ink = if standing {
+                // A tower, a sail, a palm: a dark shape against the sky.
+                if dark { 0.05 } else { 0.62 }
+            } else if let Some(sea) = water {
                 // Open water: the sky mirrored, squashed toward the sea
                 // line, broken into long horizontal streaks of glints.
                 let mirrored = (sea - (ny - sea) * 1.6).max(0.0);

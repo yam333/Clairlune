@@ -16,6 +16,7 @@ pub(crate) mod desert;
 pub(crate) mod details;
 pub(crate) mod forest;
 pub(crate) mod great_tree;
+pub(crate) mod harbour;
 pub(crate) mod interior;
 pub(crate) mod islands;
 pub(crate) mod lake;
@@ -23,11 +24,14 @@ pub mod landmark;
 pub(crate) mod lantern_lake;
 pub(crate) mod layers;
 pub(crate) mod ledge;
+pub(crate) mod lighthouse;
 pub(crate) mod lunar;
 pub(crate) mod meadow;
 pub(crate) mod mountains;
 pub(crate) mod mushrooms;
 pub(crate) mod night_sky;
+pub(crate) mod oasis;
+pub(crate) mod observatory;
 pub(crate) mod ruins;
 pub(crate) mod savanna;
 pub(crate) mod shore;
@@ -36,7 +40,9 @@ pub(crate) mod standing_stones;
 pub(crate) mod swamp;
 pub(crate) mod volcano;
 pub(crate) mod waterfall;
+pub(crate) mod windmills;
 pub(crate) mod wizard_tower;
+pub(crate) mod zen_garden;
 
 use crate::graph::{Cell, GridSpec};
 use crate::hash::{hash3, unit_from_hash};
@@ -45,7 +51,7 @@ use crate::recipe::{SceneRecipe, TimeOfDay};
 
 /// Archetypes this generator version can paint. Must match the `implemented`
 /// flags in `archetype::ARCHETYPE_INFO` (checked by a test).
-pub const PAINTED: [&str; 27] = [
+pub const PAINTED: [&str; 33] = [
     "canyon",
     "mountains",
     "desert",
@@ -73,6 +79,12 @@ pub const PAINTED: [&str; 27] = [
     "wizard_tower",
     "standing_stones",
     "lantern_lake",
+    "windmills",
+    "oasis",
+    "observatory",
+    "zen_garden",
+    "harbour",
+    "lighthouse",
 ];
 
 /// What an archetype paints for a journey: the still background's sky limit
@@ -177,6 +189,31 @@ impl Ctx<'_> {
     }
 }
 
+/// Where open water starts (normalised y), for the landscapes that have it
+/// in front: the dithered look mirrors the sky in it.
+pub(crate) fn sea_line(archetype: &str, ctx: &Ctx) -> Option<f64> {
+    match archetype {
+        "shore" => Some(shore::sea_top(ctx)),
+        "lighthouse" => Some(lighthouse::sea_top(ctx)),
+        "harbour" => Some(harbour::water_top(ctx)),
+        _ => None,
+    }
+}
+
+/// Keeps the stars off something standing in the sky in this column (a
+/// tower, a mast, a sail), down from `top`, while the land still starts
+/// where it did: the dithered look draws the thing as marks on the sky
+/// rather than a dark box of land.
+pub(crate) fn shelter(ctx: &Ctx, sky: &mut [f64], col: i64, top: f64) {
+    let Some(s) = usize::try_from(col).ok().and_then(|c| sky.get_mut(c)) else {
+        return;
+    };
+    if *s > top {
+        ctx.unsheltered.borrow_mut()[col as usize].get_or_insert(*s);
+        *s = top;
+    }
+}
+
 pub(crate) fn shade_u8(s: f64) -> u8 {
     (clamp01(s) * 255.0).round() as u8
 }
@@ -228,6 +265,12 @@ pub(crate) fn background(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Vec<
         "wizard_tower" => wizard_tower::background(ctx, cells),
         "standing_stones" => standing_stones::background(ctx, cells),
         "lantern_lake" => lantern_lake::background(ctx, cells),
+        "windmills" => windmills::background(ctx, cells),
+        "oasis" => oasis::background(ctx, cells),
+        "observatory" => observatory::background(ctx, cells),
+        "zen_garden" => zen_garden::background(ctx, cells),
+        "harbour" => harbour::background(ctx, cells),
+        "lighthouse" => lighthouse::background(ctx, cells),
         other => unreachable!("archetype `{other}` is not painted"),
     }
 }
@@ -236,11 +279,13 @@ pub(crate) fn background(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Vec<
 fn ledge_style(archetype: &str) -> &'static ledge::LedgeStyle {
     match archetype {
         "canyon" | "mountains" | "cave" | "volcano" | "lunar" | "waterfall" | "ruins"
-        | "crystals" | "wizard_tower" => &ledge::ROCK,
-        "desert" | "islands" | "savanna" => &ledge::DUNE,
+        | "crystals" | "wizard_tower" | "observatory" | "harbour" | "lighthouse" => &ledge::ROCK,
+        "desert" | "islands" | "savanna" | "oasis" => &ledge::DUNE,
         "snowfield" => &ledge::ICE,
         "forest" | "meadow" | "lake" | "bamboo" | "countryside" | "swamp" | "mushrooms"
-        | "great_tree" | "standing_stones" | "lantern_lake" => &ledge::GRASS,
+        | "great_tree" | "standing_stones" | "lantern_lake" | "windmills" | "zen_garden" => {
+            &ledge::GRASS
+        }
         other => unreachable!("archetype `{other}` is not painted"),
     }
 }

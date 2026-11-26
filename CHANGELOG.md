@@ -8,6 +8,27 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+### Added
+
+- **Six landscapes:** a lighthouse on a headland, its beam out over the bay
+  after dark; a harbour with boats at the quay and lit windows in the water; a
+  zen garden of raked gravel and rocks with a stone lantern; an observatory on
+  a peak under the Milky Way; an oasis of palms round a pool in the dunes; and
+  windmills over fields of flowers. 33 in all.
+- **Palettes** (Content > Colours): Nord, Gruvbox, Catppuccin, Solarized, Rosé
+  Pine, Tokyo Night, green phosphor and amber, each with a light and a dark
+  version, beside Clairlune's own. Turn on several for a different one each
+  wallpaper.
+- **Letter sets** (Content > Letters): the scenes drawn in braille dots,
+  blocks, box-drawing lines or katakana instead of text. Everything drawn in
+  letters takes the set: the land, the sky, the weather, the embers.
+- The command-line tool's `--palette` and `--letters`.
+
+### Changed
+
+- With the new landscapes in the mix, a seed may now make a different scene
+  than before. Saved wallpapers (the archive, the library) look as they did.
+
 ## [0.31.1] - 2026-11-25
 
 ### Changed

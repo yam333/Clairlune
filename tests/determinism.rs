@@ -87,10 +87,16 @@ fn periodic_elements_loop_seamlessly() {
 #[test]
 fn hero_frame_is_the_default_still() {
     let r = recipe(42, 640, 360);
+    // Whichever theme the scene has (it may keep to one).
+    let theme = if r.tod_for(Theme::Light).is_some() {
+        Theme::Light
+    } else {
+        Theme::Dark
+    };
     let opts = BuildOptions {
         width: 640,
         height: 360,
-        theme: Theme::Light,
+        theme,
         buddy: true,
     };
     let default = render_still(&r, &opts, None).unwrap();

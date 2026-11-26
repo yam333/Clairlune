@@ -5,14 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "da267a8eef87d9ad",
-  "activity": "stargaze",
-  "archetype": "lantern_lake",
-  "light_tod": null,
-  "dark_tod": "night",
-  "platform": "grassy_bank",
+  "content_ctx_hash": "b3608e3fff5732c6",
+  "activity": "gardening",
+  "archetype": "meadow",
+  "light_tod": "noon",
+  "dark_tod": null,
+  "platform": "grassy_knoll",
   "props": [
-    "telescope"
+    "flower_pots"
   ],
   "weather": "none",
   "composition": {

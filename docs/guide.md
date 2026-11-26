@@ -149,8 +149,11 @@ window.
 - **Clawd:** Clawd on or off.
 - **Content:** which landscapes (each tile shows that landscape), activities
   and weather to pick from, the look
-  (line art or dithered), contrast and zoom (Clawd up close, smaller, or tiny
-  in a huge landscape).
+  (line art or dithered), contrast, the colours (Clairlune's own, or one or
+  more palettes such as Nord, Gruvbox or green phosphor, each with a light and
+  a dark version), the letters the scenes are drawn in (text, braille, blocks,
+  lines or katakana), and zoom (Clawd up close, smaller, or tiny in a huge
+  landscape). With several colours or letter sets on, each wallpaper picks one.
 - **Archive** and **Export:** how long past wallpapers are kept, and where
   saved PNGs and GIFs go (Choose… opens the system's folder picker). Saved images are signed in a corner, small, in the
   scene's own text ("clairlune · by yam333"); Sign saved images turns that

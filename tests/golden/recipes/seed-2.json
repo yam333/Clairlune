@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "da267a8eef87d9ad",
-  "activity": "catch_snowflakes",
-  "archetype": "standing_stones",
+  "content_ctx_hash": "b3608e3fff5732c6",
+  "activity": "warm_hands",
+  "archetype": "cave",
   "light_tod": "morning",
   "dark_tod": "night",
-  "platform": "grassy_bank",
+  "platform": "rock_ledge",
   "props": [
-    "snowman"
+    "campfire"
   ],
-  "weather": "snow",
+  "weather": "none",
   "composition": {
     "horizon_pm": 672,
     "focus_x_pm": 694,

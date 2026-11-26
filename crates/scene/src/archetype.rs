@@ -56,12 +56,16 @@ pub struct ArchetypeInfo {
     pub platforms: &'static [&'static str],
     /// Open sky overhead (stars, moon). False for enclosed places such as caves.
     pub sky: bool,
+    /// In the dithered look, what stands in its sky (towers, sails, palms)
+    /// is drawn as dark shapes against it. (Older landscapes draw such
+    /// things as marks on the sky, and keep doing so.)
+    pub silhouettes: bool,
 }
 
 /// The archetypes (the interior is described in
 /// docs/dev/activity-system.md). Unimplemented ones carry their
 /// intended capabilities so activity files can be written against them now.
-pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
+pub const ARCHETYPE_INFO: [ArchetypeInfo; 33] = [
     ArchetypeInfo {
         id: "canyon",
         implemented: true,
@@ -70,6 +74,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         weather: &["none", "dust", "birds"],
         platforms: &["rock_ledge"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "forest",
@@ -89,6 +94,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["log", "tree_branch"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "mountains",
@@ -107,6 +113,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["rock_ledge"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "shore",
@@ -116,6 +123,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         weather: &["none", "rain", "stars", "fog", "birds", "shooting_stars"],
         platforms: &["pier"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "city_rooftops",
@@ -132,6 +140,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["rooftop_edge"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "desert",
@@ -142,6 +151,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         weather: &["none", "dust", "stars", "birds", "shooting_stars"],
         platforms: &["dune_crest"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "snowfield",
@@ -159,6 +169,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["ice_shelf"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "night_sky",
@@ -168,6 +179,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         weather: &["none", "stars", "shooting_stars"],
         platforms: &["floating_island", "rock_ledge"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "cave",
@@ -177,6 +189,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         weather: &["none", "dust"],
         platforms: &["rock_ledge"],
         sky: false,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "meadow",
@@ -198,6 +211,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["grassy_knoll"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "lake",
@@ -218,6 +232,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["grassy_bank"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "volcano",
@@ -227,6 +242,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         weather: &["none", "ash", "stars", "shooting_stars"],
         platforms: &["rock_ledge"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "islands",
@@ -236,6 +252,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         weather: &["none", "rain", "stars", "birds", "shooting_stars"],
         platforms: &["sand_spit"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "lunar",
@@ -245,6 +262,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         weather: &["none", "stars", "shooting_stars"],
         platforms: &["crater_rim"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "bamboo",
@@ -254,6 +272,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         weather: &["none", "rain", "fog", "fireflies", "leaves", "butterflies"],
         platforms: &["mossy_bank"],
         sky: false,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "waterfall",
@@ -273,6 +292,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["rock_ledge"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "countryside",
@@ -295,6 +315,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["grassy_bank"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "ruins",
@@ -315,6 +336,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["rock_ledge"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "savanna",
@@ -332,6 +354,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["earth_bank"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "swamp",
@@ -350,6 +373,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["mossy_bank"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "mushrooms",
@@ -368,6 +392,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["mossy_bank"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "crystals",
@@ -377,6 +402,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         weather: &["none", "sparkle", "dust"],
         platforms: &["rock_ledge"],
         sky: false,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "great_tree",
@@ -398,6 +424,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["grassy_bank"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "wizard_tower",
@@ -416,6 +443,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["rock_ledge"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "standing_stones",
@@ -435,6 +463,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["grassy_bank"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "lantern_lake",
@@ -452,6 +481,7 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         ],
         platforms: &["grassy_bank"],
         sky: true,
+        silhouettes: false,
     },
     ArchetypeInfo {
         id: "interior",
@@ -461,6 +491,96 @@ pub const ARCHETYPE_INFO: [ArchetypeInfo; 27] = [
         weather: &["none"],
         platforms: &["floor"],
         sky: false,
+        silhouettes: false,
+    },
+    ArchetypeInfo {
+        id: "lighthouse",
+        implemented: true,
+        terrain: &["ledge", "cliff", "flat"],
+        surface: &["rock", "grass"],
+        weather: &["none", "fog", "rain", "birds", "stars", "shooting_stars"],
+        platforms: &["rock_ledge"],
+        sky: true,
+        silhouettes: true,
+    },
+    ArchetypeInfo {
+        id: "harbour",
+        implemented: true,
+        terrain: &["flat", "ledge"],
+        surface: &["rock", "wood"],
+        weather: &[
+            "none",
+            "rain",
+            "fog",
+            "stars",
+            "birds",
+            "snow",
+            "shooting_stars",
+        ],
+        platforms: &["stone_quay"],
+        sky: true,
+        silhouettes: true,
+    },
+    ArchetypeInfo {
+        id: "zen_garden",
+        implemented: true,
+        terrain: &["flat"],
+        surface: &["grass", "sand"],
+        weather: &[
+            "none",
+            "petals",
+            "leaves",
+            "rain",
+            "fog",
+            "fireflies",
+            "stars",
+            "butterflies",
+            "snow",
+            "shooting_stars",
+        ],
+        platforms: &["grassy_bank"],
+        sky: true,
+        silhouettes: true,
+    },
+    ArchetypeInfo {
+        id: "observatory",
+        implemented: true,
+        terrain: &["ledge", "cliff", "slope"],
+        surface: &["rock", "snow"],
+        weather: &["none", "stars", "shooting_stars", "snow", "fog", "birds"],
+        platforms: &["rock_ledge"],
+        sky: true,
+        silhouettes: true,
+    },
+    ArchetypeInfo {
+        id: "oasis",
+        implemented: true,
+        terrain: &["dune", "flat", "slope"],
+        surface: &["sand", "grass"],
+        weather: &["none", "dust", "stars", "birds", "shooting_stars"],
+        platforms: &["dune_crest"],
+        sky: true,
+        silhouettes: true,
+    },
+    ArchetypeInfo {
+        id: "windmills",
+        implemented: true,
+        terrain: &["flat"],
+        surface: &["grass"],
+        weather: &[
+            "none",
+            "birds",
+            "butterflies",
+            "petals",
+            "rain",
+            "fog",
+            "seeds",
+            "stars",
+            "shooting_stars",
+        ],
+        platforms: &["grassy_bank"],
+        sky: true,
+        silhouettes: true,
     },
 ];
 

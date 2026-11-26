@@ -5,14 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "da267a8eef87d9ad",
-  "activity": "skip_stones",
-  "archetype": "shore",
-  "light_tod": "noon",
-  "dark_tod": "dusk",
-  "platform": "pier",
-  "props": [],
-  "weather": "birds",
+  "content_ctx_hash": "b3608e3fff5732c6",
+  "activity": "dance",
+  "archetype": "meadow",
+  "light_tod": "golden_hour",
+  "dark_tod": "night",
+  "platform": "grassy_knoll",
+  "props": [
+    "lantern"
+  ],
+  "weather": "fireflies",
   "composition": {
     "horizon_pm": 638,
     "focus_x_pm": 500,

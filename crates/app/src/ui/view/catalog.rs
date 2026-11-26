@@ -47,7 +47,7 @@ pub(crate) const ZOOMS: [Item; 3] = [
     ("vast", "Vast", "Clawd tiny in a huge landscape"),
 ];
 
-pub(crate) const LANDSCAPES: [Item; 27] = [
+pub(crate) const LANDSCAPES: [Item; 33] = [
     ("canyon", "Canyon", ""),
     ("mountains", "Mountains", ""),
     ("forest", "Forest", ""),
@@ -102,6 +102,32 @@ pub(crate) const LANDSCAPES: [Item; 27] = [
         "lantern_lake",
         "Lantern lake",
         "Floating lanterns, a gate in the water",
+    ),
+    (
+        "lighthouse",
+        "Lighthouse",
+        "A headland, its lamp lit after dark",
+    ),
+    (
+        "harbour",
+        "Harbour",
+        "Boats at the quay, windows lit after dark",
+    ),
+    (
+        "zen_garden",
+        "Zen garden",
+        "Raked gravel, rocks and a stone lantern",
+    ),
+    (
+        "observatory",
+        "Observatory",
+        "Domes on a peak, the Milky Way above",
+    ),
+    ("oasis", "Oasis", "Palms round a pool among the dunes"),
+    (
+        "windmills",
+        "Windmills",
+        "Flower fields, a canal, sails set",
     ),
 ];
 

@@ -35,6 +35,9 @@ The trailer (clairlune-trailer.mp4, attached to the 0.28.0 release)
 Fonts
   JetBrains Mono, Copyright 2020 The JetBrains Mono Project Authors,
   SIL Open Font License 1.1 (crates/render/assets/fonts/OFL.txt).
+  M PLUS 1 Code, Copyright 2021 The M+ FONTS Project Authors, cut down to its
+  katakana as "Clairlune Kana", SIL Open Font License 1.1
+  (crates/render/assets/fonts/ClairluneKana-OFL.txt).
   Instrument Serif, Copyright 2022 The Instrument Serif Project Authors,
   SIL Open Font License 1.1 (crates/app/assets/fonts/InstrumentSerif-OFL.txt).
   IBM Plex Sans, Copyright 2017 IBM Corp. with Reserved Font Name "Plex",

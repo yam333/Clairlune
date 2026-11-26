@@ -5,15 +5,13 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "da267a8eef87d9ad",
-  "activity": "hot_cocoa",
-  "archetype": "crystals",
-  "light_tod": "morning",
-  "dark_tod": "dusk",
-  "platform": "rock_ledge",
-  "props": [
-    "lantern"
-  ],
+  "content_ctx_hash": "b3608e3fff5732c6",
+  "activity": "balloon_journey",
+  "archetype": "snowfield",
+  "light_tod": "golden_hour",
+  "dark_tod": null,
+  "platform": "ice_shelf",
+  "props": [],
   "weather": "none",
   "composition": {
     "horizon_pm": 571,
@@ -24,7 +22,9 @@
     "cliff_layers": 3,
     "prop_left": false,
     "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "pace_half_pm": 0,
+    "journey_pace_c": 246,
+    "landmark": "twin_peaks"
   },
   "palette": {
     "light": "sand_day",

@@ -20,7 +20,8 @@ Each wallpaper is a landscape drawn in text characters, with a small pixel-art C
 
 ## Features
 
-- **27 landscapes, 38 activities, 15 kinds of weather**, in line art or a dithered look, from canyons and snowfields to a wizard's tower and a lake of floating lanterns.
+- **33 landscapes, 38 activities, 15 kinds of weather**, in line art or a dithered look, from canyons and snowfields to a lighthouse, an observatory under the Milky Way and a lake of floating lanterns.
+- **Nine palettes and five letter sets:** Clairlune's own colours, Nord, Gruvbox, Catppuccin, Solarized, Rosé Pine, Tokyo Night, green phosphor and amber, each light and dark; the scenes drawn in text, braille dots, blocks, box-drawing lines or katakana.
 - **Live wallpapers** that play behind the desktop icons and pause under full-screen apps, on battery if you like, and while the screen is locked.
 - **A scene for each monitor**, at its own resolution, or one wide scene across all of them.
 - **Seeds that mean something:** copy a wallpaper's seed and type it in later to get the same wallpaper back.

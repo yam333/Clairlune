@@ -339,8 +339,11 @@ fn build_scene(
                 tod,
                 contrast: &recipe.contrast,
                 dome: &dome,
-                sea_top: (recipe.archetype == "shore").then(|| terrain::shore::sea_top(&ctx)),
+                sea_top: terrain::sea_line(&recipe.archetype, &ctx),
                 ground: &ground,
+                standing: crate::archetype::archetype(&recipe.archetype)
+                    .is_some_and(|a| a.silhouettes)
+                    .then_some(sky_limit.as_slice()),
             },
         );
     } else {
