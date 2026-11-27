@@ -6,96 +6,94 @@
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS-lightgrey)
 
-Procedural, animated ASCII-art wallpapers for Windows and macOS, written in Rust.
+Procedural, animated ASCII-art desktop wallpapers for Windows and macOS, written in Rust.
 
-[![Clairlune: scenes from the trailer](docs/media/trailer-preview.webp)](https://github.com/yam333/Clairlune/releases/download/v0.28.0/clairlune-trailer.mp4)
+Clairlune renders scenes locally from a seed into text glyphs, live weather, and an optional pixel-art Clawd behind your desktop icons. There is no AI and no telemetry; only the optional daily update check uses the network.
 
-Each wallpaper is a landscape drawn in text characters, with a small pixel-art Clawd doing something in it and a few things moving: embers, snow, stars. Everything is generated on your computer from a seed, and the same seed gives the same picture everywhere. There's no AI, and nothing about you goes online.
+**[Download](https://github.com/yam333/Clairlune/releases/latest)** · [User guide](docs/guide.md) · [CLI reference](docs/cli.md) · [Changelog](CHANGELOG.md)
 
-![Nine generated wallpapers, one per landscape, in dark and light themes](docs/img/showcase.png)
+[![Clairlune trailer preview](docs/media/trailer-preview.webp)](https://github.com/yam333/Clairlune/releases/download/v0.28.0/clairlune-trailer.mp4)
 
-> **Unofficial fan project.** Not affiliated with or endorsed by Anthropic. Clawd is Anthropic's character.
-
-**[Download](https://github.com/yam333/Clairlune/releases/latest)** · [User guide](docs/guide.md) · [Command-line tool](docs/cli.md) · [Changelog](CHANGELOG.md)
-
-## Features
-
-- **37 landscapes, 40 activities, 26 kinds of weather**, in line art or a dithered look, from canyons and snowfields to a fjord, a stone viaduct, a lighthouse, an observatory under the Milky Way and a lake of floating lanterns. Many landscapes have weather of their own: sea spray at the lighthouse, fireworks over the harbour, cinders above the volcano, bats round the ruins.
-- **Twelve palettes and seven letter sets:** Clairlune's own colours, Nord, Gruvbox, Catppuccin, Solarized, Rosé Pine, Tokyo Night, Everforest, Kanagawa, Dracula, green phosphor and amber, each light and dark; the scenes drawn in text, braille dots, blocks, box-drawing lines, katakana, geometric shapes or hex digits.
-- **Image to ASCII studio:** drop, paste or choose any picture of your own, tune its width, row density, character ramp, contrast, colour (any Clairlune palette, the photo's own colours, black, white, or a transparent PNG) and optional live weather, then export `.txt` or PNG, save it to the library for the timeline, or set it as your wallpaper.
-- **Live wallpapers** that play behind the desktop icons and pause under full-screen apps, on battery if you like, and while the screen is locked.
-- **A scene for each monitor**, at its own resolution, or one wide scene across all of them.
-- **Seeds that mean something:** copy a wallpaper's seed and type it in later to get the same wallpaper back.
-- **An archive, a library and a timeline:** the last week of wallpapers, the ones you keep for good, and a plan for each day.
-- **Light, dark or following the sun**, worked out on your computer.
-- **Self-updating**, with every download checked against GitHub's checksum. The once-a-day check can be turned off.
-
-![The Settings window: the sidebar on reeded glass, the landscape tiles](docs/img/settings.webp)
+> Unofficial fan project, not affiliated with or endorsed by Anthropic. Clawd is Anthropic's character.
 
 ## Install
 
-- **Windows 10/11:** `clairlune_<version>_x64-setup.exe` from the [latest release](https://github.com/yam333/Clairlune/releases/latest). It installs for your account, with no admin rights. Or `scoop bucket add clairlune https://github.com/yam333/homebrew-clairlune` then `scoop install clairlune`.
-- **macOS 13+:** paste this into Terminal. It downloads the latest release, checks it against the release's checksum and opens it ([what it does](install.sh)):
+### Windows 10/11
 
-  ```sh
-  curl -fsSL https://raw.githubusercontent.com/yam333/Clairlune/main/install.sh | sh
-  ```
+Run `clairlune_<version>_x64-setup.exe` from the [latest release](https://github.com/yam333/Clairlune/releases/latest) (per-user install, no admin rights), or use Scoop:
 
-  Or `Clairlune_<version>_aarch64.dmg` (Apple Silicon) or `_x64.dmg` (Intel) from the [latest release](https://github.com/yam333/Clairlune/releases/latest), or `brew install --cask yam333/clairlune/clairlune`. macOS blocks these the first time: click **Done** (not Move to Trash), then **Open Anyway** at the bottom of System Settings > Privacy & Security.
-- **Linux:** the command-line tool only: `cargo install clairlune-cli`.
+```powershell
+scoop bucket add clairlune https://github.com/yam333/homebrew-clairlune
+scoop install clairlune
+```
 
-winget, building from source and removing Clairlune are covered in the [user guide](docs/guide.md#install). Clairlune lives in the notification area (Windows) or the menu bar (macOS) as a square over a circle. The [guide](docs/guide.md) covers everything in Settings.
-
-## Command-line tool
-
-`clairlune-cli` renders the same scenes without the app, on Windows, macOS and Linux:
+### macOS 13+
 
 ```sh
-cargo install clairlune-cli
+curl -fsSL https://raw.githubusercontent.com/yam333/Clairlune/main/install.sh | sh
+```
+
+Or install via Homebrew (`brew install --cask yam333/clairlune/clairlune`) or the release `.dmg` (`aarch64` or `x64`); see the [first-launch Gatekeeper note](docs/guide.md#opening-it-the-first-time).
+
+### Cargo and Linux
+
+```sh
+cargo install clairlune       # desktop app (Windows and macOS, Rust 1.95+)
+cargo install clairlune-cli   # headless renderer (Windows, macOS, and Linux, Rust 1.90+)
+```
+
+`winget` manifests and uninstallation are covered in the [user guide](docs/guide.md#install).
+
+## Features
+
+- Deterministic seeded scenes with character activities and biome-specific weather, drawn as line art or dithered shading; the same seed and display settings produce identical pixels on every platform.
+- Light and dark colour palettes (classic, Nord, Gruvbox, Catppuccin, Solarized, Tokyo Night, Everforest, Kanagawa, Dracula, phosphor, and others) and swappable character sets (ASCII, braille, blocks, box-drawing, katakana, shapes, hex).
+- Live desktop playback that redraws only dirty tiles and pauses behind full-screen apps, on battery, or while the screen is locked.
+- Per-monitor scenes at native resolution, or a single wide scene spanned across displays.
+- Image to ASCII studio for converting dropped or pasted images with custom character ramps, palette or photo colours, live weather, and `.txt` or PNG export.
+- Wallpaper archive, taggable library, weekly timeline scheduler, and theme switching by OS appearance, clock hours, or local sunrise and sunset.
+- In-app updates verified against release SHA-256 checksums.
+
+![Generated ASCII wallpapers in dark and light themes](docs/img/showcase.png)
+
+## CLI
+
+`clairlune-cli` renders stills, looping GIFs, contact sheets, and frozen scene packages without the desktop app, and can set or play wallpapers directly on Windows:
+
+```sh
 clairlune-cli generate --seed 7 --theme dark --size 3840x2160 --out wallpaper.png
 clairlune-cli gif --seed 7 --activity warm_hands --size 960x540 --out campfire.gif
+clairlune-cli package --seed 7 --size 1920x1080 --out scene7
 ```
 
-Every command and flag is in [docs/cli.md](docs/cli.md).
+See [docs/cli.md](docs/cli.md) for all subcommands and flags.
 
-## Building from source
+## Build and architecture
 
-The app needs Rust 1.95 or newer (the libraries and the CLI, 1.90) and builds on Windows and macOS. Everything but the app also builds on Linux.
+Building the desktop app requires Rust 1.95+ on Windows or macOS. All library crates, `clairlune-cli`, and the test suite also build on Linux (MSRV 1.90).
 
 ```sh
-cargo run --release -p clairlune                                   # the app
+cargo run --release -p clairlune
 cargo run --release -p clairlune-cli -- generate --seed 7 --out wallpaper.png
-cargo test --workspace                                             # unit, property and golden tests
+cargo test --workspace
 ```
 
-The [justfile](justfile) has the common tasks: sprite export and checks, re-blessing the golden images, the performance check.
+Developer recipes (sprite verification, golden image blessing, perf checks) are in the [justfile](justfile). See [CONTRIBUTING.md](CONTRIBUTING.md) before sending a patch, or file bugs via [GitHub Issues](https://github.com/yam333/Clairlune/issues/new/choose) or Settings > General > Report a problem.
 
-## How it's built
-
-Generation is pure and deterministic: a seed becomes a recipe, the recipe a scene graph, the graph frames of palette indices. The same inputs give byte-identical output on every platform, and CI checks that with golden images on Windows, macOS and Linux.
-
-| Crate | Purpose |
+| Crate | Role |
 |---|---|
-| [`clairlune-scene`](crates/scene) | Seed → recipe → scene graph. No I/O, no clocks. |
-| [`clairlune-render`](crates/render) | Glyph atlas, palette-index compositor, PNG and GIF export, frozen scene packages. |
-| [`clairlune-sprites`](crates/sprites) | Aseprite sheet loader and the character rig. |
-| [`clairlune-live`](crates/live) | Live playback behind the desktop icons, uploading only what changed. |
-| [`clairlune-platform`](crates/platform) | Monitors, wallpapers, login items, system theme. |
-| [`clairlune-cli`](crates/cli) | The command-line tool. |
-| [`clairlune`](crates/app) | The tray app and its windows (egui). |
+| [`clairlune-scene`](crates/scene) | Pure seed-to-recipe-to-scene-graph pipeline; no I/O or clocks. |
+| [`clairlune-render`](crates/render) | Deterministic `skrifa` glyph rasterizer, palette-index compositor, PNG/GIF export, scene packages, and image-to-ASCII conversion. |
+| [`clairlune-sprites`](crates/sprites) | Aseprite sheet loader, pixel-art validation, and character rig. |
+| [`clairlune-live`](crates/live) | Incremental live wallpaper presenter behind desktop icons. |
+| [`clairlune-platform`](crates/platform) | Native monitor geometry, wallpaper APIs, login items, and OS theme/motion hooks. |
+| [`clairlune-cli`](crates/cli) | Headless CLI renderer and activity preview tool. |
+| [`clairlune`](crates/app) | Tray application and `egui` + `wgpu` studio windows. |
 
-Design notes, the activity system and the art rules are in [docs/dev](docs/dev).
-
-## Contributing
-
-Bug reports and ideas are welcome: [open an issue](https://github.com/yam333/Clairlune/issues/new/choose). The app's Settings -> General -> Report a problem fills one in for you. For code, see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Generated images
-
-With Clawd turned on, wallpapers contain fan art of Anthropic's character, so take care if you publish or sell them. Images made with `--no-buddy` contain only this project's own work.
+Design notes, determinism rules, and the activity system are in [docs/dev](docs/dev).
 
 ## License
 
-Code: [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
+Code is dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
 
-The bundled fonts, JetBrains Mono, IBM Plex Sans and Instrument Serif, are under the SIL Open Font License 1.1 ([JetBrains Mono](crates/render/assets/fonts/OFL.txt), [IBM Plex Sans](crates/app/assets/fonts/OFL.txt), [Instrument Serif](crates/app/assets/fonts/InstrumentSerif-OFL.txt)). The Clawd artwork is fan art and isn't covered by the code licence; see [NOTICE](NOTICE).
+Bundled fonts are under the SIL Open Font License 1.1, and original prop and UI assets are CC BY 4.0; see [NOTICE](NOTICE) for full attribution. When Clawd is enabled, rendered wallpapers include fan art of Anthropic's character (not covered by the code license); turn off `Show Clawd` in Settings > Content or pass `--no-buddy` to render scenes containing only this project's work.
