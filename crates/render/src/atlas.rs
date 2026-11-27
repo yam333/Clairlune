@@ -92,6 +92,23 @@ impl GlyphAtlas {
         atlas
     }
 
+    /// Whether [`Self::for_char_set`] will produce visible ink for `c` (excluding `' '`).
+    pub fn can_render_char(c: char) -> bool {
+        if c == ' ' || c.is_control() {
+            return false;
+        }
+        if is_kana(c) || braille_dots(c).is_some() {
+            return true;
+        }
+        let Ok(face) = FontRef::new(FONT_DATA) else {
+            return false;
+        };
+        let Some(id) = face.charmap().map(c) else {
+            return false;
+        };
+        face.outline_glyphs().get(id).is_some()
+    }
+
     /// Atlas for an arbitrary character list: rasterizes the bundled monospace
     /// font, narrows katakana from the kana font, and draws braille patterns
     /// (`U+2801..=U+28FF`) as crisp supersampled dots.

@@ -39,6 +39,7 @@ impl App {
                 wanted,
                 archetype,
                 activity,
+                is_photo,
                 monitors,
                 ms,
                 live,
@@ -72,14 +73,23 @@ impl App {
                 self.live.show(live);
                 self.refresh_archive();
                 self.trim_if_idle();
-                let what = match activity {
-                    Some(a) => {
-                        format!("{} in {}", a.replace('_', " "), archetype.replace('_', " "))
+                let what = if is_photo {
+                    archetype
+                } else {
+                    match activity {
+                        Some(a) => {
+                            format!("{} in {}", a.replace('_', " "), archetype.replace('_', " "))
+                        }
+                        None => archetype.replace('_', " "),
                     }
-                    None => archetype.replace('_', " "),
                 };
-                let mut text = format!("{APP_NAME}: {what} (seed {seed})");
+                let mut text = if is_photo {
+                    format!("{APP_NAME}: {what}")
+                } else {
+                    format!("{APP_NAME}: {what} (seed {seed})")
+                };
                 if self.timeline_mode()
+                    && !self.settings.schedule.paused
                     && let Some(next) = self.timeline_next
                 {
                     text.push_str(&format!(", next at {}", timeline::local_hhmm(next)));
@@ -87,7 +97,14 @@ impl App {
                 tracing::debug!(target: "clairlune", monitors, ms, "{text}");
                 self.status.what = what;
                 self.status.seed = Some(seed);
+                self.status.is_photo = is_photo;
                 self.status.theme = Some(theme);
+                if std::mem::take(&mut self.pending_pause_note) && is_photo {
+                    self.status.note = Some(
+                        "Applied your ASCII wallpaper. Scheduled changes are paused until you resume them."
+                            .into(),
+                    );
+                }
                 self.refresh_window_thumb();
                 self.redraw_windows();
                 if let Some(t) = &self.tray {
@@ -104,19 +121,19 @@ impl App {
                 }
             }
             Done::SavedLibrary(name) => {
+                self.saving_ascii_library = false;
                 self.status.note = Some(format!("Saved to the library as {name}."));
                 self.refresh_library();
             }
             Done::NoHost(why) => {
                 self.status.note = Some(why);
-                if let Some(w) = &self.settings_window {
-                    w.request_redraw();
-                }
+                self.redraw_windows();
             }
             // Handled where events arrive (it ends the app).
             Done::ReadyToRemove(_) => {}
             Done::Restored => {
                 self.busy = false;
+                self.pending_pause_note = false;
                 self.set_restored(true);
                 // Stop playing over it (with no scenes left, stopping
                 // doesn't set Clairlune's stills again).
@@ -137,6 +154,7 @@ impl App {
                 self.follow_display_settings();
                 self.status.what.clear();
                 self.status.seed = None;
+                self.status.is_photo = false;
                 self.status.theme = None;
                 self.status.note = Some(
                     "Your wallpaper is back. Changes are paused until you resume them.".to_string(),
@@ -152,6 +170,8 @@ impl App {
             }
             Done::Failed(e) => {
                 self.busy = false;
+                self.saving_ascii_library = false;
+                self.pending_pause_note = false;
                 tracing::debug!(target: "clairlune", error = %e, "shown in the tray tooltip");
                 self.status.note = Some(capitalise_first(&e));
                 self.redraw_windows();

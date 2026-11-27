@@ -6,7 +6,9 @@ use crate::*;
 impl App {
     pub(crate) fn open_timeline(&mut self, event_loop: &ActiveEventLoop) {
         self.refresh_library();
-        if self.timeline_window.is_some() {
+        if let Some(w) = &self.timeline_window {
+            w.focus();
+            w.request_redraw();
             return;
         }
         let theme = apply::resolve_theme(&self.settings.theme);
@@ -26,6 +28,7 @@ impl App {
     /// in a text editor if no window can be made (no GPU, for example).
     pub(crate) fn open_settings(&mut self, event_loop: &ActiveEventLoop, theme: Option<Theme>) {
         if let Some(w) = &self.settings_window {
+            w.focus();
             w.request_redraw();
             return;
         }
@@ -101,7 +104,9 @@ impl App {
 
     pub(crate) fn open_library(&mut self, event_loop: &ActiveEventLoop) {
         self.refresh_library();
-        if self.library_window.is_some() {
+        if let Some(w) = &self.library_window {
+            w.focus();
+            w.request_redraw();
             return;
         }
         let theme = apply::resolve_theme(&self.settings.theme);
@@ -152,7 +157,9 @@ impl App {
 
     pub(crate) fn open_archive(&mut self, event_loop: &ActiveEventLoop) {
         self.refresh_archive();
-        if self.archive_window.is_some() {
+        if let Some(w) = &self.archive_window {
+            w.focus();
+            w.request_redraw();
             return;
         }
         let theme = apply::resolve_theme(&self.settings.theme);
@@ -174,11 +181,13 @@ impl App {
         let dir_of = |name: &str| archive.dir().join(name);
         match action {
             UiAction::ApplyArchive(name) => {
-                self.current_theme = None;
-                self.current_buddy = None;
-                self.set_current_live(None);
+                let dir = dir_of(&name);
+                let (th, bd, lv) = Self::photo_choices_for_dir(&dir);
+                self.current_theme = th;
+                self.current_buddy = bd;
+                self.set_current_live(lv);
                 self.chosen = true;
-                if !self.apply_folder(dir_of(&name), None, None, false, false) {
+                if !self.apply_folder(dir, th, bd, false, false) {
                     self.status.note = Some("That archived wallpaper couldn't be read.".into());
                 }
             }
@@ -193,12 +202,12 @@ impl App {
             UiAction::ExportArchive { name, gif } => {
                 let dest = self.export_dir();
                 let source = Some(dir_of(&name));
+                let entry_theme = archive.get(&name).and_then(|e| match e.theme.as_str() {
+                    "light" => Some(Theme::Light),
+                    "dark" => Some(Theme::Dark),
+                    _ => None,
+                });
                 if gif {
-                    let entry_theme = archive.get(&name).and_then(|e| match e.theme.as_str() {
-                        "light" => Some(Theme::Light),
-                        "dark" => Some(Theme::Dark),
-                        _ => None,
-                    });
                     self.status.note = Some("Making the GIF...".to_string());
                     self.submit(Job::ExportGif {
                         sign: self.settings.export.sign,
@@ -214,11 +223,23 @@ impl App {
                         dest,
                         source,
                         still: None,
+                        theme: entry_theme,
+                        buddy: Some(self.settings.buddy.show),
                     });
                 }
             }
             UiAction::CopyArchivePng(name) => {
-                self.copy_png_to_clipboard(ui::Kind::Archive, Some(dir_of(&name)), None);
+                let entry_theme = archive.get(&name).and_then(|e| match e.theme.as_str() {
+                    "light" => Some(Theme::Light),
+                    "dark" => Some(Theme::Dark),
+                    _ => None,
+                });
+                self.copy_png_to_clipboard(
+                    Some(dir_of(&name)),
+                    None,
+                    entry_theme,
+                    Some(self.settings.buddy.show),
+                );
             }
             UiAction::DeleteArchive(name) => {
                 let dir = dir_of(&name);
@@ -350,25 +371,28 @@ impl App {
             UiAction::ExportLibrary { id, gif } => {
                 let dest = self.export_dir();
                 let source = Some(lib.item_dir(&id));
+                let item = lib.get(&id);
+                let (theme, buddy, _) = item
+                    .map(|i| {
+                        Self::item_choices(
+                            &i,
+                            library::ThemeChoice::Follow,
+                            library::BuddyChoice::Follow,
+                            library::DisplayChoice::Follow,
+                        )
+                    })
+                    .unwrap_or((None, None, None));
+                let resolved_theme =
+                    theme.unwrap_or_else(|| apply::resolve_theme(&self.settings.theme));
+                let resolved_buddy = buddy.unwrap_or(self.settings.buddy.show);
                 if gif {
-                    let item = lib.get(&id);
-                    let (theme, buddy, _) = item
-                        .map(|i| {
-                            Self::item_choices(
-                                &i,
-                                library::ThemeChoice::Follow,
-                                library::BuddyChoice::Follow,
-                                library::DisplayChoice::Follow,
-                            )
-                        })
-                        .unwrap_or((None, None, None));
                     self.status.note = Some("Making the GIF...".to_string());
                     self.submit(Job::ExportGif {
                         sign: self.settings.export.sign,
                         dest,
                         source,
-                        theme: theme.unwrap_or_else(|| apply::resolve_theme(&self.settings.theme)),
-                        buddy: buddy.unwrap_or(self.settings.buddy.show),
+                        theme: resolved_theme,
+                        buddy: resolved_buddy,
                     });
                 } else {
                     self.submit(Job::Export {
@@ -376,11 +400,32 @@ impl App {
                         dest,
                         source,
                         still: None,
+                        theme: Some(resolved_theme),
+                        buddy: Some(resolved_buddy),
                     });
                 }
             }
             UiAction::CopyLibraryPng(id) => {
-                self.copy_png_to_clipboard(ui::Kind::Library, Some(lib.item_dir(&id)), None);
+                let item = lib.get(&id);
+                let (theme, buddy, _) = item
+                    .map(|i| {
+                        Self::item_choices(
+                            &i,
+                            library::ThemeChoice::Follow,
+                            library::BuddyChoice::Follow,
+                            library::DisplayChoice::Follow,
+                        )
+                    })
+                    .unwrap_or((None, None, None));
+                let resolved_theme =
+                    theme.unwrap_or_else(|| apply::resolve_theme(&self.settings.theme));
+                let resolved_buddy = buddy.unwrap_or(self.settings.buddy.show);
+                self.copy_png_to_clipboard(
+                    Some(lib.item_dir(&id)),
+                    None,
+                    Some(resolved_theme),
+                    Some(resolved_buddy),
+                );
             }
             _ => {}
         }
@@ -526,6 +571,7 @@ impl App {
             None => Vec::new(),
         };
         s.busy = self.busy;
+        s.saving_library = self.saving_ascii_library;
         s.paused = self.settings.schedule.paused;
         s.live_active = !self.restored()
             && self

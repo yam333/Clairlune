@@ -171,12 +171,23 @@ impl RampPreset {
             RampPreset::Shapes => "■●◆▪▫○◦· ",
             RampPreset::Hex => "8BECF731 ",
             RampPreset::Custom => {
-                let mut chars: Vec<char> = custom.chars().collect();
-                if chars.is_empty() {
-                    chars = "@%#*+=-:. ".chars().collect();
-                } else if !chars.contains(&' ') {
-                    chars.push(' ');
+                let mut chars: Vec<char> = Vec::new();
+                for ch in custom.chars() {
+                    if ch != ' '
+                        && !ch.is_control()
+                        && GlyphAtlas::can_render_char(ch)
+                        && !chars.contains(&ch)
+                    {
+                        chars.push(ch);
+                        if chars.len() >= 250 {
+                            break;
+                        }
+                    }
                 }
+                if chars.is_empty() {
+                    chars = "@%#*+=-:.".chars().collect();
+                }
+                chars.push(' ');
                 return chars;
             }
         };
@@ -230,8 +241,8 @@ impl Default for AsciiColorMode {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FitMode {
-    #[default]
     Cover,
+    #[default]
     Contain,
 }
 
@@ -292,10 +303,17 @@ impl AsciiConfig {
     /// before applying `self.invert`.
     pub fn dark_canvas(&self, theme: Theme) -> bool {
         match &self.color_mode {
-            AsciiColorMode::Black | AsciiColorMode::None => true,
+            AsciiColorMode::Black => true,
             AsciiColorMode::White => false,
-            AsciiColorMode::Palette(_) | AsciiColorMode::Photo => theme == Theme::Dark,
+            AsciiColorMode::Palette(_) | AsciiColorMode::Photo | AsciiColorMode::None => {
+                theme == Theme::Dark
+            }
         }
+    }
+
+    /// Whether `self.weather` resolves to an animated particle emitter.
+    pub fn has_live_weather(&self) -> bool {
+        WeatherKind::from_id(&self.weather).is_some()
     }
 }
 
@@ -493,27 +511,27 @@ fn convert_grid(
                 }
                 FitMode::Contain => {
                     if src_ratio > dst_ratio {
-                        let dh = f64::from(rows) * (dst_ratio / src_ratio);
+                        let dh = (f64::from(rows) * (dst_ratio / src_ratio)).max(1.0);
                         (
                             0.0,
                             0.0,
                             sw,
                             sh,
                             0.0,
-                            (f64::from(rows) - dh) * 0.5,
+                            (f64::from(rows) - dh).max(0.0) * 0.5,
                             f64::from(cols),
-                            dh.max(1.0),
+                            dh,
                         )
                     } else {
-                        let dw = f64::from(cols) * (src_ratio / dst_ratio);
+                        let dw = (f64::from(cols) * (src_ratio / dst_ratio)).max(1.0);
                         (
                             0.0,
                             0.0,
                             sw,
                             sh,
-                            (f64::from(cols) - dw) * 0.5,
+                            (f64::from(cols) - dw).max(0.0) * 0.5,
                             0.0,
-                            dw.max(1.0),
+                            dw,
                             f64::from(rows),
                         )
                     }
@@ -522,6 +540,7 @@ fn convert_grid(
         }
     };
 
+    let canvas_bg = resolve_family(&config.color_mode, theme).bg_center;
     const BAYER_2X4: [[f64; 2]; 4] = [[-0.07, 0.02], [0.05, -0.04], [-0.02, 0.07], [0.04, -0.05]];
     const BRAILLE_BITS: [[u8; 2]; 4] = [[0, 3], [1, 4], [2, 5], [6, 7]];
 
@@ -549,16 +568,35 @@ fn convert_grid(
 
             let idx = (row * cols + col) as usize;
             let cell_sample = sample_box(src, sx0, sy0, sx1, sy1);
-            alphas[idx] = cell_sample.a;
-            if cell_sample.a < 16 {
+            if cell_sample.a == 0 {
                 continue;
             }
-            colors[idx] = readable_photo_rgb(cell_sample, dark_canvas);
+            let composited = if cell_sample.a < 255 {
+                let t = f64::from(cell_sample.a) / 255.0;
+                let mixed = canvas_bg.mix(
+                    Rgb {
+                        r: cell_sample.r,
+                        g: cell_sample.g,
+                        b: cell_sample.b,
+                    },
+                    t,
+                );
+                Sample {
+                    r: mixed.r,
+                    g: mixed.g,
+                    b: mixed.b,
+                    a: cell_sample.a,
+                }
+            } else {
+                cell_sample
+            };
+            colors[idx] = readable_photo_rgb(composited, dark_canvas);
 
             if config.ramp == RampPreset::Braille {
                 // 2x4 sub-cell braille sampling for sharp edges and stippled gradients.
                 let mut mask = 0u8;
                 let mut sum = 0.0;
+                let mut max_sub_a = cell_sample.a;
                 for (dy, bit_row) in BRAILLE_BITS.iter().enumerate() {
                     let by0 = sy0 + (sy1 - sy0) * (dy as f64 / 4.0);
                     let by1 = sy0 + (sy1 - sy0) * ((dy + 1) as f64 / 4.0);
@@ -566,6 +604,7 @@ fn convert_grid(
                         let bx0 = sx0 + (sx1 - sx0) * (dx as f64 / 2.0);
                         let bx1 = sx0 + (sx1 - sx0) * ((dx + 1) as f64 / 2.0);
                         let sub = sample_box(src, bx0, by0, bx1, by1);
+                        max_sub_a = max_sub_a.max(sub.a);
                         let d = ink_density(sub, config, dark_canvas);
                         sum += d;
                         if d + BAYER_2X4[dy][dx] >= 0.34 {
@@ -573,8 +612,13 @@ fn convert_grid(
                         }
                     }
                 }
+                if max_sub_a < 16 {
+                    continue;
+                }
+                alphas[idx] = if mask != 0 { max_sub_a } else { cell_sample.a };
                 if mask == 0 && sum / 8.0 > 0.14 {
                     mask = 1 << 6;
+                    alphas[idx] = max_sub_a;
                 }
                 chars[idx] = if mask == 0 {
                     ' '
@@ -582,6 +626,10 @@ fn convert_grid(
                     char::from_u32(0x2800 + u32::from(mask)).unwrap_or(' ')
                 };
             } else {
+                if cell_sample.a < 16 {
+                    continue;
+                }
+                alphas[idx] = cell_sample.a;
                 let d = ink_density(cell_sample, config, dark_canvas);
                 let max_i = ramp.len().saturating_sub(1);
                 let ri = (d * max_i as f64).round().clamp(0.0, max_i as f64) as usize;
@@ -644,7 +692,7 @@ pub fn resolve_family(mode: &AsciiColorMode, theme: Theme) -> PaletteFamily {
                     .copied()
             })
             .expect("classic palette exists"),
-        AsciiColorMode::Black | AsciiColorMode::None => PaletteFamily {
+        AsciiColorMode::Black => PaletteFamily {
             id: "ascii_black",
             set: "classic",
             theme: Theme::Dark,
@@ -667,6 +715,32 @@ pub fn resolve_family(mode: &AsciiColorMode, theme: Theme) -> PaletteFamily {
             ember: Rgb::hex(0xCF5320),
             glow_strength: 0.10,
             tint_strength: 0.45,
+        },
+        AsciiColorMode::None => match theme {
+            Theme::Dark => PaletteFamily {
+                id: "ascii_black",
+                set: "classic",
+                theme: Theme::Dark,
+                bg_edge: Rgb::hex(0x000000),
+                bg_center: Rgb::hex(0x000000),
+                ink: Rgb::hex(0xF2F2F2),
+                accent: Rgb::hex(0xFF9646),
+                ember: Rgb::hex(0xFFB066),
+                glow_strength: 0.14,
+                tint_strength: 0.50,
+            },
+            Theme::Light => PaletteFamily {
+                id: "ascii_white",
+                set: "classic",
+                theme: Theme::Light,
+                bg_edge: Rgb::hex(0xFFFFFF),
+                bg_center: Rgb::hex(0xFFFFFF),
+                ink: Rgb::hex(0x141414),
+                accent: Rgb::hex(0xD9652B),
+                ember: Rgb::hex(0xCF5320),
+                glow_strength: 0.10,
+                tint_strength: 0.45,
+            },
         },
         AsciiColorMode::Photo => match theme {
             Theme::Dark => PaletteFamily {
@@ -745,12 +819,17 @@ pub fn render_rgba(
 ) -> (u32, u32, Vec<u8>) {
     let cell_h = cell_h.max(8);
     let cell_w = ((f64::from(cell_h) * FONT_TO_CELL * ADVANCE_RATIO).round() as u32).max(4);
+    let transparent = config.color_mode == AsciiColorMode::None;
     let pad_x = cell_w * 2;
     let pad_y = cell_h;
+    let sig_pad_bottom = if sign && !transparent {
+        cell_h.max(16) + 8
+    } else {
+        0
+    };
     let width = art.cols * cell_w + pad_x * 2;
-    let height = art.rows * cell_h + pad_y * 2;
+    let height = art.rows * cell_h + pad_y * 2 + sig_pad_bottom;
 
-    let transparent = config.color_mode == AsciiColorMode::None;
     let family = resolve_family(&config.color_mode, theme);
     let lighting = Lighting {
         vignette_cx: f64::from(width) * 0.5,
@@ -812,10 +891,15 @@ pub fn render_rgba(
                     }
                     let o = (((y0 + my) * width + (x0 + mx)) * 4) as usize;
                     if transparent {
+                        let scaled_a =
+                            ((u16::from(a) * u16::from(art.alphas[ci]) + 127) / 255) as u8;
+                        if scaled_a == 0 {
+                            continue;
+                        }
                         rgba[o] = ink.r;
                         rgba[o + 1] = ink.g;
                         rgba[o + 2] = ink.b;
-                        rgba[o + 3] = a;
+                        rgba[o + 3] = scaled_a;
                     } else {
                         let t = f64::from(a) / 255.0;
                         let cur = Rgb {
@@ -925,7 +1009,7 @@ pub fn build_photo_package(
     let cell_h = cell_h_from_cols.min(height);
     let cols = (width / cell_w).max(1);
     let rows = (height / cell_h).max(1);
-    let grid = GridSpec {
+    let ascii_grid = GridSpec {
         cols,
         rows,
         cell_w,
@@ -934,6 +1018,9 @@ pub fn build_photo_package(
         origin_y: (height - rows * cell_h) / 2,
         font_px,
     };
+    // Weather particles use the screen's standard scene grid so snowflakes/rain
+    // stay crisp regardless of how wide or narrow `config.columns` is set.
+    let scene_grid = clairlune_scene::grid_spec(width, height);
 
     let themes_to_build: &[Theme] = match config.color_mode {
         AsciiColorMode::Black => &[Theme::Dark],
@@ -944,7 +1031,7 @@ pub fn build_photo_package(
     };
 
     let letters = config.ramp.weather_letters();
-    let weather_atlas = GlyphAtlas::for_letters(&grid, letters);
+    let weather_atlas = GlyphAtlas::for_letters(&scene_grid, letters);
     let embers = ember_set(seed, CALM_PACE);
     let t_hero_ms = hero_time(&embers);
     let aspect = f64::from(width) / f64::from(height);
@@ -989,7 +1076,7 @@ pub fn build_photo_package(
             buddy: false,
             seed,
             family,
-            grid,
+            grid: scene_grid,
             cells: Vec::new(),
             lighting,
             activity: None,
@@ -1012,7 +1099,7 @@ pub fn build_photo_package(
             zoom: 1.0,
         };
 
-        let (background, palette) = bake_ascii_theme(&art, config, &graph);
+        let (background, palette) = bake_ascii_theme(&art, config, &graph, &ascii_grid);
         custom_themes.push(CustomTheme {
             theme,
             graph,
@@ -1084,6 +1171,7 @@ fn bake_ascii_theme(
     art: &AsciiArt,
     config: &AsciiConfig,
     graph: &SceneGraph,
+    g: &GridSpec,
 ) -> (IndexedImage, IndexedPalette) {
     let mut img = IndexedImage::new(graph.width, graph.height);
     let w = graph.width as usize;
@@ -1099,7 +1187,6 @@ fn bake_ascii_theme(
         }
     }
 
-    let g = &graph.grid;
     let (cw, ch) = (g.cell_w as usize, g.cell_h as usize);
     let cell_len = cw * ch;
     let (glyph_ids, all_masks) = rasterize_unique_chars(&art.chars, g.cell_w, g.cell_h, g.font_px);
@@ -1252,7 +1339,15 @@ fn median_cut(samples: &[[u8; 3]], max_colors: usize) -> Vec<[u8; 3]> {
 
         let mut bucket = buckets.swap_remove(split_idx);
         bucket.sort_by_key(|c| (c[axis], c[0], c[1], c[2]));
-        let mid = bucket.len() / 2;
+        let mut mid = bucket.len() / 2;
+        let min_v = bucket[0][axis];
+        let max_v = bucket[bucket.len() - 1][axis];
+        if bucket[0][axis] == bucket[mid][axis] || bucket[mid - 1][axis] == max_v {
+            let thr = ((u16::from(min_v) + u16::from(max_v)) / 2) as u8;
+            mid = bucket
+                .partition_point(|c| c[axis] <= thr)
+                .clamp(1, bucket.len() - 1);
+        }
         let right = bucket.split_off(mid);
         buckets.push(bucket);
         buckets.push(right);
@@ -1358,14 +1453,14 @@ fn sample_crescent_peaks(nx: f64, ny: f64) -> [u8; 3] {
         let v = (34.0 + (0.72 - uy) * 95.0) as u8;
         [v.saturating_sub(8), v, v.saturating_add(24)]
     } else if d_outer < 0.145 && d_cut > 0.125 {
-        [248, 236, 198]
+        [250, 240, 206]
     } else {
-        let glow = (1.0 - (d_outer / 0.42).min(1.0)) * 52.0;
-        let base = 10.0 + uy * 26.0 + glow;
+        let glow = (1.0 - (d_outer / 0.28).min(1.0)).powi(3) * 26.0;
+        let base = 6.0 + uy * 18.0 + glow;
         [
             base as u8,
-            (base * 1.1) as u8,
-            (base * 1.45).min(255.0) as u8,
+            (base * 1.08) as u8,
+            (base * 1.35).min(255.0) as u8,
         ]
     };
     if mir {
@@ -1559,22 +1654,80 @@ mod tests {
     }
 
     #[test]
-    fn none_background_exports_transparent_rgba_png() {
+    fn none_background_exports_transparent_rgba_png_in_light_and_dark_ink() {
         let src = split_gradient();
         let cfg = AsciiConfig {
             columns: 30,
             color_mode: AsciiColorMode::None,
             ..AsciiConfig::default()
         };
-        let art = convert_standalone(&src, &cfg, Theme::Dark);
-        let (w, h, rgba) = render_rgba(&art, &cfg, Theme::Dark, 12, true);
-        assert_eq!(rgba[3], 0, "top-left margin pixel must be transparent");
-        assert!(
-            rgba.as_chunks::<4>().0.iter().any(|p| p[3] > 200),
-            "ink pixels must be opaque"
+        let art_dark = convert_standalone(&src, &cfg, Theme::Dark);
+        let (w, h, rgba_light_ink) = render_rgba(&art_dark, &cfg, Theme::Dark, 12, true);
+        assert_eq!(
+            rgba_light_ink[3], 0,
+            "top-left margin pixel must be transparent"
         );
-        let png = encode_rgba_png(w, h, &rgba).unwrap();
+        let light_ink_px = rgba_light_ink
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .find(|p| p[3] > 200)
+            .expect("opaque light-ink pixel");
+        assert!(
+            light_ink_px[0] > 200,
+            "Theme::Dark None mode should render light ink"
+        );
+
+        let art_light = convert_standalone(&src, &cfg, Theme::Light);
+        let (_, _, rgba_dark_ink) = render_rgba(&art_light, &cfg, Theme::Light, 12, true);
+        let dark_ink_px = rgba_dark_ink
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .find(|p| p[3] > 200)
+            .expect("opaque dark-ink pixel");
+        assert!(
+            dark_ink_px[0] < 40,
+            "Theme::Light None mode should render dark ink"
+        );
+
+        let png = encode_rgba_png(w, h, &rgba_light_ink).unwrap();
         assert!(png.starts_with(b"\x89PNG"));
+    }
+
+    #[test]
+    fn custom_ramp_sanitizes_unmapped_unicode_and_weather_scale_uses_scene_grid() {
+        // Emoji, control chars, and duplicate characters are stripped or deduplicated,
+        // falling back cleanly if nothing renderable was typed.
+        let fallback = RampPreset::Custom.heavy_to_light("🚀🎉\n\t   ");
+        assert_eq!(fallback.last(), Some(&' '));
+        assert!(fallback.len() >= 2);
+        assert!(
+            fallback
+                .iter()
+                .take(fallback.len() - 1)
+                .all(|&c| GlyphAtlas::can_render_char(c))
+        );
+
+        let deduped = RampPreset::Custom.heavy_to_light("@@@###...🚀 ");
+        assert_eq!(deduped, vec!['@', '#', '.', ' ']);
+
+        // Extreme aspect ratio (400x1) and low column count (30 cols) do not panic
+        // and keep `SceneGraph.grid` at standard monitor particle resolution.
+        let wide = RgbaImage::new(400, 1, vec![220; 400 * 4]).unwrap();
+        let cfg = AsciiConfig {
+            columns: 30,
+            weather: "snow".into(),
+            ..AsciiConfig::default()
+        };
+        assert!(cfg.has_live_weather());
+        let pkg = build_photo_package(&wide, &cfg, 1920, 1080, 99).unwrap();
+        let g = pkg.graph(Theme::Dark).unwrap();
+        let expected = clairlune_scene::grid_spec(1920, 1080);
+        assert_eq!(
+            (g.grid.cell_w, g.grid.cell_h),
+            (expected.cell_w, expected.cell_h)
+        );
     }
 
     #[test]

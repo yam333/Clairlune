@@ -80,6 +80,10 @@ pub enum Job {
         /// The image on the primary monitor right now, when it's the whole
         /// scene (a theme change re-renders it without a new archive entry).
         still: Option<PathBuf>,
+        /// Requested theme/Clawd when re-rendering from `scene/0` (Library or
+        /// Span mode after a theme switch).
+        theme: Option<Theme>,
+        buddy: Option<bool>,
         /// With the signature in a corner.
         sign: bool,
     },
@@ -179,6 +183,7 @@ pub enum Done {
         wanted: Theme,
         archetype: String,
         activity: Option<String>,
+        is_photo: bool,
         monitors: usize,
         ms: u64,
         /// Each monitor's scene, to play live (empty without a host).
@@ -642,7 +647,9 @@ fn scenes(
                             s.recipe.archetype == clairlune_render::img2ascii::PHOTO_ARCHETYPE
                         }) =>
                         {
-                            r.monitors[0].recipe.clone()
+                            let mut rec = r.monitors[0].recipe.clone();
+                            rec.seed = monitor_seed(r.base_seed, m);
+                            rec
                         }
                         None => new_scene(monitor_seed(r.base_seed, m), m),
                     }
@@ -828,8 +835,18 @@ fn run(
             dest,
             source,
             still,
+            theme,
+            buddy,
             sign,
-        } => export(archive, &dest, source.as_deref(), still.as_deref(), sign),
+        } => export(
+            archive,
+            &dest,
+            source.as_deref(),
+            still.as_deref(),
+            theme,
+            buddy,
+            sign,
+        ),
         Job::ExportGif {
             dest,
             source,
@@ -1033,15 +1050,51 @@ fn apply(
             })
             .collect(),
     };
+    let has_photo = recipes
+        .iter()
+        .any(|r| r.archetype == clairlune_render::img2ascii::PHOTO_ARCHETYPE);
+    let saved_photo_meta = saved.and_then(|s| s.dir).and_then(read_photo_meta);
     let source = if add_to_archive {
+        // Carry forward `photo.png` and `photo.json` when re-archiving a mixed
+        // multi-monitor wallpaper (e.g. "New wallpaper on" one monitor).
+        let carried_png = if has_photo {
+            saved
+                .and_then(|s| s.dir)
+                .and_then(|d| std::fs::read(d.join("photo.png")).ok())
+        } else {
+            None
+        };
+        let carried_json = if has_photo {
+            saved
+                .and_then(|s| s.dir)
+                .and_then(|d| std::fs::read(d.join("photo.json")).ok())
+        } else {
+            None
+        };
+        let mut extras: Vec<(&str, &[u8])> = Vec::new();
+        if let Some(b) = &carried_png {
+            extras.push(("photo.png", b.as_slice()));
+        }
+        if let Some(b) = &carried_json {
+            extras.push(("photo.json", b.as_slice()));
+        }
+        let label = if has_photo {
+            saved_photo_meta.as_ref().map(|m| m.name.clone())
+        } else {
+            None
+        };
         let entry = archive
-            .add(&NewEntry {
-                created: crate::timefmt::now_unix(),
-                recipes: entry_recipes,
-                pngs: pngs.clone(),
-                thumb_png: png_of(&thumb, &palette)?,
-                packages: packages.clone(),
-            })
+            .add_with_extras(
+                &NewEntry {
+                    created: crate::timefmt::now_unix(),
+                    recipes: entry_recipes,
+                    pngs: pngs.clone(),
+                    thumb_png: png_of(&thumb, &palette)?,
+                    packages: packages.clone(),
+                },
+                label,
+                &extras,
+            )
             .map_err(|e| format!("archive: {e}"))?;
         let swept = archive.sweep(
             crate::timefmt::now_unix(),
@@ -1128,13 +1181,23 @@ fn apply(
         memory_mb = crate::memory_mb(),
         "wallpaper applied"
     );
+    let is_photo = primary.archetype == clairlune_render::img2ascii::PHOTO_ARCHETYPE;
+    let display_archetype = if is_photo {
+        saved_photo_meta
+            .map(|m| m.name)
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "Custom ASCII".into())
+    } else {
+        primary.archetype.clone()
+    };
     Ok(Done::Applied {
         source,
         seed: base_seed,
         theme: used_theme,
         wanted,
-        archetype: primary.archetype.clone(),
+        archetype: display_archetype,
         activity: primary.activity.clone(),
+        is_photo,
         monitors: screens.len(),
         ms,
         live,
@@ -1175,6 +1238,21 @@ pub(crate) fn restore(
     Ok(Done::Restored)
 }
 
+/// On-disk `photo.json` format: stores the human-readable image title alongside
+/// the conversion settings (backward-compatible with `0.35.0`'s bare `AsciiConfig`).
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct SavedPhotoMeta {
+    #[serde(default)]
+    pub name: String,
+    #[serde(flatten)]
+    pub config: clairlune_render::img2ascii::AsciiConfig,
+}
+
+pub(crate) fn read_photo_meta(dir: &Path) -> Option<SavedPhotoMeta> {
+    let text = std::fs::read_to_string(dir.join("photo.json")).ok()?;
+    serde_json::from_str(&text).ok()
+}
+
 /// Re-renders a saved custom ASCII wallpaper (`photo.png` + `photo.json`) when
 /// monitor dimensions changed from the size it was frozen at.
 fn rebuild_saved_photo(
@@ -1183,16 +1261,16 @@ fn rebuild_saved_photo(
     height: u32,
     seed: u64,
 ) -> Result<ScenePackage, String> {
-    use clairlune_render::img2ascii::{AsciiConfig, RgbaImage, build_photo_package};
+    use clairlune_render::img2ascii::{RgbaImage, build_photo_package};
     let png_bytes = std::fs::read(dir.join("photo.png")).map_err(|e| format!("photo.png: {e}"))?;
     let ([pw, ph], rgba) =
         crate::ui::decode_png_rgba(&png_bytes).ok_or_else(|| "bad photo.png".to_string())?;
     let src = RgbaImage::new(pw as u32, ph as u32, rgba)?;
     let cfg_json =
         std::fs::read_to_string(dir.join("photo.json")).map_err(|e| format!("photo.json: {e}"))?;
-    let cfg: AsciiConfig =
+    let meta: SavedPhotoMeta =
         serde_json::from_str(&cfg_json).map_err(|e| format!("photo.json: {e}"))?;
-    build_photo_package(&src, &cfg, width, height, seed)
+    build_photo_package(&src, &meta.config, width, height, seed)
 }
 
 fn photo_seed(photo: &PhotoSource, config_json: &str) -> u64 {
@@ -1252,8 +1330,14 @@ fn apply_photo(
 
     let capped = photo.image.capped(1920);
     let photo_png = encode_rgba_png(capped.width, capped.height, &capped.pixels)?;
-    let photo_json = serde_json::to_string_pretty(&photo.config).map_err(|e| e.to_string())?;
-    let base_seed = photo_seed(photo, &photo_json);
+    let meta = SavedPhotoMeta {
+        name: photo.name.clone(),
+        config: photo.config.clone(),
+    };
+    let photo_json = serde_json::to_string_pretty(&meta).map_err(|e| e.to_string())?;
+    let config_only_json =
+        serde_json::to_string_pretty(&photo.config).map_err(|e| e.to_string())?;
+    let base_seed = photo_seed(photo, &config_only_json);
     let wanted = resolve_theme(&settings.theme);
 
     let mut packages = Vec::with_capacity(monitors.len());
@@ -1303,6 +1387,7 @@ fn apply_photo(
     if to_library {
         let lib = crate::library::Library::open(library_dir).map_err(|e| e.to_string())?;
         let id = format!("lib_{:08x}", base_seed as u32);
+        let existing = lib.get(&id);
         let item_dir = lib.item_dir(&id);
         let tmp = lib.dir().join(format!("{id}.part"));
         let _ = std::fs::remove_dir_all(&tmp);
@@ -1325,13 +1410,18 @@ fn apply_photo(
         }
         let item = crate::library::Item {
             id,
-            name: photo.name.clone(),
-            created: crate::timefmt::now_unix(),
-            tags: Vec::new(),
-            display: if photo.config.weather != "none" {
+            name: existing
+                .as_ref()
+                .map(|e| e.name.clone())
+                .unwrap_or_else(|| photo.name.clone()),
+            created: existing
+                .as_ref()
+                .map_or_else(crate::timefmt::now_unix, |e| e.created),
+            tags: existing.map(|e| e.tags).unwrap_or_default(),
+            display: if photo.config.has_live_weather() {
                 crate::library::DisplayChoice::Live
             } else {
-                crate::library::DisplayChoice::Follow
+                crate::library::DisplayChoice::Still
             },
             theme: match photo.config.color_mode {
                 AsciiColorMode::Black => crate::library::ThemeChoice::Dark,
@@ -1356,17 +1446,22 @@ fn apply_photo(
 
     let span_still = span.as_ref().map(|_| (img.clone(), palette.clone()));
     let entry = archive
-        .add(&NewEntry {
-            created: crate::timefmt::now_unix(),
-            recipes: entry_recipes,
-            pngs: pngs.clone(),
-            thumb_png,
-            packages: packages.clone(),
-        })
+        .add_with_extras(
+            &NewEntry {
+                created: crate::timefmt::now_unix(),
+                recipes: entry_recipes,
+                pngs: pngs.clone(),
+                thumb_png,
+                packages: packages.clone(),
+            },
+            Some(photo.name.clone()),
+            &[
+                ("photo.png", &photo_png),
+                ("photo.json", photo_json.as_bytes()),
+            ],
+        )
         .map_err(|e| format!("archive: {e}"))?;
     let entry_dir = archive.dir().join(&entry.name);
-    std::fs::write(entry_dir.join("photo.png"), &photo_png).map_err(|e| e.to_string())?;
-    std::fs::write(entry_dir.join("photo.json"), &photo_json).map_err(|e| e.to_string())?;
     let _ = archive.sweep(
         crate::timefmt::now_unix(),
         settings.archive.keep_days,
@@ -1431,6 +1526,7 @@ fn apply_photo(
         wanted,
         archetype: photo.name.clone(),
         activity: None,
+        is_photo: true,
         monitors: screens.len(),
         ms,
         live,
@@ -1489,28 +1585,56 @@ fn export_gif(
     Ok(Done::Exported(out))
 }
 
+/// Produces PNG bytes for an exported scene (re-rendering `scene/0` when a
+/// specific theme/Clawd was requested and no live `still` overrides it).
+pub(crate) fn png_bytes_for_export(
+    dir: &Path,
+    still: Option<&Path>,
+    theme: Option<Theme>,
+    buddy: Option<bool>,
+    sign: bool,
+) -> Result<Vec<u8>, String> {
+    let bytes = if let Some(still_path) = still.filter(|p| p.is_file()) {
+        std::fs::read(still_path).map_err(|e| format!("{}: {e}", still_path.display()))?
+    } else if let Some(want_theme) = theme
+        && let Ok(pkg) = ScenePackage::load(&dir.join("scene").join("0"))
+    {
+        let th = if pkg.themes().contains(&want_theme) {
+            want_theme
+        } else {
+            pkg.themes()[0]
+        };
+        let (img, pal) = pkg
+            .still(th, buddy.unwrap_or(false))
+            .ok_or_else(|| "scene has no frames".to_string())?;
+        png_of(&img, pal)?
+    } else {
+        let wp = dir.join("wallpaper-0.png");
+        std::fs::read(&wp).map_err(|e| format!("{}: {e}", wp.display()))?
+    };
+    let signed = sign.then(|| signed_png(&bytes)).flatten();
+    if sign && signed.is_none() {
+        tracing::warn!(target: "clairlune", dir = %dir.display(), "not an indexed scene image; saved unsigned");
+    }
+    Ok(signed.unwrap_or(bytes))
+}
+
 /// Copies a saved scene's primary image to `dest`, signed when asked.
 fn export(
     archive: &Archive,
     dest: &Path,
     source: Option<&Path>,
     still: Option<&Path>,
+    theme: Option<Theme>,
+    buddy: Option<bool>,
     sign: bool,
 ) -> Result<Done, String> {
     let dir = export_source(archive, source)?;
     std::fs::create_dir_all(dest).map_err(|e| e.to_string())?;
-    let src = still
-        .filter(|p| p.is_file())
-        .map_or_else(|| dir.join("wallpaper-0.png"), Path::to_path_buf);
     let out = dest.join(format!("{}.png", file_stem(&dir)));
-    let bytes = std::fs::read(&src).map_err(|e| format!("{}: {e}", src.display()))?;
-    let signed = sign.then(|| signed_png(&bytes)).flatten();
-    if sign && signed.is_none() {
-        tracing::warn!(target: "clairlune", path = %src.display(), "not an indexed scene image; saved unsigned");
-    }
-    std::fs::write(&out, signed.as_deref().unwrap_or(&bytes))
-        .map_err(|e| format!("{}: {e}", out.display()))?;
-    tracing::info!(target: "clairlune", path = %out.display(), signed = signed.is_some(), "exported");
+    let bytes = png_bytes_for_export(&dir, still, theme, buddy, sign)?;
+    std::fs::write(&out, &bytes).map_err(|e| format!("{}: {e}", out.display()))?;
+    tracing::info!(target: "clairlune", path = %out.display(), sign, "exported");
     Ok(Done::Exported(out))
 }
 
@@ -2464,6 +2588,43 @@ mod tests {
         .expect("rebuilds at new monitor size");
         assert_eq!(replayed, 0);
         assert_eq!((pkgs[0].width, pkgs[0].height), (800, 450));
+
+        // 3. Applying as wallpaper writes photo.png + photo.json into the Archive BEFORE
+        //    measuring Entry.bytes, preserves `entry.label`, and saving that Archive entry
+        //    to the Library reuses the deterministic ID without duplicating.
+        let host = FakeHost {
+            monitors: vec![monitor(640, 360)],
+            set: std::sync::Mutex::new(Vec::new()),
+        };
+        let applied = apply_photo(
+            &photo,
+            false,
+            &lib_dir,
+            &settings,
+            Some(&host),
+            &store,
+            &archive,
+        )
+        .expect("apply photo wallpaper");
+        assert!(
+            matches!(applied, Done::Applied { is_photo: true, ref archetype, .. } if archetype == "Horizon sun")
+        );
+        let arch_entry = archive.latest().expect("archived photo");
+        assert_eq!(arch_entry.label.as_deref(), Some("Horizon sun"));
+        let arch_dir = archive.dir().join(&arch_entry.name);
+        let photo_png_bytes = std::fs::metadata(arch_dir.join("photo.png")).unwrap().len();
+        assert!(
+            arch_entry.bytes > photo_png_bytes,
+            "entry.bytes ({}) must include photo.png ({photo_png_bytes})",
+            arch_entry.bytes
+        );
+        let saved_from_arch = lib.save_entry(&arch_dir, &arch_entry, 999).unwrap();
+        assert_eq!(
+            saved_from_arch.id, items[0].id,
+            "deterministic ID prevents duplicate"
+        );
+        assert_eq!(saved_from_arch.name, "Horizon sun");
+        assert_eq!(lib.items().len(), 1);
 
         let _ = std::fs::remove_dir_all(&dir);
     }

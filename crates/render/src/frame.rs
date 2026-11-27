@@ -330,9 +330,16 @@ fn compose(
             draw_particle_at(img, drawn, graph, atlas, p.x, p.y, p.glyph, p.level, p.ink);
         }
     } else {
+        // Custom pre-baked scenes (no procedural activity, character or props)
+        // draw particles as overlays so snowflakes/rain never punch cell-sized
+        // holes through the underlying picture in stills or GIF exports.
+        let overlay = graph.activity.is_none()
+            && graph.character.is_none()
+            && graph.props.is_empty()
+            && graph.unattended.is_empty();
         for (col, row, p) in graph.particles_at(t_ms) {
             draw_particle(
-                img, drawn, graph, atlas, col, row, p.glyph, p.level, p.ink, false,
+                img, drawn, graph, atlas, col, row, p.glyph, p.level, p.ink, overlay,
             );
         }
     }

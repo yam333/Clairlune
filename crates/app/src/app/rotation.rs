@@ -38,9 +38,7 @@ impl App {
         self.set_restored(false);
         self.settings.schedule.paused = false;
         self.save_settings();
-        if was_restored {
-            self.status.note = None;
-        }
+        self.status.note = None;
         if self.timeline_mode() {
             if was_restored || self.current.is_none() {
                 self.timeline_since = None;
@@ -89,21 +87,22 @@ impl App {
                 .find(|i| i.seed == seed)
                 .map(|i| (lib.item_dir(&i.id), i))
         });
-        if let Some(dir) = archived {
-            self.current_theme = None;
-            self.current_buddy = None;
-            self.set_current_live(None);
-            self.chosen = true;
-            if !self.apply_folder(dir, None, None, false, false) {
-                self.status.note = Some("That saved wallpaper couldn't be read.".into());
-            }
-        } else if let Some((dir, item)) = saved {
+        if let Some((dir, item)) = saved {
             let (theme, buddy, live) = Self::item_choices(
                 &item,
                 library::ThemeChoice::Follow,
                 library::BuddyChoice::Follow,
                 library::DisplayChoice::Follow,
             );
+            self.current_theme = theme;
+            self.current_buddy = buddy;
+            self.set_current_live(live);
+            self.chosen = true;
+            if !self.apply_folder(dir, theme, buddy, false, false) {
+                self.status.note = Some("That saved wallpaper couldn't be read.".into());
+            }
+        } else if let Some(dir) = archived {
+            let (theme, buddy, live) = Self::photo_choices_for_dir(&dir);
             self.current_theme = theme;
             self.current_buddy = buddy;
             self.set_current_live(live);
@@ -132,6 +131,20 @@ impl App {
         archive::Archive::open(self.data_dir.join("archive")).ok()
     }
 
+    pub(crate) fn photo_choices_for_dir(dir: &Path) -> (Option<Theme>, Option<bool>, Option<bool>) {
+        use clairlune_render::img2ascii::AsciiColorMode;
+        if let Some(meta) = apply::read_photo_meta(dir) {
+            let th = match meta.config.color_mode {
+                AsciiColorMode::Black => Some(Theme::Dark),
+                AsciiColorMode::White => Some(Theme::Light),
+                _ => None,
+            };
+            (th, Some(false), Some(meta.config.has_live_weather()))
+        } else {
+            (None, None, None)
+        }
+    }
+
     /// Re-applies saved scenes: the previous archive entry, or what's on
     /// screen again (for a theme change).
     pub(crate) fn reapply(&mut self, previous: bool) {
@@ -154,10 +167,12 @@ impl App {
             let Some(entry) = entry else {
                 return;
             };
-            self.current_theme = None;
-            self.current_buddy = None;
-            self.set_current_live(None);
-            (archive.dir().join(entry.name), None, None)
+            let entry_dir = archive.dir().join(entry.name);
+            let (th, bd, lv) = Self::photo_choices_for_dir(&entry_dir);
+            self.current_theme = th;
+            self.current_buddy = bd;
+            self.set_current_live(lv);
+            (entry_dir, th, bd)
         } else {
             let Some(dir) = self.current.clone() else {
                 return;

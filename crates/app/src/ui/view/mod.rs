@@ -142,6 +142,8 @@ pub struct Status {
     /// e.g. "stroll in cave".
     pub what: String,
     pub seed: Option<u64>,
+    /// The wallpaper on screen is a custom Image-to-ASCII scene (no regenerable seed).
+    pub is_photo: bool,
     pub theme: Option<Theme>,
     /// Minutes until the next scheduled change.
     pub next_in_minutes: Option<u64>,
@@ -150,6 +152,8 @@ pub struct Status {
     /// The wallpaper on screen is playing live (settings or item/slot choice).
     pub live_active: bool,
     pub busy: bool,
+    /// A custom ASCII wallpaper is currently being saved to the library.
+    pub saving_library: bool,
     /// Registered to start at login; `None` where this build can't manage it.
     pub start_at_login: Option<bool>,
     /// macOS and Windows: what the features in use need the user to allow
@@ -268,6 +272,7 @@ pub enum UiAction {
     ChooseAsciiImage,
     LoadAsciiFile(PathBuf),
     PasteAsciiImage,
+    AsciiStatusNote(String),
     SaveAsciiTxt {
         name: String,
         text: String,

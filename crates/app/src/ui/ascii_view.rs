@@ -15,7 +15,7 @@ use egui::{
     TextureOptions, Ui, pos2, vec2,
 };
 
-const INSPECTOR_W: f32 = 336.0;
+const INSPECTOR_W: f32 = 352.0;
 
 /// Ambient weather options offered for custom ASCII wallpapers.
 const STUDIO_WEATHER: [(&str, &str); 14] = [
@@ -25,7 +25,7 @@ const STUDIO_WEATHER: [(&str, &str); 14] = [
     ("fireflies", "Fireflies"),
     ("petals", "Petals"),
     ("leaves", "Leaves"),
-    ("stars", "Stars"),
+    ("dust", "Floating dust"),
     ("shooting_stars", "Shooting stars"),
     ("fog", "Fog"),
     ("sparkle", "Frost"),
@@ -44,7 +44,6 @@ pub struct AsciiState {
     /// Preview polarity when `color_mode` supports both Light and Dark.
     pub preview_theme: Option<Theme>,
     pub hovering_file: bool,
-    pub local_note: Option<String>,
     /// Cached conversion and preview texture, rebuilt only when inputs change.
     cached_key: Option<CacheKey>,
     cached_art: Option<AsciiArt>,
@@ -53,6 +52,7 @@ pub struct AsciiState {
     live_inc: Option<clairlune_render::IncrementalFrame>,
     last_live_bucket: Option<u64>,
     checker_tex: Option<TextureHandle>,
+    checker_dark: Option<bool>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -68,8 +68,12 @@ impl AsciiState {
     pub fn set_image(&mut self, name: String, image: RgbaImage) {
         self.image_name = name;
         self.source = Some(image);
-        self.local_note = None;
         self.invalidate();
+    }
+
+    pub fn on_theme_changed(&mut self) {
+        self.checker_tex = None;
+        self.checker_dark = None;
     }
 
     fn invalidate(&mut self) {
@@ -114,11 +118,13 @@ pub fn show(
 
     // Keyboard shortcuts when no text field has focus: Ctrl/Cmd+V pastes an image,
     // Ctrl/Cmd+C copies the converted ASCII text.
-    let editing_text = ui.ctx().memory(|m| m.focused().is_some());
+    let editing_text = ui.ctx().text_edit_focused();
     if !editing_text {
         let paste_pressed = ui.input(|i| {
             (i.modifiers.command && i.key_pressed(Key::V))
-                || i.events.iter().any(|e| matches!(e, egui::Event::Paste(_)))
+                || i.events
+                    .iter()
+                    .any(|e| matches!(e, egui::Event::Paste(_) | egui::Event::PasteImage(_)))
         });
         if paste_pressed {
             actions.push(UiAction::PasteAsciiImage);
@@ -135,10 +141,10 @@ pub fn show(
         && let Some(art) = &st.cached_art
     {
         ui.ctx().copy_text(art.text.clone());
-        st.local_note = Some(format!(
+        actions.push(UiAction::AsciiStatusNote(format!(
             "Copied {}×{} ASCII text to the clipboard.",
             art.cols, art.rows
-        ));
+        )));
     }
 
     // Bottom action bar across the window.
@@ -156,25 +162,16 @@ pub fn show(
     egui::Panel::right("ascii-inspector")
         .exact_size(INSPECTOR_W)
         .resizable(false)
-        .show_separator_line(false)
         .frame(
             egui::Frame::new()
                 .fill(c(t.bg_sidebar))
-                .inner_margin(egui::Margin::symmetric(space::S5 as i8, space::S4 as i8)),
+                .inner_margin(egui::Margin::symmetric(space::S4 as i8, space::S4 as i8)),
         )
         .show(ui, |ui| {
-            let p = ui.painter();
-            let edge = ui.max_rect().left();
-            p.vline(
-                edge,
-                ui.max_rect().y_range(),
-                Stroke::new(size::HAIRLINE, c(t.hairline)),
-            );
-            egui::ScrollArea::vertical()
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
-                    inspector(ui, window_theme, eff_theme, st);
-                });
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                inspector(ui, window_theme, eff_theme, st);
+            });
         });
 
     // Left live preview canvas.
@@ -185,7 +182,14 @@ pub fn show(
                 .inner_margin(egui::Margin::symmetric(space::S5 as i8, space::S4 as i8)),
         )
         .show(ui, |ui| {
-            canvas_pane(ui, window_theme, st, model.settings.buddy.show, actions);
+            canvas_pane(
+                ui,
+                window_theme,
+                eff_theme,
+                st,
+                model.settings.buddy.show,
+                actions,
+            );
         });
 }
 
@@ -206,9 +210,12 @@ fn update_cache(ctx: &egui::Context, st: &mut AsciiState, eff_theme: Theme) {
         let (pw, ph, rgba) = render_rgba(&art, &st.config, eff_theme, preview_cell_h, false);
         let img = egui::ColorImage::from_rgba_unmultiplied([pw as usize, ph as usize], &rgba);
         st.preview_tex = Some(ctx.load_texture("ascii-preview", img, TextureOptions::LINEAR));
-        st.live_pkg = if st.config.weather != "none" {
-            let lw = pw.clamp(320, 960);
-            let lh = ph.clamp(180, 640);
+        st.live_pkg = if st.config.has_live_weather() {
+            let scale = 1.0_f64
+                .min(960.0 / f64::from(pw.max(1)))
+                .min(640.0 / f64::from(ph.max(1)));
+            let lw = ((f64::from(pw) * scale).round() as u32).max(160);
+            let lh = ((f64::from(ph) * scale).round() as u32).max(90);
             build_photo_package(src, &st.config, lw, lh, 777).ok()
         } else {
             None
@@ -261,6 +268,7 @@ fn update_cache(ctx: &egui::Context, st: &mut AsciiState, eff_theme: Theme) {
 fn canvas_pane(
     ui: &mut Ui,
     theme: Theme,
+    eff_theme: Theme,
     st: &mut AsciiState,
     buddy: bool,
     actions: &mut Vec<UiAction>,
@@ -273,24 +281,36 @@ fn canvas_pane(
     };
 
     ui.horizontal(|ui| {
-        ui.vertical(|ui| {
+        let buttons_reserve = 284.0;
+        let left_w = (ui.available_width() - buttons_reserve).max(160.0);
+        ui.allocate_ui_with_layout(vec2(left_w, 42.0), Layout::top_down(Align::Min), |ui| {
+            ui.set_max_width(left_w);
             ui.spacing_mut().item_spacing.y = 2.0;
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Image to ASCII").font(style::title()));
                 if let Some(src) = &st.source {
                     ui.add_space(space::S2);
-                    ui.label(
-                        RichText::new(format!("{} · {}×{}", st.image_name, src.width, src.height))
+                    ui.add(
+                        egui::Label::new(
+                            RichText::new(format!(
+                                "{} · {}×{}",
+                                st.image_name, src.width, src.height
+                            ))
                             .font(style::mono())
                             .color(c(t.text_secondary)),
+                        )
+                        .truncate(),
                     );
                 }
             });
-            ui.label(
-                RichText::new(format!(
-                    "Drop an image anywhere on this window, or paste one with {paste_shortcut}."
-                ))
-                .color(c(t.text_secondary)),
+            ui.add(
+                egui::Label::new(
+                    RichText::new(format!(
+                        "Drop an image anywhere on this window, or paste one with {paste_shortcut}."
+                    ))
+                    .color(c(t.text_secondary)),
+                )
+                .truncate(),
             );
         });
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -325,14 +345,19 @@ fn canvas_pane(
         let dst = Rect::from_center_size(inner.center(), size_px);
 
         if st.config.color_mode == AsciiColorMode::None && st.live_pkg.is_none() {
-            let checker = st
-                .checker_tex
-                .get_or_insert_with(|| make_checker(ui.ctx(), theme));
-            let uv = Rect::from_min_max(Pos2::ZERO, pos2(dst.width() / 24.0, dst.height() / 24.0));
-            egui::Image::new(&*checker)
-                .uv(uv)
-                .corner_radius(CornerRadius::same(radius::CONTROL as u8))
-                .paint_at(ui, dst);
+            let want_dark = st.config.dark_canvas(eff_theme);
+            if st.checker_dark != Some(want_dark) || st.checker_tex.is_none() {
+                st.checker_tex = Some(make_checker(ui.ctx(), want_dark));
+                st.checker_dark = Some(want_dark);
+            }
+            if let Some(checker) = &st.checker_tex {
+                let uv =
+                    Rect::from_min_max(Pos2::ZERO, pos2(dst.width() / 24.0, dst.height() / 24.0));
+                egui::Image::new(checker)
+                    .uv(uv)
+                    .corner_radius(CornerRadius::same(radius::CONTROL as u8))
+                    .paint_at(ui, dst);
+            }
         }
 
         egui::Image::new(tex)
@@ -383,13 +408,7 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
         &format!("{} chars", st.config.columns),
     );
     let mut cols_f = st.config.columns as f32;
-    if ui
-        .add_sized(
-            vec2(ui.available_width(), 22.0),
-            egui::Slider::new(&mut cols_f, 30.0..=240.0).show_value(false),
-        )
-        .changed()
-    {
+    if studio_slider(ui, theme, &mut cols_f, 30.0..=240.0, 1.0, "Output width") {
         st.config.columns = cols_f.round() as u32;
     }
     caption(
@@ -397,7 +416,7 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
         theme,
         "Columns across. Height follows your image's aspect ratio.",
     );
-    ui.add_space(space::S4);
+    ui.add_space(space::S3);
 
     section_heading(ui, theme, "Row density", &format!("{rows_now} rows"));
     let density_label = |d: RowDensity| match d {
@@ -424,7 +443,7 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
         theme,
         "Adjusts row count to match the line spacing where you paste text.",
     );
-    ui.add_space(space::S4);
+    ui.add_space(space::S3);
 
     section_heading(ui, theme, "Character ramp", "");
     ComboBox::from_id_salt("ascii-ramp")
@@ -437,10 +456,12 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
         });
     if st.config.ramp == RampPreset::Custom {
         ui.add_space(space::S1);
+        let edit_w = (ui.available_width() - 16.0).max(80.0);
         ui.add(
             egui::TextEdit::singleline(&mut st.config.custom_ramp)
                 .font(style::mono())
-                .desired_width(ui.available_width())
+                .char_limit(128)
+                .desired_width(edit_w)
                 .hint_text("@%#*+=-:. "),
         );
         caption(
@@ -458,30 +479,18 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
             .collect();
         caption(ui, theme, &format!("Heaviest to lightest: {preview_ramp}"));
     }
-    ui.add_space(space::S4);
+    ui.add_space(space::S3);
 
     section_heading(ui, theme, "Contrast", &st.config.contrast.to_string());
     let mut contrast_f = st.config.contrast as f32;
-    if ui
-        .add_sized(
-            vec2(ui.available_width(), 22.0),
-            egui::Slider::new(&mut contrast_f, 50.0..=250.0).show_value(false),
-        )
-        .changed()
-    {
+    if studio_slider(ui, theme, &mut contrast_f, 50.0..=250.0, 1.0, "Contrast") {
         st.config.contrast = contrast_f.round() as i32;
     }
-    ui.add_space(space::S3);
+    ui.add_space(space::S2);
 
     section_heading(ui, theme, "Brightness", &st.config.brightness.to_string());
     let mut bright_f = st.config.brightness as f32;
-    if ui
-        .add_sized(
-            vec2(ui.available_width(), 22.0),
-            egui::Slider::new(&mut bright_f, -100.0..=100.0).show_value(false),
-        )
-        .changed()
-    {
+    if studio_slider(ui, theme, &mut bright_f, -100.0..=100.0, 1.0, "Brightness") {
         st.config.brightness = bright_f.round() as i32;
     }
     ui.add_space(space::S2);
@@ -491,7 +500,7 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
             toggle(ui, theme, &mut st.config.invert, "Invert polarity");
         });
     });
-    ui.add_space(space::S4);
+    ui.add_space(space::S3);
 
     section_heading(ui, theme, "Background & colour", "");
     #[derive(Clone, Copy, PartialEq, Eq)]
@@ -510,20 +519,18 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
         AsciiColorMode::None => ModeTab::None,
     };
     let mut picked_tab = current_tab;
-    ui.horizontal_wrapped(|ui| {
-        segmented(
-            ui,
-            theme,
-            &mut picked_tab,
-            &[
-                (ModeTab::Palette, "Palette", true),
-                (ModeTab::Photo, "Photo", true),
-                (ModeTab::Black, "Black", true),
-                (ModeTab::White, "White", true),
-                (ModeTab::None, "None", true),
-            ],
-        );
-    });
+    segmented_full(
+        ui,
+        theme,
+        &mut picked_tab,
+        &[
+            (ModeTab::Palette, "Palette"),
+            (ModeTab::Photo, "Photo"),
+            (ModeTab::Black, "Black"),
+            (ModeTab::White, "White"),
+            (ModeTab::None, "None"),
+        ],
+    );
     if picked_tab != current_tab {
         st.config.color_mode = match picked_tab {
             ModeTab::Palette => AsciiColorMode::Palette("classic".into()),
@@ -574,7 +581,7 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
             ui.add_space(space::S2);
             let mut th = eff_theme;
             ui.horizontal(|ui| {
-                ui.label(RichText::new("Canvas").color(c(t.text_secondary)));
+                ui.label(RichText::new("Preview").color(c(t.text_secondary)));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if segmented(
                         ui,
@@ -589,7 +596,7 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
             caption(
                 ui,
                 theme,
-                "Each character takes its colour from the corresponding area of your image.",
+                "Each character takes its colour from your image; saves both light and dark versions.",
             );
         }
         AsciiColorMode::Black => caption(
@@ -602,11 +609,28 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
             theme,
             "On white the characters are the ink, so dark shadows fill with strokes.",
         ),
-        AsciiColorMode::None => caption(
-            ui,
-            theme,
-            "Exports and copies a PNG with a transparent background.",
-        ),
+        AsciiColorMode::None => {
+            ui.add_space(space::S2);
+            let mut th = eff_theme;
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("Ink").color(c(t.text_secondary)));
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if segmented(
+                        ui,
+                        theme,
+                        &mut th,
+                        &[(Theme::Dark, "Light", true), (Theme::Light, "Dark", true)],
+                    ) {
+                        st.preview_theme = Some(th);
+                    }
+                });
+            });
+            caption(
+                ui,
+                theme,
+                "Exports and copies a PNG with a transparent background.",
+            );
+        }
     }
     ui.add_space(space::S4);
 
@@ -631,14 +655,11 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
     ui.add_space(space::S4);
 
     section_heading(ui, theme, "Screen fit", "");
-    segmented(
+    segmented_full(
         ui,
         theme,
         &mut st.config.fit,
-        &[
-            (FitMode::Contain, "Contain", true),
-            (FitMode::Cover, "Cover", true),
-        ],
+        &[(FitMode::Contain, "Contain"), (FitMode::Cover, "Cover")],
     );
     caption(
         ui,
@@ -658,21 +679,21 @@ fn action_bar(
 ) {
     let t = colors(theme);
     let clean_stem = file_stem_label(&st.image_name);
+    let human_title = display_title(&st.image_name);
 
     ui.horizontal(|ui| {
         if ui.button("Copy text").clicked()
             && let Some(art) = &st.cached_art
         {
             ui.ctx().copy_text(art.text.clone());
-            st.local_note = Some(format!(
+            actions.push(UiAction::AsciiStatusNote(format!(
                 "Copied {}×{} ASCII text to the clipboard.",
                 art.cols, art.rows
-            ));
+            )));
         }
         if ui.button("Save .txt").clicked()
             && let Some(art) = &st.cached_art
         {
-            st.local_note = None;
             actions.push(UiAction::SaveAsciiTxt {
                 name: clean_stem.clone(),
                 text: art.text.clone(),
@@ -681,7 +702,6 @@ fn action_bar(
         if ui.button("Copy PNG").clicked()
             && let Some(art) = &st.cached_art
         {
-            st.local_note = None;
             let (w, h, rgba) = render_rgba(art, &st.config, eff_theme, 18, model.settings.export.sign);
             actions.push(UiAction::CopyAsciiPng {
                 width: w,
@@ -692,7 +712,6 @@ fn action_bar(
         if ui.button("Save PNG").clicked()
             && let Some(art) = &st.cached_art
         {
-            st.local_note = None;
             let (w, h, rgba) = render_rgba(art, &st.config, eff_theme, 18, model.settings.export.sign);
             actions.push(UiAction::ExportAsciiPng {
                 name: clean_stem.clone(),
@@ -710,33 +729,39 @@ fn action_bar(
                 if apply_btn.clicked()
                     && let Some(src) = &st.source
                 {
-                    st.local_note = None;
                     actions.push(UiAction::ApplyAsciiWallpaper {
-                        name: clean_stem.clone(),
-                        image: src.clone(),
-                        config: Box::new(st.config.clone()),
-                    });
-                }
-                if ui
-                    .button("Save to library")
-                    .on_hover_text("Saves to your Library so you can tag it or schedule it in the Timeline.")
-                    .clicked()
-                    && let Some(src) = &st.source
-                {
-                    st.local_note = None;
-                    actions.push(UiAction::SaveAsciiToLibrary {
-                        name: clean_stem.clone(),
+                        name: human_title.clone(),
                         image: src.clone(),
                         config: Box::new(st.config.clone()),
                     });
                 }
             });
+            ui.add_enabled_ui(
+                !model.status.busy && !model.status.saving_library && st.source.is_some(),
+                |ui| {
+                    if ui
+                        .button("Save to library")
+                        .on_hover_text(
+                            "Saves to your Library so you can tag it or schedule it in the Timeline.",
+                        )
+                        .clicked()
+                        && let Some(src) = &st.source
+                    {
+                        actions.push(UiAction::SaveAsciiToLibrary {
+                            name: human_title,
+                            image: src.clone(),
+                            config: Box::new(st.config.clone()),
+                        });
+                    }
+                },
+            );
         });
     });
 
-    if let Some(note) = st.local_note.as_deref().or(model.status.note.as_deref()) {
+    if let Some(note) = model.status.note.as_deref() {
         ui.add_space(space::S1);
-        ui.label(RichText::new(note).color(c(t.text_secondary)));
+        ui.add(egui::Label::new(RichText::new(note).color(c(t.text_secondary))).truncate())
+            .on_hover_text(note);
     }
 }
 
@@ -760,17 +785,210 @@ fn section_heading(ui: &mut Ui, theme: Theme, title: &str, value: &str) {
 
 fn caption(ui: &mut Ui, theme: Theme, text: &str) {
     let t = colors(theme);
-    ui.label(
-        RichText::new(text)
-            .size(crate::tokens::text::SMALL.size)
-            .color(c(t.text_secondary)),
+    ui.add(
+        egui::Label::new(
+            RichText::new(text)
+                .size(crate::tokens::text::SMALL.size)
+                .color(c(t.text_secondary)),
+        )
+        .wrap(),
     );
 }
 
-fn make_checker(ctx: &egui::Context, theme: Theme) -> TextureHandle {
+/// Full-width slider styled from Clairlune's tokens (no stock egui slider look).
+fn studio_slider(
+    ui: &mut Ui,
+    theme: Theme,
+    value: &mut f32,
+    range: std::ops::RangeInclusive<f32>,
+    step: f32,
+    label: &str,
+) -> bool {
     let t = colors(theme);
-    let a = c(t.bg_raised);
-    let b = alpha(t.text_disabled, 0.22);
+    let w = ui.available_width();
+    let h = 24.0;
+    let (rect, mut resp) = ui.allocate_exact_size(vec2(w, h), Sense::click_and_drag());
+    let min = *range.start();
+    let max = *range.end();
+    let span = (max - min).max(f32::EPSILON);
+    let thumb_r = 7.0;
+    let track_x0 = rect.left() + thumb_r;
+    let track_x1 = (rect.right() - thumb_r).max(track_x0 + 1.0);
+
+    let mut changed = false;
+    if let Some(pos) = resp.interact_pointer_pos()
+        && (resp.dragged() || resp.clicked())
+    {
+        let u = ((pos.x - track_x0) / (track_x1 - track_x0)).clamp(0.0, 1.0);
+        let raw = min + u * span;
+        let snapped = if step > 0.0 {
+            ((raw - min) / step).round() * step + min
+        } else {
+            raw
+        }
+        .clamp(min, max);
+        if (snapped - *value).abs() > 1e-4 {
+            *value = snapped;
+            changed = true;
+        }
+    }
+    if resp.has_focus() {
+        let delta = ui.input(|i| {
+            let mut d = 0.0;
+            if i.key_pressed(Key::ArrowRight) || i.key_pressed(Key::ArrowUp) {
+                d += step.max(1.0);
+            }
+            if i.key_pressed(Key::ArrowLeft) || i.key_pressed(Key::ArrowDown) {
+                d -= step.max(1.0);
+            }
+            d
+        });
+        if delta != 0.0 {
+            *value = (*value + delta).clamp(min, max);
+            changed = true;
+        }
+    }
+    if changed {
+        resp.mark_changed();
+    }
+    resp.widget_info(|| {
+        let mut info = egui::WidgetInfo::new(egui::Role::Slider);
+        info.label = Some(label.into());
+        info.value = Some(f64::from(*value));
+        info
+    });
+
+    let u = ((*value - min) / span).clamp(0.0, 1.0);
+    let cx = egui::lerp(track_x0..=track_x1, u);
+    let cy = rect.center().y;
+    let rail_h = 4.0;
+    let rail = Rect::from_min_max(
+        pos2(rect.left(), cy - rail_h * 0.5),
+        pos2(rect.right(), cy + rail_h * 0.5),
+    );
+    let filled = Rect::from_min_max(rail.min, pos2(cx, rail.max.y));
+
+    let p = ui.painter();
+    p.rect_filled(rail, 2.0, alpha(t.border_control, 0.35));
+    p.rect_filled(filled, 2.0, c(t.accent_deep));
+    let thumb_at = pos2(cx, cy);
+    p.circle_filled(
+        thumb_at + vec2(0.0, 1.0),
+        thumb_r,
+        egui::Color32::from_black_alpha(65),
+    );
+    let thumb_col = if resp.dragged() || resp.hovered() {
+        c(t.accent)
+    } else {
+        egui::Color32::WHITE
+    };
+    p.circle_filled(thumb_at, thumb_r, thumb_col);
+    p.circle_stroke(
+        thumb_at,
+        thumb_r,
+        Stroke::new(1.0, alpha(t.border_control, 0.6)),
+    );
+    if resp.has_focus() {
+        super::view::focus_ring(ui, theme, rect, 4.0);
+    }
+    resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+    changed
+}
+
+/// Full-width segmented control matching `view::segmented`, sized exactly to
+/// `ui.available_width()` so multi-tab strips never overflow a fixed inspector.
+fn segmented_full<T: PartialEq + Copy>(
+    ui: &mut Ui,
+    theme: Theme,
+    value: &mut T,
+    options: &[(T, &str)],
+) -> bool {
+    let t = colors(theme);
+    let g = &t.glass;
+    let full_w = ui.available_width();
+    let galleys: Vec<_> = options
+        .iter()
+        .map(|(v, label)| {
+            let ink = if *value == *v {
+                t.text
+            } else {
+                t.text_secondary
+            };
+            ui.painter()
+                .layout_no_wrap((*label).to_string(), style::body(), c(ink))
+        })
+        .collect();
+    let text_sum: f32 = galleys.iter().map(|gl| gl.size().x).sum();
+    let inner_avail = (full_w - 6.0).max(text_sum);
+    let extra_per_seg = (inner_avail - text_sum) / options.len().max(1) as f32;
+
+    let base = ui.next_auto_id();
+    let (track, _) = ui.allocate_exact_size(vec2(full_w, size::CONTROL + 2.0), Sense::hover());
+    let groove = match theme {
+        Theme::Dark => egui::Color32::from_black_alpha(80),
+        Theme::Light => alpha(t.text, 0.06),
+    };
+    ui.painter()
+        .rect_filled(track, radius::CONTROL + 1.0, groove);
+    ui.painter().rect_stroke(
+        track,
+        radius::CONTROL + 1.0,
+        Stroke::new(1.0, alpha(t.border_control, 0.35)),
+        egui::StrokeKind::Inside,
+    );
+    let top_shine = match theme {
+        Theme::Dark => egui::Color32::from_white_alpha(26),
+        Theme::Light => egui::Color32::from_white_alpha(200),
+    };
+
+    let mut changed = false;
+    let mut x = track.min.x + 3.0;
+    for (i, ((v, label), galley)) in options.iter().zip(galleys).enumerate() {
+        let w = galley.size().x + extra_per_seg;
+        let seg = Rect::from_min_size(pos2(x, track.min.y + 3.0), vec2(w, track.height() - 6.0));
+        x += w;
+        let on = *value == *v;
+        let resp = ui.interact(seg, base.with(("seg-full", i, *label)), Sense::click());
+        resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::RadioButton, true, on, *label));
+        let p = ui.painter();
+        if on {
+            let bead = match theme {
+                Theme::Dark => alpha(g.card, g.chosen * 1.2),
+                Theme::Light => egui::Color32::from_white_alpha(235),
+            };
+            p.rect_filled(seg, radius::CONTROL - 2.0, bead);
+            p.hline(
+                seg.x_range().shrink(radius::CONTROL - 2.0),
+                seg.min.y + 0.5,
+                Stroke::new(1.0, top_shine),
+            );
+        } else if resp.hovered() {
+            p.rect_filled(seg, radius::CONTROL - 2.0, alpha(g.card, g.chosen * 0.6));
+        }
+        p.galley(seg.center() - galley.size() / 2.0, galley, c(t.text));
+        if resp.has_focus() {
+            super::view::focus_ring(ui, theme, seg, radius::CONTROL - 2.0);
+        }
+        if resp.clicked() && !on {
+            *value = *v;
+            changed = true;
+        }
+    }
+    changed
+}
+
+fn make_checker(ctx: &egui::Context, dark_canvas: bool) -> TextureHandle {
+    let (a, b) = if dark_canvas {
+        (
+            egui::Color32::from_rgb(24, 26, 32),
+            egui::Color32::from_rgb(42, 45, 54),
+        )
+    } else {
+        (
+            egui::Color32::from_rgb(238, 235, 228),
+            egui::Color32::from_rgb(214, 210, 200),
+        )
+    };
     let mut px = Vec::with_capacity(2 * 2 * 4);
     for col in [a, b, b, a] {
         px.extend_from_slice(&col.to_array());
@@ -786,6 +1004,15 @@ fn make_checker(ctx: &egui::Context, theme: Theme) -> TextureHandle {
             mipmap_mode: None,
         },
     )
+}
+
+pub(crate) fn display_title(raw: &str) -> String {
+    let after_dot = raw.split('·').next_back().unwrap_or(raw).trim();
+    if after_dot.is_empty() {
+        "Custom ASCII".into()
+    } else {
+        after_dot.to_string()
+    }
 }
 
 pub(crate) fn file_stem_label(raw: &str) -> String {
@@ -823,10 +1050,68 @@ mod tests {
         assert_eq!(file_stem_label("Sample 1 · Crescent & peaks"), "Sample 1");
         assert_eq!(file_stem_label("mountain_photo"), "mountain_photo");
         assert_eq!(file_stem_label("///"), "ascii-image");
+        assert_eq!(
+            display_title("Sample 1 · Crescent & peaks"),
+            "Crescent & peaks"
+        );
+        assert_eq!(display_title("mountain_photo"), "mountain_photo");
+        assert_eq!(display_title("   "), "Custom ASCII");
     }
 
     #[test]
-    fn studio_renders_in_both_themes_and_copies_text() {
+    fn studio_weather_options_all_resolve_to_live_emitters() {
+        for (id, _) in STUDIO_WEATHER {
+            let cfg = AsciiConfig {
+                weather: id.into(),
+                ..AsciiConfig::default()
+            };
+            assert_eq!(cfg.has_live_weather(), id != "none", "weather id {id}");
+        }
+    }
+
+    fn assert_no_horizontal_clip(clip_rect: Rect, shape: &egui::Shape, win_size: egui::Vec2) {
+        match shape {
+            egui::Shape::Vec(shapes) => {
+                for s in shapes {
+                    assert_no_horizontal_clip(clip_rect, s, win_size);
+                }
+            }
+            egui::Shape::Text(txt) => {
+                let rect = txt.visual_bounding_rect();
+                assert!(
+                    rect.min.x >= clip_rect.min.x - 1.5 && rect.max.x <= clip_rect.max.x + 1.5,
+                    "text {:?} at {:?} horizontally clipped by {:?} (window {:?})",
+                    txt.galley.text(),
+                    rect,
+                    clip_rect,
+                    win_size,
+                );
+            }
+            egui::Shape::Rect(r) => {
+                assert!(
+                    r.rect.min.x >= clip_rect.min.x - 1.5 && r.rect.max.x <= clip_rect.max.x + 1.5,
+                    "rect {:?} horizontally clipped by {:?} (window {:?})",
+                    r.rect,
+                    clip_rect,
+                    win_size,
+                );
+            }
+            egui::Shape::Circle(c_shape) => {
+                let rect = c_shape.visual_bounding_rect();
+                assert!(
+                    rect.min.x >= clip_rect.min.x - 1.5 && rect.max.x <= clip_rect.max.x + 1.5,
+                    "circle {:?} horizontally clipped by {:?} (window {:?})",
+                    rect,
+                    clip_rect,
+                    win_size,
+                );
+            }
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn studio_renders_in_both_themes_without_cropping_and_copies_text() {
         let ctx = egui::Context::default();
         ctx.set_fonts(style::fonts());
 
@@ -836,59 +1121,108 @@ mod tests {
         let mut timeline = Timeline::default();
         let mut st = AsciiState::default();
 
-        for (theme, mode, ramp, weather) in [
+        for (win_size, theme, mode, ramp, weather, long_name) in [
             (
+                vec2(1220.0, 780.0),
                 Theme::Dark,
                 AsciiColorMode::Palette("classic".into()),
                 RampPreset::Standard,
                 "none",
+                false,
             ),
             (
+                vec2(940.0, 580.0),
                 Theme::Light,
                 AsciiColorMode::Photo,
                 RampPreset::Braille,
                 "snow",
+                true,
             ),
             (
+                vec2(940.0, 580.0),
                 Theme::Dark,
                 AsciiColorMode::None,
                 RampPreset::Custom,
                 "none",
+                false,
             ),
         ] {
             style::apply(&ctx, theme);
             st.config.color_mode = mode;
             st.config.ramp = ramp;
             st.config.weather = weather.into();
-            let input = egui::RawInput {
-                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(1220.0, 740.0))),
-                focused: true,
-                time: Some(0.25),
-                ..Default::default()
-            };
-            let mut actions = Vec::new();
-            let mut out = ctx.run_ui(input, |ui| {
-                let mut model = Model {
-                    settings: &mut settings,
-                    status: &status,
-                    library: &[],
-                    library_dir: Path::new("."),
-                    uses: &uses,
-                    timeline: &mut timeline,
-                    archive: &[],
-                    archive_dir: Path::new("."),
-                    current_entry: None,
+            if long_name {
+                st.image_name =
+                    "very_long_vacation_panorama_photograph_filename_2026_11_27_final_edit.png"
+                        .into();
+            }
+            let mut out = egui::FullOutput::default();
+            // Run three frames so panel memory and scroll areas settle completely.
+            for _ in 0..3 {
+                let input = egui::RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, win_size)),
+                    focused: true,
+                    time: Some(0.25),
+                    ..Default::default()
                 };
-                show(ui, theme, &mut st, &mut model, &mut actions);
-            });
-            out.textures_delta.clear();
+                let mut actions = Vec::new();
+                out = ctx.run_ui(input, |ui| {
+                    let mut model = Model {
+                        settings: &mut settings,
+                        status: &status,
+                        library: &[],
+                        library_dir: Path::new("."),
+                        uses: &uses,
+                        timeline: &mut timeline,
+                        archive: &[],
+                        archive_dir: Path::new("."),
+                        current_entry: None,
+                    };
+                    show(ui, theme, &mut st, &mut model, &mut actions);
+                });
+                out.textures_delta.clear();
+            }
             assert!(st.cached_art.is_some());
             assert!(st.preview_tex.is_some());
+
+            // Verify CentralPanel never overlaps Panel::right (catches egui Panel::right
+            // inner-overflow shifting visible_outer_rect.min.x to the right).
+            let expected_split = win_size.x - INSPECTOR_W;
+            let t_cols = colors(theme);
+            let mut central_bg: Option<Rect> = None;
+            let mut inspector_bg: Option<Rect> = None;
+            for clipped in &out.shapes {
+                if let egui::Shape::Rect(r) = &clipped.shape
+                    && r.rect.height() > win_size.y * 0.5
+                {
+                    if r.fill == c(t_cols.bg) && r.rect.min.x < 4.0 {
+                        central_bg = Some(r.rect);
+                    } else if r.fill == c(t_cols.bg_sidebar) && r.rect.max.x > win_size.x - 4.0 {
+                        inspector_bg = Some(r.rect);
+                    }
+                }
+                assert_no_horizontal_clip(clipped.clip_rect, &clipped.shape, win_size);
+            }
+            let central_bg = central_bg.expect("CentralPanel background rect");
+            let inspector_bg = inspector_bg.expect("Inspector Panel::right background rect");
+            assert!(
+                (inspector_bg.min.x - expected_split).abs() <= 2.0,
+                "inspector_bg {:?} drifted from expected split {} (window {:?})",
+                inspector_bg,
+                expected_split,
+                win_size,
+            );
+            assert!(
+                central_bg.max.x <= inspector_bg.min.x + 0.5,
+                "CentralPanel {:?} overlapped Inspector {:?}!",
+                central_bg,
+                inspector_bg,
+            );
         }
 
         // Simulate Cmd/Ctrl+C (egui::Event::Copy) shortcut to copy ASCII text cleanly.
         let copy_input = egui::RawInput {
-            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(1220.0, 740.0))),
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(1220.0, 780.0))),
             events: vec![egui::Event::Copy],
             ..Default::default()
         };

@@ -8,6 +8,14 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+## [0.35.1] - 2026-11-27
+
+### Fixed
+
+- **Image to ASCII studio layout and windows:** fixed the right-hand inspector overflowing its panel width and getting cropped along its left edge, replaced stock sliders with full-width 24 px styled sliders, kept long filenames and status notes from pushing controls off-screen, clamped initial window sizes to small high-DPI laptop screens, and restored native minimize and maximize/zoom buttons on studio and secondary windows.
+- **Clipboard, colour modes, and custom ramps:** fixed `Ctrl+V` / `Cmd+V` image pasting (including image files copied from Explorer or Finder and pasting after clicking buttons or sliders), switched **Copy PNG** to lossless `arboard` image clipboard transfers, added a **Light / Dark ink** toggle with a high-contrast preview checkerboard for transparent **None** PNGs, preserved alpha edges in Braille and Photo modes, padded signed PNG exports so signatures never overlap the bottom row of glyphs, sanitized custom character ramps against unrenderable characters, and sharpened the crescent moon in the first Inspire sample.
+- **Live weather and Library / Archive / Timeline integration:** scaled live weather particles to monitor cell size instead of column width so low-column ASCII wallpapers keep crisp particles without punching holes through background glyphs, replaced the inactive `Stars` option with `Floating dust`, kept static ASCII wallpapers from spinning a live loop, and preserved custom image titles and theme/display/Clawd choices across Settings, Library, Archive, Timeline, restarts, and per-monitor updates.
+
 ## [0.35.0] - 2026-11-27
 
 ### Added

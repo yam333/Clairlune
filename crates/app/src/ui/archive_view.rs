@@ -55,6 +55,12 @@ fn megabytes(mb: f64) -> String {
 
 /// "14:00 stroll on the shore" style words for an entry.
 fn describe(e: &Entry) -> String {
+    if let Some(lbl) = e.label.as_deref().filter(|s| !s.is_empty()) {
+        return lbl.to_string();
+    }
+    if e.archetype == clairlune_render::img2ascii::PHOTO_ARCHETYPE {
+        return "custom image".into();
+    }
     let place = e.archetype.replace('_', " ");
     match &e.activity {
         Some(a) => format!("{} in {place}", a.replace('_', " ")),
@@ -67,9 +73,11 @@ fn matches_archive_filter(e: &Entry, query: &str) -> bool {
     if q.is_empty() {
         return true;
     }
+    let is_photo = e.archetype == clairlune_render::img2ascii::PHOTO_ARCHETYPE;
     describe(e).to_lowercase().contains(&q)
+        || (is_photo && "custom image".contains(&q))
         || e.theme.to_lowercase().contains(&q)
-        || e.seed.to_string().contains(&q)
+        || (!is_photo && e.seed.to_string().contains(&q))
         || (q == "pinned" && e.pinned)
 }
 
@@ -284,7 +292,12 @@ fn tile(
         ui.label(
             RichText::new(format!("{} {}", time_label(e), describe(e))).font(style::body_medium()),
         );
-        let mut facts = format!("seed {}", e.seed);
+        let is_photo = e.archetype == clairlune_render::img2ascii::PHOTO_ARCHETYPE;
+        let mut facts = if is_photo {
+            "custom image".to_string()
+        } else {
+            format!("seed {}", e.seed)
+        };
         if e.pinned {
             facts.push_str("  pinned");
         }
@@ -309,16 +322,14 @@ fn action_bar(
     actions: &mut Vec<UiAction>,
 ) {
     let t = colors(theme);
+    let is_photo = e.archetype == clairlune_render::img2ascii::PHOTO_ARCHETYPE;
     ui.horizontal(|ui| {
-        ui.label(
-            RichText::new(format!(
-                "{} {}, seed {}",
-                time_label(e),
-                describe(e),
-                e.seed
-            ))
-            .font(style::body_strong()),
-        );
+        let heading = if is_photo {
+            format!("{} {}", time_label(e), describe(e))
+        } else {
+            format!("{} {}, seed {}", time_label(e), describe(e), e.seed)
+        };
+        ui.label(RichText::new(heading).font(style::body_strong()));
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             ui.add_enabled_ui(!m.status.busy, |ui| {
                 if primary_button(ui, theme, "Use as wallpaper").clicked() {
@@ -358,7 +369,7 @@ fn action_bar(
                     gif: true,
                 });
             }
-            if ui.button("Copy seed").clicked() {
+            if !is_photo && ui.button("Copy seed").clicked() {
                 ui.ctx().copy_text(e.seed.to_string());
             }
         }
@@ -398,6 +409,7 @@ mod tests {
             theme: "dark".into(),
             archetype: "city_rooftops".into(),
             activity: Some("read_lantern".into()),
+            label: None,
             pinned: false,
             bytes: 0,
         }

@@ -137,10 +137,17 @@ impl Library {
     /// Saves an archive entry into the library (a copy; the entry keeps its
     /// own lifetime). Saving the same entry twice returns the existing item.
     pub fn save_entry(&self, entry_dir: &Path, entry: &Entry, now: u64) -> io::Result<Item> {
-        let id = format!(
-            "lib_{:08x}",
-            clairlune_scene::hash::hash_bytes(entry.name.as_bytes()) as u32
-        );
+        use clairlune_render::img2ascii::{AsciiColorMode, PHOTO_ARCHETYPE};
+        let photo_meta = crate::apply::read_photo_meta(entry_dir);
+        let is_photo = entry.archetype == PHOTO_ARCHETYPE || photo_meta.is_some();
+        let id = if is_photo {
+            format!("lib_{:08x}", entry.seed as u32)
+        } else {
+            format!(
+                "lib_{:08x}",
+                clairlune_scene::hash::hash_bytes(entry.name.as_bytes()) as u32
+            )
+        };
         if let Some(existing) = self.get(&id) {
             return Ok(existing);
         }
@@ -153,14 +160,50 @@ impl Library {
             .and_then(|t| serde_json::from_str::<EntryRecipes>(&t).ok())
             .and_then(|r| r.monitors.first().map(|m| m.recipe.generator_version))
             .unwrap_or(clairlune_scene::GENERATOR_VERSION);
+        let (name, display, theme, buddy) = if let Some(meta) = &photo_meta {
+            let n = if !meta.name.trim().is_empty() {
+                meta.name.trim().to_string()
+            } else if let Some(lbl) = entry.label.as_deref().filter(|s| !s.is_empty()) {
+                lbl.to_string()
+            } else {
+                default_name(&entry.archetype, entry.seed)
+            };
+            let d = if meta.config.has_live_weather() {
+                DisplayChoice::Live
+            } else {
+                DisplayChoice::Still
+            };
+            let th = match meta.config.color_mode {
+                AsciiColorMode::Black => ThemeChoice::Dark,
+                AsciiColorMode::White => ThemeChoice::Light,
+                _ => ThemeChoice::Follow,
+            };
+            (n, d, th, BuddyChoice::Off)
+        } else {
+            let n = entry
+                .label
+                .clone()
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| default_name(&entry.archetype, entry.seed));
+            (
+                n,
+                DisplayChoice::Follow,
+                ThemeChoice::Follow,
+                if is_photo {
+                    BuddyChoice::Off
+                } else {
+                    BuddyChoice::Follow
+                },
+            )
+        };
         let item = Item {
             id,
-            name: default_name(&entry.archetype, entry.seed),
+            name,
             created: now,
             tags: Vec::new(),
-            display: DisplayChoice::Follow,
-            theme: ThemeChoice::Follow,
-            buddy: BuddyChoice::Follow,
+            display,
+            theme,
+            buddy,
             seed: entry.seed,
             archetype: entry.archetype.clone(),
             activity: entry.activity.clone(),

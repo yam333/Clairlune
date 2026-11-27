@@ -7,11 +7,16 @@ impl App {
     /// another one after Previous or a Library pick).
     pub(crate) fn export_png(&mut self) {
         let dest = self.export_dir();
+        let theme = self
+            .shown_theme
+            .unwrap_or_else(|| apply::resolve_theme(&self.settings.theme));
         self.submit(Job::Export {
             sign: self.settings.export.sign,
             dest,
             source: self.current.clone(),
             still: self.shown_still.clone(),
+            theme: Some(theme),
+            buddy: Some(self.current_buddy.unwrap_or(self.settings.buddy.show)),
         });
     }
 
@@ -19,40 +24,32 @@ impl App {
     /// matching Save PNG).
     pub(crate) fn copy_png_to_clipboard(
         &mut self,
-        prefer: ui::Kind,
         source: Option<PathBuf>,
         still: Option<PathBuf>,
+        theme: Option<Theme>,
+        buddy: Option<bool>,
     ) {
         let dir = source.or_else(|| {
             let archive = self.archive()?;
             let entry = archive.latest()?;
             Some(archive.dir().join(entry.name))
         });
-        let src = still
-            .filter(|p| p.is_file())
-            .or_else(|| dir.map(|d| d.join("wallpaper-0.png")));
-        let decoded = src
+        let decoded = dir
             .ok_or_else(|| "There's no wallpaper to copy yet.".to_string())
-            .and_then(|path| {
-                let bytes = std::fs::read(&path)
-                    .map_err(|e| format!("Couldn't read {}: {e}", path.display()))?;
-                let signed = self
-                    .settings
-                    .export
-                    .sign
-                    .then(|| apply::signed_png(&bytes))
-                    .flatten();
-                ui::decode_png_rgba(signed.as_deref().unwrap_or(&bytes))
+            .and_then(|d| {
+                let bytes = apply::png_bytes_for_export(
+                    &d,
+                    still.as_deref(),
+                    theme,
+                    buddy,
+                    self.settings.export.sign,
+                )?;
+                ui::decode_png_rgba(&bytes)
                     .ok_or_else(|| "Couldn't decode the wallpaper image.".to_string())
             });
         match decoded {
             Ok((size, rgba)) => {
-                self.copy_rgba_to_clipboard(
-                    prefer,
-                    size,
-                    &rgba,
-                    "Copied the wallpaper to the clipboard.",
-                );
+                self.copy_rgba_to_clipboard(size, &rgba, "Copied the wallpaper to the clipboard.");
                 return;
             }
             Err(e) => self.status.note = Some(e),
@@ -60,27 +57,17 @@ impl App {
         self.redraw_windows();
     }
 
-    pub(crate) fn copy_rgba_to_clipboard(
-        &mut self,
-        prefer: ui::Kind,
-        size: [usize; 2],
-        rgba: &[u8],
-        note: &str,
-    ) {
-        let mut windows: Vec<&mut ui::UiWindow> = [
-            &mut self.settings_window,
-            &mut self.library_window,
-            &mut self.archive_window,
-            &mut self.timeline_window,
-            &mut self.ascii_window,
-        ]
-        .into_iter()
-        .flatten()
-        .collect();
-        let idx = windows.iter().position(|w| w.kind() == prefer).unwrap_or(0);
-        if let Some(w) = windows.get_mut(idx) {
-            w.copy_image(size, rgba);
-            self.status.note = Some(note.to_string());
+    pub(crate) fn copy_rgba_to_clipboard(&mut self, size: [usize; 2], rgba: &[u8], note: &str) {
+        let res = arboard::Clipboard::new().and_then(|mut cb| {
+            cb.set_image(arboard::ImageData {
+                width: size[0],
+                height: size[1],
+                bytes: std::borrow::Cow::Borrowed(rgba),
+            })
+        });
+        match res {
+            Ok(()) => self.status.note = Some(note.to_string()),
+            Err(e) => self.status.note = Some(format!("Couldn't copy image to the clipboard: {e}")),
         }
         self.redraw_windows();
     }
@@ -143,11 +130,24 @@ impl App {
         }
     }
 
-    /// Pastes an image from the system clipboard into the Image to ASCII studio.
+    /// Pastes an image (or copied image file) from the system clipboard into the Studio.
     pub(crate) fn paste_ascii_image(&mut self) {
         use clairlune_render::img2ascii::RgbaImage;
-        let pasted = arboard::Clipboard::new()
-            .and_then(|mut cb| cb.get_image())
+        let Ok(mut cb) = arboard::Clipboard::new() else {
+            self.status.note = Some("Couldn't open the system clipboard.".into());
+            self.redraw_windows();
+            return;
+        };
+        // Check copied files first (Explorer CF_HDROP / Finder NSURL, where
+        // get_image() either fails or returns the generic file icon).
+        if let Ok(files) = cb.get().file_list()
+            && let Some(first) = files.first()
+        {
+            self.load_ascii_file(first);
+            return;
+        }
+        let pasted = cb
+            .get_image()
             .map_err(|_| "There is no image on the clipboard to paste.".to_string())
             .and_then(|img| {
                 RgbaImage::new(img.width as u32, img.height as u32, img.bytes.into_owned())

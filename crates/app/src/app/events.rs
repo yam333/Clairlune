@@ -45,16 +45,40 @@ impl ApplicationHandler<AppEvent> for App {
         self.current = latest
             .as_ref()
             .and_then(|e| self.archive().map(|a| a.dir().join(&e.name)));
+        let startup_photo_meta = self.current.as_deref().and_then(apply::read_photo_meta);
         if let Some(e) = &latest {
-            self.status.what = match &e.activity {
-                Some(a) => format!(
-                    "{} in {}",
-                    a.replace('_', " "),
-                    e.archetype.replace('_', " ")
-                ),
-                None => e.archetype.replace('_', " "),
+            let is_photo = e.archetype == clairlune_render::img2ascii::PHOTO_ARCHETYPE
+                || startup_photo_meta.is_some();
+            self.status.is_photo = is_photo;
+            self.status.what = if let Some(lbl) = startup_photo_meta
+                .as_ref()
+                .map(|m| m.name.as_str())
+                .filter(|s| !s.is_empty())
+                .or(e.label.as_deref().filter(|s| !s.is_empty()))
+            {
+                lbl.to_string()
+            } else {
+                match &e.activity {
+                    Some(a) => format!(
+                        "{} in {}",
+                        a.replace('_', " "),
+                        e.archetype.replace('_', " ")
+                    ),
+                    None => e.archetype.replace('_', " "),
+                }
             };
             self.status.seed = Some(e.seed);
+        }
+        if let Some(meta) = &startup_photo_meta {
+            use clairlune_render::img2ascii::AsciiColorMode;
+            self.chosen = true;
+            self.current_buddy = Some(false);
+            self.current_theme = match meta.config.color_mode {
+                AsciiColorMode::Black => Some(Theme::Dark),
+                AsciiColorMode::White => Some(Theme::Light),
+                _ => None,
+            };
+            self.set_current_live(Some(meta.config.has_live_weather()));
         }
         if self.ui_test.is_some() {
             // UI test: leave the wallpaper alone (this only finds the next slot).
@@ -69,6 +93,9 @@ impl ApplicationHandler<AppEvent> for App {
         // What it was made for isn't saved; take what it shows.
         self.asked_theme = self.shown_theme;
         let paused = self.settings.schedule.paused;
+        let want_startup_live = self
+            .current_live
+            .unwrap_or(self.settings.display.mode == settings::WallpaperMode::Live);
         if self.restored() {
             // The user's own wallpaper is back (Restore): leave it, and
             // nothing of Clairlune's is on screen to re-render.
@@ -77,19 +104,17 @@ impl ApplicationHandler<AppEvent> for App {
             self.asked_theme = None;
             self.status.what.clear();
             self.status.seed = None;
+            self.status.is_photo = false;
         } else if self.timeline_mode() {
             // The timeline's active slot, right away (or keep playing a paused
             // live wallpaper across restarts).
             self.check_timeline();
-            if paused
-                && self.current.is_some()
-                && self.settings.display.mode == settings::WallpaperMode::Live
-            {
+            if paused && self.current.is_some() && want_startup_live {
                 self.reapply(false);
             }
         } else if (self.settings.schedule.change_at_login && !paused) || self.current.is_none() {
             self.new_wallpaper();
-        } else if self.settings.display.mode == settings::WallpaperMode::Live {
+        } else if want_startup_live {
             // Play what's there (the saved scenes, no new one).
             self.reapply(false);
         }

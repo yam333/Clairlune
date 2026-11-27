@@ -240,7 +240,10 @@ pub(crate) fn now_showing(
         pic.width(),
     ));
     p.galley(pos2(pic.min.x + 2.0, y + 22.0), gal, c(t.text_secondary));
-    if let Some(seed) = status.seed {
+    if status.is_photo {
+        let at = Rect::from_min_size(pos2(pic.min.x, y + 45.0), vec2(pic.width(), 22.0));
+        photo_badge(theme, &p, at);
+    } else if let Some(seed) = status.seed {
         let at = Rect::from_min_size(pos2(pic.min.x, y + 45.0), vec2(pic.width(), 22.0));
         seed_box(ui, theme, at, seed, &mut st.page);
     }
@@ -248,6 +251,27 @@ pub(crate) fn now_showing(
         ui.add_space(space::S2);
         ui.label(RichText::new(note).small().color(c(t.text_secondary)));
     }
+}
+
+/// Quiet non-interactive badge shown instead of a seed box when a custom ASCII
+/// image is on screen.
+fn photo_badge(theme: Theme, p: &Painter, rect: Rect) {
+    let t = colors(theme);
+    let g = &t.glass;
+    p.add(egui::Shape::convex_polygon(
+        squircle(rect, 8.0),
+        alpha(g.card, g.card_alpha * 1.6),
+        Stroke::new(1.0, alpha(t.border_control, 0.3)),
+    ));
+    let inner = rect.shrink2(vec2(8.0, 0.0));
+    let gal = p.layout_job(one_line(
+        "custom image",
+        style::label(),
+        c(t.text_secondary),
+        inner.width(),
+    ));
+    let text_y = rect.center().y - gal.size().y / 2.0;
+    p.galley(pos2(inner.min.x, text_y), gal, c(t.text_secondary));
 }
 
 /// The seed in a small box: hovered it offers to copy, clicked it copies.

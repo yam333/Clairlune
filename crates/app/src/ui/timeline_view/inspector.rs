@@ -193,6 +193,25 @@ pub(crate) fn inspector(
             }
         }
 
+        let selected_item = match &s.content {
+            Content::Item { id } => look.items.iter().find(|it| &it.id == id),
+            _ => None,
+        };
+        let is_photo_item = selected_item
+            .is_some_and(|it| it.archetype == clairlune_render::img2ascii::PHOTO_ARCHETYPE);
+        let (has_light, has_dark, has_live) = match selected_item {
+            Some(it) => {
+                let item_dir = look.dir.join(&it.id);
+                let scene_dir = item_dir.join("scene").join("0");
+                let hl = !scene_dir.exists() || scene_dir.join("background-light.png").exists();
+                let hd = !scene_dir.exists() || scene_dir.join("background-dark.png").exists();
+                let hlive = crate::apply::read_photo_meta(&item_dir)
+                    .is_none_or(|m| m.config.has_live_weather());
+                (hl, hd, hlive)
+            }
+            None => (true, true, true),
+        };
+
         group(ui, "Theme");
         ui.horizontal(|ui| {
             segmented(
@@ -200,25 +219,27 @@ pub(crate) fn inspector(
                 theme,
                 &mut s.theme,
                 &[
-                    (ThemeChoice::Follow, "Follow", true),
-                    (ThemeChoice::Light, "Light", true),
-                    (ThemeChoice::Dark, "Dark", true),
+                    (ThemeChoice::Follow, "Follow", has_light && has_dark),
+                    (ThemeChoice::Light, "Light", has_light),
+                    (ThemeChoice::Dark, "Dark", has_dark),
                 ],
             )
         });
-        group(ui, "Clawd");
-        ui.horizontal(|ui| {
-            segmented(
-                ui,
-                theme,
-                &mut s.buddy,
-                &[
-                    (BuddyChoice::Follow, "Follow", true),
-                    (BuddyChoice::On, "On", true),
-                    (BuddyChoice::Off, "Off", true),
-                ],
-            )
-        });
+        if !is_photo_item {
+            group(ui, "Clawd");
+            ui.horizontal(|ui| {
+                segmented(
+                    ui,
+                    theme,
+                    &mut s.buddy,
+                    &[
+                        (BuddyChoice::Follow, "Follow", true),
+                        (BuddyChoice::On, "On", true),
+                        (BuddyChoice::Off, "Off", true),
+                    ],
+                )
+            });
+        }
         group(ui, "Display");
         ui.horizontal(|ui| {
             segmented(
@@ -228,7 +249,7 @@ pub(crate) fn inspector(
                 &[
                     (DisplayChoice::Follow, "Follow", true),
                     (DisplayChoice::Still, "Still", true),
-                    (DisplayChoice::Live, "Live", true),
+                    (DisplayChoice::Live, "Live", has_live),
                 ],
             )
         });

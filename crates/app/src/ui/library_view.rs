@@ -72,14 +72,16 @@ fn matches_library_filter(item: &Item, query: &str, tag_filter: Option<&str>) ->
     if q.is_empty() {
         return true;
     }
+    let is_photo = item.archetype == clairlune_render::img2ascii::PHOTO_ARCHETYPE;
     item.name.to_lowercase().contains(&q)
         || item.archetype.replace('_', " ").to_lowercase().contains(&q)
+        || (is_photo && "custom image".contains(&q))
         || item
             .activity
             .as_deref()
             .is_some_and(|a| a.replace('_', " ").to_lowercase().contains(&q))
         || item.tags.iter().any(|t| t.to_lowercase().contains(&q))
-        || item.seed.to_string().contains(&q)
+        || (!is_photo && item.seed.to_string().contains(&q))
 }
 
 const THUMB_W: f32 = 192.0;
@@ -123,7 +125,7 @@ pub fn show(
             )
             .show(ui, |ui| {
                 let used = uses.get(&item.id).map(Vec::as_slice).unwrap_or(&[]);
-                action_bar(ui, theme, st, item, used, status, actions)
+                action_bar(ui, theme, st, library_dir, item, used, status, actions)
             });
     }
     let tags = all_tags(items);
@@ -292,8 +294,13 @@ fn tile(
             DisplayChoice::Live => "  live",
             DisplayChoice::Still => "  still",
         };
+        let subtitle = if item.archetype == clairlune_render::img2ascii::PHOTO_ARCHETYPE {
+            format!("custom image{theme_fact}{display_fact}")
+        } else {
+            format!("seed {}{theme_fact}{display_fact}", item.seed)
+        };
         ui.label(
-            RichText::new(format!("seed {}{theme_fact}{display_fact}", item.seed))
+            RichText::new(subtitle)
                 .font(style::mono())
                 .color(c(t.text_secondary)),
         );
@@ -301,16 +308,25 @@ fn tile(
 }
 
 /// Everything you can do with the selected item, in one place.
+#[allow(clippy::too_many_arguments)]
 fn action_bar(
     ui: &mut Ui,
     theme: Theme,
     st: &mut LibraryState,
+    library_dir: &Path,
     item: &Item,
     used: &[String],
     status: &Status,
     actions: &mut Vec<UiAction>,
 ) {
     let t = colors(theme);
+    let is_photo = item.archetype == clairlune_render::img2ascii::PHOTO_ARCHETYPE;
+    let item_dir = library_dir.join(&item.id);
+    let scene_dir = item_dir.join("scene").join("0");
+    let has_light = !scene_dir.exists() || scene_dir.join("background-light.png").exists();
+    let has_dark = !scene_dir.exists() || scene_dir.join("background-dark.png").exists();
+    let has_live =
+        crate::apply::read_photo_meta(&item_dir).is_none_or(|m| m.config.has_live_weather());
     if st
         .tags_for
         .as_ref()
@@ -365,31 +381,33 @@ fn action_bar(
             theme,
             &mut theme_choice,
             &[
-                (ThemeChoice::Follow, "Follow", true),
-                (ThemeChoice::Light, "Light", true),
-                (ThemeChoice::Dark, "Dark", true),
+                (ThemeChoice::Follow, "Follow", has_light && has_dark),
+                (ThemeChoice::Light, "Light", has_light),
+                (ThemeChoice::Dark, "Dark", has_dark),
             ],
         ) {
             let mut changed = item.clone();
             changed.theme = theme_choice;
             actions.push(UiAction::UpdateLibrary(Box::new(changed)));
         }
-        ui.add_space(space::S5);
-        ui.label(RichText::new("Clawd").color(c(t.text_secondary)));
-        let mut buddy = item.buddy;
-        if segmented(
-            ui,
-            theme,
-            &mut buddy,
-            &[
-                (BuddyChoice::Follow, "Follow", true),
-                (BuddyChoice::On, "On", true),
-                (BuddyChoice::Off, "Off", true),
-            ],
-        ) {
-            let mut changed = item.clone();
-            changed.buddy = buddy;
-            actions.push(UiAction::UpdateLibrary(Box::new(changed)));
+        if !is_photo {
+            ui.add_space(space::S5);
+            ui.label(RichText::new("Clawd").color(c(t.text_secondary)));
+            let mut buddy = item.buddy;
+            if segmented(
+                ui,
+                theme,
+                &mut buddy,
+                &[
+                    (BuddyChoice::Follow, "Follow", true),
+                    (BuddyChoice::On, "On", true),
+                    (BuddyChoice::Off, "Off", true),
+                ],
+            ) {
+                let mut changed = item.clone();
+                changed.buddy = buddy;
+                actions.push(UiAction::UpdateLibrary(Box::new(changed)));
+            }
         }
         ui.add_space(space::S5);
         ui.label(RichText::new("Display").color(c(t.text_secondary)));
@@ -399,9 +417,9 @@ fn action_bar(
             theme,
             &mut display,
             &[
-                (DisplayChoice::Follow, "Follow", true),
+                (DisplayChoice::Follow, "Follow", has_live),
                 (DisplayChoice::Still, "Still", true),
-                (DisplayChoice::Live, "Live", true),
+                (DisplayChoice::Live, "Live", has_live),
             ],
         ) {
             let mut changed = item.clone();
@@ -427,7 +445,7 @@ fn action_bar(
                     gif: true,
                 });
             }
-            if ui.button("Copy seed").clicked() {
+            if !is_photo && ui.button("Copy seed").clicked() {
                 ui.ctx().copy_text(item.seed.to_string());
             }
         }

@@ -40,6 +40,9 @@ pub struct Entry {
     /// The primary monitor's landscape and activity, for listings.
     pub archetype: String,
     pub activity: Option<String>,
+    /// Human-readable title for custom image-to-ASCII entries (`None` for procedural scenes).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
     #[serde(default)]
     pub pinned: bool,
     pub bytes: u64,
@@ -138,6 +141,9 @@ impl Archive {
                     .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                     .map_or(0, |d| d.as_secs());
                 let primary = recipes.monitors.first();
+                let label = crate::apply::read_photo_meta(&dir)
+                    .map(|m| m.name)
+                    .filter(|s| !s.is_empty());
                 Some(Entry {
                     created,
                     seed: recipes.base_seed,
@@ -146,6 +152,7 @@ impl Archive {
                         .map(|m| m.recipe.archetype.clone())
                         .unwrap_or_default(),
                     activity: primary.and_then(|m| m.recipe.activity.clone()),
+                    label,
                     pinned: true,
                     bytes: dir_size(&dir),
                     name,
@@ -200,6 +207,17 @@ impl Archive {
 
     /// Writes an entry and lists it.
     pub fn add(&self, new: &NewEntry) -> io::Result<Entry> {
+        self.add_with_extras(new, None, &[])
+    }
+
+    /// Writes an entry with optional extra files (e.g. `photo.png`, `photo.json`)
+    /// included before calculating `Entry.bytes`, and an optional human title.
+    pub fn add_with_extras(
+        &self,
+        new: &NewEntry,
+        label: Option<String>,
+        extra_files: &[(&str, &[u8])],
+    ) -> io::Result<Entry> {
         // Held from picking the name on, so two adds can't pick the same.
         let _lock = self.lock()?;
         let base = format!(
@@ -223,6 +241,9 @@ impl Archive {
         for (i, png) in new.pngs.iter().enumerate() {
             fs::write(dir.join(format!("wallpaper-{i}.png")), png)?;
         }
+        for (fname, bytes) in extra_files {
+            fs::write(dir.join(fname), bytes)?;
+        }
         for (i, pkg) in new.packages.iter().enumerate() {
             pkg.save(&dir.join("scene").join(i.to_string()))
                 .map_err(io::Error::other)?;
@@ -237,6 +258,7 @@ impl Archive {
                 .map(|m| m.recipe.archetype.clone())
                 .unwrap_or_default(),
             activity: primary.and_then(|m| m.recipe.activity.clone()),
+            label: label.filter(|s| !s.is_empty()),
             pinned: false,
             bytes: dir_size(&dir),
         };

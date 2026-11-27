@@ -176,10 +176,14 @@ impl App {
                 self.export_png();
             }
             UiAction::CopyPng => {
+                let theme = self
+                    .shown_theme
+                    .unwrap_or_else(|| apply::resolve_theme(&self.settings.theme));
                 self.copy_png_to_clipboard(
-                    ui::Kind::Settings,
                     self.current.clone(),
                     self.shown_still.clone(),
+                    Some(theme),
+                    Some(self.current_buddy.unwrap_or(self.settings.buddy.show)),
                 );
             }
             UiAction::SaveToLibrary => self.save_to_library(),
@@ -205,11 +209,13 @@ impl App {
                 height,
                 rgba,
             } => self.copy_rgba_to_clipboard(
-                ui::Kind::Ascii,
                 [width as usize, height as usize],
                 &rgba,
                 "Copied the ASCII PNG to the clipboard.",
             ),
+            UiAction::AsciiStatusNote(note) => {
+                self.status.note = Some(note);
+            }
             UiAction::ApplyAsciiWallpaper {
                 name,
                 image,
@@ -229,16 +235,9 @@ impl App {
                     AsciiColorMode::White => Some(Theme::Light),
                     _ => None,
                 };
-                let want_live = if config.weather != "none" {
-                    Some(true)
-                } else {
-                    None
-                };
-                self.set_current_live(want_live);
-                self.status.note = Some(
-                    "Applied your ASCII wallpaper. Scheduled changes are paused until you resume them."
-                        .into(),
-                );
+                self.set_current_live(Some(config.has_live_weather()));
+                self.pending_pause_note = true;
+                self.status.note = Some("Applying your ASCII wallpaper\u{2026}".into());
                 self.submit(Job::Photo {
                     photo: Box::new(apply::PhotoSource {
                         name,
@@ -255,16 +254,20 @@ impl App {
                 image,
                 config,
             } => {
-                self.submit(Job::Photo {
-                    photo: Box::new(apply::PhotoSource {
-                        name,
-                        image,
-                        config: *config,
-                    }),
-                    to_library: true,
-                    library_dir: self.data_dir.join("library"),
-                    settings: Box::new(self.settings.clone()),
-                });
+                if !self.saving_ascii_library {
+                    self.saving_ascii_library = true;
+                    self.status.note = Some("Saving to the library\u{2026}".into());
+                    self.submit(Job::Photo {
+                        photo: Box::new(apply::PhotoSource {
+                            name,
+                            image,
+                            config: *config,
+                        }),
+                        to_library: true,
+                        library_dir: self.data_dir.join("library"),
+                        settings: Box::new(self.settings.clone()),
+                    });
+                }
             }
             UiAction::SaveGif => {
                 self.status.note = Some("Making the GIF...".to_string());
@@ -328,9 +331,7 @@ impl App {
                 self.submit(Job::Restore);
             }
         }
-        if let Some(w) = &self.settings_window {
-            w.request_redraw();
-        }
+        self.redraw_windows();
         let _ = event_loop;
     }
 }

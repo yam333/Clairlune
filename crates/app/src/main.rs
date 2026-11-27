@@ -129,6 +129,10 @@ struct App {
     picking_folder: bool,
     /// The Image-to-ASCII file picker is open.
     picking_ascii_image: bool,
+    /// A custom ASCII wallpaper is currently being written to the Library.
+    saving_ascii_library: bool,
+    /// Show the auto-pause explanation once the custom ASCII wallpaper finishes applying.
+    pending_pause_note: bool,
     /// What the last update check found, and whether one is running (and
     /// was asked for by hand: then its answer shows even when it's "up to
     /// date").
@@ -663,6 +667,8 @@ fn main() {
         lands_pending: None,
         picking_folder: false,
         picking_ascii_image: false,
+        saving_ascii_library: false,
+        pending_pause_note: false,
         update: update_state,
         checking_updates: None,
         install: install::detect(),

@@ -85,8 +85,6 @@ pub struct UiWindow {
     theme: Theme,
     /// Save the next frame to this PNG (UI review screenshots).
     pub screenshot_to: Option<std::path::PathBuf>,
-    /// Place this image on the system clipboard on the next frame.
-    pending_copy: Option<egui::ColorImage>,
     /// When egui wants its next frame (an animation running), if not now.
     repaint_at: Option<std::time::Instant>,
     /// Hidden behind other windows or on another Space.
@@ -138,7 +136,7 @@ impl UiWindow {
     ) -> Result<UiWindow, String> {
         // The smallest sizes at which every page still fits without
         // anything cut off (the sidebar, a row's label and its controls).
-        let (title, w, h, min) = match kind {
+        let (title, w, h, min): (String, f64, f64, (f64, f64)) = match kind {
             Kind::Settings => (
                 format!("{APP_NAME} Settings: {}", section.name()),
                 1000.0_f64.max(f64::from(view::SETTINGS_MIN_WIDTH)),
@@ -156,15 +154,27 @@ impl UiWindow {
             Kind::Ascii => (
                 format!("{APP_NAME} Image to ASCII"),
                 1220.0,
-                740.0,
+                760.0,
                 (940.0, 580.0),
             ),
         };
-        let attrs = Window::default_attributes()
+        // Fit comfortably inside smaller / high-DPI displays (e.g. 1080p at 150%
+        // scale = 1280x720 logical) so bottom action bars never spawn off-screen.
+        let (w, h) = if let Some(mon) = event_loop
+            .primary_monitor()
+            .or_else(|| event_loop.available_monitors().next())
+        {
+            let logical = mon.size().to_logical::<f64>(mon.scale_factor());
+            let max_w = (logical.width - 40.0).max(min.0);
+            let max_h = (logical.height - 76.0).max(min.1);
+            (w.min(max_w), h.min(max_h))
+        } else {
+            (w, h)
+        };
+        let mut attrs = Window::default_attributes()
             .with_title(title)
             .with_inner_size(winit::dpi::LogicalSize::new(w, h))
             .with_min_inner_size(winit::dpi::LogicalSize::new(min.0, min.1))
-            .with_enabled_buttons(winit::window::WindowButtons::CLOSE)
             // In the title bar and the taskbar button.
             .with_window_icon(
                 winit::window::Icon::from_rgba(crate::icon::app_icon_rgba(32), 32, 32).ok(),
@@ -174,11 +184,10 @@ impl UiWindow {
                 Theme::Dark => winit::window::Theme::Dark,
             }))
             .with_visible(false);
-        let attrs = if kind == Kind::Settings {
-            glass_frame(attrs)
-        } else {
-            attrs
-        };
+        if kind == Kind::Settings {
+            attrs = attrs.with_enabled_buttons(winit::window::WindowButtons::CLOSE);
+            attrs = glass_frame(attrs);
+        }
         let window = Arc::new(event_loop.create_window(attrs).map_err(|e| e.to_string())?);
         let ctx = egui::Context::default();
         ctx.set_fonts(style::fonts());
@@ -254,7 +263,6 @@ impl UiWindow {
             },
             theme,
             screenshot_to: None,
-            pending_copy: None,
             repaint_at: None,
             occluded: false,
         })
@@ -300,6 +308,7 @@ impl UiWindow {
     pub fn set_theme(&mut self, theme: Theme) {
         if theme != self.theme {
             self.theme = theme;
+            self.ascii.on_theme_changed();
             style::apply(self.state.egui_ctx(), theme);
             self.window.request_redraw();
         }
@@ -393,12 +402,6 @@ impl UiWindow {
         self.window.request_redraw();
     }
 
-    /// Copies an RGBA image to the system clipboard on the next UI pass.
-    pub fn copy_image(&mut self, size: [usize; 2], rgba: &[u8]) {
-        self.pending_copy = Some(egui::ColorImage::from_rgba_unmultiplied(size, rgba));
-        self.window.request_redraw();
-    }
-
     /// Handles one window event; paints on redraw and collects the user's actions.
     pub fn on_event(
         &mut self,
@@ -468,33 +471,25 @@ impl UiWindow {
         let timeline = &mut self.timeline;
         let archive = &mut self.archive;
         let ascii = &mut self.ascii;
-        let mut pending_copy = self.pending_copy.take();
-        let mut full = ctx.run_ui(input, |ui| {
-            if let Some(img) = pending_copy.take() {
-                ui.ctx().copy_image(img);
-            }
-            match kind {
-                Kind::Settings => {
-                    view::show(ui, theme, view, model.settings, model.status, actions)
-                }
-                Kind::Library => library_view::show(ui, theme, library, model, actions),
-                Kind::Timeline => timeline_view::show(ui, theme, timeline, model, actions),
-                Kind::Archive => archive_view::show(
-                    ui,
-                    theme,
-                    archive,
-                    &archive_view::ArchiveModel {
-                        entries: model.archive,
-                        dir: model.archive_dir,
-                        current: model.current_entry,
-                        keep_days: model.settings.archive.keep_days,
-                        max_mb: model.settings.archive.max_mb,
-                        status: model.status,
-                    },
-                    actions,
-                ),
-                Kind::Ascii => ascii_view::show(ui, theme, ascii, model, actions),
-            }
+        let mut full = ctx.run_ui(input, |ui| match kind {
+            Kind::Settings => view::show(ui, theme, view, model.settings, model.status, actions),
+            Kind::Library => library_view::show(ui, theme, library, model, actions),
+            Kind::Timeline => timeline_view::show(ui, theme, timeline, model, actions),
+            Kind::Archive => archive_view::show(
+                ui,
+                theme,
+                archive,
+                &archive_view::ArchiveModel {
+                    entries: model.archive,
+                    dir: model.archive_dir,
+                    current: model.current_entry,
+                    keep_days: model.settings.archive.keep_days,
+                    max_mb: model.settings.archive.max_mb,
+                    status: model.status,
+                },
+                actions,
+            ),
+            Kind::Ascii => ascii_view::show(ui, theme, ascii, model, actions),
         });
         // What the window's own frame asked for (Windows).
         let mut close = false;

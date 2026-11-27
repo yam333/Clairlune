@@ -247,7 +247,7 @@ fn encode_frames<W: Write>(
                 None => {
                     // Identical frame: extend the previous frame instead.
                     if let Some(f) = pending.as_mut() {
-                        f.delay += d;
+                        f.delay = f.delay.saturating_add(d);
                     }
                     continue;
                 }
@@ -317,11 +317,47 @@ pub fn encode_package_gif<W: Write>(
         .palette(theme)
         .ok_or(GifError::Build(BuildError::ThemeLocked(theme)))?
         .clone();
-    let loop_ms = gif_loop(pkg.graph(theme).and_then(|g| g.journey.as_ref()), loop_ms);
+    let graph = pkg.graph(theme);
+    let loop_ms = gif_loop(graph.and_then(|g| g.journey.as_ref()), loop_ms);
     let started = Instant::now();
     let clock = Clock::Loop(loop_ms);
     // Each frame signed the same way, so unchanged frames still merge.
     let signature = signature.and_then(|s| crate::Signature::new(pkg.width, pkg.height, s));
+    let is_static = graph.is_some_and(|g| {
+        g.emitters.is_empty() && g.journey.is_none() && (!buddy || g.character.is_none())
+    });
+    if is_static {
+        let mut img = pkg
+            .still(theme, buddy)
+            .map(|(img, _)| img)
+            .ok_or(GifError::Build(BuildError::ThemeLocked(theme)))?;
+        if let Some(s) = &signature {
+            s.apply(&mut img);
+        }
+        let mut global = palette.rgb_bytes();
+        global.resize(256 * 3, 0);
+        let (w16, h16) = (pkg.width as u16, pkg.height as u16);
+        let mut enc = gif::Encoder::new(out, w16, h16, &global)?;
+        enc.set_repeat(gif::Repeat::Infinite)?;
+        let f = gif::Frame {
+            width: w16,
+            height: h16,
+            delay: ((loop_ms / 10).min(u64::from(u16::MAX))) as u16,
+            dispose: gif::DisposalMethod::Keep,
+            buffer: img.pixels.into(),
+            ..gif::Frame::default()
+        };
+        enc.write_frame(&f)?;
+        drop(enc);
+        return Ok(GifStats {
+            width: pkg.width,
+            height: pkg.height,
+            loop_ms,
+            frames_rendered: 1,
+            frames_written: 1,
+            elapsed_ms: started.elapsed().as_millis() as u64,
+        });
+    }
     let (rendered, written) = encode_frames(
         pkg.width,
         pkg.height,
