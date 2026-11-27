@@ -9,6 +9,7 @@ rust-version = "1.90"
 license = "MIT OR Apache-2.0"
 authors = ["Clairlune contributors"]
 readme = "README.md"
+homepage = "https://yam333.github.io/Clairlune/"
 repository = "https://github.com/yam333/Clairlune"
 
 # Lints every crate shares (CI also runs clippy with -D warnings).

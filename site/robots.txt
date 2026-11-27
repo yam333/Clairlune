@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://yam333.github.io/Clairlune/sitemap.xml

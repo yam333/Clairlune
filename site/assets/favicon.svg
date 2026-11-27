@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .moon { fill: #1C1E24; }
+    .screen { fill: #CF6640; }
+    @media (prefers-color-scheme: dark) {
+      .moon { fill: #ECE6D8; }
+      .screen { fill: #DD7D55; }
+    }
+  </style>
+  <circle class="moon" cx="14" cy="18" r="12"/>
+  <rect class="screen" x="14" y="2" width="16" height="16" rx="2"/>
+</svg>

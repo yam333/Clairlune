@@ -10,7 +10,7 @@ Procedural, animated ASCII-art desktop wallpapers for Windows and macOS, written
 
 Clairlune renders scenes locally from a seed into text glyphs, live weather, and an optional pixel-art Clawd behind your desktop icons. There is no AI and no telemetry; only the optional daily update check uses the network.
 
-**[Download](https://github.com/yam333/Clairlune/releases/latest)** · [User guide](docs/guide.md) · [CLI reference](docs/cli.md) · [Changelog](CHANGELOG.md)
+**[Website](https://yam333.github.io/Clairlune/)** · **[Download](https://github.com/yam333/Clairlune/releases/latest)** · [User guide](docs/guide.md) · [CLI reference](docs/cli.md) · [Changelog](CHANGELOG.md)
 
 [![Clairlune trailer preview](docs/media/trailer-preview.webp)](https://github.com/yam333/Clairlune/releases/download/v0.28.0/clairlune-trailer.mp4)
 
