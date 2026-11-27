@@ -146,7 +146,7 @@
             <div class="install-tablist" role="tablist" aria-label="Install platform">
               <button type="button" role="tab" id="tab-win" aria-selected="true" tabindex="0">Windows</button>
               <button type="button" role="tab" id="tab-mac" aria-selected="false" tabindex="-1">macOS</button>
-              <button type="button" role="tab" id="tab-cargo" aria-selected="false" tabindex="-1">Cargo / Linux</button>
+              <button type="button" role="tab" id="tab-cargo" aria-selected="false" tabindex="-1">Linux / CLI</button>
             </div>
 
             <div class="install-panels">
@@ -352,11 +352,11 @@ cargo install clairlune-cli   # headless CLI (Windows, macOS &amp; Linux, Rust 1
           <h3 class="sub-kicker">Swappable Character Sets</h3>
           <div class="glyph-specimen">
             <div class="glyph-row"><span>ASCII text</span><code>.:-=+*#%@ /\~^</code></div>
-            <div class="glyph-row"><span>2×4 Braille</span><code>⠁⠃⠇⠏⠟⠿⡿⣿ (::)</code></div>
+            <div class="glyph-row"><span>2×4 Braille</span><code>⠁ ⠃ ⠇ ⠏ ⠟ ⠿ ⡿ ⣿</code></div>
             <div class="glyph-row"><span>Box-drawing</span><code>─│┌┐└┘├┤┬┴┼═║</code></div>
             <div class="glyph-row"><span>Blocks</span><code>░ ▒ ▓ █ ▀ ▄ ▌ ▐</code></div>
-            <div class="glyph-row"><span>Shapes &amp; Hex</span><code>· ◦ ○ ◎ ● ■  01..FE</code></div>
-            <div class="glyph-row"><span>Katakana</span><code>Bundled M PLUS 1 Code</code></div>
+            <div class="glyph-row"><span>Shapes &amp; Hex</span><code>· ◦ ○ ◎ ● ■  01 7F FE</code></div>
+            <div class="glyph-row"><span>Katakana</span><code lang="ja">ア イ ウ カ キ ク ケ コ</code></div>
           </div>
         </div>
       </div>
@@ -418,18 +418,49 @@ cargo install clairlune-cli   # headless CLI (Windows, macOS &amp; Linux, Rust 1
             Let wallpapers rotate on a timer, pin favourites permanently, or map each part of the day on a 24-hour timeline.
           </p>
 
-          <div class="timeline-diagram" aria-hidden="true">
+          <div class="timeline-diagram">
             <div class="timeline-header">
-              <span>TIMELINE · THURSDAY</span>
-              <span>NOW 15:20</span>
+              <span>Example daily schedule</span>
+              <span class="tl-status"><i class="tl-live-dot" aria-hidden="true"></i>15:20 · Fjord</span>
             </div>
-            <div class="timeline-track">
-              <div class="tl-slot tl-night">00:00 observatory</div>
-              <div class="tl-slot tl-day">07:30 tag:focus</div>
-              <div class="tl-slot tl-day">13:00 fjord</div>
-              <div class="tl-slot tl-dusk">18:30 campfire</div>
-              <div class="tl-now"></div>
+            <div class="timeline-bar-wrap" aria-hidden="true">
+              <div class="timeline-track">
+                <span class="tl-seg tl-night"></span>
+                <span class="tl-seg tl-day"></span>
+                <span class="tl-seg tl-day tl-seg-active"></span>
+                <span class="tl-seg tl-dusk"></span>
+                <span class="tl-now"></span>
+              </div>
+              <div class="timeline-ticks">
+                <span>00:00</span>
+                <span>07:30</span>
+                <span>13:00</span>
+                <span>18:30</span>
+                <span>24:00</span>
+              </div>
             </div>
+            <ul class="timeline-slots" role="list">
+              <li class="tl-row">
+                <span class="tl-time">00:00–07:30</span>
+                <span class="tl-name">Observatory</span>
+                <span class="tl-mode">Dark · Live</span>
+              </li>
+              <li class="tl-row">
+                <span class="tl-time">07:30–13:00</span>
+                <span class="tl-name">Meadow</span>
+                <span class="tl-mode">Light · Still</span>
+              </li>
+              <li class="tl-row tl-row-active">
+                <span class="tl-time">13:00–18:30</span>
+                <span class="tl-name">Fjord</span>
+                <span class="tl-badge">Now · Live</span>
+              </li>
+              <li class="tl-row">
+                <span class="tl-time">18:30–24:00</span>
+                <span class="tl-name">Campfire</span>
+                <span class="tl-mode">Dark · Live</span>
+              </li>
+            </ul>
           </div>
 
           <dl class="instrument-list">

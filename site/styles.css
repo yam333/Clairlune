@@ -933,6 +933,11 @@ pre,
   white-space: nowrap;
 }
 
+.seed-readout button {
+  flex: none;
+  white-space: nowrap;
+}
+
 /* Band 02: 4-Column Swiss Technical Specification Ledger */
 .spec-ledger {
   display: grid;
@@ -1233,56 +1238,143 @@ pre,
 
 .timeline-header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-block-end: 12px;
+}
+
+.tl-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--text-secondary);
-  margin-block-end: 10px;
+  font-size: 0.74rem;
+  font-weight: 400;
+  color: var(--accent-text);
+}
+
+.tl-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-deep);
+  display: inline-block;
+}
+
+.timeline-bar-wrap {
+  margin-block-end: 14px;
 }
 
 .timeline-track {
   position: relative;
   display: grid;
-  grid-template-columns: 5fr 7fr 5fr 7fr;
+  grid-template-columns: 31fr 23fr 23fr 23fr;
   gap: 3px;
-  height: 40px;
-  border-radius: 8px;
+  height: 14px;
+  border-radius: 999px;
   overflow: hidden;
   border: 1px solid var(--hairline);
+  background: var(--bg-sidebar);
 }
 
-.tl-slot {
-  display: flex;
-  align-items: center;
-  padding-inline: 8px;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.tl-seg {
+  display: block;
+  height: 100%;
 }
 
 .tl-night {
-  background: #1B1F2A;
-  color: #ECE6D8;
+  background: #1E2330;
 }
 
 .tl-day {
-  background: #EAE4D7;
-  color: #1C1E24;
+  background: #DFD8C8;
+}
+
+.tl-seg-active {
+  background: var(--accent);
 }
 
 .tl-dusk {
-  background: #2C2229;
-  color: #F0A27B;
+  background: #35272D;
 }
 
 .tl-now {
   position: absolute;
   inset-block: 0;
   left: 64%;
-  width: 2px;
-  background: var(--accent-deep);
+  width: 2.5px;
+  background: var(--on-accent);
+  box-shadow: 0 0 0 1px var(--accent-deep);
+}
+
+.timeline-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-block-start: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+}
+
+.timeline-slots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.tl-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-control);
+  background: var(--bg-sidebar);
+  border: 1px solid transparent;
+  font-size: 0.82rem;
+}
+
+.tl-row-active {
+  border-color: var(--accent-deep);
+  background: var(--bg);
+}
+
+.tl-time {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.tl-name {
+  font-weight: 500;
+  color: var(--text);
+  text-align: left;
+  min-inline-size: 0;
+}
+
+.tl-mode {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.tl-badge {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--on-accent);
+  background: var(--accent);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .instrument-list {
@@ -1674,7 +1766,7 @@ pre,
 
   .workbench-toolbar {
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
   }
 
   .workbench-controls {
@@ -1731,5 +1823,15 @@ pre,
 @media (max-width: 520px) {
   .version-tag {
     display: none;
+  }
+
+  .timeline-diagram {
+    padding: 12px;
+  }
+
+  .tl-row {
+    gap: 8px;
+    padding: 7px 8px;
+    font-size: 0.78rem;
   }
 }
