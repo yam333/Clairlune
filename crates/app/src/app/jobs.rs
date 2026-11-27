@@ -4,7 +4,15 @@ use crate::*;
 
 impl App {
     pub(crate) fn submit(&mut self, job: Job) {
-        let export = matches!(job, Job::Export { .. } | Job::ExportGif { .. });
+        let export = matches!(
+            &job,
+            Job::Export { .. }
+                | Job::ExportGif { .. }
+                | Job::Photo {
+                    to_library: true,
+                    ..
+                }
+        );
         // Restore waits its turn behind a wallpaper being made, rather than
         // being dropped: the user asked for their own wallpaper back.
         let restore = matches!(job, Job::Restore | Job::RestoreToRemove);
@@ -94,6 +102,10 @@ impl App {
                 if let Some(dir) = path.parent() {
                     open(dir, false);
                 }
+            }
+            Done::SavedLibrary(name) => {
+                self.status.note = Some(format!("Saved to the library as {name}."));
+                self.refresh_library();
             }
             Done::NoHost(why) => {
                 self.status.note = Some(why);

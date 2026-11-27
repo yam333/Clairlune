@@ -50,6 +50,7 @@ impl App {
             }
             Action::SaveGif => self.export_gif(),
             Action::SaveToLibrary => self.save_to_library(),
+            Action::OpenAscii => self.open_ascii(event_loop),
             Action::OpenSettings => self.open_settings(event_loop, None),
             Action::About => {
                 self.last_section = ui::view::Section::About;
@@ -97,6 +98,7 @@ impl App {
                     &mut self.library_window,
                     &mut self.timeline_window,
                     &mut self.archive_window,
+                    &mut self.ascii_window,
                 ]
                 .into_iter()
                 .flatten()
@@ -187,6 +189,83 @@ impl App {
             | UiAction::DeleteLibrary { .. }
             | UiAction::ExportLibrary { .. }
             | UiAction::CopyLibraryPng(_)) => self.on_library_action(a),
+            UiAction::OpenAscii => self.open_ascii(event_loop),
+            UiAction::ChooseAsciiImage => self.choose_ascii_image(),
+            UiAction::LoadAsciiFile(path) => self.load_ascii_file(&path),
+            UiAction::PasteAsciiImage => self.paste_ascii_image(),
+            UiAction::SaveAsciiTxt { name, text } => self.save_ascii_txt(&name, &text),
+            UiAction::ExportAsciiPng {
+                name,
+                width,
+                height,
+                rgba,
+            } => self.export_ascii_png(&name, width, height, &rgba),
+            UiAction::CopyAsciiPng {
+                width,
+                height,
+                rgba,
+            } => self.copy_rgba_to_clipboard(
+                ui::Kind::Ascii,
+                [width as usize, height as usize],
+                &rgba,
+                "Copied the ASCII PNG to the clipboard.",
+            ),
+            UiAction::ApplyAsciiWallpaper {
+                name,
+                image,
+                config,
+            } => {
+                use clairlune_render::img2ascii::AsciiColorMode;
+                // Pause automatic changes so the user's custom ASCII wallpaper
+                // stays on screen until they resume changes or ask for a new one.
+                self.settings.schedule.paused = true;
+                self.save_settings();
+                self.reschedule();
+                self.sync_tray();
+                self.chosen = true;
+                self.current_buddy = Some(false);
+                self.current_theme = match config.color_mode {
+                    AsciiColorMode::Black => Some(Theme::Dark),
+                    AsciiColorMode::White => Some(Theme::Light),
+                    _ => None,
+                };
+                let want_live = if config.weather != "none" {
+                    Some(true)
+                } else {
+                    None
+                };
+                self.set_current_live(want_live);
+                self.status.note = Some(
+                    "Applied your ASCII wallpaper. Scheduled changes are paused until you resume them."
+                        .into(),
+                );
+                self.submit(Job::Photo {
+                    photo: Box::new(apply::PhotoSource {
+                        name,
+                        image,
+                        config: *config,
+                    }),
+                    to_library: false,
+                    library_dir: self.data_dir.join("library"),
+                    settings: Box::new(self.settings.clone()),
+                });
+            }
+            UiAction::SaveAsciiToLibrary {
+                name,
+                image,
+                config,
+            } => {
+                self.submit(Job::Photo {
+                    photo: Box::new(apply::PhotoSource {
+                        name,
+                        image,
+                        config: *config,
+                    }),
+                    to_library: true,
+                    library_dir: self.data_dir.join("library"),
+                    settings: Box::new(self.settings.clone()),
+                });
+            }
             UiAction::SaveGif => {
                 self.status.note = Some("Making the GIF...".to_string());
                 self.export_gif();

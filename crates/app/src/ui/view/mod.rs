@@ -264,6 +264,35 @@ pub enum UiAction {
         gif: bool,
     },
     CopyLibraryPng(String),
+    OpenAscii,
+    ChooseAsciiImage,
+    LoadAsciiFile(PathBuf),
+    PasteAsciiImage,
+    SaveAsciiTxt {
+        name: String,
+        text: String,
+    },
+    ExportAsciiPng {
+        name: String,
+        width: u32,
+        height: u32,
+        rgba: Vec<u8>,
+    },
+    CopyAsciiPng {
+        width: u32,
+        height: u32,
+        rgba: Vec<u8>,
+    },
+    ApplyAsciiWallpaper {
+        name: String,
+        image: clairlune_render::img2ascii::RgbaImage,
+        config: Box<clairlune_render::img2ascii::AsciiConfig>,
+    },
+    SaveAsciiToLibrary {
+        name: String,
+        image: clairlune_render::img2ascii::RgbaImage,
+        config: Box<clairlune_render::img2ascii::AsciiConfig>,
+    },
 }
 
 pub struct ViewState {

@@ -130,6 +130,18 @@ impl ThemeScene {
     }
 }
 
+/// One theme's pre-baked background, palette, atlas and graph for a custom
+/// scene package (such as an image-to-ASCII wallpaper).
+#[derive(Clone, Debug)]
+pub struct CustomTheme {
+    pub theme: Theme,
+    pub graph: SceneGraph,
+    pub palette: IndexedPalette,
+    pub atlas: GlyphAtlas,
+    pub background: IndexedImage,
+    pub hero_ms: u64,
+}
+
 /// A frozen scene: plays without the generator.
 #[derive(Clone, Debug)]
 pub struct ScenePackage {
@@ -143,6 +155,50 @@ pub struct ScenePackage {
 }
 
 impl ScenePackage {
+    /// Builds a frozen scene package from pre-baked theme backgrounds (such as
+    /// custom image-to-ASCII wallpapers with optional live weather).
+    pub fn from_custom(
+        recipe: SceneRecipe,
+        width: u32,
+        height: u32,
+        custom_themes: Vec<CustomTheme>,
+    ) -> Result<Self, PackageError> {
+        if custom_themes.is_empty() {
+            return Err(PackageError::Invalid("no themes".into()));
+        }
+        let mut themes = Vec::with_capacity(custom_themes.len());
+        for t in custom_themes {
+            if (t.background.width, t.background.height) != (width, height) {
+                return Err(PackageError::Invalid(format!(
+                    "{} background size mismatch",
+                    t.theme.as_str()
+                )));
+            }
+            check_graph(&t.graph, &t.atlas, width, height)?;
+            themes.push(ThemeScene {
+                theme: t.theme,
+                graph: t.graph,
+                palette: t.palette,
+                atlas: t.atlas,
+                background: t.background,
+                hero_ms: t.hero_ms,
+                journey: OnceLock::new(),
+            });
+        }
+        Ok(ScenePackage {
+            generator_version: recipe.generator_version,
+            recipe,
+            width,
+            height,
+            art: PackageArt {
+                activity: None,
+                character: PackagedCharacter::default(),
+                props: Vec::new(),
+            },
+            themes,
+        })
+    }
+
     /// Builds the scene in every theme it supports and freezes the result.
     pub fn capture(recipe: &SceneRecipe, width: u32, height: u32) -> Result<Self, BuildError> {
         Self::capture_with(

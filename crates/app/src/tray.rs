@@ -20,6 +20,7 @@ pub enum Action {
     SavePng,
     SaveGif,
     SaveToLibrary,
+    OpenAscii,
     OpenSettings,
     /// Settings, on About: who made it.
     About,
@@ -46,6 +47,7 @@ pub struct Tray {
     save: MenuItem,
     save_gif: MenuItem,
     save_lib: MenuItem,
+    ascii: MenuItem,
     settings: MenuItem,
     about: MenuItem,
     quit: MenuItem,
@@ -113,6 +115,7 @@ impl Tray {
         save_as
             .append_items(&[&save, &save_gif, &save_lib])
             .map_err(|e| e.to_string())?;
+        let ascii = MenuItem::new("Image to ASCII\u{2026}", true, None);
         let settings = MenuItem::new("Settings\u{2026}", true, None);
         let about = MenuItem::new("About Clairlune", true, None);
         let quit = MenuItem::new("Quit Clairlune", true, None);
@@ -127,6 +130,7 @@ impl Tray {
             &live,
             &save_as,
             &PredefinedMenuItem::separator(),
+            &ascii,
             &settings,
             &about,
             &quit,
@@ -161,6 +165,7 @@ impl Tray {
             save,
             save_gif,
             save_lib,
+            ascii,
             settings,
             about,
             quit,
@@ -182,6 +187,7 @@ impl Tray {
             (self.save.id(), Action::SavePng),
             (self.save_gif.id(), Action::SaveGif),
             (self.save_lib.id(), Action::SaveToLibrary),
+            (self.ascii.id(), Action::OpenAscii),
             (self.settings.id(), Action::OpenSettings),
             (self.about.id(), Action::About),
             (self.update.id(), Action::OpenUpdate),

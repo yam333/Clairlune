@@ -7,6 +7,7 @@ controls, and what to do when something isn't right.
 - [Install](#install)
 - [The first run](#the-first-run)
 - [Everyday use](#everyday-use)
+- [Image to ASCII](#image-to-ascii)
 - [Settings](#settings)
 - [More than one monitor](#more-than-one-monitor)
 - [Updates](#updates)
@@ -118,6 +119,7 @@ From the menu you can:
 - go back to the **previous** one, or **pause** and **resume** automatic changes,
 - switch the **theme**, or turn **live** on or off,
 - **save** what's on screen as a PNG, a GIF, or to the library,
+- turn any picture of your own into ASCII (**Image to ASCII…**),
 - open **Settings**, and see who made it (**About Clairlune**).
 
 On Windows the menu is dark or light like the taskbar. The Archive (the last
@@ -126,6 +128,25 @@ Timeline (a plan for the day) open from Settings: the Open buttons on the
 Archive page, and Edit timeline under Rotation (Mode: Timeline).
 
 Opening Clairlune again while it runs brings up Settings.
+
+## Image to ASCII
+
+Open **Image to ASCII…** from the menu, the Library header, or Settings
+(Rotation > From an image, or Export > Image to ASCII). Drop an image onto the
+window, paste one from the clipboard (`Ctrl+V` / `Cmd+V`), choose a file (PNG,
+JPEG, WebP, GIF, BMP or TIFF), or click **Inspire** to try built-in samples.
+
+On the right, tune output width, row density, character ramp (standard,
+70-level detailed, dithered, 2×4 braille dots, blocks, box lines, katakana,
+shapes, hex, or your own custom characters), contrast, brightness, polarity,
+colour (any of Clairlune's 12 light/dark palettes, your photo's own colours,
+black, white, or None for a transparent PNG), optional **Live weather**, and
+Contain or Cover screen fit.
+
+Along the foot you can copy or save `.txt` and PNG, click **Save to library**
+(so you can tag it or place it in **Timeline** slots), or click **Use as
+wallpaper** — which sets it across your monitors and automatically pauses
+scheduled changes until you click **Resume changes** or **New wallpaper**.
 
 ## Settings
 
@@ -137,7 +158,8 @@ window.
 
 - **Rotation:** how often the wallpaper changes (every hour by default), or a
   Timeline that follows a plan for each day of the week; Resume when changes
-  are paused; and From a seed: type a wallpaper's seed to get it back.
+  are paused; From a seed (type a wallpaper's seed to get it back); and From
+  an image (opens Image to ASCII).
 - **Display:** Live or Still frame; the appearance (light, dark, like the
   system, or on a schedule: set times, or sunrise and sunset for your
   location); and one scene per monitor or one across all.
@@ -159,7 +181,8 @@ window.
   or letter sets on, each wallpaper picks one.
 - **Archive** and **Export:** how long past wallpapers are kept, and where
   saved PNGs and GIFs go (Choose… opens the system's folder picker; Copy puts
-  the current PNG straight on the clipboard). Saved images are signed in a corner, small, in the
+  the current PNG straight on the clipboard; Image to ASCII converts a picture
+  of your own). Saved images are signed in a corner, small, in the
   scene's own text ("clairlune · by yam333"); Sign saved images turns that
   off. The wallpaper on your desktop is never signed.
 - **General:** start with the computer, the tray icon, Permissions (what to

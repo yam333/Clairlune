@@ -78,8 +78,15 @@ impl ApplicationHandler<AppEvent> for App {
             self.status.what.clear();
             self.status.seed = None;
         } else if self.timeline_mode() {
-            // The timeline's active slot, right away.
+            // The timeline's active slot, right away (or keep playing a paused
+            // live wallpaper across restarts).
             self.check_timeline();
+            if paused
+                && self.current.is_some()
+                && self.settings.display.mode == settings::WallpaperMode::Live
+            {
+                self.reapply(false);
+            }
         } else if (self.settings.schedule.change_at_login && !paused) || self.current.is_none() {
             self.new_wallpaper();
         } else if self.settings.display.mode == settings::WallpaperMode::Live {
@@ -114,6 +121,7 @@ impl ApplicationHandler<AppEvent> for App {
             &mut self.library_window,
             &mut self.timeline_window,
             &mut self.archive_window,
+            &mut self.ascii_window,
         ]
         .into_iter()
         .flatten()
@@ -146,6 +154,7 @@ impl ApplicationHandler<AppEvent> for App {
                         && self.library_window.is_none()
                         && self.timeline_window.is_none()
                         && self.archive_window.is_none()
+                        && self.ascii_window.is_none()
                     {
                         event_loop.exit();
                     }
@@ -153,6 +162,7 @@ impl ApplicationHandler<AppEvent> for App {
                 ui::Kind::Library => self.library_window = None,
                 ui::Kind::Timeline => self.timeline_window = None,
                 ui::Kind::Archive => self.archive_window = None,
+                ui::Kind::Ascii => self.ascii_window = None,
             }
             self.trim_if_idle();
         }
@@ -174,6 +184,12 @@ impl ApplicationHandler<AppEvent> for App {
                     self.settings.export.folder = dir.display().to_string();
                     self.save_settings();
                     self.redraw_windows();
+                }
+            }
+            AppEvent::AsciiImagePicked(picked) => {
+                self.picking_ascii_image = false;
+                if let Some(path) = picked {
+                    self.load_ascii_file(&path);
                 }
             }
             AppEvent::LandsDrawn(done) => {
@@ -275,6 +291,7 @@ impl ApplicationHandler<AppEvent> for App {
                 &mut self.library_window,
                 &mut self.timeline_window,
                 &mut self.archive_window,
+                &mut self.ascii_window,
             ]
             .into_iter()
             .flatten()

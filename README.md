@@ -22,6 +22,7 @@ Each wallpaper is a landscape drawn in text characters, with a small pixel-art C
 
 - **37 landscapes, 40 activities, 26 kinds of weather**, in line art or a dithered look, from canyons and snowfields to a fjord, a stone viaduct, a lighthouse, an observatory under the Milky Way and a lake of floating lanterns. Many landscapes have weather of their own: sea spray at the lighthouse, fireworks over the harbour, cinders above the volcano, bats round the ruins.
 - **Twelve palettes and seven letter sets:** Clairlune's own colours, Nord, Gruvbox, Catppuccin, Solarized, Rosé Pine, Tokyo Night, Everforest, Kanagawa, Dracula, green phosphor and amber, each light and dark; the scenes drawn in text, braille dots, blocks, box-drawing lines, katakana, geometric shapes or hex digits.
+- **Image to ASCII studio:** drop, paste or choose any picture of your own, tune its width, row density, character ramp, contrast, colour (any Clairlune palette, the photo's own colours, black, white, or a transparent PNG) and optional live weather, then export `.txt` or PNG, save it to the library for the timeline, or set it as your wallpaper.
 - **Live wallpapers** that play behind the desktop icons and pause under full-screen apps, on battery if you like, and while the screen is locked.
 - **A scene for each monitor**, at its own resolution, or one wide scene across all of them.
 - **Seeds that mean something:** copy a wallpaper's seed and type it in later to get the same wallpaper back.

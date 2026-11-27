@@ -159,6 +159,7 @@ impl App {
                 &mut self.library_window,
                 &mut self.timeline_window,
                 &mut self.archive_window,
+                &mut self.ascii_window,
             ]
             .into_iter()
             .flatten()
@@ -279,6 +280,7 @@ impl App {
             &self.library_window,
             &self.timeline_window,
             &self.archive_window,
+            &self.ascii_window,
         ]
         .iter()
         .any(|w| w.is_some());
@@ -296,6 +298,7 @@ impl App {
             &self.library_window,
             &self.timeline_window,
             &self.archive_window,
+            &self.ascii_window,
         ]
         .iter()
         .filter(|w| w.is_some())

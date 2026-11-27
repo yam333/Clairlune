@@ -76,11 +76,26 @@ impl App {
             &self.library_window,
             &self.timeline_window,
             &self.archive_window,
+            &self.ascii_window,
         ]
         .into_iter()
         .flatten()
         {
             w.request_redraw();
+        }
+    }
+
+    pub(crate) fn open_ascii(&mut self, event_loop: &ActiveEventLoop) {
+        if let Some(w) = &self.ascii_window {
+            w.focus();
+            w.request_redraw();
+            return;
+        }
+        self.status.note = None;
+        let theme = apply::resolve_theme(&self.settings.theme);
+        match ui::UiWindow::open(event_loop, ui::Kind::Ascii, theme, self.last_section) {
+            Ok(w) => self.ascii_window = Some(w),
+            Err(e) => tracing::warn!(target: "clairlune", error = %e, "no image-to-ascii window"),
         }
     }
 

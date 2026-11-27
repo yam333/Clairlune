@@ -18,6 +18,7 @@ pub mod clock;
 pub mod encode;
 pub mod frame;
 pub mod gif_export;
+pub mod img2ascii;
 pub mod journey;
 pub mod package;
 pub mod palette;
@@ -38,7 +39,7 @@ pub use gif_export::{
     GifError, GifStats, Smoothness, encode_gif, encode_package_gif, frame_delays, valid_loop_ms,
 };
 pub use journey::JourneyBake;
-pub use package::{PACKAGE_FORMAT, PackageError, ScenePackage};
+pub use package::{CustomTheme, PACKAGE_FORMAT, PackageError, ScenePackage};
 pub use palette::IndexedPalette;
 pub use sign::{SIGNATURE, Signature};
 

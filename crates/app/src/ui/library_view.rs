@@ -147,6 +147,10 @@ pub fn show(
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Library").font(style::title()));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if ui.button("Image to ASCII\u{2026}").clicked() {
+                        actions.push(UiAction::OpenAscii);
+                    }
+                    ui.add_space(space::S3);
                     let count = if filtering {
                         format!("{} of {} saved", filtered.len(), items.len())
                     } else {

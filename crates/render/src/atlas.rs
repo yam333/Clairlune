@@ -92,6 +92,34 @@ impl GlyphAtlas {
         atlas
     }
 
+    /// Atlas for an arbitrary character list: rasterizes the bundled monospace
+    /// font, narrows katakana from the kana font, and draws braille patterns
+    /// (`U+2801..=U+28FF`) as crisp supersampled dots.
+    pub fn for_char_set(chars: &[char], cell_w: u32, cell_h: u32, font_px: f64) -> Self {
+        let (w, h) = (cell_w, cell_h);
+        let mut atlas = Self::rasterize_chars(FONT_DATA, chars, w, h, font_px, false)
+            .expect("bundled font parses");
+        let len = (w * h) as usize;
+        let kana: Vec<char> = chars
+            .iter()
+            .map(|&c| if is_kana(c) { c } else { ' ' })
+            .collect();
+        if kana.iter().any(|&c| c != ' ') {
+            let k = Self::rasterize_chars(KANA_FONT, &kana, w, h, font_px, true)
+                .expect("bundled kana font parses");
+            for (i, _) in kana.iter().enumerate().filter(|(_, c)| **c != ' ') {
+                atlas.masks[i * len..(i + 1) * len]
+                    .copy_from_slice(&k.masks[i * len..(i + 1) * len]);
+            }
+        }
+        for (i, &c) in chars.iter().enumerate() {
+            if let Some(dots) = braille_dots(c) {
+                braille(dots, w, h, &mut atlas.masks[i * len..(i + 1) * len]);
+            }
+        }
+        atlas
+    }
+
     /// Atlas from arbitrary font bytes.
     pub fn with_font(
         font: &[u8],

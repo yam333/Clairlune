@@ -14,8 +14,24 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, mpsc};
 use std::time::Instant;
 
+/// User-supplied image and conversion settings for an Image-to-ASCII wallpaper.
+#[derive(Clone, Debug)]
+pub struct PhotoSource {
+    pub name: String,
+    pub image: clairlune_render::img2ascii::RgbaImage,
+    pub config: clairlune_render::img2ascii::AsciiConfig,
+}
+
 /// Work for the worker thread.
 pub enum Job {
+    /// Build an Image-to-ASCII wallpaper across all monitors, or save it
+    /// directly into the Library without replacing the desktop wallpaper.
+    Photo {
+        photo: Box<PhotoSource>,
+        to_library: bool,
+        library_dir: PathBuf,
+        settings: Box<Settings>,
+    },
     /// A new scene per monitor from a base seed.
     New {
         seed: u64,
@@ -169,6 +185,8 @@ pub enum Done {
         live: Vec<LiveScene>,
     },
     Exported(PathBuf),
+    /// Saved a custom wallpaper directly into the Library.
+    SavedLibrary(String),
     /// This system has no wallpaper host yet: scenes are made and archived,
     /// but not set. The reason is for the user.
     NoHost(String),
@@ -470,6 +488,12 @@ fn packages(
                 replayed += 1;
                 p
             }
+            None if recipe.archetype == clairlune_render::img2ascii::PHOTO_ARCHETYPE => {
+                let dir = saved
+                    .and_then(|s| s.dir)
+                    .ok_or_else(|| "saved photo folder missing".to_string())?;
+                rebuild_saved_photo(dir, m.width, m.height, recipe.seed)?
+            }
             None => ScenePackage::capture(recipe, m.width, m.height).map_err(|e| e.to_string())?,
         };
         out.push(pkg);
@@ -597,7 +621,14 @@ fn scenes(
                         return new_scene(monitor_seed(*s, m), m);
                     }
                     match r.monitors.iter().find(|s| s.monitor == m.id) {
-                        Some(s) if !want.refresh || want.fits(&s.recipe) => s.recipe.clone(),
+                        Some(s)
+                            if !want.refresh
+                                || want.fits(&s.recipe)
+                                || s.recipe.archetype
+                                    == clairlune_render::img2ascii::PHOTO_ARCHETYPE =>
+                        {
+                            s.recipe.clone()
+                        }
                         // The theme changed and this scene has nothing for
                         // it (or it scrolls, and live went to a low frame
                         // rate): a new one, the same each time for this
@@ -606,6 +637,12 @@ fn scenes(
                             changed = true;
                             let salt = hash_label(r.base_seed, want.theme.as_str());
                             new_scene(monitor_seed(salt, m), m)
+                        }
+                        None if r.monitors.first().is_some_and(|s| {
+                            s.recipe.archetype == clairlune_render::img2ascii::PHOTO_ARCHETYPE
+                        }) =>
+                        {
+                            r.monitors[0].recipe.clone()
                         }
                         None => new_scene(monitor_seed(r.base_seed, m), m),
                     }
@@ -800,6 +837,20 @@ fn run(
             buddy,
             sign,
         } => export_gif(archive, &dest, source.as_deref(), theme, buddy, sign),
+        Job::Photo {
+            photo,
+            to_library,
+            library_dir,
+            settings,
+        } => apply_photo(
+            &photo,
+            to_library,
+            &library_dir,
+            &settings,
+            host,
+            store,
+            archive,
+        ),
         Job::Restore => restore(host, store),
         Job::RestoreToRemove => Ok(Done::ReadyToRemove(match restore(host, store) {
             Ok(Done::Failed(e)) | Err(e) => Some(e),
@@ -1122,6 +1173,268 @@ pub(crate) fn restore(
     let removed = store.clear_stills();
     tracing::info!(target: "clairlune", removed, "restored the user's wallpaper");
     Ok(Done::Restored)
+}
+
+/// Re-renders a saved custom ASCII wallpaper (`photo.png` + `photo.json`) when
+/// monitor dimensions changed from the size it was frozen at.
+fn rebuild_saved_photo(
+    dir: &Path,
+    width: u32,
+    height: u32,
+    seed: u64,
+) -> Result<ScenePackage, String> {
+    use clairlune_render::img2ascii::{AsciiConfig, RgbaImage, build_photo_package};
+    let png_bytes = std::fs::read(dir.join("photo.png")).map_err(|e| format!("photo.png: {e}"))?;
+    let ([pw, ph], rgba) =
+        crate::ui::decode_png_rgba(&png_bytes).ok_or_else(|| "bad photo.png".to_string())?;
+    let src = RgbaImage::new(pw as u32, ph as u32, rgba)?;
+    let cfg_json =
+        std::fs::read_to_string(dir.join("photo.json")).map_err(|e| format!("photo.json: {e}"))?;
+    let cfg: AsciiConfig =
+        serde_json::from_str(&cfg_json).map_err(|e| format!("photo.json: {e}"))?;
+    build_photo_package(&src, &cfg, width, height, seed)
+}
+
+fn photo_seed(photo: &PhotoSource, config_json: &str) -> u64 {
+    use clairlune_scene::hash::hash_bytes;
+    let mut bytes = Vec::with_capacity(config_json.len() + 256);
+    bytes.extend_from_slice(photo.name.as_bytes());
+    bytes.extend_from_slice(config_json.as_bytes());
+    bytes.extend_from_slice(&photo.image.width.to_le_bytes());
+    bytes.extend_from_slice(&photo.image.height.to_le_bytes());
+    let step = (photo.image.pixels.len() / 128).max(1);
+    for &b in photo.image.pixels.iter().step_by(step) {
+        bytes.push(b);
+    }
+    hash_bytes(&bytes)
+}
+
+fn apply_photo(
+    photo: &PhotoSource,
+    to_library: bool,
+    library_dir: &Path,
+    settings: &Settings,
+    host: Option<&dyn WallpaperHost>,
+    store: &StillStore,
+    archive: &Archive,
+) -> Result<Done, String> {
+    use clairlune_render::img2ascii::{
+        AsciiColorMode, PHOTO_ARCHETYPE, build_photo_package, encode_rgba_png,
+    };
+    let started = Instant::now();
+    let monitors = match host {
+        Some(h) => h.monitors().map_err(|e| e.to_string())?,
+        None => vec![Monitor {
+            id: "default".into(),
+            x: 0,
+            y: 0,
+            width: 1920,
+            height: 1080,
+            primary: true,
+            scale: 1,
+        }],
+    };
+    if monitors.is_empty() {
+        return Err("no monitors found".into());
+    }
+    let screens = monitors.clone();
+    let monitors = if settings.live.lighter_on_retina && !settings.display.span {
+        monitors.into_iter().map(lighter).collect()
+    } else {
+        monitors
+    };
+    let span =
+        (settings.display.span && screens.len() > 1).then(|| span_of(&screens, &settings.display));
+    let monitors = match &span {
+        Some((whole, _, _)) => vec![whole.clone()],
+        None => monitors,
+    };
+
+    let capped = photo.image.capped(1920);
+    let photo_png = encode_rgba_png(capped.width, capped.height, &capped.pixels)?;
+    let photo_json = serde_json::to_string_pretty(&photo.config).map_err(|e| e.to_string())?;
+    let base_seed = photo_seed(photo, &photo_json);
+    let wanted = resolve_theme(&settings.theme);
+
+    let mut packages = Vec::with_capacity(monitors.len());
+    let mut recipes = Vec::with_capacity(monitors.len());
+    let mut pngs = Vec::with_capacity(monitors.len());
+    let mut themes = Vec::with_capacity(monitors.len());
+    let mut used_theme = wanted;
+    let mut primary_still = None;
+
+    for (i, m) in monitors.iter().enumerate() {
+        let seed = monitor_seed(base_seed, m);
+        let pkg = build_photo_package(&capped, &photo.config, m.width, m.height, seed)?;
+        let theme = if pkg.themes().contains(&wanted) {
+            wanted
+        } else {
+            pkg.themes()[0]
+        };
+        let (img, palette) = pkg.still(theme, false).ok_or("scene has no frames")?;
+        pngs.push(png_of(&img, palette)?);
+        if i == 0 {
+            used_theme = theme;
+            primary_still = Some((img, palette.clone()));
+        }
+        recipes.push(pkg.recipe.clone());
+        themes.push(theme);
+        packages.push(Arc::new(pkg));
+    }
+
+    let (img, palette) = primary_still.ok_or("no monitors")?;
+    let thumb = shrink(&img, 480);
+    let thumb_png = png_of(&thumb, &palette)?;
+    let entry_recipes = EntryRecipes {
+        base_seed,
+        theme: used_theme.as_str().to_string(),
+        monitors: monitors
+            .iter()
+            .zip(&recipes)
+            .map(|(m, r)| MonitorScene {
+                monitor: m.id.clone(),
+                width: m.width,
+                height: m.height,
+                recipe: r.clone(),
+            })
+            .collect(),
+    };
+
+    if to_library {
+        let lib = crate::library::Library::open(library_dir).map_err(|e| e.to_string())?;
+        let id = format!("lib_{:08x}", base_seed as u32);
+        let item_dir = lib.item_dir(&id);
+        let tmp = lib.dir().join(format!("{id}.part"));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).map_err(|e| e.to_string())?;
+        std::fs::write(
+            tmp.join("recipe.json"),
+            serde_json::to_string_pretty(&entry_recipes).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        std::fs::write(tmp.join("thumb.png"), &thumb_png).map_err(|e| e.to_string())?;
+        std::fs::write(tmp.join("photo.png"), &photo_png).map_err(|e| e.to_string())?;
+        std::fs::write(tmp.join("photo.json"), &photo_json).map_err(|e| e.to_string())?;
+        for (i, png) in pngs.iter().enumerate() {
+            std::fs::write(tmp.join(format!("wallpaper-{i}.png")), png)
+                .map_err(|e| e.to_string())?;
+        }
+        for (i, pkg) in packages.iter().enumerate() {
+            pkg.save(&tmp.join("scene").join(i.to_string()))
+                .map_err(|e| e.to_string())?;
+        }
+        let item = crate::library::Item {
+            id,
+            name: photo.name.clone(),
+            created: crate::timefmt::now_unix(),
+            tags: Vec::new(),
+            display: if photo.config.weather != "none" {
+                crate::library::DisplayChoice::Live
+            } else {
+                crate::library::DisplayChoice::Follow
+            },
+            theme: match photo.config.color_mode {
+                AsciiColorMode::Black => crate::library::ThemeChoice::Dark,
+                AsciiColorMode::White => crate::library::ThemeChoice::Light,
+                _ => crate::library::ThemeChoice::Follow,
+            },
+            buddy: crate::library::BuddyChoice::Off,
+            seed: base_seed,
+            archetype: PHOTO_ARCHETYPE.into(),
+            activity: None,
+            generator_version: clairlune_scene::GENERATOR_VERSION,
+        };
+        std::fs::write(
+            tmp.join("item.json"),
+            serde_json::to_string_pretty(&item).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        let _ = std::fs::remove_dir_all(&item_dir);
+        std::fs::rename(&tmp, &item_dir).map_err(|e| e.to_string())?;
+        return Ok(Done::SavedLibrary(item.name));
+    }
+
+    let span_still = span.as_ref().map(|_| (img.clone(), palette.clone()));
+    let entry = archive
+        .add(&NewEntry {
+            created: crate::timefmt::now_unix(),
+            recipes: entry_recipes,
+            pngs: pngs.clone(),
+            thumb_png,
+            packages: packages.clone(),
+        })
+        .map_err(|e| format!("archive: {e}"))?;
+    let entry_dir = archive.dir().join(&entry.name);
+    std::fs::write(entry_dir.join("photo.png"), &photo_png).map_err(|e| e.to_string())?;
+    std::fs::write(entry_dir.join("photo.json"), &photo_json).map_err(|e| e.to_string())?;
+    let _ = archive.sweep(
+        crate::timefmt::now_unix(),
+        settings.archive.keep_days,
+        settings.archive.max_mb.saturating_mul(1024 * 1024),
+    );
+
+    for (pkg, theme) in packages.iter_mut().zip(&themes) {
+        if let Some(p) = Arc::get_mut(pkg) {
+            p.keep_only(*theme);
+        }
+    }
+
+    let mut live = Vec::new();
+    if let Some(h) = host {
+        remember_users_wallpaper(h, store);
+    }
+    if let (Some(host), Some((_, views, _)), Some((img, palette))) = (host, &span, &span_still) {
+        for (m, view) in views {
+            let part = crop(img, *view);
+            let part = if m.width >= view.w * 2 - 1 && view.w > 0 {
+                doubled(&part)
+            } else {
+                part
+            };
+            let png = png_of(&part, palette)?;
+            let path = store
+                .write(&m.id, &png)
+                .map_err(|e| format!("still: {e}"))?;
+            host.set_static(m, &path).map_err(|e| e.to_string())?;
+            store.prune(&m.id, &path);
+            live.push(LiveScene {
+                monitor: m.clone(),
+                package: packages[0].clone(),
+                theme: themes[0],
+                buddy: false,
+                still: Some(path),
+                view: Some(*view),
+            });
+        }
+    } else if let Some(host) = host {
+        for (i, (m, png)) in monitors.iter().zip(&pngs).enumerate() {
+            let path = store.write(&m.id, png).map_err(|e| format!("still: {e}"))?;
+            host.set_static(m, &path).map_err(|e| e.to_string())?;
+            store.prune(&m.id, &path);
+            let screen = screens.iter().find(|s| s.id == m.id).unwrap_or(m);
+            live.push(LiveScene {
+                monitor: screen.clone(),
+                package: packages[i].clone(),
+                theme: themes[i],
+                buddy: false,
+                still: Some(path),
+                view: None,
+            });
+        }
+    }
+
+    let ms = started.elapsed().as_millis() as u64;
+    Ok(Done::Applied {
+        source: Some(entry_dir),
+        seed: base_seed,
+        theme: used_theme,
+        wanted,
+        archetype: photo.name.clone(),
+        activity: None,
+        monitors: screens.len(),
+        ms,
+        live,
+    })
 }
 
 /// The folder to export from: `source`, or the newest archive entry.
@@ -2093,6 +2406,65 @@ mod tests {
             Done::Restored
         ));
         assert_eq!(host.current(&host.monitors[0]).unwrap(), Some(user_pic));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn custom_photo_saves_to_library_applies_and_rebuilds_when_screen_size_changes() {
+        use clairlune_render::img2ascii::{AsciiConfig, inspire_sample};
+        let (_, img) = inspire_sample(1, true);
+        let photo = PhotoSource {
+            name: "Horizon sun".into(),
+            image: img,
+            config: AsciiConfig {
+                columns: 80,
+                weather: "fireflies".into(),
+                ..AsciiConfig::default()
+            },
+        };
+        let dir =
+            std::env::temp_dir().join(format!("clairlune-photo-apply-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let store = StillStore::new(dir.join("current")).unwrap();
+        let archive = Archive::open(dir.join("archive")).unwrap();
+        let lib_dir = dir.join("library");
+        let settings = Settings::default();
+
+        // 1. Save directly into the Library without changing the wallpaper.
+        let saved_lib = apply_photo(&photo, true, &lib_dir, &settings, None, &store, &archive)
+            .expect("library save");
+        assert!(matches!(saved_lib, Done::SavedLibrary(ref n) if n == "Horizon sun"));
+        let lib = crate::library::Library::open(&lib_dir).unwrap();
+        let items = lib.items();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].display, crate::library::DisplayChoice::Live);
+
+        // 2. Re-applying that Library item onto a monitor of a DIFFERENT resolution
+        //    rebuilds cleanly from photo.png + photo.json.
+        let item_dir = lib.item_dir(&items[0].id);
+        let entry_recipes: EntryRecipes =
+            serde_json::from_str(&std::fs::read_to_string(item_dir.join("recipe.json")).unwrap())
+                .unwrap();
+        let new_monitors = [monitor(800, 450)];
+        let (_, pkgs, replayed, _) = packages(
+            Some(Source {
+                recipes: &entry_recipes,
+                dir: Some(&item_dir),
+                theme: None,
+                buddy: Some(false),
+                renew: None,
+                refresh: true,
+            }),
+            0,
+            &new_monitors,
+            &settings,
+            &mut Recent::default(),
+            &want(Theme::Light),
+        )
+        .expect("rebuilds at new monitor size");
+        assert_eq!(replayed, 0);
+        assert_eq!((pkgs[0].width, pkgs[0].height), (800, 450));
+
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

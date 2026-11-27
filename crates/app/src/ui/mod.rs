@@ -4,6 +4,7 @@
 //! while the app sits in the tray.
 
 pub mod archive_view;
+pub mod ascii_view;
 pub mod glass;
 pub mod library_view;
 pub mod style;
@@ -28,6 +29,7 @@ pub enum Kind {
     Library,
     Timeline,
     Archive,
+    Ascii,
 }
 
 /// What the windows show, borrowed from the app for one frame.
@@ -75,6 +77,7 @@ pub struct UiWindow {
     library: library_view::LibraryState,
     timeline: timeline_view::TimelineState,
     archive: archive_view::ArchiveState,
+    ascii: ascii_view::AsciiState,
     window: Arc<Window>,
     state: egui_winit::State,
     painter: egui_wgpu::winit::Painter,
@@ -149,6 +152,12 @@ impl UiWindow {
                 1280.0,
                 720.0,
                 (980.0, 560.0),
+            ),
+            Kind::Ascii => (
+                format!("{APP_NAME} Image to ASCII"),
+                1220.0,
+                740.0,
+                (940.0, 580.0),
             ),
         };
         let attrs = Window::default_attributes()
@@ -229,6 +238,7 @@ impl UiWindow {
             library: library_view::LibraryState::default(),
             timeline: timeline_view::TimelineState::default(),
             archive: archive_view::ArchiveState::default(),
+            ascii: ascii_view::AsciiState::default(),
             window,
             state,
             painter,
@@ -277,6 +287,12 @@ impl UiWindow {
     /// Selects a slot in the Timeline window.
     pub fn select_slot(&mut self, day: usize, index: usize) {
         self.timeline.select(day, index);
+        self.window.request_redraw();
+    }
+
+    /// Loads a decoded image into the Image to ASCII studio window.
+    pub fn set_ascii_image(&mut self, name: String, image: clairlune_render::img2ascii::RgbaImage) {
+        self.ascii.set_image(name, image);
         self.window.request_redraw();
     }
 
@@ -392,6 +408,22 @@ impl UiWindow {
     ) -> Outcome {
         match event {
             WindowEvent::CloseRequested => return Outcome::Close,
+            WindowEvent::HoveredFile(_) if self.kind == Kind::Ascii => {
+                self.ascii.hovering_file = true;
+                self.window.request_redraw();
+                return Outcome::Nothing;
+            }
+            WindowEvent::HoveredFileCancelled if self.kind == Kind::Ascii => {
+                self.ascii.hovering_file = false;
+                self.window.request_redraw();
+                return Outcome::Nothing;
+            }
+            WindowEvent::DroppedFile(path) if self.kind == Kind::Ascii => {
+                self.ascii.hovering_file = false;
+                actions.push(UiAction::LoadAsciiFile(path.clone()));
+                self.window.request_redraw();
+                return Outcome::Nothing;
+            }
             WindowEvent::Occluded(occluded) => {
                 self.occluded = *occluded;
                 if !occluded && self.repaint_at.is_some() {
@@ -435,6 +467,7 @@ impl UiWindow {
         let library = &mut self.library;
         let timeline = &mut self.timeline;
         let archive = &mut self.archive;
+        let ascii = &mut self.ascii;
         let mut pending_copy = self.pending_copy.take();
         let mut full = ctx.run_ui(input, |ui| {
             if let Some(img) = pending_copy.take() {
@@ -460,6 +493,7 @@ impl UiWindow {
                     },
                     actions,
                 ),
+                Kind::Ascii => ascii_view::show(ui, theme, ascii, model, actions),
             }
         });
         // What the window's own frame asked for (Windows).

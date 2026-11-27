@@ -96,6 +96,8 @@ enum AppEvent {
     LandsDrawn(bool),
     /// The folder picked for saved images (`None`: the picker was closed).
     FolderPicked(Option<PathBuf>),
+    /// The image file picked for Image to ASCII (`None`: closed).
+    AsciiImagePicked(Option<PathBuf>),
     /// The live metronome: a frame may be due. It arrives even while one
     /// of the app's windows is dragged or resized (Windows runs its own
     /// message loop then, and winit's timers stop; user events still come).
@@ -125,6 +127,8 @@ struct App {
     lands_pending: Option<Theme>,
     /// The folder picker is open.
     picking_folder: bool,
+    /// The Image-to-ASCII file picker is open.
+    picking_ascii_image: bool,
     /// What the last update check found, and whether one is running (and
     /// was asked for by hand: then its answer shows even when it's "up to
     /// date").
@@ -225,6 +229,8 @@ struct App {
     timeline_window: Option<ui::UiWindow>,
     /// The Archive window, while open, and the entries it lists.
     archive_window: Option<ui::UiWindow>,
+    /// The Image to ASCII studio window, while open.
+    ascii_window: Option<ui::UiWindow>,
     archive_items: Vec<archive::Entry>,
     library_items: Vec<library::Item>,
     /// Where the timeline uses each library item.
@@ -656,6 +662,7 @@ fn main() {
         drawing_lands: false,
         lands_pending: None,
         picking_folder: false,
+        picking_ascii_image: false,
         update: update_state,
         checking_updates: None,
         install: install::detect(),
@@ -696,6 +703,7 @@ fn main() {
         library_window: None,
         timeline_window: None,
         archive_window: None,
+        ascii_window: None,
         archive_items: Vec::new(),
         library_items: Vec::new(),
         library_uses: std::collections::BTreeMap::new(),

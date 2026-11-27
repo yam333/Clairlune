@@ -273,6 +273,17 @@ pub(crate) fn page(
                 );
                 ui.add_space(space::S2);
             }
+            row(
+                ui,
+                theme,
+                "From an image",
+                "Turn one of your own pictures into an ASCII wallpaper",
+                |ui| {
+                    if ui.button("Open\u{2026}").clicked() {
+                        actions.push(UiAction::OpenAscii);
+                    }
+                },
+            );
         }
         Section::Display => {
             use crate::settings::WallpaperMode;
@@ -634,6 +645,17 @@ pub(crate) fn page(
                     actions.push(UiAction::SaveGif);
                 }
             });
+            row(
+                ui,
+                theme,
+                "Image to ASCII",
+                "Convert an image of your own to .txt, PNG or a wallpaper",
+                |ui| {
+                    if ui.button("Open\u{2026}").clicked() {
+                        actions.push(UiAction::OpenAscii);
+                    }
+                },
+            );
             row(ui, theme, "Sign saved images", "", |ui| {
                 toggle(ui, theme, &mut s.export.sign, "Sign saved images");
             });

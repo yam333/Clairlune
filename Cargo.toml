@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/scene", "crates/sprites", "crates/render", "crates/platform", "crates/live", "crates/cli", "crates/app", "tests"]
 
 [workspace.package]
-version = "0.34.0"
+version = "0.35.0"
 edition = "2024"
 rust-version = "1.90"
 license = "MIT OR Apache-2.0"
@@ -22,11 +22,11 @@ unimplemented = "deny"
 
 [workspace.dependencies]
 # Our own crates. The version is required so `cargo publish` can resolve them.
-clairlune-scene = { path = "crates/scene", version = "0.34.0" }
-clairlune-render = { path = "crates/render", version = "0.34.0" }
-clairlune-sprites = { path = "crates/sprites", version = "0.34.0" }
-clairlune-platform = { path = "crates/platform", version = "0.34.0" }
-clairlune-live = { path = "crates/live", version = "0.34.0" }
+clairlune-scene = { path = "crates/scene", version = "0.35.0" }
+clairlune-render = { path = "crates/render", version = "0.35.0" }
+clairlune-sprites = { path = "crates/sprites", version = "0.35.0" }
+clairlune-platform = { path = "crates/platform", version = "0.35.0" }
+clairlune-live = { path = "crates/live", version = "0.35.0" }
 
 # Determinism-critical: pinned exactly. Bumping any of these can change pixels,
 # so a bump must re-bless the golden images and bump GENERATOR_VERSION if output changes.
@@ -37,6 +37,8 @@ skrifa = { version = "=0.50.0", default-features = false, features = ["std"] }
 
 png = "0.18.1"
 gif = "0.14.2"
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
+arboard = { version = "3.7.0", default-features = false, features = ["image-data"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 toml = { version = "1.2.1", default-features = false, features = ["std", "parse", "serde"] }

@@ -8,6 +8,24 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-11-27
+
+### Added
+
+- **Image to ASCII studio** (opened from the tray menu, Library, or Settings >
+  Rotation and Export): drop an image onto the window, choose a file (PNG, JPEG,
+  WebP, GIF, BMP, TIFF), paste from the clipboard (`Ctrl+V` / `Cmd+V`), or cycle
+  built-in **Inspire** samples. Configure output width, row density, character
+  ramp (10-level standard, 70-level detailed, dithered, 2×4 braille stippling,
+  blocks, lines, katakana, shapes, hex, or your own custom ramp), contrast,
+  brightness, polarity, colour mode (any of the 12 Clairlune light/dark
+  palettes, original photo colours, black, white, or transparent PNG), screen
+  fit, and optional **live weather** playing over it.
+- Export or copy converted images as `.txt` or PNG, **Save to library** (so
+  custom ASCII wallpapers work in tags and **Timeline** slots), or click **Use
+  as wallpaper** to set it across your monitors and automatically pause
+  scheduled rotation until you resume changes.
+
 ## [0.34.0] - 2026-11-27
 
 ### Added

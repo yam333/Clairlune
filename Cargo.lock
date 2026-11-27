@@ -685,8 +685,9 @@ dependencies = [
 
 [[package]]
 name = "clairlune"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
+ "arboard",
  "clairlune-live",
  "clairlune-platform",
  "clairlune-render",
@@ -695,6 +696,7 @@ dependencies = [
  "egui-wgpu",
  "egui-winit",
  "embed-resource",
+ "image",
  "interprocess",
  "jiff",
  "png",
@@ -715,7 +717,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-cli"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "clairlune-live",
  "clairlune-platform",
@@ -732,7 +734,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-live"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "clairlune-platform",
  "clairlune-render",
@@ -754,7 +756,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-platform"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "block2 0.6.2",
  "clairlune-scene",
@@ -774,7 +776,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-render"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "clairlune-scene",
  "clairlune-sprites",
@@ -789,7 +791,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-scene"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "libm",
  "proptest",
@@ -802,7 +804,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-sprites"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "clairlune-scene",
  "png",
@@ -812,7 +814,7 @@ dependencies = [
 
 [[package]]
 name = "clairlune-tests"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "clairlune-render",
  "clairlune-scene",
@@ -1735,10 +1737,25 @@ checksum = "85ab80394333c02fe689eaf900ab500fbd0c2213da414687ebf995a65d5a6104"
 dependencies = [
  "bytemuck",
  "byteorder-lite",
+ "color_quant",
+ "gif",
+ "image-webp",
  "moxcms",
  "num-traits",
  "png",
  "tiff",
+ "zune-core",
+ "zune-jpeg",
+]
+
+[[package]]
+name = "image-webp"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "525e9ff3e1a4be2fbea1fdf0e98686a6d98b4d8f937e1bf7402245af1909e8c3"
+dependencies = [
+ "byteorder-lite",
+ "quick-error 2.0.1",
 ]
 
 [[package]]
