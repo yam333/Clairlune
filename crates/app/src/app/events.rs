@@ -74,6 +74,9 @@ impl ApplicationHandler<AppEvent> for App {
             // nothing of Clairlune's is on screen to re-render.
             self.current = None;
             self.shown_theme = None;
+            self.asked_theme = None;
+            self.status.what.clear();
+            self.status.seed = None;
         } else if self.timeline_mode() {
             // The timeline's active slot, right away.
             self.check_timeline();
@@ -155,6 +158,8 @@ impl ApplicationHandler<AppEvent> for App {
         }
         if self.settings == before {
             actions.retain(|a| *a != ui::view::UiAction::SettingsChanged);
+        } else if self.settings.display.mode != before.display.mode {
+            self.current_live = None;
         }
         for a in actions {
             self.on_ui_action(a, event_loop);
@@ -172,12 +177,16 @@ impl ApplicationHandler<AppEvent> for App {
                 }
             }
             AppEvent::LandsDrawn(done) => {
-                if done {
-                    self.drawing_lands = false;
-                    self.trim_if_idle();
-                }
                 if let Some(w) = &mut self.settings_window {
                     w.refresh_lands();
+                }
+                if done {
+                    self.drawing_lands = false;
+                    if let Some(theme) = self.lands_pending.take() {
+                        self.land_thumbs(theme);
+                    } else {
+                        self.trim_if_idle();
+                    }
                 }
             }
             AppEvent::Menu(e) => {

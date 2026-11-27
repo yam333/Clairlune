@@ -21,10 +21,39 @@ impl App {
         self.next_change = self.interval().map(|d| Instant::now() + d);
     }
 
+    pub(crate) fn set_current_live(&mut self, live: Option<bool>) {
+        if self.current_live != live {
+            self.current_live = live;
+            self.follow_display_settings();
+        }
+    }
+
+    /// Starts automatic wallpaper changes again (after Pause, or after Restore
+    /// put the user's own wallpaper back).
+    pub(crate) fn resume_changes(&mut self) {
+        let was_restored = self.restored();
+        self.set_restored(false);
+        self.settings.schedule.paused = false;
+        self.save_settings();
+        if was_restored {
+            self.status.note = None;
+        }
+        if self.timeline_mode() {
+            if was_restored || self.current.is_none() {
+                self.timeline_since = None;
+            }
+            self.check_timeline();
+        } else if was_restored || self.current.is_none() {
+            self.new_wallpaper();
+        }
+        self.reschedule();
+    }
+
     pub(crate) fn new_wallpaper(&mut self) {
         self.chosen = false;
         self.current_theme = None;
         self.current_buddy = None;
+        self.set_current_live(None);
         let seed = random_seed();
         let at = self.apply_at.take();
         let scrolling = self.live.scrolling_ok();
@@ -60,18 +89,30 @@ impl App {
         if let Some(dir) = archived {
             self.current_theme = None;
             self.current_buddy = None;
+            self.set_current_live(None);
             self.chosen = true;
-            self.apply_folder(dir, None, None, false, false);
+            if !self.apply_folder(dir, None, None, false, false) {
+                self.status.note = Some("That saved wallpaper couldn't be read.".into());
+            }
         } else if let Some((dir, item)) = saved {
-            let (theme, buddy) = Self::library_choices(&item, &self.settings);
+            let (theme, buddy, live) = Self::item_choices(
+                &item,
+                library::ThemeChoice::Follow,
+                library::BuddyChoice::Follow,
+                library::DisplayChoice::Follow,
+            );
             self.current_theme = theme;
             self.current_buddy = buddy;
+            self.set_current_live(live);
             self.chosen = true;
-            self.apply_folder(dir, theme, buddy, false, false);
+            if !self.apply_folder(dir, theme, buddy, false, false) {
+                self.status.note = Some("That saved wallpaper couldn't be read.".into());
+            }
         } else {
             self.chosen = true;
             self.current_theme = None;
             self.current_buddy = None;
+            self.set_current_live(None);
             let scrolling = self.live.scrolling_ok();
             self.submit(Job::New {
                 seed,
@@ -112,6 +153,7 @@ impl App {
             };
             self.current_theme = None;
             self.current_buddy = None;
+            self.set_current_live(None);
             (archive.dir().join(entry.name), None, None)
         } else {
             let Some(dir) = self.current.clone() else {
@@ -125,7 +167,7 @@ impl App {
         // Going back shows the older entry as it is (archiving it again
         // would make the next Previous come back here).
         let refresh = !previous && !self.chosen;
-        self.apply_folder(dir, theme, buddy, false, refresh);
+        let _ = self.apply_folder(dir, theme, buddy, false, refresh);
     }
 
     /// A new scene on one monitor (its id); the others keep theirs. It is
@@ -136,14 +178,16 @@ impl App {
         };
         self.current_theme = None;
         self.current_buddy = None;
+        self.set_current_live(None);
         self.chosen = false;
         self.renew = Some((monitor, random_seed()));
         // Archived only if a monitor really got a new scene (it may have
         // been unplugged since the menu was made).
-        self.apply_folder(dir, None, None, false, false);
+        let _ = self.apply_folder(dir, None, None, false, false);
     }
 
     /// Shows the scenes saved in a folder (archive entry or library item).
+    /// Returns whether the saved recipes could be read and submitted.
     pub(crate) fn apply_folder(
         &mut self,
         dir: PathBuf,
@@ -151,7 +195,7 @@ impl App {
         buddy: Option<bool>,
         archive: bool,
         refresh: bool,
-    ) {
+    ) -> bool {
         let recipes = std::fs::read_to_string(dir.join("recipe.json"))
             .map_err(|e| e.to_string())
             .and_then(|t| serde_json::from_str(&t).map_err(|e| e.to_string()));
@@ -159,20 +203,24 @@ impl App {
         let renew = self.renew.take();
         let scrolling = self.live.scrolling_ok();
         match recipes {
-            Ok(recipes) => self.submit(Job::Recipes {
-                at,
-                recipes: Box::new(recipes),
-                source: Some(dir),
-                theme,
-                buddy,
-                settings: Box::new(self.settings.clone()),
-                archive,
-                renew,
-                scrolling,
-                refresh,
-            }),
+            Ok(recipes) => {
+                self.submit(Job::Recipes {
+                    at,
+                    recipes: Box::new(recipes),
+                    source: Some(dir),
+                    theme,
+                    buddy,
+                    settings: Box::new(self.settings.clone()),
+                    archive,
+                    renew,
+                    scrolling,
+                    refresh,
+                });
+                true
+            }
             Err(e) => {
-                tracing::warn!(target: "clairlune", dir = %dir.display(), error = %e, "unreadable saved scene")
+                tracing::warn!(target: "clairlune", dir = %dir.display(), error = %e, "unreadable saved scene");
+                false
             }
         }
     }
@@ -187,7 +235,9 @@ impl App {
     pub(crate) fn check_timeline(&mut self) {
         if !self.timeline_mode() {
             if self.timeline_since.take().is_some() {
+                self.timeline_applied = None;
                 self.timeline_generate = false;
+                self.set_current_live(None);
                 self.reschedule();
             }
             return;
@@ -276,16 +326,17 @@ impl App {
             )
         };
         tracing::info!(target: "clairlune", slot = %key, start = %timeline::format_time(slot.start), "timeline slot");
-        match slot.content {
-            timeline::Content::Item { id } => self.show_library_item(&id, slot.theme, slot.buddy),
+        match &slot.content {
+            timeline::Content::Item { id } => self.show_slot_item(id, &slot),
             timeline::Content::Pool { ids, tag, order } => {
                 let items = self.library().map(|l| l.items()).unwrap_or_default();
                 let mut candidates: Vec<String> = ids
-                    .into_iter()
-                    .filter(|id| items.iter().any(|i| &i.id == id))
+                    .iter()
+                    .filter(|id| items.iter().any(|i| &i.id == *id))
+                    .cloned()
                     .collect();
                 if let Some(tag) = tag {
-                    for i in items.iter().filter(|i| i.tags.contains(&tag)) {
+                    for i in items.iter().filter(|i| i.tags.contains(tag)) {
                         if !candidates.contains(&i.id) {
                             candidates.push(i.id.clone());
                         }
@@ -293,16 +344,16 @@ impl App {
                 }
                 let last = self.pools.last.get(&key).cloned();
                 let position = self.pools.positions.entry(key.clone()).or_default();
-                match timeline::pick_from_pool(&candidates, order, seed, last.as_deref(), position)
+                match timeline::pick_from_pool(&candidates, *order, seed, last.as_deref(), position)
                 {
                     Some(id) => {
                         self.pools.last.insert(key, id.clone());
                         self.save_pools();
-                        self.show_library_item(&id, slot.theme, slot.buddy);
+                        self.show_slot_item(&id, &slot);
                     }
                     None => {
                         tracing::warn!(target: "clairlune", "timeline pool is empty; generating");
-                        self.new_wallpaper();
+                        self.generate_for_slot(&slot, &[], &[], &[]);
                     }
                 }
             }
@@ -311,79 +362,60 @@ impl App {
                 activities,
                 weather,
             } => {
-                let mut s = self.settings.clone();
-                if !archetypes.is_empty() {
-                    s.content.archetypes = archetypes;
-                }
-                if !activities.is_empty() {
-                    s.content.activities = activities;
-                }
-                if !weather.is_empty() {
-                    s.content.weather = weather;
-                }
-                match slot.theme {
-                    library::ThemeChoice::Light => s.theme.mode = settings::ThemeMode::Light,
-                    library::ThemeChoice::Dark => s.theme.mode = settings::ThemeMode::Dark,
-                    library::ThemeChoice::Follow => {}
-                }
-                match slot.buddy {
-                    library::BuddyChoice::On => s.buddy.show = true,
-                    library::BuddyChoice::Off => s.buddy.show = false,
-                    library::BuddyChoice::Follow => {}
-                }
-                // The slot's own choices hold on screen: a theme change
-                // doesn't re-render them away.
-                self.current_theme = match slot.theme {
-                    library::ThemeChoice::Light => Some(Theme::Light),
-                    library::ThemeChoice::Dark => Some(Theme::Dark),
-                    library::ThemeChoice::Follow => None,
-                };
-                self.current_buddy = match slot.buddy {
-                    library::BuddyChoice::On => Some(true),
-                    library::BuddyChoice::Off => Some(false),
-                    library::BuddyChoice::Follow => None,
-                };
-                self.chosen = false;
-                let at = self.apply_at.take();
-                let scrolling = self.live.scrolling_ok();
-                self.submit(Job::New {
-                    seed: random_seed(),
-                    exact: false,
-                    settings: Box::new(s),
-                    at,
-                    scrolling,
-                });
+                self.generate_for_slot(&slot, archetypes, activities, weather);
             }
         }
     }
 
-    /// Shows a library item; a slot's choices win over the item's, which win
-    /// over the global settings.
-    pub(crate) fn show_library_item(
+    /// Generates a fresh wallpaper honouring a timeline slot's theme, Clawd,
+    /// display and content choices (across per-monitor choices too).
+    pub(crate) fn generate_for_slot(
         &mut self,
-        id: &str,
-        slot_theme: library::ThemeChoice,
-        slot_buddy: library::BuddyChoice,
+        slot: &timeline::Slot,
+        archetypes: &[String],
+        activities: &[String],
+        weather: &[String],
     ) {
-        let Some(lib) = self.library() else {
-            return;
-        };
-        let Some(mut item) = lib.get(id) else {
-            tracing::warn!(target: "clairlune", id, "timeline item is gone; generating");
-            self.new_wallpaper();
-            return;
-        };
-        if slot_theme != library::ThemeChoice::Follow {
-            item.theme = slot_theme;
-        }
-        if slot_buddy != library::BuddyChoice::Follow {
-            item.buddy = slot_buddy;
-        }
-        let (theme, buddy) = Self::library_choices(&item, &self.settings);
+        let s = slot_settings(&self.settings, slot, archetypes, activities, weather);
+        let (theme, buddy, live) = Self::resolve_choices(slot.theme, slot.buddy, slot.display);
+        // The slot's own choices hold on screen: a theme change doesn't
+        // re-render them away.
         self.current_theme = theme;
         self.current_buddy = buddy;
+        self.set_current_live(live);
+        self.chosen = false;
+        let at = self.apply_at.take();
+        let scrolling = self.live.scrolling_ok();
+        self.submit(Job::New {
+            seed: random_seed(),
+            exact: false,
+            settings: Box::new(s),
+            at,
+            scrolling,
+        });
+    }
+
+    /// Shows a library item for a timeline slot; the slot's choices win over
+    /// the item's, which win over the global settings. Falls back to a fresh
+    /// scene with the slot's choices if the saved item is missing or unreadable.
+    pub(crate) fn show_slot_item(&mut self, id: &str, slot: &timeline::Slot) {
+        let Some(lib) = self.library() else {
+            self.generate_for_slot(slot, &[], &[], &[]);
+            return;
+        };
+        let Some(item) = lib.get(id) else {
+            tracing::warn!(target: "clairlune", id, "timeline item is gone; generating");
+            self.generate_for_slot(slot, &[], &[], &[]);
+            return;
+        };
+        let (theme, buddy, live) = Self::item_choices(&item, slot.theme, slot.buddy, slot.display);
+        self.current_theme = theme;
+        self.current_buddy = buddy;
+        self.set_current_live(live);
         self.chosen = true;
-        self.apply_folder(lib.item_dir(id), theme, buddy, false, false);
+        if !self.apply_folder(lib.item_dir(id), theme, buddy, false, false) {
+            self.generate_for_slot(slot, &[], &[], &[]);
+        }
     }
 
     /// After the timeline changed (in the editor or in the file): the active
@@ -450,5 +482,123 @@ impl App {
         let ahead = next.duration_since(jiff::Timestamp::now()) - TIMELINE_LEAD;
         let wait = std::time::Duration::try_from(ahead).unwrap_or(Duration::ZERO);
         Some(Instant::now() + wait)
+    }
+}
+
+/// Applies a timeline slot's content and appearance overrides to `base`,
+/// narrowing per-monitor content choices too when the slot names landscapes,
+/// activities or weather.
+fn slot_settings(
+    base: &Settings,
+    slot: &timeline::Slot,
+    archetypes: &[String],
+    activities: &[String],
+    weather: &[String],
+) -> Settings {
+    let mut s = base.clone();
+    let narrow = |c: &mut settings::Content| {
+        if !archetypes.is_empty() {
+            c.archetypes = archetypes.to_vec();
+        }
+        if !activities.is_empty() {
+            c.activities = activities.to_vec();
+        }
+        if !weather.is_empty() {
+            c.weather = weather.to_vec();
+        }
+    };
+    narrow(&mut s.content);
+    for m in &mut s.display.monitors {
+        if let Some(c) = &mut m.content {
+            narrow(c);
+        }
+    }
+    match slot.theme {
+        library::ThemeChoice::Light => s.theme.mode = settings::ThemeMode::Light,
+        library::ThemeChoice::Dark => s.theme.mode = settings::ThemeMode::Dark,
+        library::ThemeChoice::Follow => {}
+    }
+    match slot.buddy {
+        library::BuddyChoice::On => s.buddy.show = true,
+        library::BuddyChoice::Off => s.buddy.show = false,
+        library::BuddyChoice::Follow => {}
+    }
+    s
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slot_settings_narrow_per_monitor_choices_and_apply_overrides() {
+        let mut base = Settings::default();
+        base.edit_monitor("m2", "Right", |m| {
+            m.content = Some(settings::Content {
+                archetypes: vec!["lake".into()],
+                activities: vec!["fish".into()],
+                weather: vec!["rain".into()],
+                ..settings::Content::default()
+            });
+        });
+        let slot = timeline::Slot {
+            start: 420,
+            content: timeline::Content::Random {
+                archetypes: vec!["night_sky".into()],
+                activities: Vec::new(),
+                weather: vec!["aurora".into()],
+            },
+            display: library::DisplayChoice::Live,
+            theme: library::ThemeChoice::Dark,
+            buddy: library::BuddyChoice::Off,
+        };
+        let out = slot_settings(&base, &slot, &["night_sky".into()], &[], &["aurora".into()]);
+        assert_eq!(out.content.archetypes, ["night_sky"]);
+        assert_eq!(out.content.weather, ["aurora"]);
+        let m2 = out.monitor("m2").unwrap().content.as_ref().unwrap();
+        assert_eq!(m2.archetypes, ["night_sky"]);
+        assert_eq!(
+            m2.activities,
+            ["fish"],
+            "unspecified filters keep monitor choices"
+        );
+        assert_eq!(m2.weather, ["aurora"]);
+        assert_eq!(out.theme.mode, settings::ThemeMode::Dark);
+        assert!(!out.buddy.show);
+    }
+
+    #[test]
+    fn slot_choices_override_library_item_choices() {
+        let item = library::Item {
+            id: "lib_1".into(),
+            name: "Shore".into(),
+            created: 1,
+            tags: Vec::new(),
+            display: library::DisplayChoice::Still,
+            theme: library::ThemeChoice::Light,
+            buddy: library::BuddyChoice::Off,
+            seed: 7,
+            archetype: "shore".into(),
+            activity: None,
+            generator_version: 1,
+        };
+        assert_eq!(
+            App::item_choices(
+                &item,
+                library::ThemeChoice::Follow,
+                library::BuddyChoice::Follow,
+                library::DisplayChoice::Follow,
+            ),
+            (Some(Theme::Light), Some(false), Some(false))
+        );
+        assert_eq!(
+            App::item_choices(
+                &item,
+                library::ThemeChoice::Dark,
+                library::BuddyChoice::On,
+                library::DisplayChoice::Live,
+            ),
+            (Some(Theme::Dark), Some(true), Some(true))
+        );
     }
 }

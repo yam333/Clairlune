@@ -22,9 +22,14 @@ impl App {
                 self.check();
             }
             Action::ToggleLive => {
-                self.settings.display.mode = match self.settings.display.mode {
-                    settings::WallpaperMode::Live => settings::WallpaperMode::Still,
-                    settings::WallpaperMode::Still => settings::WallpaperMode::Live,
+                let currently_live = self
+                    .current_live
+                    .unwrap_or(self.settings.display.mode == settings::WallpaperMode::Live);
+                self.current_live = None;
+                self.settings.display.mode = if currently_live {
+                    settings::WallpaperMode::Still
+                } else {
+                    settings::WallpaperMode::Live
                 };
                 self.save_settings();
                 self.follow_display_settings();
@@ -97,11 +102,7 @@ impl App {
             UiAction::FromSeed(seed) => self.wallpaper_from_seed(seed),
             UiAction::OpenLink(url) => open_url(url),
             UiAction::ChooseExportFolder => self.choose_export_folder(),
-            UiAction::Resume => {
-                self.settings.schedule.paused = false;
-                self.save_settings();
-                self.reschedule();
-            }
+            UiAction::Resume => self.resume_changes(),
             UiAction::EditTimeline => self.open_timeline(event_loop),
             UiAction::TimelineChanged => self.timeline_edited(),
             UiAction::Previous => self.reapply(true),

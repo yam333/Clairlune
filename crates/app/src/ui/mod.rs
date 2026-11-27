@@ -255,6 +255,10 @@ impl UiWindow {
         self.kind
     }
 
+    pub fn theme(&self) -> Theme {
+        self.theme
+    }
+
     /// Selects a library item in the Library window.
     pub fn select_item(&mut self, item: &Item) {
         self.library.select(item);

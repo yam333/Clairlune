@@ -81,6 +81,7 @@ impl App {
                 self.status.seed = Some(seed);
                 self.status.theme = Some(theme);
                 self.refresh_window_thumb();
+                self.redraw_windows();
                 if let Some(t) = &self.tray {
                     t.set_busy(false);
                     t.set_tooltip(&text);
@@ -89,6 +90,7 @@ impl App {
             Done::Exported(path) => {
                 tracing::info!(target: "clairlune", path = %path.display(), "saved");
                 self.status.note = Some(format!("Saved {}", path.display()));
+                self.redraw_windows();
                 if let Some(dir) = path.parent() {
                     open(dir, false);
                 }
@@ -108,9 +110,19 @@ impl App {
                 // doesn't set Clairlune's stills again).
                 self.live.show(Vec::new());
                 self.shown_theme = None;
+                self.asked_theme = None;
                 self.shown_journey = false;
                 self.shown_still = None;
                 self.current = None;
+                self.current_theme = None;
+                self.current_buddy = None;
+                self.current_live = None;
+                self.timeline_since = None;
+                self.timeline_applied = None;
+                self.timeline_generate = false;
+                self.manual_until = None;
+                diagnostics::set_current(None);
+                self.follow_display_settings();
                 self.status.what.clear();
                 self.status.seed = None;
                 self.status.theme = None;
@@ -120,6 +132,7 @@ impl App {
                 if let Some(w) = &mut self.settings_window {
                     w.clear_thumb();
                 }
+                self.redraw_windows();
                 if let Some(t) = &self.tray {
                     t.set_busy(false);
                     t.set_tooltip(APP_NAME);
@@ -129,6 +142,7 @@ impl App {
                 self.busy = false;
                 tracing::debug!(target: "clairlune", error = %e, "shown in the tray tooltip");
                 self.status.note = Some(capitalise_first(&e));
+                self.redraw_windows();
                 if let Some(t) = &self.tray {
                     t.set_busy(false);
                     t.set_tooltip(&format!("{APP_NAME}: {e}"));

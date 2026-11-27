@@ -122,15 +122,27 @@ pub fn body(f: &Facts, log_lines: usize) -> String {
 /// The link that opens a new issue with the details filled in (the log cut
 /// shorter until the link fits).
 pub fn issue_url(f: &Facts) -> String {
+    let prefix = format!("{NEW_ISSUE}?labels=bug&title={}&body=", encode("Problem: "));
     let mut n = LOG_LINES;
     loop {
-        let url = format!(
-            "{NEW_ISSUE}?labels=bug&title={}&body={}",
-            encode("Problem: "),
-            encode(&body(f, n))
-        );
-        if url.len() <= MAX_URL || n == 0 {
+        let text = body(f, n);
+        let url = format!("{prefix}{}", encode(&text));
+        if url.len() <= MAX_URL {
             return url;
+        }
+        if n == 0 {
+            let mut end = text.len();
+            let mut cur_len = url.len();
+            while end > 0 && cur_len > MAX_URL {
+                let step = ((cur_len - MAX_URL) / 3).max(1);
+                end = text.floor_char_boundary(end.saturating_sub(step));
+                let trimmed = format!("{prefix}{}", encode(&text[..end]));
+                cur_len = trimmed.len();
+                if cur_len <= MAX_URL {
+                    return trimmed;
+                }
+            }
+            return prefix;
         }
         n = n.saturating_sub(5);
     }
@@ -198,6 +210,16 @@ mod tests {
         // The newest lines stay.
         assert!(url.contains("line%20199"));
         assert!(!url.contains("line%2010%20"));
+    }
+
+    #[test]
+    fn the_link_fits_even_with_oversized_system_details() {
+        let mut f = facts(0);
+        f.monitors = (0..120)
+            .map(|i| format!("Display {i} (3840\u{d7}2160, external studio monitor)"))
+            .collect();
+        let url = issue_url(&f);
+        assert!(url.len() <= MAX_URL, "{}", url.len());
     }
 
     #[test]

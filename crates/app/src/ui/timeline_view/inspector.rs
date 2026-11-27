@@ -228,7 +228,7 @@ pub(crate) fn inspector(
                 &[
                     (DisplayChoice::Follow, "Follow", true),
                     (DisplayChoice::Still, "Still", true),
-                    (DisplayChoice::Live, "Live", false),
+                    (DisplayChoice::Live, "Live", true),
                 ],
             )
         });

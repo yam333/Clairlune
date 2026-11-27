@@ -119,8 +119,10 @@ struct App {
     jobs: mpsc::Sender<Job>,
     /// For threads that report back (the update check).
     proxy: EventLoopProxy<AppEvent>,
-    /// Content's landscape tiles are being drawn (`land_thumbs`).
+    /// Content's landscape tiles are being drawn (`land_thumbs`), and a theme
+    /// to draw next if the theme changed meanwhile.
     drawing_lands: bool,
+    lands_pending: Option<Theme>,
     /// The folder picker is open.
     picking_folder: bool,
     /// What the last update check found, and whether one is running (and
@@ -173,9 +175,11 @@ struct App {
     renew: Option<(String, u64)>,
     /// The folder of what's on screen: an archive entry or a library item.
     current: Option<PathBuf>,
-    /// A library item's own theme and Clawd choices, kept while it shows.
+    /// A library item's or timeline slot's own theme, Clawd and display
+    /// choices, kept while it shows.
     current_theme: Option<Theme>,
     current_buddy: Option<bool>,
+    current_live: Option<bool>,
     /// What's on screen, for the Settings window.
     status: ui::view::Status,
     tray: Option<tray::Tray>,
@@ -650,6 +654,7 @@ fn main() {
         jobs,
         proxy: app_proxy,
         drawing_lands: false,
+        lands_pending: None,
         picking_folder: false,
         update: update_state,
         checking_updates: None,
@@ -675,6 +680,7 @@ fn main() {
         current: None,
         current_theme: None,
         current_buddy: None,
+        current_live: None,
         tray: None,
         timeline: timeline::Timeline::load(&timeline_path).unwrap_or_default(),
         timeline_stamp: file_stamp(&timeline_path),

@@ -8,6 +8,36 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+## [0.33.2] - 2026-11-27
+
+### Added
+
+- Saved wallpapers in the Library now have a **Display** choice (Follow, Still,
+  Live) and a **Tags** field, so tag pools in the Timeline can be filled without
+  editing files by hand.
+
+### Fixed
+
+- **Restore my wallpaper** followed by resuming Clairlune in the same session no
+  longer forgets your original wallpaper: a second Restore puts it back.
+- Clicking **Resume** after Restore now clears the restored state across
+  restarts and immediately puts a Clairlune wallpaper (or the active Timeline
+  slot) back on screen instead of waiting for the next timer or slot boundary.
+- Timeline slots and Library items now honour their **Display** choice (`Live`
+  is enabled in the Timeline inspector, and both `Live` and `Still` take effect
+  while that slot or wallpaper is on screen).
+- Timeline random slots now apply their landscape, activity and weather choices
+  to monitors that have their own Content choices too; missing items and empty
+  pools keep the slot's theme, Clawd and display choices when generating a
+  replacement; and unknown weather names in `timeline.toml` are reported.
+- Dragging a monitor onto the seam between two touching monitors in **Spread
+  across** no longer ping-pongs into an overlapping placement.
+- Open windows now follow scheduled or system theme changes automatically, show
+  finished exports and job errors without waiting for pointer movement, and
+  finish drawing Content's preview tiles when the theme switches mid-render.
+- On an Apple Silicon Mac running an Intel copy under Rosetta, in-app updates
+  now fetch the native Apple Silicon DMG.
+
 ## [0.33.1] - 2026-11-27
 
 ### Changed
@@ -653,7 +683,8 @@ earlier versions always look the same as before. The downloads are on the
 - The same calm pace at every smoothness; Direct3D 11 live wallpapers on
   Windows that copy only what changed; windows give their memory back.
 
-[Unreleased]: https://github.com/yam333/Clairlune/compare/v0.33.1...HEAD
+[Unreleased]: https://github.com/yam333/Clairlune/compare/v0.33.2...HEAD
+[0.33.2]: https://github.com/yam333/Clairlune/releases/tag/v0.33.2
 [0.33.1]: https://github.com/yam333/Clairlune/releases/tag/v0.33.1
 [0.33.0]: https://github.com/yam333/Clairlune/releases/tag/v0.33.0
 [0.32.0]: https://github.com/yam333/Clairlune/releases/tag/v0.32.0

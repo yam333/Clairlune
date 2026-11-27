@@ -93,7 +93,20 @@ impl App {
                     let schedule_changed = new.schedule != self.settings.schedule;
                     let display_changed =
                         new.display != self.settings.display || new.live != self.settings.live;
+                    if new.display.mode != self.settings.display.mode {
+                        self.current_live = None;
+                    }
                     self.settings = new;
+                    diagnostics::set_detailed(
+                        self.settings.general.detailed_logging_until > timefmt::now_unix(),
+                    );
+                    let key = span::settings_key(&self.settings.display);
+                    if key != self.span_key {
+                        self.span_key = key;
+                        if self.current.is_some() && !self.restored() && !self.busy {
+                            self.reapply(false);
+                        }
+                    }
                     if let Some(t) = &self.tray {
                         t.show_theme(self.settings.theme.mode);
                     }
@@ -136,6 +149,26 @@ impl App {
             }
         }
         let theme = apply::resolve_theme(&self.settings.theme);
+        if self.ui_test.is_none() {
+            let settings_changed_theme = self
+                .settings_window
+                .as_ref()
+                .is_some_and(|w| w.theme() != theme);
+            for w in [
+                &mut self.settings_window,
+                &mut self.library_window,
+                &mut self.timeline_window,
+                &mut self.archive_window,
+            ]
+            .into_iter()
+            .flatten()
+            {
+                w.set_theme(theme);
+            }
+            if settings_changed_theme {
+                self.land_thumbs(theme);
+            }
+        }
         if self.current_theme.is_none()
             && self.asked_theme.is_some_and(|t| t != theme)
             && !self.busy
@@ -213,7 +246,9 @@ impl App {
                 self.reapply(false);
             }
         }
-        let live = self.settings.display.mode == settings::WallpaperMode::Live;
+        let live = self
+            .current_live
+            .unwrap_or(self.settings.display.mode == settings::WallpaperMode::Live);
         self.live.set_fps(self.settings.live.smoothness_fps);
         self.live.set_battery_policy(
             self.settings.live.battery_saver_on_battery,
@@ -413,10 +448,10 @@ impl App {
         if self.tray.is_some() {
             return;
         }
-        match tray::Tray::new(
-            self.settings.theme.mode,
-            self.settings.display.mode == settings::WallpaperMode::Live,
-        ) {
+        let live = self
+            .current_live
+            .unwrap_or(self.settings.display.mode == settings::WallpaperMode::Live);
+        match tray::Tray::new(self.settings.theme.mode, live) {
             Ok(t) => {
                 t.set_monitors(&self.tray_monitors);
                 self.tray = Some(t);

@@ -78,11 +78,7 @@ impl Install {
         match self {
             Install::WindowsSetup { .. } => Some(format!("clairlune_{version}_x64-setup.exe")),
             Install::MacApp { .. } => {
-                let arch = if cfg!(target_arch = "aarch64") {
-                    "aarch64"
-                } else {
-                    "x64"
-                };
+                let arch = mac_arch(cfg!(target_arch = "aarch64"), rosetta_arm64());
                 Some(format!("Clairlune_{version}_{arch}.dmg"))
             }
             Install::Manual { .. } => None,
@@ -102,6 +98,36 @@ fn manual_download(name: &str) -> Install {
     Install::Manual {
         name: name.into(),
         how: "Download the new version from its release page.".into(),
+    }
+}
+
+fn mac_arch(compiled_arm64: bool, hw_optional_arm64: Option<&str>) -> &'static str {
+    if compiled_arm64 || hw_optional_arm64.is_some_and(|s| s.trim() == "1") {
+        "aarch64"
+    } else {
+        "x64"
+    }
+}
+
+/// On an Intel macOS build, checks `hw.optional.arm64` so a copy migrated to
+/// Apple Silicon (running under Rosetta) updates to the native Apple Silicon
+/// DMG, matching `install.sh`.
+fn rosetta_arm64() -> Option<&'static str> {
+    #[cfg(all(target_os = "macos", not(target_arch = "aarch64")))]
+    {
+        static ARM64: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+        Some(ARM64.get_or_init(|| {
+            std::process::Command::new("sysctl")
+                .args(["-n", "hw.optional.arm64"])
+                .output()
+                .ok()
+                .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+                .unwrap_or_default()
+        }))
+    }
+    #[cfg(not(all(target_os = "macos", not(target_arch = "aarch64"))))]
+    {
+        None
     }
 }
 
@@ -751,6 +777,10 @@ mod tests {
             bundle: PathBuf::from("x"),
         };
         assert!(m.asset_name("0.16.0").unwrap().ends_with(".dmg"));
+        assert_eq!(mac_arch(true, None), "aarch64");
+        assert_eq!(mac_arch(false, Some("1\n")), "aarch64");
+        assert_eq!(mac_arch(false, Some("0\n")), "x64");
+        assert_eq!(mac_arch(false, None), "x64");
         assert_eq!(manual_download("x").asset_name("0.16.0"), None);
     }
 

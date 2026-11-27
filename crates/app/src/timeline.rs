@@ -273,10 +273,12 @@ impl Timeline {
                     Content::Random {
                         archetypes,
                         activities,
-                        ..
+                        weather,
                     } => {
                         for a in archetypes {
-                            if clairlune_scene::archetype::archetype(a).is_none() {
+                            if clairlune_scene::archetype::archetype(a)
+                                .is_none_or(|info| !info.implemented)
+                            {
                                 out.push(format!("{at}: unknown landscape \u{201c}{a}\u{201d}"));
                             }
                         }
@@ -286,6 +288,11 @@ impl Timeline {
                                 .is_none()
                             {
                                 out.push(format!("{at}: unknown activity \u{201c}{a}\u{201d}"));
+                            }
+                        }
+                        for w in weather {
+                            if !clairlune_scene::archetype::WEATHERS.contains(&w.as_str()) {
+                                out.push(format!("{at}: unknown weather \u{201c}{w}\u{201d}"));
                             }
                         }
                     }
@@ -583,15 +590,16 @@ content = { type = "random", archetypes = ["night_sky", "canyon"] }
             content: Content::Random {
                 archetypes: vec!["atlantis".into()],
                 activities: vec!["juggling".into()],
-                weather: Vec::new(),
+                weather: vec!["tornado".into()],
             },
             display: DisplayChoice::Follow,
             theme: ThemeChoice::Follow,
             buddy: BuddyChoice::Follow,
         });
         let p = tl.problems(&|id| id == "lib_here");
-        assert_eq!(p.len(), 3, "{p:?}");
+        assert_eq!(p.len(), 4, "{p:?}");
         assert!(p[0].contains("lib_gone"));
+        assert!(p[3].contains("tornado"));
     }
 }
 

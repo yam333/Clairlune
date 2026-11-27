@@ -752,20 +752,9 @@ pub fn worker(
     );
     let archive = Archive::open(&archive_dir);
     // Before the first change, remember the user's own wallpaper so it can be
-    // put back (`clairlune-cli restore`, later a button in Settings).
+    // put back (`clairlune-cli restore`, or Restore my wallpaper in Settings).
     if let (Some(h), Ok(s)) = (&host, &store) {
-        match h.snapshot().map(|snap| s.remember_if_users(&snap)) {
-            Ok(Ok(true)) => {
-                tracing::info!(target: "clairlune", "remembered the current wallpaper for restore")
-            }
-            Ok(Ok(false)) => {}
-            Ok(Err(e)) => {
-                tracing::warn!(target: "clairlune", error = %e, "could not save the current wallpaper")
-            }
-            Err(e) => {
-                tracing::warn!(target: "clairlune", error = %e, "could not read the current wallpaper")
-            }
-        }
+        remember_users_wallpaper(h.as_ref(), s);
     }
     for job in jobs {
         let result = match (&archive, &store) {
@@ -1024,6 +1013,12 @@ fn apply(
         }
     }
     let mut live = Vec::new();
+    // Snapshot any non-Clairlune wallpaper before overwriting it, so resuming
+    // after Restore (or plugging in another monitor) never loses the user's
+    // wallpaper.
+    if let Some(h) = host {
+        remember_users_wallpaper(h, store);
+    }
     if let (Some(host), Some((_, views, _)), Some((img, palette))) = (host, &span, &span_still) {
         // Each monitor gets its part of the one scene: a Retina screen beside
         // 1x ones, its part pixel-doubled (live plays it so too).
@@ -1093,6 +1088,23 @@ fn apply(
         ms,
         live,
     })
+}
+
+/// Saves any monitor showing the user's own wallpaper before Clairlune
+/// replaces it. No-op when every monitor already shows Clairlune's still.
+fn remember_users_wallpaper(host: &dyn WallpaperHost, store: &StillStore) {
+    match host.snapshot().map(|snap| store.remember_if_users(&snap)) {
+        Ok(Ok(true)) => {
+            tracing::info!(target: "clairlune", "remembered the current wallpaper for restore")
+        }
+        Ok(Ok(false)) => {}
+        Ok(Err(e)) => {
+            tracing::warn!(target: "clairlune", error = %e, "could not save the current wallpaper")
+        }
+        Err(e) => {
+            tracing::warn!(target: "clairlune", error = %e, "could not read the current wallpaper")
+        }
+    }
 }
 
 /// Puts back the remembered wallpaper and removes Clairlune's stills.
@@ -1947,6 +1959,140 @@ mod tests {
         // Archived once, as one scene.
         assert_eq!(archive.entries().len(), 1);
         drop(set);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn restore_then_apply_remembers_the_users_wallpaper_again() {
+        struct StatefulHost {
+            monitors: Vec<Monitor>,
+            wallpapers: std::sync::Mutex<Vec<(String, Option<PathBuf>)>>,
+        }
+        impl WallpaperHost for StatefulHost {
+            fn name(&self) -> &'static str {
+                "stateful"
+            }
+            fn capabilities(&self) -> clairlune_platform::Capabilities {
+                clairlune_platform::Capabilities {
+                    per_monitor: true,
+                    live: false,
+                }
+            }
+            fn monitors(&self) -> Result<Vec<Monitor>, clairlune_platform::PlatformError> {
+                Ok(self.monitors.clone())
+            }
+            fn current(
+                &self,
+                m: &Monitor,
+            ) -> Result<Option<PathBuf>, clairlune_platform::PlatformError> {
+                Ok(self
+                    .wallpapers
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .find(|(id, _)| id == &m.id)
+                    .and_then(|(_, p)| p.clone()))
+            }
+            fn set_static(
+                &self,
+                m: &Monitor,
+                path: &Path,
+            ) -> Result<(), clairlune_platform::PlatformError> {
+                let mut w = self.wallpapers.lock().unwrap();
+                match w.iter_mut().find(|(id, _)| id == &m.id) {
+                    Some(entry) => entry.1 = Some(path.to_path_buf()),
+                    None => w.push((m.id.clone(), Some(path.to_path_buf()))),
+                }
+                Ok(())
+            }
+            fn snapshot(
+                &self,
+            ) -> Result<clairlune_platform::Snapshot, clairlune_platform::PlatformError>
+            {
+                Ok(clairlune_platform::Snapshot {
+                    monitors: self.wallpapers.lock().unwrap().clone(),
+                    position: Some(4),
+                })
+            }
+            fn restore(
+                &self,
+                snap: &clairlune_platform::Snapshot,
+            ) -> Result<(), clairlune_platform::PlatformError> {
+                *self.wallpapers.lock().unwrap() = snap.monitors.clone();
+                Ok(())
+            }
+        }
+
+        let dir =
+            std::env::temp_dir().join(format!("clairlune-restore-cycle-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let user_pic = dir.join("user-sea.jpg");
+        let host = StatefulHost {
+            monitors: vec![Monitor {
+                id: "m1".into(),
+                x: 0,
+                y: 0,
+                width: 640,
+                height: 360,
+                primary: true,
+                scale: 1,
+            }],
+            wallpapers: std::sync::Mutex::new(vec![("m1".into(), Some(user_pic.clone()))]),
+        };
+        let store = StillStore::new(dir.join("current")).unwrap();
+        let archive = Archive::open(dir.join("archive")).unwrap();
+        let settings = Settings::default();
+
+        // First apply snapshots the user's wallpaper and sets Clairlune's still.
+        apply(
+            None,
+            (3, false),
+            &settings,
+            true,
+            Some(&host),
+            &store,
+            &archive,
+            &mut Recent::default(),
+            None,
+            true,
+        )
+        .unwrap();
+        assert_ne!(
+            host.current(&host.monitors[0]).unwrap(),
+            Some(user_pic.clone())
+        );
+
+        // Restore puts the user's wallpaper back and clears the saved snapshot.
+        assert!(matches!(
+            restore(Some(&host), &store).unwrap(),
+            Done::Restored
+        ));
+        assert_eq!(
+            host.current(&host.monitors[0]).unwrap(),
+            Some(user_pic.clone())
+        );
+        assert_eq!(store.original().unwrap(), None);
+
+        // Resuming in the same session applies again and must remember the user's
+        // wallpaper before overwriting it, so a second Restore still succeeds.
+        apply(
+            None,
+            (7, false),
+            &settings,
+            true,
+            Some(&host),
+            &store,
+            &archive,
+            &mut Recent::default(),
+            None,
+            true,
+        )
+        .unwrap();
+        assert!(matches!(
+            restore(Some(&host), &store).unwrap(),
+            Done::Restored
+        ));
+        assert_eq!(host.current(&host.monitors[0]).unwrap(), Some(user_pic));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

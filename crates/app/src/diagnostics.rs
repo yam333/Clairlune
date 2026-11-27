@@ -272,7 +272,9 @@ pub fn export_bundle(
     }
     add("about.txt", &about)?;
     // Logs from the last 3 days.
-    let cutoff = std::time::SystemTime::now() - std::time::Duration::from_secs(3 * 86_400);
+    let cutoff = std::time::SystemTime::now()
+        .checked_sub(std::time::Duration::from_secs(3 * 86_400))
+        .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
     if let Ok(dir) = std::fs::read_dir(data_dir.join("logs")) {
         for e in dir.flatten() {
             let recent = e

@@ -4,7 +4,7 @@
 
 use super::style::{self, c, colors};
 use super::view::{Status, UiAction, empty_page, hairline, primary_button, segmented};
-use crate::library::{BuddyChoice, Item, ThemeChoice};
+use crate::library::{BuddyChoice, DisplayChoice, Item, ThemeChoice};
 use crate::tokens::{radius, size, space};
 use clairlune_scene::Theme;
 use egui::{Align, Layout, RichText, Sense, Stroke, Ui, vec2};
@@ -13,8 +13,10 @@ use std::path::Path;
 #[derive(Default)]
 pub struct LibraryState {
     selected: Option<String>,
-    /// The selected item's name while it's being edited.
+    /// The selected item's name and tags while they're being edited.
     name_edit: String,
+    tags_edit: String,
+    tags_for: Option<(String, Vec<String>)>,
     confirm_delete: bool,
     thumbs: super::Thumbs,
 }
@@ -24,8 +26,25 @@ impl LibraryState {
     pub fn select(&mut self, item: &Item) {
         self.selected = Some(item.id.clone());
         self.name_edit = item.name.clone();
+        self.tags_edit = format_tags(&item.tags);
+        self.tags_for = Some((item.id.clone(), item.tags.clone()));
         self.confirm_delete = false;
     }
+}
+
+fn format_tags(tags: &[String]) -> String {
+    tags.join(", ")
+}
+
+fn parse_tags(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for part in text.split(',') {
+        let tag = part.trim();
+        if !tag.is_empty() && !out.iter().any(|t| t == tag) {
+            out.push(tag.to_string());
+        }
+    }
+    out
 }
 
 const THUMB_W: f32 = 192.0;
@@ -159,9 +178,7 @@ fn tile(ui: &mut Ui, theme: Theme, st: &mut LibraryState, dir: &Path, item: &Ite
             );
         }
         if resp.clicked() {
-            st.selected = Some(item.id.clone());
-            st.name_edit = item.name.clone();
-            st.confirm_delete = false;
+            st.select(item);
         }
         ui.add_space(space::S1);
         ui.label(RichText::new(&item.name).font(style::body_strong()));
@@ -170,8 +187,13 @@ fn tile(ui: &mut Ui, theme: Theme, st: &mut LibraryState, dir: &Path, item: &Ite
             ThemeChoice::Light => "  light",
             ThemeChoice::Dark => "  dark",
         };
+        let display_fact = match item.display {
+            DisplayChoice::Follow => "",
+            DisplayChoice::Live => "  live",
+            DisplayChoice::Still => "  still",
+        };
         ui.label(
-            RichText::new(format!("seed {}{theme_fact}", item.seed))
+            RichText::new(format!("seed {}{theme_fact}{display_fact}", item.seed))
                 .font(style::mono())
                 .color(c(t.text_secondary)),
         );
@@ -189,10 +211,18 @@ fn action_bar(
     actions: &mut Vec<UiAction>,
 ) {
     let t = colors(theme);
+    if st
+        .tags_for
+        .as_ref()
+        .is_none_or(|(id, tags)| id != &item.id || tags != &item.tags)
+    {
+        st.tags_edit = format_tags(&item.tags);
+        st.tags_for = Some((item.id.clone(), item.tags.clone()));
+    }
     ui.horizontal(|ui| {
         let edit = ui.add(
             egui::TextEdit::singleline(&mut st.name_edit)
-                .desired_width(260.0)
+                .desired_width(240.0)
                 .hint_text("Name"),
         );
         if edit.lost_focus() {
@@ -201,6 +231,21 @@ fn action_bar(
                 let mut renamed = item.clone();
                 renamed.name = name.to_string();
                 actions.push(UiAction::UpdateLibrary(Box::new(renamed)));
+            }
+        }
+        let tags = ui.add(
+            egui::TextEdit::singleline(&mut st.tags_edit)
+                .desired_width(200.0)
+                .hint_text("Tags, e.g. evening"),
+        );
+        if tags.lost_focus() {
+            let parsed = parse_tags(&st.tags_edit);
+            st.tags_edit = format_tags(&parsed);
+            if parsed != item.tags {
+                let mut tagged = item.clone();
+                tagged.tags = parsed.clone();
+                st.tags_for = Some((item.id.clone(), parsed));
+                actions.push(UiAction::UpdateLibrary(Box::new(tagged)));
             }
         }
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -244,6 +289,23 @@ fn action_bar(
         ) {
             let mut changed = item.clone();
             changed.buddy = buddy;
+            actions.push(UiAction::UpdateLibrary(Box::new(changed)));
+        }
+        ui.add_space(space::S5);
+        ui.label(RichText::new("Display").color(c(t.text_secondary)));
+        let mut display = item.display;
+        if segmented(
+            ui,
+            theme,
+            &mut display,
+            &[
+                (DisplayChoice::Follow, "Follow", true),
+                (DisplayChoice::Still, "Still", true),
+                (DisplayChoice::Live, "Live", true),
+            ],
+        ) {
+            let mut changed = item.clone();
+            changed.display = display;
             actions.push(UiAction::UpdateLibrary(Box::new(changed)));
         }
     });
@@ -307,5 +369,23 @@ fn action_bar(
     if let Some(note) = &status.note {
         ui.add_space(space::S2);
         ui.label(RichText::new(note).color(c(t.text_secondary)));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tags_parse_and_round_trip_without_duplicates_or_blanks() {
+        assert_eq!(
+            parse_tags(" evening , calm, evening, , late night "),
+            vec!["evening", "calm", "late night"]
+        );
+        assert!(parse_tags(" ,  ").is_empty());
+        assert_eq!(
+            format_tags(&["evening".into(), "calm".into()]),
+            "evening, calm"
+        );
     }
 }

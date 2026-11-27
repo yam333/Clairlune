@@ -161,8 +161,11 @@ impl App {
             UiAction::ApplyArchive(name) => {
                 self.current_theme = None;
                 self.current_buddy = None;
+                self.set_current_live(None);
                 self.chosen = true;
-                self.apply_folder(dir_of(&name), None, None, false, false);
+                if !self.apply_folder(dir_of(&name), None, None, false, false) {
+                    self.status.note = Some("That archived wallpaper couldn't be read.".into());
+                }
             }
             UiAction::PinArchive { name, pinned } => {
                 if let Err(e) = archive.set_pinned(&name, pinned) {
@@ -176,11 +179,18 @@ impl App {
                 let dest = self.export_dir();
                 let source = Some(dir_of(&name));
                 if gif {
+                    let entry_theme = archive.get(&name).and_then(|e| match e.theme.as_str() {
+                        "light" => Some(Theme::Light),
+                        "dark" => Some(Theme::Dark),
+                        _ => None,
+                    });
+                    self.status.note = Some("Making the GIF...".to_string());
                     self.submit(Job::ExportGif {
                         sign: self.settings.export.sign,
                         dest,
                         source,
-                        theme: apply::resolve_theme(&self.settings.theme),
+                        theme: entry_theme
+                            .unwrap_or_else(|| apply::resolve_theme(&self.settings.theme)),
                         buddy: self.settings.buddy.show,
                     });
                 } else {
@@ -207,22 +217,51 @@ impl App {
         self.refresh_archive();
     }
 
-    pub(crate) fn library_choices(
-        item: &library::Item,
-        settings: &Settings,
-    ) -> (Option<Theme>, Option<bool>) {
-        let theme = match item.theme {
+    pub(crate) fn resolve_choices(
+        theme: library::ThemeChoice,
+        buddy: library::BuddyChoice,
+        display: library::DisplayChoice,
+    ) -> (Option<Theme>, Option<bool>, Option<bool>) {
+        let theme = match theme {
             library::ThemeChoice::Follow => None,
             library::ThemeChoice::Light => Some(Theme::Light),
             library::ThemeChoice::Dark => Some(Theme::Dark),
         };
-        let buddy = match item.buddy {
+        let buddy = match buddy {
             library::BuddyChoice::Follow => None,
             library::BuddyChoice::On => Some(true),
             library::BuddyChoice::Off => Some(false),
         };
-        let _ = settings;
-        (theme, buddy)
+        let live = match display {
+            library::DisplayChoice::Follow => None,
+            library::DisplayChoice::Live => Some(true),
+            library::DisplayChoice::Still => Some(false),
+        };
+        (theme, buddy, live)
+    }
+
+    pub(crate) fn item_choices(
+        item: &library::Item,
+        slot_theme: library::ThemeChoice,
+        slot_buddy: library::BuddyChoice,
+        slot_display: library::DisplayChoice,
+    ) -> (Option<Theme>, Option<bool>, Option<bool>) {
+        let theme = if slot_theme != library::ThemeChoice::Follow {
+            slot_theme
+        } else {
+            item.theme
+        };
+        let buddy = if slot_buddy != library::BuddyChoice::Follow {
+            slot_buddy
+        } else {
+            item.buddy
+        };
+        let display = if slot_display != library::DisplayChoice::Follow {
+            slot_display
+        } else {
+            item.display
+        };
+        Self::resolve_choices(theme, buddy, display)
     }
 
     pub(crate) fn on_library_action(&mut self, action: ui::view::UiAction) {
@@ -233,11 +272,22 @@ impl App {
         match action {
             UiAction::ApplyLibrary(id) => {
                 if let Some(item) = lib.get(&id) {
-                    let (theme, buddy) = Self::library_choices(&item, &self.settings);
+                    if self.timeline_mode() && !self.timeline_generate {
+                        self.manual_until = self.timeline_next;
+                    }
+                    let (theme, buddy, live) = Self::item_choices(
+                        &item,
+                        library::ThemeChoice::Follow,
+                        library::BuddyChoice::Follow,
+                        library::DisplayChoice::Follow,
+                    );
                     self.current_theme = theme;
                     self.current_buddy = buddy;
+                    self.set_current_live(live);
                     self.chosen = true;
-                    self.apply_folder(lib.item_dir(&id), theme, buddy, false, false);
+                    if !self.apply_folder(lib.item_dir(&id), theme, buddy, false, false) {
+                        self.status.note = Some("That saved wallpaper couldn't be read.".into());
+                    }
                 }
             }
             UiAction::UpdateLibrary(item) => {
@@ -246,9 +296,19 @@ impl App {
                 }
                 // Showing this item: apply its new choices right away.
                 if self.current.as_deref() == Some(lib.item_dir(&item.id).as_path()) {
-                    let (theme, buddy) = Self::library_choices(&item, &self.settings);
+                    let applied = self
+                        .timeline_applied
+                        .as_ref()
+                        .filter(|_| self.timeline_mode());
+                    let (theme, buddy, live) = Self::item_choices(
+                        &item,
+                        applied.map_or(library::ThemeChoice::Follow, |s| s.theme),
+                        applied.map_or(library::BuddyChoice::Follow, |s| s.buddy),
+                        applied.map_or(library::DisplayChoice::Follow, |s| s.display),
+                    );
                     self.current_theme = theme;
                     self.current_buddy = buddy;
+                    self.set_current_live(live);
                     self.reapply(false);
                 }
             }
@@ -274,9 +334,17 @@ impl App {
                 let source = Some(lib.item_dir(&id));
                 if gif {
                     let item = lib.get(&id);
-                    let (theme, buddy) = item
-                        .map(|i| Self::library_choices(&i, &self.settings))
-                        .unwrap_or((None, None));
+                    let (theme, buddy, _) = item
+                        .map(|i| {
+                            Self::item_choices(
+                                &i,
+                                library::ThemeChoice::Follow,
+                                library::BuddyChoice::Follow,
+                                library::DisplayChoice::Follow,
+                            )
+                        })
+                        .unwrap_or((None, None, None));
+                    self.status.note = Some("Making the GIF...".to_string());
                     self.submit(Job::ExportGif {
                         sign: self.settings.export.sign,
                         dest,
@@ -342,8 +410,10 @@ impl App {
             }
         }
         if self.drawing_lands {
+            self.lands_pending = Some(theme);
             return;
         }
+        self.lands_pending = None;
         // The landscapes, the palettes, the letters: (file name, what to draw).
         let lands = clairlune_scene::archetype::ARCHETYPE_INFO
             .iter()

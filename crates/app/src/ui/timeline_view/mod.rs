@@ -115,6 +115,8 @@ fn undo(st: &mut TimelineState, tl: &mut Timeline, actions: &mut Vec<UiAction>) 
         st.selected = None;
         st.drag = None;
         st.keep_day = None;
+        st.start_for = None;
+        st.tag_for = None;
         changed(actions);
     }
 }
@@ -733,5 +735,18 @@ mod tests {
         h.key(Key::Z, Modifiers::COMMAND);
         assert_eq!(h.starts(0), [420, 1170]);
         assert_eq!(h.changed, 2);
+    }
+
+    #[test]
+    fn undo_resets_cached_inspector_fields() {
+        let mut h = Harness::new();
+        h.st.selected = Some((0, 0));
+        h.st.tag_for = Some((0, 0));
+        h.st.tag_text = "stale".into();
+        h.idle(1);
+        h.key(Key::Delete, Modifiers::NONE);
+        h.key(Key::Z, Modifiers::COMMAND);
+        assert_eq!(h.st.start_for, None);
+        assert_eq!(h.st.tag_for, None);
     }
 }

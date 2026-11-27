@@ -90,10 +90,12 @@ fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
 
 /// `Shore #3f2a`: the landscape and a short form of the seed.
 pub fn default_name(archetype: &str, seed: u64) -> String {
-    let mut name = archetype.replace('_', " ");
-    if let Some(first) = name.get(..1) {
-        name = first.to_uppercase() + &name[1..];
-    }
+    let replaced = archetype.replace('_', " ");
+    let mut chars = replaced.chars();
+    let name: String = match chars.next() {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => String::new(),
+    };
     format!("{name} #{:04x}", seed & 0xFFFF)
 }
 
@@ -278,5 +280,6 @@ mod tests {
     fn default_names() {
         assert_eq!(default_name("night_sky", 0x1234_abcd), "Night sky #abcd");
         assert_eq!(default_name("cave", 7), "Cave #0007");
+        assert_eq!(default_name("étoile_filante", 1), "Étoile filante #0001");
     }
 }

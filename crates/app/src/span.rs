@@ -165,23 +165,30 @@ pub fn snap(placed: &[Placed], i: usize, x: i32, y: i32, reach: i32) -> (i32, i3
             o.y + (o.h as i32 - h) / 2,
         ]
     });
-    let (mut nx, mut ny) = (nearest(x, &mut xs), nearest(y, &mut ys));
-    for _ in 0..2 * others.len().max(1) {
-        let Some(o) = others.iter().find(|o| overlaps((nx, ny, w, h), o)) else {
-            break;
-        };
-        let ways = [
-            (o.x - w, ny),
-            (o.right(), ny),
-            (nx, o.y - h),
-            (nx, o.bottom()),
-        ];
-        (nx, ny) = ways
-            .into_iter()
-            .min_by_key(|(ax, ay)| (ax - nx).abs() + (ay - ny).abs())
-            .unwrap_or((nx, ny));
+    let (nx, ny) = (nearest(x, &mut xs), nearest(y, &mut ys));
+    if !others.iter().any(|o| overlaps((nx, ny, w, h), o)) {
+        return (nx, ny);
     }
-    (nx, ny)
+    // Every closest non-overlapping placement in Manhattan distance aligns
+    // each moved axis with an existing monitor's outer edge, even when
+    // monitors touch at a seam or meet in an L-corner.
+    let cand_x: Vec<i32> = std::iter::once(nx)
+        .chain(others.iter().flat_map(|o| [o.x - w, o.right()]))
+        .collect();
+    let cand_y: Vec<i32> = std::iter::once(ny)
+        .chain(others.iter().flat_map(|o| [o.y - h, o.bottom()]))
+        .collect();
+    cand_x
+        .iter()
+        .flat_map(|&ax| cand_y.iter().map(move |&ay| (ax, ay)))
+        .filter(|&(ax, ay)| !others.iter().any(|o| overlaps((ax, ay, w, h), o)))
+        .min_by_key(|&(ax, ay)| {
+            let dist =
+                (i64::from(ax) - i64::from(nx)).abs() + (i64::from(ay) - i64::from(ny)).abs();
+            let axes = i64::from(ax != nx) + i64::from(ay != ny);
+            (dist, axes)
+        })
+        .unwrap_or((nx, ny))
 }
 
 /// What the spread depends on in Settings, to tell when it changed.
@@ -334,6 +341,17 @@ mod tests {
                 .enumerate()
                 .any(|(j, o)| j != 2 && overlaps((x, y, me.w as i32, me.h as i32), o)),
             "({x}, {y}) overlaps"
+        );
+        // Dropped across the seam between two touching monitors (`main` and
+        // `right`): pushing horizontally into the neighbour must not ping-pong
+        // back onto `main`.
+        let (sx, sy) = snap(&placed, 2, 1900, 100, 10);
+        assert!(
+            !placed
+                .iter()
+                .enumerate()
+                .any(|(j, o)| j != 2 && overlaps((sx, sy, me.w as i32, me.h as i32), o)),
+            "seam drop ({sx}, {sy}) overlaps"
         );
     }
 
