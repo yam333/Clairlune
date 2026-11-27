@@ -1,6 +1,6 @@
 [package]
 name = "clairlune"
-description = "Procedural, animated ASCII-art desktop wallpapers. Local, seeded and deterministic; no AI, no network."
+description = "Procedural, animated ASCII-art desktop wallpapers. Local, seeded and deterministic; no telemetry."
 version.workspace = true
 edition.workspace = true
 # egui 0.37 needs 1.95; the libraries and the CLI keep the workspace minimum.

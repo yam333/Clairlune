@@ -258,7 +258,7 @@ keeps the settings as they were and says so in Settings.
 
 ## Privacy
 
-Everything is made on your computer from a seed; there's no AI. Clairlune
+Everything is made on your computer from a seed. Clairlune
 sends nothing about you anywhere. It goes online only to ask GitHub for the
 newest version once a day (if that's on) and to download an update when you
 click Update now. Report a problem opens a GitHub issue in your browser for you

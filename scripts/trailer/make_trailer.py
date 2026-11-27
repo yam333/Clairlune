@@ -37,7 +37,7 @@ SHOTS = [
     ("kite", "light", ["--seed", "2", "--activity", "fly_kite", "--archetype", "meadow", "--zoom", "close", "--look", "line"],
      "A new scene every hour", "Sixteen landscapes, thirty-two things to do"),
     ("bubbles", "light", ["--seed", "1", "--activity", "bubbles", "--archetype", "islands", "--zoom", "close", "--look", "line"],
-     "Made on your computer", "Every scene grows from a seed. No AI, no internet needed"),
+     "Made on your computer", "Every scene grows from a seed, offline"),
     ("meditate", "dark", ["--seed", "2", "--activity", "meditate", "--archetype", "bamboo", "--zoom", "close", "--look", "line"],
      "Clawd lives in each one", "Fishing, reading, stargazing, or just breathing"),
     ("snow", "light", ["--seed", "1", "--activity", "catch_snowflakes", "--archetype", "snowfield", "--zoom", "close", "--look", "line"],
