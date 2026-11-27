@@ -174,10 +174,7 @@ impl App {
             std::fs::write(&out, text.as_bytes()).map(|()| out)
         });
         match res {
-            Ok(path) => {
-                self.status.note = Some(format!("Saved {}", path.display()));
-                open(&dest, false);
-            }
+            Ok(path) => self.set_saved_note(&path),
             Err(e) => self.status.note = Some(format!("Couldn't save text file: {e}")),
         }
         self.redraw_windows();
@@ -194,10 +191,7 @@ impl App {
                 Ok(out)
             });
         match res {
-            Ok(path) => {
-                self.status.note = Some(format!("Saved {}", path.display()));
-                open(&dest, false);
-            }
+            Ok(path) => self.set_saved_note(&path),
             Err(e) => self.status.note = Some(format!("Couldn't save PNG: {e}")),
         }
         self.redraw_windows();

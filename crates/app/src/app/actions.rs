@@ -113,6 +113,7 @@ impl App {
             UiAction::NewWallpaper => self.new_wallpaper_by_hand(),
             UiAction::FromSeed(seed) => self.wallpaper_from_seed(seed),
             UiAction::OpenLink(url) => open_url(url),
+            UiAction::RevealPath(path) => reveal_in_folder(&path),
             UiAction::ChooseExportFolder => self.choose_export_folder(),
             UiAction::Resume => self.resume_changes(),
             UiAction::EditTimeline => self.open_timeline(event_loop),
@@ -156,21 +157,18 @@ impl App {
                     .map(Path::to_path_buf)
                     .unwrap_or_else(|| self.data_dir.clone());
                 let dest = self.export_dir();
-                self.status.note = Some(
-                    match diagnostics::export_bundle(
-                        &self.data_dir,
-                        &config_dir,
-                        self.current.as_deref(),
-                        &info,
-                        &dest,
-                    ) {
-                        Ok(path) => {
-                            open(&dest, false);
-                            format!("Saved {}", path.display())
-                        }
-                        Err(e) => format!("Couldn't export diagnostics: {e}"),
-                    },
-                );
+                match diagnostics::export_bundle(
+                    &self.data_dir,
+                    &config_dir,
+                    self.current.as_deref(),
+                    &info,
+                    &dest,
+                ) {
+                    Ok(path) => self.set_saved_note(&path),
+                    Err(e) => {
+                        self.status.note = Some(format!("Couldn't export diagnostics: {e}"));
+                    }
+                }
             }
             UiAction::SavePng => {
                 self.export_png();

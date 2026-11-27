@@ -370,6 +370,35 @@ pub fn with_autoreleasepool<R>(f: impl FnOnce() -> R) -> R {
     }
 }
 
+/// Whether the user asked the operating system to reduce UI motion/animations.
+pub fn reduce_motion() -> bool {
+    #[cfg(windows)]
+    {
+        use ::windows::Win32::UI::WindowsAndMessaging::{
+            SPI_GETCLIENTAREAANIMATION, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, SystemParametersInfoW,
+        };
+        let mut animate: i32 = 1;
+        let ok = unsafe {
+            SystemParametersInfoW(
+                SPI_GETCLIENTAREAANIMATION,
+                0,
+                Some((&raw mut animate).cast()),
+                SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
+            )
+        };
+        ok.is_ok() && animate == 0
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let ws = objc2_app_kit::NSWorkspace::sharedWorkspace();
+        unsafe { objc2::msg_send![&ws, accessibilityDisplayShouldReduceMotion] }
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        false
+    }
+}
+
 /// Opens a web page in the default browser (`&` and `%` in it are safe).
 pub fn open_url(url: &str) -> Result<(), String> {
     #[cfg(windows)]

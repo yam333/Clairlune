@@ -23,13 +23,20 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
 
 /// Which window this is.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Kind {
     Settings,
     Library,
     Timeline,
     Archive,
     Ascii,
+}
+
+/// Remembered logical inner size and physical outer position of a window.
+#[derive(Clone, Copy, Debug)]
+pub struct WindowBounds {
+    pub pos: Option<(i32, i32)>,
+    pub size: (f64, f64),
 }
 
 /// What the windows show, borrowed from the app for one frame.
@@ -133,10 +140,11 @@ impl UiWindow {
         kind: Kind,
         theme: Theme,
         section: view::Section,
+        saved: Option<WindowBounds>,
     ) -> Result<UiWindow, String> {
         // The smallest sizes at which every page still fits without
         // anything cut off (the sidebar, a row's label and its controls).
-        let (title, w, h, min): (String, f64, f64, (f64, f64)) = match kind {
+        let (title, default_w, default_h, min): (String, f64, f64, (f64, f64)) = match kind {
             Kind::Settings => (
                 format!("{APP_NAME} Settings: {}", section.name()),
                 1000.0_f64.max(f64::from(view::SETTINGS_MIN_WIDTH)),
@@ -158,6 +166,9 @@ impl UiWindow {
                 (940.0, 580.0),
             ),
         };
+        let (want_w, want_h) = saved.map_or((default_w, default_h), |b| {
+            (b.size.0.max(min.0), b.size.1.max(min.1))
+        });
         // Fit comfortably inside smaller / high-DPI displays (e.g. 1080p at 150%
         // scale = 1280x720 logical) so bottom action bars never spawn off-screen.
         let (w, h) = if let Some(mon) = event_loop
@@ -167,9 +178,9 @@ impl UiWindow {
             let logical = mon.size().to_logical::<f64>(mon.scale_factor());
             let max_w = (logical.width - 40.0).max(min.0);
             let max_h = (logical.height - 76.0).max(min.1);
-            (w.min(max_w), h.min(max_h))
+            (want_w.min(max_w), want_h.min(max_h))
         } else {
-            (w, h)
+            (want_w, want_h)
         };
         let mut attrs = Window::default_attributes()
             .with_title(title)
@@ -184,6 +195,19 @@ impl UiWindow {
                 Theme::Dark => winit::window::Theme::Dark,
             }))
             .with_visible(false);
+        if let Some((px, py)) = saved.and_then(|b| b.pos) {
+            let on_a_monitor = event_loop.available_monitors().any(|m| {
+                let p = m.position();
+                let s = m.size();
+                px + 120 > p.x
+                    && px < p.x + s.width as i32 - 80
+                    && py >= p.y - 16
+                    && py < p.y + s.height as i32 - 80
+            });
+            if on_a_monitor {
+                attrs = attrs.with_position(winit::dpi::PhysicalPosition::new(px, py));
+            }
+        }
         if kind == Kind::Settings {
             attrs = attrs.with_enabled_buttons(winit::window::WindowButtons::CLOSE);
             attrs = glass_frame(attrs);
@@ -376,17 +400,30 @@ impl UiWindow {
         self.window.focus_window();
     }
 
+    /// Logical inner size and physical outer position, unless minimized/maximized.
+    pub fn bounds(&self) -> Option<WindowBounds> {
+        if self.window.is_minimized() == Some(true) || self.window.is_maximized() {
+            return None;
+        }
+        let logical = self
+            .window
+            .inner_size()
+            .to_logical::<f64>(self.window.scale_factor());
+        if logical.width < 100.0 || logical.height < 100.0 {
+            return None;
+        }
+        let pos = self.window.outer_position().ok().map(|p| (p.x, p.y));
+        Some(WindowBounds {
+            pos,
+            size: (logical.width, logical.height),
+        })
+    }
+
     /// The page's own state (UI test: a monitor picked, details shown,
     /// scrolled down).
     pub fn page_state(&mut self) -> &mut view::PageState {
         self.window.request_redraw();
         &mut self.view.page
-    }
-
-    /// Shows a brief note over the page (UI test).
-    pub fn toast(&mut self, text: &str) {
-        self.view.toast = Some((text.to_string(), std::time::Instant::now()));
-        self.window.request_redraw();
     }
 
     pub fn section(&self) -> view::Section {
@@ -485,14 +522,16 @@ impl UiWindow {
                     current: model.current_entry,
                     keep_days: model.settings.archive.keep_days,
                     max_mb: model.settings.archive.max_mb,
+                    buddy: model.settings.buddy.show,
                     status: model.status,
                 },
                 actions,
             ),
             Kind::Ascii => ascii_view::show(ui, theme, ascii, model, actions),
         });
-        // What the window's own frame asked for (Windows).
-        let mut close = false;
+        // What the window's own frame asked for (Windows), or Cmd/Ctrl+W.
+        let mut close = !ctx.text_edit_focused()
+            && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::W));
         match self.view.chrome.take() {
             Some(view::Chrome::Drag) => {
                 let _ = self.window.drag_window();

@@ -63,21 +63,6 @@ pub(crate) fn icon(p: &Painter, icon: Icon, r: Rect, ink: Color32) {
                 (14.5, 8.5),
             ]);
         }
-        Icon::Section(Section::Buddy) => {
-            p.rect_stroke(
-                Rect::from_min_max(at(3.0, 3.5), at(13.0, 10.5)),
-                0.8 * k,
-                st,
-                egui::StrokeKind::Middle,
-            );
-            for x in [4.6, 6.8, 9.2, 11.4] {
-                line(&[(x, 10.5), (x, 13.1)]);
-            }
-            line(&[(1.4, 6.8), (3.0, 6.8)]);
-            line(&[(13.0, 6.8), (14.6, 6.8)]);
-            line(&[(6.0, 6.2), (6.0, 7.4)]);
-            line(&[(10.0, 6.2), (10.0, 7.4)]);
-        }
         Icon::Section(Section::Content) => {
             closed(&[
                 (1.2, 13.2),
@@ -151,17 +136,67 @@ pub(crate) fn mark(p: &Painter, r: Rect, circle: Color32, square: Color32) {
     );
 }
 
-/// A page with nothing on it yet: the mark, and what will be here.
-pub(crate) fn empty_page(ui: &mut Ui, theme: Theme, title: &str, what: &str) {
+/// A page with nothing on it yet: pixel-art Clawd (when Buddy is on) or the
+/// mark (docs/dev/design.md section 5), and what will be here.
+pub(crate) fn empty_page(ui: &mut Ui, theme: Theme, buddy: bool, title: &str, what: &str) {
     let t = colors(theme);
     ui.add_space(space::S7);
     ui.vertical_centered(|ui| {
-        let (rect, _) = ui.allocate_exact_size(vec2(64.0, 64.0), Sense::hover());
-        mark(ui.painter(), rect, c(t.text_secondary), c(t.accent_deep));
+        let (rect, _) = ui.allocate_exact_size(vec2(72.0, 64.0), Sense::hover());
+        if buddy {
+            draw_empty_clawd(ui, theme, rect);
+        } else {
+            let sq = Rect::from_center_size(rect.center(), vec2(64.0, 64.0));
+            mark(ui.painter(), sq, c(t.text_secondary), c(t.accent_deep));
+        }
         ui.add_space(space::S3);
         ui.label(RichText::new(title).font(style::body_strong()));
         ui.label(RichText::new(what).color(c(t.text_secondary)));
     });
+}
+
+/// Draws the 15x9 pixel-art Clawd in token colours, blinking quietly while the
+/// window is focused.
+fn draw_empty_clawd(ui: &Ui, theme: Theme, rect: Rect) {
+    let t = colors(theme);
+    let map = &clairlune_scene::placeholder::CLAWD_PLACEHOLDER;
+    let px = 4.0;
+    let w = map.width as f32 * px;
+    let h = map.height as f32 * px;
+    let x0 = (rect.center().x - w * 0.5).round();
+    let y0 = (rect.center().y - h * 0.5).round();
+    let focused = ui.input(|i| i.focused);
+    let phase = (ui.input(|i| i.time) as f32) % 4.8;
+    let blinking = focused && phase > 4.64;
+    let p = ui.painter();
+    for (ry, row) in map.rows.iter().enumerate() {
+        for (rx, ch) in row.bytes().enumerate() {
+            let col = match ch {
+                b'.' => continue,
+                b'E' if blinking => c(t.accent_deep),
+                b'E' => c(t.bg),
+                _ if ry >= 7 => c(t.accent_deep),
+                _ => c(t.accent),
+            };
+            let cell =
+                Rect::from_min_size(pos2(x0 + rx as f32 * px, y0 + ry as f32 * px), vec2(px, px));
+            p.rect_filled(cell, 0.5, col);
+        }
+    }
+    let ground_y = y0 + h + 2.0;
+    p.hline(
+        (x0 - 6.0)..=(x0 + w + 6.0),
+        ground_y,
+        Stroke::new(1.0, alpha(t.border_control, 0.35)),
+    );
+    if focused {
+        let next = if blinking {
+            std::time::Duration::from_millis(90)
+        } else {
+            std::time::Duration::from_secs_f32((4.65 - phase).max(0.1))
+        };
+        ui.ctx().request_repaint_after(next);
+    }
 }
 
 /// A square button with a drawn icon.
@@ -170,8 +205,12 @@ pub(crate) fn icon_button(ui: &mut Ui, theme: Theme, which: Icon, label: &str) -
     let side = size::BUTTON_PRIMARY;
     let (rect, resp) = ui.allocate_exact_size(vec2(side, side), Sense::click());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), label));
+    let enabled = ui.is_enabled();
+    let pressed = enabled && resp.is_pointer_button_down_on();
     let g = &t.glass;
-    let fill = if resp.hovered() {
+    let fill = if pressed {
+        g.card_alpha * 3.4
+    } else if resp.hovered() && enabled {
         g.card_alpha * 3.0
     } else {
         g.card_alpha * 1.8
@@ -184,21 +223,31 @@ pub(crate) fn icon_button(ui: &mut Ui, theme: Theme, which: Icon, label: &str) -
         Stroke::new(1.0, alpha(t.border_control, 0.45)),
         egui::StrokeKind::Inside,
     );
-    let ink = if ui.is_enabled() {
+    let ink = if enabled {
         c(t.text)
     } else {
         c(t.text_disabled)
     };
+    let offset = if pressed {
+        vec2(0.0, 1.0)
+    } else {
+        egui::Vec2::ZERO
+    };
     icon(
         p,
         which,
-        Rect::from_center_size(rect.center(), vec2(16.0, 16.0)),
+        Rect::from_center_size(rect.center() + offset, vec2(16.0, 16.0)),
         ink,
     );
     if resp.has_focus() {
         focus_ring(ui, theme, rect, radius::CONTROL);
     }
-    resp.on_hover_text(label)
+    resp.on_hover_cursor(if enabled {
+        egui::CursorIcon::PointingHand
+    } else {
+        egui::CursorIcon::Default
+    })
+    .on_hover_text(label)
 }
 
 pub(crate) fn focus_ring(ui: &Ui, theme: Theme, rect: Rect, r: f32) {
@@ -229,6 +278,7 @@ pub(crate) fn primary_button_wide(
     let (rect, resp) = ui.allocate_exact_size(vec2(w, size::BUTTON_PRIMARY), Sense::click());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), label));
     let enabled = ui.is_enabled();
+    let pressed = enabled && resp.is_pointer_button_down_on();
     let fade = |col: Color32| {
         if enabled {
             col
@@ -237,29 +287,146 @@ pub(crate) fn primary_button_wide(
         }
     };
     let p = ui.painter();
-    let fill = if resp.hovered() && enabled {
+    let fill = if (resp.hovered() || pressed) && enabled {
         t.accent_deep
     } else {
         t.accent
     };
     p.rect_filled(rect, radius::CONTROL, fade(c(fill)));
     // Glass: light along the top edge, the deeper ember along the bottom.
-    p.hline(
-        rect.x_range().shrink(radius::CONTROL),
-        rect.min.y + 0.5,
-        Stroke::new(1.0, fade(Color32::from_white_alpha(90))),
-    );
+    if !pressed {
+        p.hline(
+            rect.x_range().shrink(radius::CONTROL),
+            rect.min.y + 0.5,
+            Stroke::new(1.0, fade(Color32::from_white_alpha(90))),
+        );
+    }
     p.hline(
         rect.x_range().shrink(radius::CONTROL),
         rect.max.y - 0.5,
         Stroke::new(1.0, fade(c(t.accent_deep))),
     );
-    let pos = rect.center() - galley.size() / 2.0;
+    let shift = if pressed {
+        vec2(0.0, 1.0)
+    } else {
+        egui::Vec2::ZERO
+    };
+    let pos = rect.center() - galley.size() / 2.0 + shift;
     p.galley(pos, galley, c(t.on_accent));
     if resp.has_focus() {
         focus_ring(ui, theme, rect, radius::CONTROL);
     }
-    resp.on_hover_cursor(egui::CursorIcon::PointingHand)
+    resp.on_hover_cursor(if enabled {
+        egui::CursorIcon::PointingHand
+    } else {
+        egui::CursorIcon::Default
+    })
+}
+
+/// Borderless secondary action button that stays quiet at rest and surfaces a
+/// subtle glass pill on hover/press (reduces box-in-box clutter in action bars).
+pub(crate) fn quiet_button(ui: &mut Ui, theme: Theme, label: &str) -> egui::Response {
+    let t = colors(theme);
+    let g = &t.glass;
+    let enabled = ui.is_enabled();
+    let tmp_galley = ui
+        .painter()
+        .layout_no_wrap(label.to_string(), style::body(), c(t.text));
+    let w = tmp_galley.size().x + 2.0 * space::S3;
+    let (rect, resp) = ui.allocate_exact_size(vec2(w, size::CONTROL), Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, enabled, label));
+    let hovered = enabled && resp.hovered();
+    let pressed = enabled && resp.is_pointer_button_down_on();
+    let p = ui.painter();
+    if pressed {
+        p.rect_filled(rect, radius::CONTROL, alpha(g.card, g.chosen * 1.25));
+    } else if hovered {
+        p.rect_filled(rect, radius::CONTROL, alpha(g.card, g.chosen * 0.85));
+        p.rect_stroke(
+            rect,
+            radius::CONTROL,
+            Stroke::new(1.0, alpha(t.border_control, 0.25)),
+            egui::StrokeKind::Inside,
+        );
+    }
+    let ink = if !enabled {
+        c(t.text_disabled)
+    } else if hovered || pressed {
+        c(t.text)
+    } else {
+        c(t.text_secondary)
+    };
+    let galley = p.layout_no_wrap(label.to_string(), style::body(), ink);
+    let shift = if pressed {
+        vec2(0.0, 1.0)
+    } else {
+        egui::Vec2::ZERO
+    };
+    p.galley(rect.center() - galley.size() / 2.0 + shift, galley, ink);
+    if resp.has_focus() {
+        focus_ring(ui, theme, rect, radius::CONTROL);
+    }
+    resp.on_hover_cursor(if enabled {
+        egui::CursorIcon::PointingHand
+    } else {
+        egui::CursorIcon::Default
+    })
+}
+
+/// Shows `status.note` and, when `status.note_saved` matches it, an inline
+/// "Show in folder" link that reveals the saved file in Explorer or Finder.
+pub(crate) fn status_note(
+    ui: &mut Ui,
+    theme: Theme,
+    status: &Status,
+    actions: &mut Vec<UiAction>,
+    wrap_small: bool,
+) {
+    let Some(note) = status.note.as_deref() else {
+        return;
+    };
+    let t = colors(theme);
+    let saved_path = status
+        .note_saved
+        .as_ref()
+        .filter(|(for_note, _)| for_note == note)
+        .map(|(_, p)| p);
+    if wrap_small {
+        ui.label(RichText::new(note).small().color(c(t.text_secondary)));
+        if let Some(path) = saved_path {
+            let link = ui
+                .add(
+                    egui::Label::new(
+                        RichText::new("Show in folder")
+                            .small()
+                            .color(c(t.accent_text)),
+                    )
+                    .sense(Sense::click()),
+                )
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                .on_hover_text(path.display().to_string());
+            if link.clicked() {
+                actions.push(UiAction::RevealPath(path.clone()));
+            }
+        }
+    } else {
+        ui.horizontal(|ui| {
+            ui.add(egui::Label::new(RichText::new(note).color(c(t.text_secondary))).truncate())
+                .on_hover_text(note);
+            if let Some(path) = saved_path {
+                let link = ui
+                    .add(
+                        egui::Label::new(RichText::new("Show in folder").color(c(t.accent_text)))
+                            .sense(Sense::click()),
+                    )
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .on_hover_text(path.display().to_string());
+                if link.clicked() {
+                    actions.push(UiAction::RevealPath(path.clone()));
+                }
+            }
+        });
+    }
 }
 
 pub(crate) fn hairline(ui: &mut Ui, color: crate::tokens::Rgb) {
@@ -416,12 +583,49 @@ pub(crate) fn segmented<T: PartialEq + Copy>(
         Stroke::new(1.0, alpha(t.border_control, 0.35)),
         egui::StrokeKind::Inside,
     );
-    let mut changed = false;
-    let mut x = track.min.x + 3.0;
-    for (i, ((v, label, enabled), galley)) in options.iter().zip(galleys).enumerate() {
+    let mut seg_spans = Vec::with_capacity(options.len());
+    let mut rel_x = 3.0_f32;
+    let mut active_span = None;
+    for ((v, _, _), galley) in options.iter().zip(&galleys) {
         let w = galley.size().x + 2.0 * pad;
-        let seg = Rect::from_min_size(pos2(x, track.min.y + 3.0), vec2(w, track.height() - 6.0));
-        x += w;
+        if *value == *v {
+            active_span = Some((rel_x, w));
+        }
+        seg_spans.push((rel_x, w));
+        rel_x += w;
+    }
+    if let Some((target_rx, target_w)) = active_span {
+        let anim_t = ui.style().animation_time;
+        let rx = ui
+            .ctx()
+            .animate_value_with_time(base.with("seg-rx"), target_rx, anim_t);
+        let rw = ui
+            .ctx()
+            .animate_value_with_time(base.with("seg-rw"), target_w, anim_t);
+        let bead_rect = Rect::from_min_size(
+            pos2(track.min.x + rx, track.min.y + 3.0),
+            vec2(rw, track.height() - 6.0),
+        );
+        let bead = match theme {
+            Theme::Dark => alpha(g.card, g.chosen * 1.2),
+            Theme::Light => Color32::from_white_alpha(235),
+        };
+        let p = ui.painter();
+        p.rect_filled(bead_rect, radius::CONTROL - 2.0, bead);
+        p.hline(
+            bead_rect.x_range().shrink(radius::CONTROL - 2.0),
+            bead_rect.min.y + 0.5,
+            Stroke::new(1.0, highlight(theme)),
+        );
+    }
+    let mut changed = false;
+    for (i, (((v, label, enabled), galley), (sx, sw))) in
+        options.iter().zip(galleys).zip(seg_spans).enumerate()
+    {
+        let seg = Rect::from_min_size(
+            pos2(track.min.x + sx, track.min.y + 3.0),
+            vec2(sw, track.height() - 6.0),
+        );
         let on = *value == *v;
         let sense = if *enabled {
             Sense::click()
@@ -433,18 +637,7 @@ pub(crate) fn segmented<T: PartialEq + Copy>(
             egui::WidgetInfo::selected(egui::Role::RadioButton, *enabled, on, *label)
         });
         let p = ui.painter();
-        if on {
-            let bead = match theme {
-                Theme::Dark => alpha(g.card, g.chosen * 1.2),
-                Theme::Light => Color32::from_white_alpha(235),
-            };
-            p.rect_filled(seg, radius::CONTROL - 2.0, bead);
-            p.hline(
-                seg.x_range().shrink(radius::CONTROL - 2.0),
-                seg.min.y + 0.5,
-                Stroke::new(1.0, highlight(theme)),
-            );
-        } else if resp.hovered() && *enabled {
+        if !on && resp.hovered() && *enabled {
             p.rect_filled(seg, radius::CONTROL - 2.0, alpha(g.card, g.chosen * 0.6));
         }
         p.galley(seg.center() - galley.size() / 2.0, galley, c(t.text));
@@ -454,6 +647,9 @@ pub(crate) fn segmented<T: PartialEq + Copy>(
         if resp.clicked() && !on && *enabled {
             *value = *v;
             changed = true;
+        }
+        if *enabled && !on {
+            resp.on_hover_cursor(egui::CursorIcon::PointingHand);
         }
     }
     changed

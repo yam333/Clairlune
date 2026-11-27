@@ -166,10 +166,18 @@ impl ApplicationHandler<AppEvent> for App {
         };
         let outcome = w.on_event(&event, &mut model, &mut actions);
         let kind = w.kind();
+        let closed_bounds = matches!(outcome, ui::Outcome::Close)
+            .then(|| w.bounds())
+            .flatten();
         if kind == ui::Kind::Settings {
             self.last_section = w.section();
         }
         if let ui::Outcome::Close = outcome {
+            if self.ui_test.is_none()
+                && let Some(b) = closed_bounds
+            {
+                self.window_bounds.insert(kind, b);
+            }
             match kind {
                 ui::Kind::Settings => {
                     self.settings_window = None;

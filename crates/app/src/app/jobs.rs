@@ -114,11 +114,8 @@ impl App {
             }
             Done::Exported(path) => {
                 tracing::info!(target: "clairlune", path = %path.display(), "saved");
-                self.status.note = Some(format!("Saved {}", path.display()));
+                self.set_saved_note(&path);
                 self.redraw_windows();
-                if let Some(dir) = path.parent() {
-                    open(dir, false);
-                }
             }
             Done::SavedLibrary(name) => {
                 self.saving_ascii_library = false;

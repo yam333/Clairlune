@@ -1375,7 +1375,7 @@ fn median_cut(samples: &[[u8; 3]], max_colors: usize) -> Vec<[u8; 3]> {
 }
 
 /// Number of built-in procedural showcase images for the Studio's Inspire button.
-pub const INSPIRE_COUNT: usize = 4;
+pub const INSPIRE_COUNT: usize = 12;
 
 /// Generates one of the built-in showcase images (`360 x 240` RGBA) in pure Rust.
 pub fn inspire_sample(index: usize, buddy: bool) -> (&'static str, RgbaImage) {
@@ -1383,29 +1383,45 @@ pub fn inspire_sample(index: usize, buddy: bool) -> (&'static str, RgbaImage) {
     let mut px = vec![0u8; (w * h * 4) as usize];
     let which = index % INSPIRE_COUNT;
     let title = match which {
-        0 => "Sample 1 · Crescent & peaks",
-        1 => "Sample 2 · Sunset horizon",
-        2 => "Sample 3 · Faceted ring",
-        _ if buddy => "Sample 4 · Clawd by starlight",
-        _ => "Sample 4 · Spiral nebula",
+        0 => "Crescent & peaks",
+        1 => "Sunset horizon",
+        2 => "Faceted ring",
+        3 if buddy => "Clawd by starlight",
+        3 => "Paper lantern",
+        4 => "Spiral nebula",
+        5 => "Ringed planet",
+        6 => "Lighthouse beam",
+        7 => "Torii & harvest moon",
+        8 => "Great wave",
+        9 => "Jellyfish bloom",
+        10 => "Aurora pines",
+        _ => "Origami crane",
     };
 
     for y in 0..h {
         let ny = f64::from(y) / f64::from(h);
         for x in 0..w {
             let nx = f64::from(x) / f64::from(w);
-            let [r, g, b] = match which {
-                0 => sample_crescent_peaks(nx, ny),
-                1 => sample_sunset(nx, ny),
-                2 => sample_torus(nx, ny),
-                _ if buddy => sample_clawd_card(nx, ny),
-                _ => sample_nebula(nx, ny),
+            let [r, g, b, a] = match which {
+                0 => opaque(sample_crescent_peaks(nx, ny)),
+                1 => opaque(sample_sunset(nx, ny)),
+                2 => opaque(sample_torus(nx, ny)),
+                3 if buddy => opaque(sample_clawd_card(nx, ny)),
+                3 => opaque(sample_paper_lantern(nx, ny)),
+                4 => opaque(sample_nebula(nx, ny)),
+                5 => opaque(sample_ringed_planet(nx, ny)),
+                6 => opaque(sample_lighthouse(nx, ny)),
+                7 => opaque(sample_torii_moon(nx, ny)),
+                8 => opaque(sample_great_wave(nx, ny)),
+                9 => opaque(sample_jellyfish(nx, ny)),
+                10 => opaque(sample_aurora_pines(nx, ny)),
+                _ => sample_origami_crane(nx, ny),
             };
             let o = ((y * w + x) * 4) as usize;
             px[o] = r;
             px[o + 1] = g;
             px[o + 2] = b;
-            px[o + 3] = 255;
+            px[o + 3] = a;
         }
     }
     (
@@ -1416,6 +1432,34 @@ pub fn inspire_sample(index: usize, buddy: bool) -> (&'static str, RgbaImage) {
             pixels: px,
         },
     )
+}
+
+#[inline]
+fn opaque(rgb: [u8; 3]) -> [u8; 4] {
+    [rgb[0], rgb[1], rgb[2], 255]
+}
+
+fn star_spark(nx: f64, ny: f64, seed: u32) -> u8 {
+    let gx = (nx * 90.0) as u32;
+    let gy = (ny * 60.0) as u32;
+    let fx = (nx * 90.0).fract() - 0.5;
+    let fy = (ny * 60.0).fract() - 0.5;
+    let mut h = gx
+        .wrapping_mul(0x9E37_79B9)
+        .wrapping_add(gy.wrapping_mul(0x85EB_CA6B))
+        .wrapping_add(seed.wrapping_mul(0xC2B2_AE35));
+    h ^= h >> 15;
+    h = h.wrapping_mul(0x2C1B_3C6D);
+    h ^= h >> 12;
+    if !h.is_multiple_of(97) {
+        return 0;
+    }
+    let d = (fx * fx + fy * fy).sqrt();
+    if d < 0.34 {
+        ((1.0 - d / 0.34) * (150.0 + f64::from(h % 95))) as u8
+    } else {
+        0
+    }
 }
 
 fn sample_crescent_peaks(nx: f64, ny: f64) -> [u8; 3] {
@@ -1542,50 +1586,691 @@ fn sample_torus(nx: f64, ny: f64) -> [u8; 3] {
 }
 
 fn sample_clawd_card(nx: f64, ny: f64) -> [u8; 3] {
-    // Pixel-art Clawd silhouette centred over a warm campfire halo.
-    let gx = (nx * 45.0).floor() as i32 - 22;
-    let gy = (ny * 30.0).floor() as i32 - 15;
-    // Body [-7..=7, -5..=2], arms [-9..-7] & [8..10] at [-2..=1], legs at [-6,-5], [-2,-1], [1,2], [5,6] at [3..=5]
-    let in_body = (-7..=7).contains(&gx) && (-5..=2).contains(&gy);
-    let in_arms = ((-9..=-8).contains(&gx) || (8..=9).contains(&gx)) && (-2..=1).contains(&gy);
-    let in_legs = ([-6, -5, -2, -1, 2, 3, 5, 6].contains(&gx)) && (3..=5).contains(&gy);
-    let in_eyes = ([-4, -3, 3, 4].contains(&gx)) && gy == -2;
+    // 3D-shaded pixel Clawd beside a crackling campfire under a starry sky.
+    let gx = (nx * 60.0).floor() as i32 - 30;
+    let gy = (ny * 40.0).floor() as i32 - 20;
+    let cx = -6;
+    let cy = 2;
+    let lx = gx - cx;
+    let ly = gy - cy;
+
+    let corner_clip = lx.abs() == 8 && ly == -6;
+    let in_body = (-8..=8).contains(&lx) && (-6..=3).contains(&ly) && !corner_clip;
+    let in_arms = ((-11..=-9).contains(&lx) || (9..=11).contains(&lx)) && (-2..=1).contains(&ly);
+    let in_legs = ([-7, -6, -3, -2, 2, 3, 6, 7].contains(&lx)) && (4..=7).contains(&ly);
+    let in_eyes = ([-4, -3, 3, 4].contains(&lx)) && (-3..=-2).contains(&ly);
 
     if in_eyes {
-        return [24, 18, 16];
+        return [14, 12, 16];
     }
     if in_body || in_arms {
-        let top = if gy <= -4 { 24 } else { 0 };
-        return [226u8.saturating_add(top), 132u8.saturating_add(top / 2), 98];
+        // Warm directional firelight from the campfire on the right (+lx) plus top rim light.
+        let fire_lit = ((f64::from(lx + 11) / 22.0) * 0.65
+            + (1.0 - f64::from(ly + 6) / 11.0) * 0.35)
+            .clamp(0.0, 1.0);
+        return [
+            (132.0 + fire_lit * 120.0) as u8,
+            (62.0 + fire_lit * 108.0) as u8,
+            (48.0 + fire_lit * 72.0) as u8,
+        ];
     }
     if in_legs {
-        return [184, 94, 69];
+        let lit = if lx > 0 { 28 } else { 0 };
+        return [156 + lit, 76 + lit / 2, 58];
     }
-    if gy == 6 && (-14..=14).contains(&gx) {
-        return [120, 112, 98];
+
+    // Campfire at (0.68, 0.73)
+    let fx = (nx - 0.68) * 1.5;
+    let fy = 0.74 - ny;
+    if (-0.025..=0.018).contains(&fy) && fx.abs() < 0.085 {
+        return [96, 56, 36]; // crossed logs
     }
-    let d = ((nx - 0.5) * (nx - 0.5) * 1.6 + (ny - 0.52) * (ny - 0.52)).sqrt();
-    let glow = (1.0 - (d / 0.55).min(1.0)).powi(2);
+    if (0.0..=0.19).contains(&fy) {
+        let sway = (fy * 34.0).sin() * 0.012;
+        let half_w = 0.068 * (1.0 - (fy / 0.19).powf(0.85));
+        let df = (fx - sway).abs();
+        if df < half_w {
+            let core = (1.0 - df / half_w.max(1e-4)) * (1.0 - fy / 0.22);
+            return [
+                255,
+                (125.0 + core * 125.0).min(255.0) as u8,
+                (40.0 + core * 165.0).min(255.0) as u8,
+            ];
+        }
+    }
+
+    // Terraced mossy ledge lit around the fire
+    let ground = 0.74 + 0.025 * (nx * 9.0 - 1.2).cos();
+    if ny >= ground {
+        let fire_dist = ((nx - 0.68).abs() * 2.1 + (ny - ground) * 2.6).min(1.0);
+        let warm = (1.0 - fire_dist).powi(2);
+        return [
+            (32.0 + warm * 145.0) as u8,
+            (38.0 + warm * 92.0) as u8,
+            (46.0 + warm * 38.0) as u8,
+        ];
+    }
+
+    let d_fire = (((nx - 0.68) * 1.4).powi(2) + (ny - 0.68).powi(2)).sqrt();
+    let ember_halo = (1.0 - (d_fire / 0.26).min(1.0)).powi(3) * 28.0;
+    let s = star_spark(nx, ny, 41);
     [
-        (10.0 + glow * 85.0) as u8,
-        (12.0 + glow * 48.0) as u8,
-        (18.0 + glow * 28.0) as u8,
+        (8.0 + ember_halo) as u8 | s,
+        (10.0 + ember_halo * 0.6) as u8 | s,
+        (16.0 + ember_halo * 0.3) as u8 | s,
+    ]
+}
+
+fn sample_paper_lantern(nx: f64, ny: f64) -> [u8; 3] {
+    // Glowing ribbed chochin lantern hanging from a pine branch.
+    let branch_y = 0.11 + 0.08 * (1.0 - nx).powi(2);
+    if nx > 0.34 && (ny - branch_y).abs() < 0.013 {
+        return [78, 56, 42];
+    }
+    // Pine needle clusters near upper-right
+    let nd = (((nx - 0.76) * 1.4).powi(2) + (ny - 0.16).powi(2)).sqrt();
+    if nd < 0.13 && ((nx - 0.76).atan2(ny - 0.16) * 14.0).cos() > 0.25 {
+        let shade = (1.0 - nd / 0.13) * 75.0;
+        return [28 + shade as u8 / 2, 58 + shade as u8, 48 + shade as u8 / 2];
+    }
+    // Hanging cord
+    if (0.14..=0.25).contains(&ny) && (nx - 0.50).abs() < 0.006 {
+        return [140, 118, 86];
+    }
+
+    let dx = (nx - 0.50) * 1.5;
+    let dy = (ny - 0.50) / 0.25;
+    if dy.abs() <= 1.0 {
+        let half_w = 0.245 * (1.0 - 0.36 * dy * dy).max(0.0).sqrt();
+        if dx.abs() <= half_w {
+            if dy.abs() > 0.89 {
+                let rim = 1.0 - (dx.abs() / half_w.max(1e-4)) * 0.55;
+                return [(78.0 * rim) as u8, (52.0 * rim) as u8, (36.0 * rim) as u8];
+            }
+            let u_x = dx / half_w.max(1e-4);
+            let core = (1.0 - (u_x * u_x * 0.72 + dy * dy * 0.58)).clamp(0.0, 1.0);
+            let rib = ((dy + 1.0) * 5.0 * std::f64::consts::PI).cos().abs();
+            let rib_dim = if rib > 0.93 { 0.48 } else { 1.0 };
+            return [
+                ((165.0 + core * 90.0) * rib_dim) as u8,
+                ((58.0 + core * 182.0) * rib_dim) as u8,
+                ((28.0 + core * 148.0) * rib_dim) as u8,
+            ];
+        }
+    }
+
+    // Silk tassel below bottom rim
+    if (0.75..=0.91).contains(&ny) {
+        let spread = 0.012 + (ny - 0.75) * 0.11;
+        if (nx - 0.50).abs() < spread {
+            let strand = (((nx - 0.50) / spread) * 9.0).cos().abs();
+            let fade = 1.0 - (ny - 0.75) / 0.18;
+            let v = (0.45 + 0.55 * strand) * fade;
+            return [(215.0 * v) as u8, (82.0 * v) as u8, (44.0 * v) as u8];
+        }
+    }
+
+    let r_halo = (dx * dx + (ny - 0.50).powi(2)).sqrt();
+    let halo = (1.0 - (r_halo / 0.40).min(1.0)).powi(4) * 30.0;
+    let s = star_spark(nx, ny, 73);
+    [
+        (8.0 + halo) as u8 | s,
+        (9.0 + halo * 0.55) as u8 | s,
+        (15.0 + halo * 0.25) as u8 | s,
     ]
 }
 
 fn sample_nebula(nx: f64, ny: f64) -> [u8; 3] {
-    let dx = (nx - 0.5) * 1.6;
-    let dy = ny - 0.5;
+    // Tilted grand two-armed spiral galaxy (Andromeda-style foreshortened disc).
+    let u = (nx - 0.5) * 1.45;
+    let v = ny - 0.5;
+    let (sin_t, cos_t) = (-0.28_f64).sin_cos();
+    let dx = (u * cos_t - v * sin_t) * 0.92;
+    let dy = (u * sin_t + v * cos_t) * 1.85;
     let r = (dx * dx + dy * dy).sqrt();
     let a = dy.atan2(dx);
-    let arm = ((2.0 * a - r * 11.0).cos() * 0.5 + 0.5).powi(3);
-    let core = (1.0 - (r / 0.55).min(1.0)).powi(2);
-    let v = (core * 0.85 + arm * (1.0 - (r / 0.72).min(1.0)) * 0.75).clamp(0.0, 1.0);
+    let arm = ((2.0 * a - r * 9.5).cos() * 0.5 + 0.5).powi(3);
+    let core = (1.0 - (r / 0.34).min(1.0)).powi(2);
+    let env = (1.0 - (r / 0.78).min(1.0)).powf(1.5);
+    let disc = (1.0 - (r / 0.62).min(1.0)).powi(2) * 0.24;
+    let lum = (core * 0.96 + arm * env * 0.84 + disc).clamp(0.0, 1.0);
+    let s = star_spark(nx, ny, 19);
+    let cyan_mix = (r / 0.62).clamp(0.0, 1.0);
     [
-        (12.0 + v * 235.0) as u8,
-        (14.0 + v * 195.0) as u8,
-        (24.0 + v * 240.0) as u8,
+        ((8.0 + lum * (250.0 - cyan_mix * 95.0)) as u8).max(s),
+        ((10.0 + lum * (192.0 + cyan_mix * 42.0)) as u8).max(s),
+        ((16.0 + lum * 242.0) as u8).max(s),
     ]
+}
+
+fn sample_ringed_planet(nx: f64, ny: f64) -> [u8; 3] {
+    // Tilted banded gas giant with wide dark inner ring gap, Cassini division, and ring shadow.
+    let u = (nx - 0.5) * 1.5;
+    let v = ny - 0.5;
+    let (sin_t, cos_t) = 0.26_f64.sin_cos();
+    let ru = u * cos_t - v * sin_t;
+    let rv = u * sin_t + v * cos_t;
+
+    let rp = 0.215;
+    let d2 = ru * ru + rv * rv;
+    let on_planet = d2 < rp * rp;
+
+    // Foreshortened ring ellipse with a wide empty gap (0.215..0.345) so both ring handles frame dark space.
+    let ring_r = (ru * ru + (rv * 3.1) * (rv * 3.1)).sqrt();
+    let in_ring = (0.345..=0.645).contains(&ring_r) && !(0.490..=0.528).contains(&ring_r);
+    let front_ring = in_ring && rv > 0.0;
+    let back_ring = in_ring && rv <= 0.0;
+
+    let ring_rgb = |rr: f64, shadowed: bool| -> [u8; 3] {
+        let fine = 0.84 + 0.16 * ((rr - 0.345) * 85.0).sin();
+        let outer_dim = if rr > 0.528 { 0.80 } else { 1.0 };
+        let sh = if shadowed { 0.20 } else { 1.0 };
+        let l = (fine * outer_dim * sh).clamp(0.0, 1.0);
+        [
+            (28.0 + l * 214.0) as u8,
+            (32.0 + l * 214.0) as u8,
+            (40.0 + l * 208.0) as u8,
+        ]
+    };
+
+    if front_ring {
+        return ring_rgb(ring_r, false);
+    }
+    if on_planet {
+        let nz = ((rp * rp - d2).max(0.0)).sqrt() / rp;
+        let nx3 = ru / rp;
+        let ny3 = rv / rp;
+        let mut diff = (-0.48 * nx3 - 0.42 * ny3 + 0.77 * nz).clamp(0.22, 1.0);
+        // Crisp dark shadow right behind/under the front ring band
+        let proj_r = (ru * ru + ((rv - 0.032) * 3.1).powi(2)).sqrt();
+        if rv > 0.0 && (0.345..=0.645).contains(&proj_r) {
+            diff *= 0.16;
+        }
+        let band = 0.80 + 0.20 * (ny3 * 16.0).cos();
+        let l = (diff * band).clamp(0.0, 1.0);
+        return [
+            (28.0 + l * 224.0) as u8,
+            (20.0 + l * 146.0) as u8,
+            (18.0 + l * 88.0) as u8,
+        ];
+    }
+    if back_ring {
+        let shadowed = ru > 0.06 && rv.abs() < rp * 0.55;
+        return ring_rgb(ring_r, shadowed);
+    }
+
+    let s = star_spark(nx, ny, 108);
+    [7 | s, 9 | s, 15 | s]
+}
+
+fn sample_lighthouse(nx: f64, ny: f64) -> [u8; 3] {
+    // Striped coastal lighthouse on a rocky headland with sweeping searchlights.
+    let sea_y = 0.75;
+    if ny >= sea_y {
+        let depth = (ny - sea_y) / (1.0 - sea_y);
+        let surf_zone = (0.10..=0.46).contains(&nx)
+            && ny < sea_y + 0.052 * (1.0 - (nx - 0.28).abs() * 4.2).max(0.0);
+        if surf_zone {
+            let foam = 0.72 + 0.28 * (nx * 110.0 + ny * 90.0).sin();
+            let v = (182.0 + foam * 70.0) as u8;
+            return [v.saturating_sub(10), v, v];
+        }
+        let tower_ref = (1.0 - ((nx - 0.28).abs() * 7.5).min(1.0)) * (1.0 - depth * 0.65);
+        let beam_ref = ((nx - 0.28).max(0.0) * 1.5).min(1.0) * (1.0 - depth * 0.75) * 0.62;
+        let ripple = (depth * 95.0 + nx * 24.0).sin() * 0.5 + 0.5;
+        let glint = (tower_ref * 0.90 + beam_ref * 0.75) * (0.25 + 0.75 * ripple);
+        return [
+            (14.0 + glint * 222.0) as u8,
+            (20.0 + glint * 202.0) as u8,
+            (34.0 + glint * 158.0) as u8,
+        ];
+    }
+
+    // Sun-kissed rocky headland on the left
+    let cliff_top = 0.62 + (nx - 0.27).powi(2) * 2.4 + 0.014 * (nx * 40.0).sin();
+    if nx < 0.47 && ny >= cliff_top {
+        let slope_lit = if nx >= 0.26 { 0.95 } else { 0.58 };
+        let ridge = (1.0 - ((ny - cliff_top) * 5.0).min(1.0)) * 0.35;
+        let crag = 0.78 + 0.22 * (nx * 65.0 + ny * 35.0).cos();
+        let v = (48.0 + (slope_lit * crag + ridge) * 86.0).min(175.0) as u8;
+        return [v, v.saturating_sub(4), v.saturating_add(14)];
+    }
+
+    // Lighthouse tower at nx = 0.28, ny in 0.26..=0.65
+    let tx = nx - 0.28;
+    if (0.26..=0.65).contains(&ny) {
+        let half_w = 0.028 + (ny - 0.26) * 0.056;
+        if tx.abs() <= half_w {
+            let cyl = (0.48 + 0.52 * ((tx / half_w.max(1e-4)) * 0.5 + 0.5)).clamp(0.42, 1.0);
+            let stripe = ((ny - 0.26) * 19.0).floor() as i32 % 2 == 0;
+            return if stripe {
+                [
+                    (252.0 * cyl) as u8,
+                    (246.0 * cyl) as u8,
+                    (234.0 * cyl) as u8,
+                ]
+            } else {
+                [(242.0 * cyl) as u8, (96.0 * cyl) as u8, (74.0 * cyl) as u8]
+            };
+        }
+    }
+    // Gallery deck, blazing lantern room & cupola dome
+    if (0.25..0.265).contains(&ny) && tx.abs() <= 0.038 {
+        return [165, 170, 182];
+    }
+    if (0.195..0.25).contains(&ny) && tx.abs() <= 0.030 {
+        if ny < 0.220 {
+            if tx.abs() <= 0.028 * (1.0 - (0.220 - ny) / 0.026).max(0.0) {
+                return [112, 120, 138];
+            }
+        } else {
+            return [255, 252, 224];
+        }
+    }
+
+    // Sweeping searchlight beams from (0.28, 0.236)
+    let bx = (nx - 0.28) * 1.5;
+    let by = ny - 0.236;
+    let dist = (bx * bx + by * by).sqrt();
+    let mut beam = 0.0_f64;
+    if bx > 0.0 {
+        let center_y = 0.045 * bx;
+        let half_cone = 0.020 + bx * 0.165;
+        let perp = (by - center_y).abs();
+        if perp < half_cone {
+            let cross = (1.0 - (perp / half_cone).powi(2)).powf(1.2);
+            let fade = (1.0 - (bx / 1.18).min(1.0)).powf(0.68);
+            beam = beam.max(cross * fade * 0.94);
+        }
+    } else {
+        let ax = -bx;
+        let center_y = 0.025 * ax;
+        let half_cone = 0.016 + ax * 0.145;
+        let perp = (by - center_y).abs();
+        if perp < half_cone {
+            let cross = (1.0 - (perp / half_cone).powi(2)).powf(1.3);
+            let fade = (1.0 - (ax / 0.52).min(1.0)).powf(0.8);
+            beam = beam.max(cross * fade * 0.68);
+        }
+    }
+    let lamp_glow = (1.0 - (dist / 0.16).min(1.0)).powi(3) * 0.90;
+    let l = (beam + lamp_glow).clamp(0.0, 1.0);
+    let s = if l < 0.08 { star_spark(nx, ny, 55) } else { 0 };
+    [
+        ((8.0 + l * 246.0) as u8).max(s),
+        ((10.0 + l * 232.0) as u8).max(s),
+        ((18.0 + l * 176.0) as u8).max(s),
+    ]
+}
+
+fn sample_torii_moon(nx: f64, ny: f64) -> [u8; 3] {
+    // Traditional floating Torii gate silhouetted against a giant harvest moon.
+    let water_y = 0.75;
+    let (ux, uy, mir) = if ny > water_y {
+        let ripple = ((ny - water_y) * 210.0).sin() * 0.010;
+        (
+            (nx + ripple).clamp(0.0, 1.0),
+            (water_y - (ny - water_y) * 0.92).clamp(0.0, water_y),
+            true,
+        )
+    } else {
+        (nx, ny, false)
+    };
+
+    // Torii geometry centred at ux = 0.50
+    let cx = ux - 0.50;
+    let kasagi_y = 0.305 - 0.42 * cx * cx;
+    let on_kasagi = cx.abs() < 0.265 && (uy - kasagi_y).abs() < 0.017;
+    let on_shimaki = cx.abs() < 0.240 && (uy - (kasagi_y + 0.022)).abs() < 0.010;
+    let on_nuki = cx.abs() < 0.225 && (uy - 0.415).abs() < 0.014;
+    let on_plaque = cx.abs() < 0.018 && (kasagi_y + 0.02..=0.415).contains(&uy);
+    let pillar_x = 0.142 + (uy - 0.31).max(0.0) * 0.028;
+    let on_pillar = (0.31..=water_y).contains(&uy) && (cx.abs() - pillar_x).abs() < 0.017;
+    let on_foot = (water_y - 0.03..=water_y).contains(&uy) && (cx.abs() - pillar_x).abs() < 0.024;
+
+    let mut rgb = if on_kasagi || on_shimaki || on_nuki || on_plaque || on_pillar || on_foot {
+        // Dark lacquer crimson so it cuts a sharp silhouette across the bright moon,
+        // while keeping rich vermilion colour in Photo mode.
+        if on_kasagi && uy < kasagi_y {
+            [28, 18, 22]
+        } else {
+            [62, 18, 20]
+        }
+    } else {
+        // Distant misty island hills along the waterline
+        let hill = water_y
+            - 0.055 * (1.0 - ((ux - 0.18).abs() * 4.2).min(1.0))
+            - 0.045 * (1.0 - ((ux - 0.83).abs() * 4.6).min(1.0))
+            - 0.012;
+        if uy > hill {
+            [22, 18, 28]
+        } else {
+            // Giant harvest moon centred at (0.50, 0.44)
+            let mdx = (ux - 0.50) * 1.5;
+            let mdy = uy - 0.44;
+            let mr = (mdx * mdx + mdy * mdy).sqrt();
+            if mr < 0.305 {
+                let edge_soft = ((0.305 - mr) / 0.015).clamp(0.0, 1.0);
+                // Subtle lunar mare texture so interior has rich ASCII tonal detail
+                let mare =
+                    0.86 + 0.14 * (mdx * 15.0 + mdy * 9.0).sin() * (mdx * 8.0 - mdy * 13.0).cos();
+                let vert = ((uy - 0.14) / 0.58).clamp(0.0, 1.0);
+                let r = (254.0 * mare * edge_soft) as u8;
+                let g = ((236.0 - vert * 78.0) * mare * edge_soft) as u8;
+                let b = ((168.0 - vert * 96.0) * mare * edge_soft) as u8;
+                [r, g, b]
+            } else {
+                let glow = (1.0 - ((mr - 0.305) / 0.18).clamp(0.0, 1.0)).powi(3) * 28.0;
+                let s = if mr > 0.38 { star_spark(ux, uy, 88) } else { 0 };
+                [
+                    ((10.0 + glow * 1.2) as u8).max(s),
+                    ((9.0 + glow * 0.65) as u8).max(s),
+                    ((16.0 + glow * 0.45) as u8).max(s),
+                ]
+            }
+        }
+    };
+
+    if mir {
+        rgb = [
+            (u16::from(rgb[0]) * 65 / 100) as u8,
+            (u16::from(rgb[1]) * 62 / 100) as u8,
+            (u16::from(rgb[2]) * 72 / 100) as u8,
+        ];
+    }
+    rgb
+}
+
+fn sample_great_wave(nx: f64, ny: f64) -> [u8; 3] {
+    // Curling Prussian-blue & turquoise wave with white foam crest and distant snow peak.
+    // Foreground swell at bottom
+    let swell_y = 0.83 + 0.045 * (nx * 7.5 - 0.8).sin();
+    if ny > swell_y {
+        let crest = (ny - swell_y) < 0.024;
+        if crest {
+            return [236, 244, 250];
+        }
+        let d = ((ny - swell_y) / 0.18).clamp(0.0, 1.0);
+        return [
+            (24.0 + (1.0 - d) * 48.0) as u8,
+            (58.0 + (1.0 - d) * 76.0) as u8,
+            (108.0 + (1.0 - d) * 72.0) as u8,
+        ];
+    }
+
+    // Main arching wave outer curve + inner curling hollow around (0.55, 0.49)
+    let outer_top = if nx < 0.56 {
+        0.18 + ((0.48 - nx).max(0.0) * 1.32).powi(2) + ((nx - 0.48).max(0.0) * 1.6).powi(2)
+    } else {
+        1.2 // past the overhanging lip
+    };
+    let hdx = (nx - 0.54) * 1.42;
+    let hdy = ny - 0.50;
+    let hr = (hdx * hdx + hdy * hdy).sqrt();
+    let in_hollow = hr < 0.235 && !(nx < 0.42 && ny > 0.54);
+
+    // Overhanging white foam claws & spray around the curling lip
+    let lip_dx = (nx - 0.56) * 1.4;
+    let lip_dy = ny - 0.27;
+    let lip_r = (lip_dx * lip_dx + lip_dy * lip_dy).sqrt();
+    let claw_angle = lip_dy.atan2(lip_dx);
+    let in_claws = lip_r < 0.165
+        && (-0.4..=2.3).contains(&claw_angle)
+        && ((claw_angle * 7.0 + lip_r * 22.0).sin() > 0.08 || lip_r < 0.075);
+
+    if in_claws {
+        return [246, 250, 255];
+    }
+
+    let in_main_wave =
+        (ny >= outer_top && !in_hollow && nx < 0.64) || (ny >= 0.72 + 0.04 * (nx * 5.0).cos());
+    if in_main_wave {
+        let near_crest = (ny - outer_top).abs() < 0.048 && nx > 0.16 && nx < 0.58;
+        let inner_rim = (hr - 0.235).abs() < 0.032 && ny < 0.52 && nx > 0.36;
+        if near_crest || inner_rim {
+            return [242, 248, 254];
+        }
+        // Translucent turquoise near top, deep Prussian blue in trough, pale striations
+        let height_u = (1.0 - ((ny - 0.20) / 0.62).clamp(0.0, 1.0)).powf(1.2);
+        let streak = ((nx * 28.0 + ny * 19.0).sin() * 0.5 + 0.5).powi(3) * 0.28;
+        let u = (height_u * 0.78 + streak).clamp(0.0, 1.0);
+        return [
+            (22.0 + u * 86.0) as u8,
+            (46.0 + u * 146.0) as u8,
+            (96.0 + u * 128.0) as u8,
+        ];
+    }
+
+    // Distant snow-capped volcanic cone on the right horizon
+    let fuji_dx = (nx - 0.76).abs();
+    let fuji_top = 0.57 + fuji_dx.powf(0.82) * 1.05;
+    if fuji_dx > 0.018 && ny >= fuji_top && ny <= 0.76 {
+        let snow_line = 0.635 + 0.015 * (nx * 45.0).sin();
+        return if ny < snow_line {
+            [240, 244, 252]
+        } else {
+            [56, 74, 114]
+        };
+    }
+    if fuji_dx <= 0.018 && (0.585..=0.76).contains(&ny) {
+        return if ny < 0.64 {
+            [244, 248, 254]
+        } else {
+            [56, 74, 114]
+        };
+    }
+
+    // Clean dramatic twilight sky so wave foam and snow cap pop sharply
+    [10, 13, 22]
+}
+
+fn sample_jellyfish(nx: f64, ny: f64) -> [u8; 3] {
+    // Bioluminescent jellyfish drifting diagonally in deep abyssal water.
+    let u = (nx - 0.56) * 1.5;
+    let v = ny - 0.34;
+    let (sin_a, cos_a) = 0.42_f64.sin_cos();
+    let ru = u * cos_a - v * sin_a;
+    let rv = u * sin_a + v * cos_a;
+
+    // Scalloped bell dome in rv: -0.22..=0.06
+    let scallop = 0.055 + 0.018 * (ru * 38.0).cos();
+    if rv >= -0.23 && rv <= scallop {
+        let t = ((rv + 0.23) / 0.29).clamp(0.0, 1.0);
+        let half_w = 0.27 * (1.0 - (1.0 - t).powf(2.1)).max(0.0).sqrt();
+        if ru.abs() <= half_w {
+            let ux = ru / half_w.max(1e-4);
+            let rim = ux.abs().powi(3);
+            let margin = ((rv - (scallop - 0.035)) / 0.035).clamp(0.0, 1.0);
+            let canal = ((ux * std::f64::consts::PI * 3.5).cos().abs()).powi(8) * 0.55;
+            let inner_pink = (1.0 - ux.abs()) * (1.0 - (t - 0.55).abs() * 2.2).max(0.0);
+            let glow =
+                (0.34 + rim * 0.62 + margin * 0.48 + canal + inner_pink * 0.45).clamp(0.0, 1.0);
+            return [
+                (38.0 + inner_pink * 205.0 + rim * 65.0).min(255.0) as u8,
+                (65.0 + glow * 178.0 - inner_pink * 55.0).clamp(0.0, 255.0) as u8,
+                (125.0 + glow * 130.0).min(255.0) as u8,
+            ];
+        }
+    }
+
+    // Trailing ruffled oral arms & slender outer tentacles in rv: 0.03..=0.64
+    if (0.03..=0.64).contains(&rv) {
+        let fade = (1.0 - (rv - 0.03) / 0.62).clamp(0.0, 1.0);
+        let mut best_pink = 0.0_f64;
+        for (offset, freq, phase) in [(-0.052, 16.0, 0.4), (0.0, 13.5, 2.1), (0.052, 15.0, 4.0)] {
+            let center = offset + (rv * freq + phase).sin() * 0.040 * (0.4 + 0.6 * (1.0 - fade));
+            let w = 0.028 * fade.sqrt().max(0.35);
+            let d = (ru - center).abs();
+            if d < w {
+                best_pink = best_pink.max((1.0 - d / w).powf(0.7) * fade.powf(0.45));
+            }
+        }
+        let mut best_cyan = 0.0_f64;
+        for (offset, freq, phase) in [
+            (-0.18, 11.0, 0.0),
+            (-0.11, 13.0, 1.5),
+            (0.11, 12.5, 3.1),
+            (0.18, 10.5, 4.7),
+        ] {
+            let center = offset + (rv * freq + phase).sin() * 0.034;
+            let w = 0.015;
+            let d = (ru - center).abs();
+            if d < w {
+                best_cyan = best_cyan.max((1.0 - d / w).powf(0.75) * fade.powf(0.42));
+            }
+        }
+        if best_pink > 0.02 || best_cyan > 0.02 {
+            let r = (36.0 + best_pink * 218.0 + best_cyan * 65.0).min(255.0) as u8;
+            let g = (48.0 + best_pink * 125.0 + best_cyan * 206.0).min(255.0) as u8;
+            let b = (82.0 + best_pink * 172.0 + best_cyan * 173.0).min(255.0) as u8;
+            return [r, g, b];
+        }
+    }
+
+    let sp = star_spark(nx, ny, 204);
+    [6 | (sp / 3), 9 | ((u16::from(sp) * 3 / 4) as u8), 16 | sp]
+}
+
+fn sample_aurora_pines(nx: f64, ny: f64) -> [u8; 3] {
+    // Boreal spruce forest silhouetted directly in front of glowing northern lights.
+    let lake_y = 0.78;
+    let (ux, uy, mir) = if ny > lake_y {
+        let ripple = ((ny - lake_y) * 195.0).sin() * 0.014;
+        (
+            (nx + ripple).clamp(0.0, 1.0),
+            (lake_y - (ny - lake_y) * 1.15).clamp(0.0, lake_y),
+            true,
+        )
+    } else {
+        (nx, ny, false)
+    };
+
+    // Jagged boreal spruce silhouettes cutting into the glowing horizon curtain
+    let trees: [(f64, f64, f64); 10] = [
+        (0.06, 0.50, 0.072),
+        (0.16, 0.40, 0.084),
+        (0.27, 0.54, 0.064),
+        (0.37, 0.60, 0.056),
+        (0.48, 0.64, 0.052),
+        (0.59, 0.58, 0.060),
+        (0.70, 0.46, 0.078),
+        (0.82, 0.37, 0.090),
+        (0.93, 0.49, 0.074),
+        (0.21, 0.62, 0.055),
+    ];
+    for (tx, apex, span) in trees {
+        if uy >= apex && uy <= lake_y {
+            let h_frac = (uy - apex) / (lake_y - apex);
+            let tier = 0.68 + 0.32 * ((uy - apex) * 54.0).fract();
+            let half_w = span * h_frac.powf(0.84) * tier;
+            if (ux - tx).abs() <= half_w {
+                return [8, 13, 15];
+            }
+        }
+    }
+    if uy > 0.755 {
+        return [10, 16, 18];
+    }
+
+    // Two sweeping aurora curtains reaching down to the lake horizon behind every spruce tree
+    let c1_base = 0.76 + 0.02 * (ux * 5.2 - 0.6).sin();
+    let c2_base = 0.42 + 0.08 * (ux * 6.4 + 1.8).sin();
+    let rays1 = 0.78 + 0.22 * (ux * 76.0 + uy * 6.0).sin();
+    let rays2 = 0.70 + 0.30 * (ux * 64.0 - uy * 5.0 + 1.4).cos();
+
+    let a1 = if uy <= lake_y {
+        let up = (c1_base - uy).max(0.0);
+        (-up * 3.6).exp() * rays1
+    } else {
+        0.0
+    };
+    let a2 = if uy <= c2_base + 0.03 {
+        let up = (c2_base - uy).max(0.0);
+        let bot = ((c2_base + 0.03 - uy) / 0.03).clamp(0.0, 1.0);
+        (-up * 5.8).exp() * bot * rays2 * 0.88
+    } else {
+        0.0
+    };
+
+    let alt = ((c1_base - uy).max(0.0) / 0.42).clamp(0.0, 1.0);
+    let intensity = (a1 * 0.95 + a2 * 0.85).clamp(0.0, 1.0);
+    let s = if intensity < 0.10 && !mir {
+        star_spark(ux, uy, 311)
+    } else {
+        0
+    };
+    let mut rgb = [
+        ((7.0 + intensity * (52.0 + alt * 165.0)) as u8).max(s),
+        ((9.0 + intensity * (250.0 - alt * 120.0)) as u8).max(s),
+        ((16.0 + intensity * (150.0 + alt * 96.0)) as u8).max(s),
+    ];
+    if mir {
+        rgb = [
+            (u16::from(rgb[0]) * 72 / 100) as u8,
+            (u16::from(rgb[1]) * 78 / 100) as u8,
+            (u16::from(rgb[2]) * 82 / 100) as u8,
+        ];
+    }
+    rgb
+}
+
+fn in_tri(p: (f64, f64), a: (f64, f64), b: (f64, f64), c: (f64, f64)) -> bool {
+    let cross = |o: (f64, f64), u: (f64, f64), v: (f64, f64)| {
+        (u.0 - o.0) * (v.1 - o.1) - (u.1 - o.1) * (v.0 - o.0)
+    };
+    let d1 = cross(p, a, b);
+    let d2 = cross(p, b, c);
+    let d3 = cross(p, c, a);
+    let has_neg = (d1 < 0.0) || (d2 < 0.0) || (d3 < 0.0);
+    let has_pos = (d1 > 0.0) || (d2 > 0.0) || (d3 > 0.0);
+    !(has_neg && has_pos)
+}
+
+fn sample_origami_crane(nx: f64, ny: f64) -> [u8; 4] {
+    // Geometric folded paper crane with distinct per-facet shading and alpha cutout.
+    let p = ((nx - 0.50) * 1.5, ny - 0.48);
+
+    // Painter's order from back to front so overlapping folds have crisp crease lines:
+    let mut out: Option<[u8; 3]> = None;
+
+    // 1. Far wing (back right)
+    if in_tri(p, (-0.06, 0.00), (0.36, -0.38), (0.16, 0.06)) {
+        out = Some([112, 128, 162]);
+    }
+    // 2. Tail spire (right)
+    if in_tri(p, (0.10, 0.07), (0.46, -0.22), (0.24, 0.16)) {
+        out = Some([154, 144, 148]);
+    }
+    // 3. Lower belly fold
+    if in_tri(p, (-0.22, 0.13), (0.24, 0.16), (0.01, 0.29)) {
+        out = Some([84, 80, 92]);
+    }
+    // 4. Central folded body diamond
+    if in_tri(p, (-0.22, 0.13), (0.02, -0.10), (0.24, 0.16)) {
+        out = Some([192, 184, 176]);
+    }
+    // 5. Neck spire (left)
+    if in_tri(p, (-0.11, 0.09), (-0.33, -0.30), (-0.22, 0.13)) {
+        out = Some([228, 212, 194]);
+    }
+    // 6. Folded head / beak tip
+    if in_tri(p, (-0.33, -0.30), (-0.48, -0.19), (-0.29, -0.20)) {
+        out = Some([244, 142, 102]);
+    }
+    // 7. Foreground main wing (sweeping upper-left to body crease)
+    if in_tri(p, (-0.17, 0.04), (0.18, 0.06), (-0.07, -0.41)) {
+        let lift = ((-0.04 - p.1) / 0.38).clamp(0.0, 1.0);
+        out = Some([
+            (216.0 + lift * 38.0) as u8,
+            (204.0 + lift * 42.0) as u8,
+            (190.0 + lift * 46.0) as u8,
+        ]);
+    }
+
+    match out {
+        Some([r, g, b]) => [r, g, b, 255],
+        None => [0, 0, 0, 0],
+    }
 }
 
 #[cfg(test)]
@@ -1728,6 +2413,36 @@ mod tests {
             (g.grid.cell_w, g.grid.cell_h),
             (expected.cell_w, expected.cell_h)
         );
+    }
+
+    #[test]
+    fn all_inspire_samples_have_crisp_silhouettes_and_tonal_range() {
+        let cfg = AsciiConfig {
+            columns: 80,
+            ..AsciiConfig::default()
+        };
+        for buddy in [false, true] {
+            let mut seen_titles = std::collections::HashSet::new();
+            for idx in 0..INSPIRE_COUNT {
+                let (title, img) = inspire_sample(idx, buddy);
+                assert!(seen_titles.insert(title), "duplicate title {title}");
+                assert_eq!((img.width, img.height), (360, 240));
+                let art = convert_standalone(&img, &cfg, Theme::Dark);
+                let total = art.chars.len();
+                let non_space = art.chars.iter().filter(|&&c| c != ' ').count();
+                let unique_ink: std::collections::HashSet<char> =
+                    art.chars.iter().copied().filter(|&c| c != ' ').collect();
+                assert!(
+                    non_space > total / 10 && non_space < total * 9 / 10,
+                    "{title} (buddy={buddy}) coverage {non_space}/{total} should keep a clean silhouette"
+                );
+                assert!(
+                    unique_ink.len() >= 5,
+                    "{title} (buddy={buddy}) should use >= 5 tonal levels, got {:?}",
+                    unique_ink
+                );
+            }
+        }
     }
 
     #[test]

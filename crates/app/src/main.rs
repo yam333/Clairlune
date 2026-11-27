@@ -235,6 +235,8 @@ struct App {
     archive_window: Option<ui::UiWindow>,
     /// The Image to ASCII studio window, while open.
     ascii_window: Option<ui::UiWindow>,
+    /// Remembered size and position per window kind while the app runs.
+    window_bounds: std::collections::HashMap<ui::Kind, ui::WindowBounds>,
     archive_items: Vec<archive::Entry>,
     library_items: Vec<library::Item>,
     /// Where the timeline uses each library item.
@@ -288,6 +290,47 @@ fn open(path: &Path, text: bool) {
     };
     if let Err(e) = cmd.arg(path).spawn() {
         tracing::warn!(target: "clairlune", path = %path.display(), error = %e, "could not open");
+    }
+}
+
+/// Reveals a saved file selected inside Explorer or Finder.
+fn reveal_in_folder(path: &Path) {
+    if !path.exists() {
+        if let Some(parent) = path.parent() {
+            open(parent, false);
+        }
+        return;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let mut cmd = std::process::Command::new("explorer.exe");
+        cmd.raw_arg(format!("/select,\"{}\"", path.display()));
+        if let Err(e) = cmd.spawn() {
+            tracing::warn!(target: "clairlune", path = %path.display(), error = %e, "could not reveal");
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        if let Err(e) = std::process::Command::new("open")
+            .arg("-R")
+            .arg(path)
+            .spawn()
+        {
+            tracing::warn!(target: "clairlune", path = %path.display(), error = %e, "could not reveal");
+        }
+    }
+}
+
+impl App {
+    pub(crate) fn set_saved_note(&mut self, path: &Path) {
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| path.display().to_string());
+        let text = format!("Saved {name}.");
+        self.status.note_saved = Some((text.clone(), path.to_path_buf()));
+        self.status.note = Some(text);
     }
 }
 
@@ -710,6 +753,7 @@ fn main() {
         timeline_window: None,
         archive_window: None,
         ascii_window: None,
+        window_bounds: std::collections::HashMap::new(),
         archive_items: Vec::new(),
         library_items: Vec::new(),
         library_uses: std::collections::BTreeMap::new(),

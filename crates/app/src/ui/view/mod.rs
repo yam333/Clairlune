@@ -77,7 +77,6 @@ pub enum Section {
     Rotation,
     Display,
     Live,
-    Buddy,
     Content,
     Archive,
     Export,
@@ -95,16 +94,17 @@ const SCROLL_GUTTER: f32 = 24.0;
 pub const SETTINGS_MIN_WIDTH: f32 =
     size::SIDEBAR + PAGE_LEFT + size::PAGE_MAX + SCROLL_GUTTER + PAGE_RIGHT;
 
-/// Where the maker is on GitHub.
+/// Where the maker and the project live on GitHub.
 pub const MAKER: &str = "yam333";
 pub const MAKER_URL: &str = "https://github.com/yam333";
+pub const REPO_URL: &str = "https://github.com/yam333/Clairlune";
+pub const RELEASES_URL: &str = "https://github.com/yam333/Clairlune/releases";
 
 impl Section {
-    pub const ALL: [Section; 9] = [
+    pub const ALL: [Section; 8] = [
         Section::Rotation,
         Section::Display,
         Section::Live,
-        Section::Buddy,
         Section::Content,
         Section::Archive,
         Section::Export,
@@ -117,7 +117,6 @@ impl Section {
             Section::Rotation => "Rotation",
             Section::Display => "Display",
             Section::Live => "Live",
-            Section::Buddy => "Clawd",
             Section::Content => "Content",
             Section::Archive => "Archive",
             Section::Export => "Export",
@@ -187,6 +186,8 @@ pub struct Status {
     pub removal: Option<Result<String, String>>,
     /// A one-line result to show under the status (export done, an error).
     pub note: Option<String>,
+    /// When `note` matches `.0`, `.1` is the saved file that "Show in folder" reveals.
+    pub note_saved: Option<(String, PathBuf)>,
     /// Timeline mode: the slot boundary to come ("Next slot at 19:30").
     pub timeline_next: Option<String>,
     /// Where saved images go when no folder is chosen.
@@ -212,6 +213,8 @@ pub enum UiAction {
     Resume,
     /// Opens a web page (the maker's).
     OpenLink(&'static str),
+    /// Highlights a saved file in Explorer or Finder.
+    RevealPath(PathBuf),
     /// Pick where saved images go, in the system's folder picker.
     ChooseExportFolder,
     Previous,
@@ -611,15 +614,18 @@ fn summary(section: Section, s: &Settings, status: &Status) -> String {
                 ThemeMode::Schedule => "on a schedule",
             };
             format!(
-                "{n} monitor{} \u{b7} {mode} \u{b7} {look}",
+                "{n} monitor{}, {mode}, {look}",
                 if n == 1 { "" } else { "s" }
             )
         }
         Section::Live => format!("{} frames a second", s.live.smoothness_fps),
-        Section::Buddy if s.buddy.show => "in every wallpaper".into(),
-        Section::Buddy => "taking a break".into(),
+        Section::Content if !s.buddy.show => format!(
+            "{} landscapes, unattended, {} kinds of weather",
+            LANDSCAPES.len(),
+            WEATHER.len()
+        ),
         Section::Content => format!(
-            "{} landscapes · {} activities · {} kinds of weather",
+            "{} landscapes, {} activities, {} kinds of weather",
             LANDSCAPES.len(),
             ACTIVITIES.len(),
             WEATHER.len()
@@ -634,7 +640,7 @@ fn summary(section: Section, s: &Settings, status: &Status) -> String {
         }
         Section::General => "starts when you open it".into(),
         Section::About => format!(
-            "Clairlune {} \u{b7} generator {}",
+            "Clairlune {}, generator {}",
             env!("CARGO_PKG_VERSION"),
             clairlune_scene::GENERATOR_VERSION
         ),
@@ -822,6 +828,61 @@ mod tests {
                 .filter(|a| a.implemented)
                 .count(),
             "a new landscape needs a label"
+        );
+    }
+
+    #[test]
+    fn empty_page_draws_clawd_or_mark_and_saved_notes_only_offer_reveal_when_current() {
+        let ctx = egui::Context::default();
+        ctx.set_fonts(style::fonts());
+        style::apply(&ctx, Theme::Dark);
+
+        for buddy in [true, false] {
+            let input = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(800.0, 500.0))),
+                focused: true,
+                time: Some(1.0),
+                ..Default::default()
+            };
+            ctx.run_ui(input, |ui| {
+                empty_page(ui, Theme::Dark, buddy, "Nothing saved yet", "Save one.");
+            })
+            .drop_without_applying_deltas();
+        }
+
+        let target = PathBuf::from("clairlune-42.png");
+        let mut status = Status {
+            note: Some("Saved clairlune-42.png.".into()),
+            note_saved: Some(("Saved clairlune-42.png.".into(), target)),
+            ..Status::default()
+        };
+        let render_texts = |status: &Status| -> String {
+            let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
+                let mut actions = Vec::new();
+                status_note(ui, Theme::Dark, status, &mut actions, false);
+            });
+            out.textures_delta.clear();
+            let mut all = String::new();
+            fn collect(s: &egui::Shape, out: &mut String) {
+                match s {
+                    egui::Shape::Vec(v) => v.iter().for_each(|x| collect(x, out)),
+                    egui::Shape::Text(t) => {
+                        out.push_str(t.galley.text());
+                        out.push('|');
+                    }
+                    _ => {}
+                }
+            }
+            for c in &out.shapes {
+                collect(&c.shape, &mut all);
+            }
+            all
+        };
+        assert!(render_texts(&status).contains("Show in folder"));
+        status.note = Some("Deleted from the library.".into());
+        assert!(
+            !render_texts(&status).contains("Show in folder"),
+            "unrelated later note must not show stale folder link"
         );
     }
 }

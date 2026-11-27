@@ -155,10 +155,6 @@ impl App {
                     self.open_settings(event_loop, Some(theme));
                     if let Some(w) = &mut self.settings_window {
                         w.set_section(section);
-                        if section == ui::view::Section::Buddy {
-                            // The note a click on the toggle shows.
-                            w.toast("Clawd skips the next wallpaper");
-                        }
                     }
                     tracing::info!(target: "clairlune", ms = opened.elapsed().as_millis() as u64, memory_mb = memory_mb(), "ui test: settings opened");
                 }

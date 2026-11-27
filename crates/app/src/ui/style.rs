@@ -217,6 +217,10 @@ pub fn apply(ctx: &egui::Context, theme: Theme) {
         // Titles, names and notes are an app's, not a document's: dragging
         // over them doesn't select them.
         s.interaction.selectable_labels = false;
-        s.animation_time = tokens::motion::BASE as f32 / 1000.0;
+        s.animation_time = if clairlune_platform::reduce_motion() {
+            0.0
+        } else {
+            tokens::motion::BASE as f32 / 1000.0
+        };
     });
 }

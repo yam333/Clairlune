@@ -382,14 +382,14 @@ pub(crate) fn page(
                 .unwrap_or(SMOOTHNESS[1]);
             row(ui, theme, "Smoothness", "", |ui| {
                 egui::ComboBox::from_id_salt("smoothness")
-                    .selected_text(format!("{} \u{b7} {} fps", current.1, current.0))
-                    .width(180.0)
+                    .selected_text(format!("{} ({} fps)", current.1, current.0))
+                    .width(184.0)
                     .show_ui(ui, |ui| {
                         for (fps, name) in SMOOTHNESS {
                             ui.selectable_value(
                                 &mut s.live.smoothness_fps,
                                 fps,
-                                format!("{name} \u{b7} {fps} fps"),
+                                format!("{name} ({fps} fps)"),
                             );
                         }
                     });
@@ -441,15 +441,16 @@ pub(crate) fn page(
                 );
             }
         }
-        Section::Buddy => {
-            ui.horizontal(|ui| {
-                ui.label(RichText::new("Show Clawd").font(style::body_strong()));
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    toggle(ui, theme, &mut s.buddy.show, "Show Clawd");
-                });
-            });
-        }
         Section::Content => {
+            row(
+                ui,
+                theme,
+                "Show Clawd",
+                "Include Clawd in generated wallpapers; when off, his camp or lantern stays in the scene.",
+                |ui| {
+                    toggle(ui, theme, &mut s.buddy.show, "Show Clawd");
+                },
+            );
             // Which monitor's choices: all of them, or one with its own (a
             // scene spread across them picks from the choices for all).
             let span = s.display.span;
@@ -707,21 +708,14 @@ pub(crate) fn page(
             row(ui, theme, icon_name, "", |ui| {
                 toggle(ui, theme, &mut s.general.show_tray_icon, icon_name);
             });
-            if cfg!(any(target_os = "macos", windows)) {
+            if cfg!(any(target_os = "macos", windows)) && !status.permissions.is_empty() {
                 group(ui, "Permissions");
-                if status.permissions.is_empty() {
-                    ui.label(
-                        RichText::new("Nothing to allow for what's on now.")
-                            .color(c(t.text_secondary)),
-                    );
-                    ui.add_space(space::S4);
-                }
                 for p in &status.permissions {
                     ui.horizontal(|ui| {
                         ui.label(RichText::new(p.name).font(style::body_strong()));
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             if p.granted {
-                                ui.label(RichText::new("Granted").color(c(t.accent)));
+                                ui.label(RichText::new("Granted").color(c(t.accent_text)));
                             } else if ui.button("Open Settings").clicked() {
                                 actions.push(p.open.clone());
                             }
@@ -734,67 +728,120 @@ pub(crate) fn page(
             row(ui, theme, "Check for updates", "Once a day", |ui| {
                 toggle(ui, theme, &mut s.general.check_updates, "Check for updates");
             });
-            ui.horizontal_wrapped(|ui| {
-                let busy = status.checking_updates || status.installing.is_some();
-                let label = if status.checking_updates {
-                    "Checking\u{2026}"
-                } else {
-                    "Check now"
-                };
-                if ui.add_enabled(!busy, egui::Button::new(label)).clicked() {
-                    actions.push(UiAction::CheckUpdates);
+            update_controls(ui, theme, status, actions);
+
+            ui.add_space(space::S4);
+            group(ui, "Troubleshooting");
+            row(ui, theme, "Report a problem", "", |ui| {
+                if quiet_button(ui, theme, "Copy details").clicked() {
+                    ui.ctx().copy_text(status.report.clone());
+                    ps.toast = Some("Copied the details".into());
                 }
-                if status.update_url.is_some() {
-                    if status.update_in_place {
-                        if status.installing.is_none()
-                            && primary_button(ui, theme, "Update now").clicked()
-                        {
-                            actions.push(UiAction::InstallUpdate);
-                        }
-                        if ui.button("What's new").clicked() {
-                            actions.push(UiAction::OpenUpdate);
-                        }
-                    } else if primary_button(ui, theme, "Download").clicked() {
-                        actions.push(UiAction::OpenUpdate);
-                    }
+                if ui.button("Report on GitHub").clicked() {
+                    actions.push(UiAction::ReportProblem);
                 }
-                let note = status.installing.clone().unwrap_or_else(|| {
-                    status
-                        .update_note
-                        .clone()
-                        .unwrap_or_else(|| format!("Clairlune {}", env!("CARGO_PKG_VERSION")))
-                });
-                ui.label(RichText::new(note).color(c(t.text_secondary)));
             });
-            if status.update_url.is_some()
-                && status.installing.is_none()
-                && let Some(how) = &status.update_how
-            {
-                ui.label(RichText::new(how).color(c(t.text_secondary)));
-            } else if status.update_url.is_some()
-                && status.update_in_place
-                && status.installing.is_none()
-            {
-                ui.label(
-                    RichText::new(
-                        "Update now downloads it from GitHub, checks it, installs it and starts Clairlune again.",
-                    )
-                    .color(c(t.text_secondary)),
-                );
+            let shown = if ps.report_open {
+                "Hide details"
+            } else {
+                "Show details"
+            };
+            if ui.link(shown).clicked() {
+                ps.report_open = !ps.report_open;
+            }
+            if ps.report_open {
+                ui.add_space(space::S2);
+                egui::Frame::new()
+                    .fill(c(t.bg_sidebar))
+                    .stroke(Stroke::new(size::HAIRLINE, c(t.hairline)))
+                    .corner_radius(egui::CornerRadius::same(radius::CONTROL as u8))
+                    .inner_margin(egui::Margin::same(space::S3 as i8))
+                    .show(ui, |ui| {
+                        egui::ScrollArea::vertical()
+                            .id_salt("report")
+                            .max_height(220.0)
+                            .min_scrolled_height(200.0)
+                            .show(ui, |ui| {
+                                ui.add(
+                                    egui::Label::new(
+                                        RichText::new(&status.report)
+                                            .font(style::mono())
+                                            .color(c(t.text_secondary)),
+                                    )
+                                    .selectable(true),
+                                );
+                            });
+                    });
             }
             ui.add_space(space::S4);
+            row(ui, theme, "Logs", "", |ui| {
+                if ui.button("Open").clicked() {
+                    actions.push(UiAction::OpenLogs);
+                }
+            });
+            let detailed_text = match &status.detailed_until {
+                Some(until) => format!("On until {until}, then back to normal."),
+                None => "Verbose logs for 24 hours, then back to normal.".into(),
+            };
+            row(ui, theme, "Detailed logging", &detailed_text, |ui| {
+                let mut on = status.detailed_until.is_some();
+                if toggle(ui, theme, &mut on, "Detailed logging").changed() {
+                    actions.push(UiAction::SetDetailedLogging(on));
+                }
+            });
+            row(ui, theme, "Diagnostics", "", |ui| {
+                if ui.button("Export").clicked() {
+                    actions.push(UiAction::ExportDiagnostics);
+                }
+            });
+            if status
+                .note_saved
+                .as_ref()
+                .is_some_and(|(n, _)| status.note.as_deref() == Some(n.as_str()))
+            {
+                status_note(ui, theme, status, actions, false);
+                ui.add_space(space::S3);
+            }
+            if status.crash_reports > 0 {
+                let n = status.crash_reports;
+                row(
+                    ui,
+                    theme,
+                    "Crash reports",
+                    &format!(
+                        "{n} report{} from times Clairlune stopped unexpectedly.",
+                        if n == 1 { "" } else { "s" }
+                    ),
+                    |ui| {
+                        if ui.button("Open").clicked() {
+                            actions.push(UiAction::OpenCrashReports);
+                        }
+                    },
+                );
+            }
+
+            ui.add_space(space::S3);
+            hairline(ui, t.hairline);
+            ui.add_space(space::S2);
+            group(ui, "Reset & quit");
+            row(
+                ui,
+                theme,
+                "Restore my wallpaper",
+                "Put back the wallpaper from before Clairlune and pause changes.",
+                |ui| {
+                    if ui.button("Restore").clicked() {
+                        actions.push(UiAction::RestoreWallpaper);
+                    }
+                },
+            );
             row(ui, theme, "Quit Clairlune", "", |ui| {
                 if ui.button("Quit").clicked() {
                     actions.push(UiAction::Quit);
                 }
             });
-            row(ui, theme, "Restore my wallpaper", "", |ui| {
-                if ui.button("Restore").clicked() {
-                    actions.push(UiAction::RestoreWallpaper);
-                }
-            });
             row(ui, theme, "Remove Clairlune", "", |ui| {
-                if ui.button("Remove\u{2026}").clicked() {
+                if quiet_button(ui, theme, "Remove\u{2026}").clicked() {
                     ps.remove_confirm = !ps.remove_confirm;
                 }
             });
@@ -802,7 +849,7 @@ pub(crate) fn page(
                 egui::Frame::new()
                     .fill(c(t.bg_sidebar))
                     .stroke(Stroke::new(size::HAIRLINE, c(t.hairline)))
-                    .corner_radius(egui::CornerRadius::same(6))
+                    .corner_radius(egui::CornerRadius::same(radius::CONTROL as u8))
                     .inner_margin(egui::Margin::same(space::S4 as i8))
                     .show(ui, |ui| {
                         ui.label(
@@ -840,92 +887,28 @@ pub(crate) fn page(
                                 actions.push(UiAction::RemoveEverything);
                                 ps.remove_confirm = false;
                             }
-                            if ui.button("Cancel").clicked() {
+                            if quiet_button(ui, theme, "Cancel").clicked() {
                                 ps.remove_confirm = false;
                             }
                         });
                     });
                 ui.add_space(space::S4);
             }
-            row(ui, theme, "Report a problem", "", |ui| {
-                if primary_button(ui, theme, "Report on GitHub").clicked() {
-                    actions.push(UiAction::ReportProblem);
-                }
-                if ui.button("Copy details").clicked() {
-                    ui.ctx().copy_text(status.report.clone());
-                    ps.toast = Some("Copied the details".into());
-                }
-            });
-            let shown = if ps.report_open {
-                "Hide details"
-            } else {
-                "Show details"
-            };
-            if ui.link(shown).clicked() {
-                ps.report_open = !ps.report_open;
-            }
-            if ps.report_open {
-                egui::Frame::new()
-                    .fill(c(t.bg_sidebar))
-                    .corner_radius(egui::CornerRadius::same(6))
-                    .inner_margin(egui::Margin::same(space::S3 as i8))
-                    .show(ui, |ui| {
-                        egui::ScrollArea::vertical()
-                            .id_salt("report")
-                            .max_height(220.0)
-                            .min_scrolled_height(200.0)
-                            .show(ui, |ui| {
-                                ui.add(
-                                    egui::Label::new(
-                                        RichText::new(&status.report)
-                                            .font(style::mono())
-                                            .color(c(t.text_secondary)),
-                                    )
-                                    .selectable(true),
-                                );
-                            });
-                    });
-            }
-            ui.add_space(space::S4);
-            row(ui, theme, "Logs", "", |ui| {
-                if ui.button("Open").clicked() {
-                    actions.push(UiAction::OpenLogs);
-                }
-            });
-            let detailed_text = match &status.detailed_until {
-                Some(until) => format!("On until {until}, then back to normal."),
-                None => String::new(),
-            };
-            row(ui, theme, "Detailed logging", &detailed_text, |ui| {
-                let mut on = status.detailed_until.is_some();
-                if toggle(ui, theme, &mut on, "Detailed logging").changed() {
-                    actions.push(UiAction::SetDetailedLogging(on));
-                }
-            });
-            row(ui, theme, "Diagnostics", "", |ui| {
-                if ui.button("Export").clicked() {
-                    actions.push(UiAction::ExportDiagnostics);
-                }
-            });
-            if status.crash_reports > 0 {
-                let n = status.crash_reports;
-                row(
-                    ui,
-                    theme,
-                    "Crash reports",
-                    &format!(
-                        "{n} report{} from times Clairlune stopped unexpectedly.",
-                        if n == 1 { "" } else { "s" }
-                    ),
-                    |ui| {
-                        if ui.button("Open").clicked() {
-                            actions.push(UiAction::OpenCrashReports);
-                        }
-                    },
-                );
-            }
         }
         Section::About => {
+            group(ui, "Updates & links");
+            update_controls(ui, theme, status, actions);
+            ui.add_space(space::S2);
+            ui.horizontal_wrapped(|ui| {
+                if ui.button("Source on GitHub").clicked() {
+                    actions.push(UiAction::OpenLink(REPO_URL));
+                }
+                if quiet_button(ui, theme, "Release notes").clicked() {
+                    actions.push(UiAction::OpenLink(RELEASES_URL));
+                }
+            });
+
+            ui.add_space(space::S4);
             group(ui, "Made by");
             signature(ui, theme, actions);
             ui.add_space(space::S4);
@@ -939,7 +922,14 @@ pub(crate) fn page(
             ui.add_space(space::S3);
             ui.label(
                 RichText::new(
-                    "Unofficial fan project, not affiliated with or endorsed by Anthropic. Clawd is Anthropic's character. Code under MIT or Apache-2.0; fonts (Instrument Serif, IBM Plex Sans, JetBrains Mono) under the SIL Open Font License.",
+                    "Code under MIT or Apache-2.0. Typefaces: Instrument Serif, IBM Plex Sans, and JetBrains Mono under the SIL Open Font License.",
+                )
+                .color(c(t.text_secondary)),
+            );
+            ui.add_space(space::S2);
+            ui.label(
+                RichText::new(
+                    "Unofficial fan project, not affiliated with or endorsed by Anthropic. Clawd is Anthropic's character.",
                 )
                 .color(c(t.text_secondary)),
             );
@@ -947,5 +937,55 @@ pub(crate) fn page(
     }
     if *s != before {
         actions.push(UiAction::SettingsChanged);
+    }
+}
+
+/// Shared version status + Check now / Update now controls shown on both
+/// General and About.
+fn update_controls(ui: &mut Ui, theme: Theme, status: &Status, actions: &mut Vec<UiAction>) {
+    let t = colors(theme);
+    ui.horizontal_wrapped(|ui| {
+        let busy = status.checking_updates || status.installing.is_some();
+        let label = if status.checking_updates {
+            "Checking\u{2026}"
+        } else {
+            "Check now"
+        };
+        if ui.add_enabled(!busy, egui::Button::new(label)).clicked() {
+            actions.push(UiAction::CheckUpdates);
+        }
+        if status.update_url.is_some() {
+            if status.update_in_place {
+                if status.installing.is_none() && primary_button(ui, theme, "Update now").clicked()
+                {
+                    actions.push(UiAction::InstallUpdate);
+                }
+                if quiet_button(ui, theme, "What's new").clicked() {
+                    actions.push(UiAction::OpenUpdate);
+                }
+            } else if primary_button(ui, theme, "Download").clicked() {
+                actions.push(UiAction::OpenUpdate);
+            }
+        }
+        let note = status.installing.clone().unwrap_or_else(|| {
+            status
+                .update_note
+                .clone()
+                .unwrap_or_else(|| format!("Clairlune {}", env!("CARGO_PKG_VERSION")))
+        });
+        ui.label(RichText::new(note).color(c(t.text_secondary)));
+    });
+    if status.update_url.is_some()
+        && status.installing.is_none()
+        && let Some(how) = &status.update_how
+    {
+        ui.label(RichText::new(how).color(c(t.text_secondary)));
+    } else if status.update_url.is_some() && status.update_in_place && status.installing.is_none() {
+        ui.label(
+            RichText::new(
+                "Update now downloads it from GitHub, checks it, installs it and starts Clairlune again.",
+            )
+            .color(c(t.text_secondary)),
+        );
     }
 }

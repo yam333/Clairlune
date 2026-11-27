@@ -4,6 +4,13 @@
 use crate::*;
 
 impl App {
+    fn saved_bounds(&self, kind: ui::Kind) -> Option<ui::WindowBounds> {
+        self.window_bounds
+            .get(&kind)
+            .copied()
+            .filter(|_| self.ui_test.is_none())
+    }
+
     pub(crate) fn open_timeline(&mut self, event_loop: &ActiveEventLoop) {
         self.refresh_library();
         if let Some(w) = &self.timeline_window {
@@ -12,7 +19,14 @@ impl App {
             return;
         }
         let theme = apply::resolve_theme(&self.settings.theme);
-        match ui::UiWindow::open(event_loop, ui::Kind::Timeline, theme, self.last_section) {
+        let bounds = self.saved_bounds(ui::Kind::Timeline);
+        match ui::UiWindow::open(
+            event_loop,
+            ui::Kind::Timeline,
+            theme,
+            self.last_section,
+            bounds,
+        ) {
             Ok(w) => self.timeline_window = Some(w),
             Err(e) => {
                 tracing::warn!(target: "clairlune", error = %e, "no timeline window; opening the file");
@@ -41,7 +55,14 @@ impl App {
             && self.status.start_at_login == Some(false)
             && self.ui_test.is_none();
         self.status.note = None;
-        match ui::UiWindow::open(event_loop, ui::Kind::Settings, theme, self.last_section) {
+        let bounds = self.saved_bounds(ui::Kind::Settings);
+        match ui::UiWindow::open(
+            event_loop,
+            ui::Kind::Settings,
+            theme,
+            self.last_section,
+            bounds,
+        ) {
             Ok(w) => {
                 self.settings_window = Some(w);
                 self.refresh_window_thumb();
@@ -96,7 +117,14 @@ impl App {
         }
         self.status.note = None;
         let theme = apply::resolve_theme(&self.settings.theme);
-        match ui::UiWindow::open(event_loop, ui::Kind::Ascii, theme, self.last_section) {
+        let bounds = self.saved_bounds(ui::Kind::Ascii);
+        match ui::UiWindow::open(
+            event_loop,
+            ui::Kind::Ascii,
+            theme,
+            self.last_section,
+            bounds,
+        ) {
             Ok(w) => self.ascii_window = Some(w),
             Err(e) => tracing::warn!(target: "clairlune", error = %e, "no image-to-ascii window"),
         }
@@ -110,7 +138,14 @@ impl App {
             return;
         }
         let theme = apply::resolve_theme(&self.settings.theme);
-        match ui::UiWindow::open(event_loop, ui::Kind::Library, theme, self.last_section) {
+        let bounds = self.saved_bounds(ui::Kind::Library);
+        match ui::UiWindow::open(
+            event_loop,
+            ui::Kind::Library,
+            theme,
+            self.last_section,
+            bounds,
+        ) {
             Ok(w) => self.library_window = Some(w),
             Err(e) => tracing::warn!(target: "clairlune", error = %e, "no library window"),
         }
@@ -163,7 +198,14 @@ impl App {
             return;
         }
         let theme = apply::resolve_theme(&self.settings.theme);
-        match ui::UiWindow::open(event_loop, ui::Kind::Archive, theme, self.last_section) {
+        let bounds = self.saved_bounds(ui::Kind::Archive);
+        match ui::UiWindow::open(
+            event_loop,
+            ui::Kind::Archive,
+            theme,
+            self.last_section,
+            bounds,
+        ) {
             Ok(w) => self.archive_window = Some(w),
             Err(e) => {
                 tracing::warn!(target: "clairlune", error = %e, "no archive window; opening the folder");

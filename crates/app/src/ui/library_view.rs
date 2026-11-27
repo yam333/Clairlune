@@ -3,7 +3,9 @@
 //! frames), and one action bar for the selection.
 
 use super::style::{self, c, colors};
-use super::view::{Status, UiAction, empty_page, hairline, primary_button, segmented};
+use super::view::{
+    Status, UiAction, empty_page, hairline, primary_button, quiet_button, segmented, status_note,
+};
 use crate::library::{BuddyChoice, DisplayChoice, Item, ThemeChoice};
 use crate::tokens::{radius, size, space};
 use clairlune_scene::Theme;
@@ -195,10 +197,12 @@ pub fn show(
                 });
             }
             ui.add_space(space::S4);
+            let buddy_on = model.settings.buddy.show;
             if items.is_empty() {
                 empty_page(
                     ui,
                     theme,
+                    buddy_on,
                     "Nothing saved yet",
                     "Keep a wallpaper you like with Save to library, in the tray menu or in Settings.",
                 );
@@ -208,16 +212,67 @@ pub fn show(
                 empty_page(
                     ui,
                     theme,
+                    buddy_on,
                     "No matching wallpapers",
                     "Try another search or clear the filter.",
                 );
                 return;
             }
+            let grid_cols = ((ui.available_width() + space::S5) / (THUMB_W + space::S5))
+                .floor()
+                .max(1.0) as usize;
+            let mut scroll_to_sel = false;
+            if !ui.ctx().text_edit_focused() {
+                let step = ui.input(|i| {
+                    if i.key_pressed(egui::Key::ArrowRight) {
+                        Some(1isize)
+                    } else if i.key_pressed(egui::Key::ArrowLeft) {
+                        Some(-1)
+                    } else if i.key_pressed(egui::Key::ArrowDown) {
+                        Some(grid_cols as isize)
+                    } else if i.key_pressed(egui::Key::ArrowUp) {
+                        Some(-(grid_cols as isize))
+                    } else {
+                        None
+                    }
+                });
+                if let Some(delta) = step {
+                    let cur = st
+                        .selected
+                        .as_deref()
+                        .and_then(|id| filtered.iter().position(|it| it.id == id));
+                    let next_idx = match cur {
+                        Some(idx) => {
+                            (idx as isize + delta).clamp(0, filtered.len() as isize - 1) as usize
+                        }
+                        None if delta >= 0 => 0,
+                        None => filtered.len() - 1,
+                    };
+                    st.select(filtered[next_idx]);
+                    scroll_to_sel = true;
+                } else if !st.confirm_delete
+                    && !status.busy
+                    && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                    && let Some(sel) = &st.selected
+                    && filtered.iter().any(|it| &it.id == sel)
+                {
+                    actions.push(UiAction::ApplyLibrary(sel.clone()));
+                }
+            }
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
                     ui.spacing_mut().item_spacing = vec2(space::S5, space::S5);
                     for item in filtered {
-                        tile(ui, theme, st, library_dir, item, status.busy, actions);
+                        tile(
+                            ui,
+                            theme,
+                            st,
+                            library_dir,
+                            item,
+                            status.busy,
+                            scroll_to_sel,
+                            actions,
+                        );
                     }
                 });
             });
@@ -226,6 +281,7 @@ pub fn show(
 
 /// One thumbnail with its name and facts under it; click to select, double-click
 /// to apply.
+#[allow(clippy::too_many_arguments)]
 fn tile(
     ui: &mut Ui,
     theme: Theme,
@@ -233,6 +289,7 @@ fn tile(
     dir: &Path,
     item: &Item,
     busy: bool,
+    scroll_to_sel: bool,
     actions: &mut Vec<UiAction>,
 ) {
     let t = colors(theme);
@@ -243,6 +300,9 @@ fn tile(
         // The grid's wide gaps are between tiles, not inside them.
         ui.spacing_mut().item_spacing = vec2(space::S2, space::S1);
         let (rect, resp) = ui.allocate_exact_size(vec2(THUMB_W, h), Sense::click());
+        if selected && scroll_to_sel {
+            resp.scroll_to_me(Some(Align::Center));
+        }
         resp.widget_info(|| {
             egui::WidgetInfo::selected(egui::Role::Button, true, selected, &item.name)
         });
@@ -445,7 +505,7 @@ fn action_bar(
                     gif: true,
                 });
             }
-            if !is_photo && ui.button("Copy seed").clicked() {
+            if !is_photo && quiet_button(ui, theme, "Copy seed").clicked() {
                 ui.ctx().copy_text(item.seed.to_string());
             }
         }
@@ -478,10 +538,10 @@ fn action_bar(
                         st.confirm_delete = false;
                     }
                 }
-                if ui.button("Keep").clicked() {
+                if quiet_button(ui, theme, "Keep").clicked() {
                     st.confirm_delete = false;
                 }
-            } else if ui.button("Delete").clicked() {
+            } else if quiet_button(ui, theme, "Delete").clicked() {
                 st.confirm_delete = true;
             }
         });
@@ -492,9 +552,9 @@ fn action_bar(
             RichText::new(format!("The timeline uses it: {}.", used.join(", "))).color(c(t.danger)),
         );
     }
-    if let Some(note) = &status.note {
+    if status.note.is_some() {
         ui.add_space(space::S2);
-        ui.label(RichText::new(note).color(c(t.text_secondary)));
+        status_note(ui, theme, status, actions, false);
     }
 }
 

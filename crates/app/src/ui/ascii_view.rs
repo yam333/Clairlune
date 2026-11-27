@@ -2,7 +2,10 @@
 //! (canvas on the left, live controls on the right, actions along the foot).
 
 use super::style::{self, alpha, c, colors};
-use super::view::{PALETTES, UiAction, hairline, primary_button, segmented, toggle};
+use super::view::{
+    PALETTES, UiAction, group, hairline, highlight, primary_button, quiet_button, segmented,
+    status_note, toggle,
+};
 use crate::tokens::{radius, size, space};
 use clairlune_render::Clock;
 use clairlune_render::img2ascii::{
@@ -44,6 +47,8 @@ pub struct AsciiState {
     /// Preview polarity when `color_mode` supports both Light and Dark.
     pub preview_theme: Option<Theme>,
     pub hovering_file: bool,
+    /// Toggle between fitting the canvas and inspecting 1:1 rasterized pixels.
+    pub zoom_1to1: bool,
     /// Cached conversion and preview texture, rebuilt only when inputs change.
     cached_key: Option<CacheKey>,
     cached_art: Option<AsciiArt>,
@@ -117,7 +122,7 @@ pub fn show(
     let t = colors(window_theme);
 
     // Keyboard shortcuts when no text field has focus: Ctrl/Cmd+V pastes an image,
-    // Ctrl/Cmd+C copies the converted ASCII text.
+    // Ctrl/Cmd+C copies ASCII text, [ / ] cycle showcase scenes, Z toggles 1:1 zoom.
     let editing_text = ui.ctx().text_edit_focused();
     if !editing_text {
         let paste_pressed = ui.input(|i| {
@@ -128,6 +133,23 @@ pub fn show(
         });
         if paste_pressed {
             actions.push(UiAction::PasteAsciiImage);
+        }
+        let step_inspire = ui.input(|i| {
+            if !i.modifiers.command && i.key_pressed(Key::OpenBracket) {
+                Some(INSPIRE_COUNT - 1)
+            } else if !i.modifiers.command && i.key_pressed(Key::CloseBracket) {
+                Some(1)
+            } else {
+                None
+            }
+        });
+        if let Some(delta) = step_inspire {
+            st.inspire_idx = (st.inspire_idx + delta) % INSPIRE_COUNT;
+            let (title, img) = inspire_sample(st.inspire_idx, model.settings.buddy.show);
+            st.set_image(title.to_string(), img);
+        }
+        if ui.input(|i| !i.modifiers.command && i.key_pressed(Key::Z)) {
+            st.zoom_1to1 = !st.zoom_1to1;
         }
     }
 
@@ -281,23 +303,18 @@ fn canvas_pane(
     };
 
     ui.horizontal(|ui| {
-        let buttons_reserve = 284.0;
-        let left_w = (ui.available_width() - buttons_reserve).max(160.0);
+        let buttons_reserve = 308.0;
+        let left_w = (ui.available_width() - buttons_reserve).max(150.0);
         ui.allocate_ui_with_layout(vec2(left_w, 42.0), Layout::top_down(Align::Min), |ui| {
             ui.set_max_width(left_w);
             ui.spacing_mut().item_spacing.y = 2.0;
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Image to ASCII").font(style::title()));
-                if let Some(src) = &st.source {
+                if !st.image_name.is_empty() {
                     ui.add_space(space::S2);
                     ui.add(
                         egui::Label::new(
-                            RichText::new(format!(
-                                "{} · {}×{}",
-                                st.image_name, src.width, src.height
-                            ))
-                            .font(style::mono())
-                            .color(c(t.text_secondary)),
+                            RichText::new(display_title(&st.image_name)).color(c(t.text_secondary)),
                         )
                         .truncate(),
                     );
@@ -314,8 +331,22 @@ fn canvas_pane(
             );
         });
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if ui.button("Inspire").clicked() {
+            if ui
+                .button("Inspire")
+                .on_hover_text(format!(
+                    "Next built-in showcase scene (] or [ to cycle {INSPIRE_COUNT} scenes)."
+                ))
+                .clicked()
+            {
                 st.inspire_idx = (st.inspire_idx + 1) % INSPIRE_COUNT;
+                let (title, img) = inspire_sample(st.inspire_idx, buddy);
+                st.set_image(title.to_string(), img);
+            }
+            if quiet_button(ui, theme, "\u{2039}")
+                .on_hover_text("Previous showcase scene ([)")
+                .clicked()
+            {
+                st.inspire_idx = (st.inspire_idx + INSPIRE_COUNT - 1) % INSPIRE_COUNT;
                 let (title, img) = inspire_sample(st.inspire_idx, buddy);
                 st.set_image(title.to_string(), img);
             }
@@ -333,16 +364,40 @@ fn canvas_pane(
     ui.add_space(space::S3);
 
     let avail = ui.available_size();
-    let (frame_rect, _) = ui.allocate_exact_size(avail, Sense::hover());
+    let (frame_rect, canvas_resp) = ui.allocate_exact_size(avail, Sense::click());
+    if canvas_resp
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_text(if st.zoom_1to1 {
+            "Click to fit preview to window (Z)"
+        } else {
+            "Click to inspect 1:1 pixel scale (Z)"
+        })
+        .clicked()
+    {
+        st.zoom_1to1 = !st.zoom_1to1;
+    }
     let p = ui.painter();
     p.rect_filled(frame_rect, radius::PANEL, c(t.bg_raised));
 
     if let Some(tex) = &st.preview_tex {
         let inner = frame_rect.shrink(space::S3);
         let ts = tex.size_vec2();
-        let scale = (inner.width() / ts.x.max(1.0)).min(inner.height() / ts.y.max(1.0));
-        let size_px = ts * scale;
-        let dst = Rect::from_center_size(inner.center(), size_px);
+        let fit_scale = (inner.width() / ts.x.max(1.0)).min(inner.height() / ts.y.max(1.0));
+        let (dst, uv) = if st.zoom_1to1 {
+            let shown_w = ts.x.min(inner.width());
+            let shown_h = ts.y.min(inner.height());
+            let dst = Rect::from_center_size(inner.center(), vec2(shown_w, shown_h));
+            let uw = (shown_w / ts.x.max(1.0)).clamp(0.0, 1.0);
+            let uh = (shown_h / ts.y.max(1.0)).clamp(0.0, 1.0);
+            let uv = Rect::from_min_max(
+                pos2(0.5 - uw * 0.5, 0.5 - uh * 0.5),
+                pos2(0.5 + uw * 0.5, 0.5 + uh * 0.5),
+            );
+            (dst, uv)
+        } else {
+            let dst = Rect::from_center_size(inner.center(), ts * fit_scale);
+            (dst, Rect::from_min_max(Pos2::ZERO, pos2(1.0, 1.0)))
+        };
 
         if st.config.color_mode == AsciiColorMode::None && st.live_pkg.is_none() {
             let want_dark = st.config.dark_canvas(eff_theme);
@@ -351,18 +406,43 @@ fn canvas_pane(
                 st.checker_dark = Some(want_dark);
             }
             if let Some(checker) = &st.checker_tex {
-                let uv =
+                let cuv =
                     Rect::from_min_max(Pos2::ZERO, pos2(dst.width() / 24.0, dst.height() / 24.0));
                 egui::Image::new(checker)
-                    .uv(uv)
+                    .uv(cuv)
                     .corner_radius(CornerRadius::same(radius::CONTROL as u8))
                     .paint_at(ui, dst);
             }
         }
 
         egui::Image::new(tex)
+            .uv(uv)
             .corner_radius(CornerRadius::same(radius::CONTROL as u8))
             .paint_at(ui, dst);
+    }
+
+    // Quiet viewfinder readout in the lower-right corner of the canvas frame.
+    if let (Some(art), Some(src)) = (&st.cached_art, &st.source) {
+        let zoom_tag = if st.zoom_1to1 { "  1:1" } else { "" };
+        let readout = format!(
+            "{}×{} chars  {}×{} px{zoom_tag}",
+            art.cols, art.rows, src.width, src.height
+        );
+        let p = ui.painter();
+        let gal = p.layout_no_wrap(readout, style::mono(), c(t.text_secondary));
+        let pad = vec2(8.0, 4.0);
+        let badge_size = gal.size() + pad * 2.0;
+        if badge_size.x + 24.0 < frame_rect.width() {
+            let badge = Rect::from_min_size(
+                pos2(
+                    frame_rect.max.x - badge_size.x - 10.0,
+                    frame_rect.max.y - badge_size.y - 10.0,
+                ),
+                badge_size,
+            );
+            p.rect_filled(badge, 6.0, alpha(t.bg_sidebar, 0.82));
+            p.galley(badge.min + pad, gal, c(t.text_secondary));
+        }
     }
 
     let (border_col, border_w) = if st.hovering_file {
@@ -401,29 +481,20 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
     let t = colors(theme);
     let rows_now = st.cached_art.as_ref().map_or(0, |a| a.rows);
 
-    section_heading(
-        ui,
-        theme,
-        "Output width",
-        &format!("{} chars", st.config.columns),
-    );
+    group(ui, "Grid");
+    field_row(ui, theme, "Columns", &st.config.columns.to_string());
     let mut cols_f = st.config.columns as f32;
-    if studio_slider(ui, theme, &mut cols_f, 30.0..=240.0, 1.0, "Output width") {
+    if studio_slider(ui, theme, &mut cols_f, 30.0..=240.0, 1.0, 110.0, "Columns") {
         st.config.columns = cols_f.round() as u32;
     }
-    caption(
-        ui,
-        theme,
-        "Columns across. Height follows your image's aspect ratio.",
-    );
-    ui.add_space(space::S3);
+    ui.add_space(space::S2);
 
-    section_heading(ui, theme, "Row density", &format!("{rows_now} rows"));
+    field_row(ui, theme, "Line spacing", &format!("{rows_now} rows"));
     let density_label = |d: RowDensity| match d {
         RowDensity::Auto => "Auto, matches preview",
         RowDensity::Compact => "Compact (tight lines)",
         RowDensity::Standard => "Standard (1:2 terminal)",
-        RowDensity::Tall => "Tall (wide line spacing)",
+        RowDensity::Tall => "Tall (wide spacing)",
     };
     ComboBox::from_id_salt("ascii-row-density")
         .selected_text(density_label(st.config.row_density))
@@ -438,14 +509,9 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
                 ui.selectable_value(&mut st.config.row_density, d, density_label(d));
             }
         });
-    caption(
-        ui,
-        theme,
-        "Adjusts row count to match the line spacing where you paste text.",
-    );
-    ui.add_space(space::S3);
+    ui.add_space(space::S2);
 
-    section_heading(ui, theme, "Character ramp", "");
+    field_row(ui, theme, "Characters", "");
     ComboBox::from_id_salt("ascii-ramp")
         .selected_text(st.config.ramp.label())
         .width(ui.available_width())
@@ -467,7 +533,7 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
         caption(
             ui,
             theme,
-            "Ordered heaviest to lightest; the last character is empty space.",
+            "Heaviest to lightest; space is added automatically.",
         );
     } else {
         let preview_ramp: String = st
@@ -475,34 +541,58 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
             .ramp
             .heavy_to_light(&st.config.custom_ramp)
             .into_iter()
-            .take(26)
+            .take(28)
             .collect();
-        caption(ui, theme, &format!("Heaviest to lightest: {preview_ramp}"));
+        ui.add(
+            egui::Label::new(
+                RichText::new(preview_ramp.trim_end())
+                    .font(style::mono())
+                    .color(c(t.text_secondary)),
+            )
+            .truncate(),
+        );
     }
-    ui.add_space(space::S3);
 
-    section_heading(ui, theme, "Contrast", &st.config.contrast.to_string());
+    group(ui, "Tone");
+    field_row(ui, theme, "Contrast", &st.config.contrast.to_string());
     let mut contrast_f = st.config.contrast as f32;
-    if studio_slider(ui, theme, &mut contrast_f, 50.0..=250.0, 1.0, "Contrast") {
+    if studio_slider(
+        ui,
+        theme,
+        &mut contrast_f,
+        50.0..=250.0,
+        1.0,
+        120.0,
+        "Contrast",
+    ) {
         st.config.contrast = contrast_f.round() as i32;
     }
     ui.add_space(space::S2);
 
-    section_heading(ui, theme, "Brightness", &st.config.brightness.to_string());
+    field_row(ui, theme, "Brightness", &st.config.brightness.to_string());
     let mut bright_f = st.config.brightness as f32;
-    if studio_slider(ui, theme, &mut bright_f, -100.0..=100.0, 1.0, "Brightness") {
+    if studio_slider(
+        ui,
+        theme,
+        &mut bright_f,
+        -100.0..=100.0,
+        1.0,
+        0.0,
+        "Brightness",
+    ) {
         st.config.brightness = bright_f.round() as i32;
     }
     ui.add_space(space::S2);
+
     ui.horizontal(|ui| {
         ui.label(RichText::new("Invert polarity").font(style::body_medium()));
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             toggle(ui, theme, &mut st.config.invert, "Invert polarity");
         });
     });
-    ui.add_space(space::S3);
 
-    section_heading(ui, theme, "Background & colour", "");
+    group(ui, "Look");
+    field_row(ui, theme, "Background", "");
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum ModeTab {
         Palette,
@@ -571,11 +661,6 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
                     }
                 });
             });
-            caption(
-                ui,
-                theme,
-                "Wallpapers save both light and dark versions so they follow your theme.",
-            );
         }
         AsciiColorMode::Photo => {
             ui.add_space(space::S2);
@@ -593,22 +678,8 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
                     }
                 });
             });
-            caption(
-                ui,
-                theme,
-                "Each character takes its colour from your image; saves both light and dark versions.",
-            );
         }
-        AsciiColorMode::Black => caption(
-            ui,
-            theme,
-            "On black the characters are the light, so bright parts fill with ink.",
-        ),
-        AsciiColorMode::White => caption(
-            ui,
-            theme,
-            "On white the characters are the ink, so dark shadows fill with strokes.",
-        ),
+        AsciiColorMode::Black | AsciiColorMode::White => {}
         AsciiColorMode::None => {
             ui.add_space(space::S2);
             let mut th = eff_theme;
@@ -625,16 +696,12 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
                     }
                 });
             });
-            caption(
-                ui,
-                theme,
-                "Exports and copies a PNG with a transparent background.",
-            );
+            caption(ui, theme, "Transparent PNG on save and copy.");
         }
     }
-    ui.add_space(space::S4);
+    ui.add_space(space::S3);
 
-    section_heading(ui, theme, "Live weather", "");
+    field_row(ui, theme, "Weather", "");
     let weather_label = STUDIO_WEATHER
         .iter()
         .find(|(id, _)| *id == st.config.weather)
@@ -647,26 +714,16 @@ fn inspector(ui: &mut Ui, theme: Theme, eff_theme: Theme, st: &mut AsciiState) {
                 ui.selectable_value(&mut st.config.weather, id.to_string(), label);
             }
         });
-    caption(
-        ui,
-        theme,
-        "Optional ambient particles playing live over the wallpaper.",
-    );
-    ui.add_space(space::S4);
+    ui.add_space(space::S3);
 
-    section_heading(ui, theme, "Screen fit", "");
+    field_row(ui, theme, "Screen fit", "");
     segmented_full(
         ui,
         theme,
         &mut st.config.fit,
         &[(FitMode::Contain, "Contain"), (FitMode::Cover, "Cover")],
     );
-    caption(
-        ui,
-        theme,
-        "Contain keeps the whole picture; Cover fills the monitor edge to edge.",
-    );
-    ui.add_space(space::S3);
+    ui.add_space(space::S2);
 }
 
 fn action_bar(
@@ -682,23 +739,6 @@ fn action_bar(
     let human_title = display_title(&st.image_name);
 
     ui.horizontal(|ui| {
-        if ui.button("Copy text").clicked()
-            && let Some(art) = &st.cached_art
-        {
-            ui.ctx().copy_text(art.text.clone());
-            actions.push(UiAction::AsciiStatusNote(format!(
-                "Copied {}×{} ASCII text to the clipboard.",
-                art.cols, art.rows
-            )));
-        }
-        if ui.button("Save .txt").clicked()
-            && let Some(art) = &st.cached_art
-        {
-            actions.push(UiAction::SaveAsciiTxt {
-                name: clean_stem.clone(),
-                text: art.text.clone(),
-            });
-        }
         if ui.button("Copy PNG").clicked()
             && let Some(art) = &st.cached_art
         {
@@ -718,6 +758,29 @@ fn action_bar(
                 width: w,
                 height: h,
                 rgba,
+            });
+        }
+        let (sep, _) = ui.allocate_exact_size(vec2(6.0, 18.0), Sense::hover());
+        ui.painter().vline(
+            sep.center().x,
+            sep.y_range(),
+            Stroke::new(size::HAIRLINE, c(t.hairline)),
+        );
+        if quiet_button(ui, theme, "Copy text").clicked()
+            && let Some(art) = &st.cached_art
+        {
+            ui.ctx().copy_text(art.text.clone());
+            actions.push(UiAction::AsciiStatusNote(format!(
+                "Copied {}×{} ASCII text to the clipboard.",
+                art.cols, art.rows
+            )));
+        }
+        if quiet_button(ui, theme, "Save .txt").clicked()
+            && let Some(art) = &st.cached_art
+        {
+            actions.push(UiAction::SaveAsciiTxt {
+                name: clean_stem.clone(),
+                text: art.text.clone(),
             });
         }
 
@@ -758,29 +821,31 @@ fn action_bar(
         });
     });
 
-    if let Some(note) = model.status.note.as_deref() {
+    if model.status.note.is_some() {
         ui.add_space(space::S1);
-        ui.add(egui::Label::new(RichText::new(note).color(c(t.text_secondary))).truncate())
-            .on_hover_text(note);
+        status_note(ui, theme, model.status, actions, false);
     }
 }
 
-fn section_heading(ui: &mut Ui, theme: Theme, title: &str, value: &str) {
+fn field_row(ui: &mut Ui, theme: Theme, title: &str, value: &str) {
     let t = colors(theme);
     ui.horizontal(|ui| {
         ui.label(
-            RichText::new(title.to_uppercase())
-                .font(style::label())
-                .extra_letter_spacing(style::LABEL_SPACING)
-                .color(c(t.text_secondary)),
+            RichText::new(title)
+                .font(style::body_medium())
+                .color(c(t.text)),
         );
         if !value.is_empty() {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(RichText::new(value).font(style::mono()).color(c(t.text)));
+                ui.label(
+                    RichText::new(value)
+                        .font(style::mono())
+                        .color(c(t.text_secondary)),
+                );
             });
         }
     });
-    ui.add_space(space::S1);
+    ui.add_space(2.0);
 }
 
 fn caption(ui: &mut Ui, theme: Theme, text: &str) {
@@ -795,13 +860,14 @@ fn caption(ui: &mut Ui, theme: Theme, text: &str) {
     );
 }
 
-/// Full-width slider styled from Clairlune's tokens (no stock egui slider look).
+/// Full-width slider styled from Clairlune's tokens; double-click resets to `default`.
 fn studio_slider(
     ui: &mut Ui,
     theme: Theme,
     value: &mut f32,
     range: std::ops::RangeInclusive<f32>,
     step: f32,
+    default: f32,
     label: &str,
 ) -> bool {
     let t = colors(theme);
@@ -816,7 +882,10 @@ fn studio_slider(
     let track_x1 = (rect.right() - thumb_r).max(track_x0 + 1.0);
 
     let mut changed = false;
-    if let Some(pos) = resp.interact_pointer_pos()
+    if resp.double_clicked() && (*value - default).abs() > 1e-4 {
+        *value = default.clamp(min, max);
+        changed = true;
+    } else if let Some(pos) = resp.interact_pointer_pos()
         && (resp.dragged() || resp.clicked())
     {
         let u = ((pos.x - track_x0) / (track_x1 - track_x0)).clamp(0.0, 1.0);
@@ -891,12 +960,15 @@ fn studio_slider(
     if resp.has_focus() {
         super::view::focus_ring(ui, theme, rect, 4.0);
     }
-    resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+    let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+    if (*value - default).abs() > 1e-4 {
+        resp.on_hover_text("Double-click to reset");
+    }
     changed
 }
 
 /// Full-width segmented control matching `view::segmented`, sized exactly to
-/// `ui.available_width()` so multi-tab strips never overflow a fixed inspector.
+/// `ui.available_width()` with an animated sliding selection bead.
 fn segmented_full<T: PartialEq + Copy>(
     ui: &mut Ui,
     theme: Theme,
@@ -936,33 +1008,56 @@ fn segmented_full<T: PartialEq + Copy>(
         Stroke::new(1.0, alpha(t.border_control, 0.35)),
         egui::StrokeKind::Inside,
     );
-    let top_shine = match theme {
-        Theme::Dark => egui::Color32::from_white_alpha(26),
-        Theme::Light => egui::Color32::from_white_alpha(200),
-    };
+
+    let mut seg_spans = Vec::with_capacity(options.len());
+    let mut rel_x = 3.0_f32;
+    let mut active_span = None;
+    for ((v, _), galley) in options.iter().zip(&galleys) {
+        let w = galley.size().x + extra_per_seg;
+        if *value == *v {
+            active_span = Some((rel_x, w));
+        }
+        seg_spans.push((rel_x, w));
+        rel_x += w;
+    }
+    if let Some((target_rx, target_w)) = active_span {
+        let anim_t = ui.style().animation_time;
+        let rx = ui
+            .ctx()
+            .animate_value_with_time(base.with("seg-full-rx"), target_rx, anim_t);
+        let rw = ui
+            .ctx()
+            .animate_value_with_time(base.with("seg-full-rw"), target_w, anim_t);
+        let bead_rect = Rect::from_min_size(
+            pos2(track.min.x + rx, track.min.y + 3.0),
+            vec2(rw, track.height() - 6.0),
+        );
+        let bead = match theme {
+            Theme::Dark => alpha(g.card, g.chosen * 1.2),
+            Theme::Light => egui::Color32::from_white_alpha(235),
+        };
+        let p = ui.painter();
+        p.rect_filled(bead_rect, radius::CONTROL - 2.0, bead);
+        p.hline(
+            bead_rect.x_range().shrink(radius::CONTROL - 2.0),
+            bead_rect.min.y + 0.5,
+            Stroke::new(1.0, highlight(theme)),
+        );
+    }
 
     let mut changed = false;
-    let mut x = track.min.x + 3.0;
-    for (i, ((v, label), galley)) in options.iter().zip(galleys).enumerate() {
-        let w = galley.size().x + extra_per_seg;
-        let seg = Rect::from_min_size(pos2(x, track.min.y + 3.0), vec2(w, track.height() - 6.0));
-        x += w;
+    for (i, (((v, label), galley), (sx, sw))) in
+        options.iter().zip(galleys).zip(seg_spans).enumerate()
+    {
+        let seg = Rect::from_min_size(
+            pos2(track.min.x + sx, track.min.y + 3.0),
+            vec2(sw, track.height() - 6.0),
+        );
         let on = *value == *v;
         let resp = ui.interact(seg, base.with(("seg-full", i, *label)), Sense::click());
         resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::RadioButton, true, on, *label));
         let p = ui.painter();
-        if on {
-            let bead = match theme {
-                Theme::Dark => alpha(g.card, g.chosen * 1.2),
-                Theme::Light => egui::Color32::from_white_alpha(235),
-            };
-            p.rect_filled(seg, radius::CONTROL - 2.0, bead);
-            p.hline(
-                seg.x_range().shrink(radius::CONTROL - 2.0),
-                seg.min.y + 0.5,
-                Stroke::new(1.0, top_shine),
-            );
-        } else if resp.hovered() {
+        if !on && resp.hovered() {
             p.rect_filled(seg, radius::CONTROL - 2.0, alpha(g.card, g.chosen * 0.6));
         }
         p.galley(seg.center() - galley.size() / 2.0, galley, c(t.text));
@@ -972,6 +1067,9 @@ fn segmented_full<T: PartialEq + Copy>(
         if resp.clicked() && !on {
             *value = *v;
             changed = true;
+        }
+        if !on {
+            resp.on_hover_cursor(egui::CursorIcon::PointingHand);
         }
     }
     changed
@@ -1016,18 +1114,19 @@ pub(crate) fn display_title(raw: &str) -> String {
 }
 
 pub(crate) fn file_stem_label(raw: &str) -> String {
-    let before_dot = raw.split('·').next().unwrap_or(raw).trim();
-    let cleaned: String = before_dot
-        .chars()
-        .map(|ch| {
-            if ch.is_alphanumeric() || ch == '-' || ch == '_' || ch == ' ' {
-                ch
-            } else {
-                '-'
-            }
-        })
-        .collect();
-    let trimmed = cleaned.trim().trim_matches('-');
+    let part = raw.split('·').next_back().unwrap_or(raw).trim();
+    let mut out = String::with_capacity(part.len());
+    let mut prev_sep = false;
+    for ch in part.chars() {
+        if ch.is_alphanumeric() || ch == '_' {
+            out.push(ch);
+            prev_sep = false;
+        } else if !out.is_empty() && !prev_sep {
+            out.push('-');
+            prev_sep = true;
+        }
+    }
+    let trimmed = out.trim_matches('-');
     if trimmed.is_empty() {
         "ascii-image".into()
     } else {
@@ -1047,13 +1146,18 @@ mod tests {
 
     #[test]
     fn clean_stem_extracts_readable_file_names() {
-        assert_eq!(file_stem_label("Sample 1 · Crescent & peaks"), "Sample 1");
+        assert_eq!(file_stem_label("Crescent & peaks"), "Crescent-peaks");
+        assert_eq!(
+            file_stem_label("Sample 1 · Crescent & peaks"),
+            "Crescent-peaks"
+        );
         assert_eq!(file_stem_label("mountain_photo"), "mountain_photo");
         assert_eq!(file_stem_label("///"), "ascii-image");
         assert_eq!(
             display_title("Sample 1 · Crescent & peaks"),
             "Crescent & peaks"
         );
+        assert_eq!(display_title("Crescent & peaks"), "Crescent & peaks");
         assert_eq!(display_title("mountain_photo"), "mountain_photo");
         assert_eq!(display_title("   "), "Custom ASCII");
     }
@@ -1249,6 +1353,39 @@ mod tests {
                 .any(|cmd| matches!(cmd, egui::OutputCommand::CopyText(t) if !t.is_empty())),
             "Cmd/Ctrl+C should copy non-empty ASCII text"
         );
+
+        // Simulate ] (next Inspire) and Z (1:1 zoom toggle) shortcuts.
+        let prev_idx = st.inspire_idx;
+        let key_press = |k: Key| egui::Event::Key {
+            key: k,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        };
+        let nav_input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(1220.0, 780.0))),
+            events: vec![key_press(Key::CloseBracket), key_press(Key::Z)],
+            ..Default::default()
+        };
+        let mut out = ctx.run_ui(nav_input, |ui| {
+            let mut model = Model {
+                settings: &mut settings,
+                status: &status,
+                library: &[],
+                library_dir: Path::new("."),
+                uses: &uses,
+                timeline: &mut timeline,
+                archive: &[],
+                archive_dir: Path::new("."),
+                current_entry: None,
+            };
+            show(ui, Theme::Dark, &mut st, &mut model, &mut actions);
+        });
+        out.textures_delta.clear();
+        assert_eq!(st.inspire_idx, (prev_idx + 1) % INSPIRE_COUNT);
+        assert!(st.zoom_1to1);
+
         drop(st);
         ctx.tex_manager().write().take_delta().clear();
     }

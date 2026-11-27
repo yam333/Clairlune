@@ -230,7 +230,7 @@ pub(crate) fn now_showing(
         }
     };
     let facts = match status.theme {
-        Some(th) => format!("{} \u{b7} {next}", th.as_str()),
+        Some(th) => format!("{}, {next}", th.as_str()),
         None => next,
     };
     let gal = p.layout_job(one_line(
@@ -247,9 +247,9 @@ pub(crate) fn now_showing(
         let at = Rect::from_min_size(pos2(pic.min.x, y + 45.0), vec2(pic.width(), 22.0));
         seed_box(ui, theme, at, seed, &mut st.page);
     }
-    if let Some(note) = &status.note {
+    if status.note.is_some() {
         ui.add_space(space::S2);
-        ui.label(RichText::new(note).small().color(c(t.text_secondary)));
+        status_note(ui, theme, status, actions, true);
     }
 }
 

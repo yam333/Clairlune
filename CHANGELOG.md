@@ -8,6 +8,18 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-27
+
+### Added
+
+- **Image to ASCII Inspire gallery:** expanded **Inspire** from 4 to 12 built-in showcase scenes — adding a hanging paper lantern (when Clawd is off), 3D firelit Clawd camp scene, tilted spiral galaxy, ringed gas giant with Cassini division, coastal lighthouse with sweeping searchlight, floating Torii gate before a harvest moon, curling great wave with distant snow peak, bioluminescent jellyfish, boreal aurora over silhouetted spruce pines, and a faceted origami crane cutout.
+- **Tactile desktop polish:** double-clicking any studio slider resets it to its default, clicking the ASCII preview canvas (or pressing `Z`) toggles 1:1 pixel zoom, `[` and `]` step backward and forward through **Inspire** scenes, saved PNG/GIF/text/diagnostics confirmations offer an inline **Show in folder** link that highlights the file in Explorer or Finder, Library and Archive grids support arrow-key + `Enter` navigation and pixel-art Clawd empty states, `Cmd+W` / `Ctrl+W` closes windows, and window sizes and positions are remembered across openings.
+
+### Changed
+
+- **UI craft & hierarchy:** reorganized the **Image to ASCII** inspector into three calm sentence-case groups (`Grid`, `Tone`, `Look`) with a corner dimensions readout instead of repetitive uppercase headers and helper captions, animated the selection pill in segmented controls while respecting OS reduced-motion preferences, added subtle active-press feedback on buttons, and demoted secondary bar actions (`Copy seed`, `Pin`, `Delete`, `Copy text`, `Save .txt`) to quiet borderless buttons.
+- **Settings navigation, General, and About:** folded the single-toggle **Clawd** sidebar tab into the top of **Content**, grouped **General** into clear startup/update, **Troubleshooting**, and **Reset & quit** sections (hiding empty permissions and demoting **Report on GitHub** from primary accent to a standard button), and added update checks plus **Source on GitHub** and **Release notes** links to **About**.
+
 ## [0.35.1] - 2026-11-27
 
 ### Fixed
@@ -743,7 +755,11 @@ earlier versions always look the same as before. The downloads are on the
 - The same calm pace at every smoothness; Direct3D 11 live wallpapers on
   Windows that copy only what changed; windows give their memory back.
 
-[Unreleased]: https://github.com/yam333/Clairlune/compare/v0.33.2...HEAD
+[Unreleased]: https://github.com/yam333/Clairlune/compare/v0.36.0...HEAD
+[0.36.0]: https://github.com/yam333/Clairlune/releases/tag/v0.36.0
+[0.35.1]: https://github.com/yam333/Clairlune/releases/tag/v0.35.1
+[0.35.0]: https://github.com/yam333/Clairlune/releases/tag/v0.35.0
+[0.34.0]: https://github.com/yam333/Clairlune/releases/tag/v0.34.0
 [0.33.2]: https://github.com/yam333/Clairlune/releases/tag/v0.33.2
 [0.33.1]: https://github.com/yam333/Clairlune/releases/tag/v0.33.1
 [0.33.0]: https://github.com/yam333/Clairlune/releases/tag/v0.33.0

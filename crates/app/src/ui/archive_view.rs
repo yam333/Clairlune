@@ -3,7 +3,9 @@
 //! selection. Thumbnails are the content; there are no per-tile buttons.
 
 use super::style::{self, c, colors};
-use super::view::{Status, UiAction, empty_page, hairline, primary_button};
+use super::view::{
+    Status, UiAction, empty_page, hairline, primary_button, quiet_button, status_note,
+};
 use crate::archive::Entry;
 use crate::tokens::{radius, size, space};
 use clairlune_scene::Theme;
@@ -36,6 +38,7 @@ pub struct ArchiveModel<'a> {
     pub current: Option<&'a str>,
     pub keep_days: u32,
     pub max_mb: u64,
+    pub buddy: bool,
     pub status: &'a Status,
 }
 
@@ -160,7 +163,7 @@ pub fn show(
                     };
                     ui.label(
                         RichText::new(format!(
-                            "{keep} \u{b7} {} of {}",
+                            "{keep}, {} of {}",
                             megabytes(used as f64 / (1024.0 * 1024.0)),
                             megabytes(m.max_mb as f64)
                         ))
@@ -187,6 +190,7 @@ pub fn show(
                 empty_page(
                     ui,
                     theme,
+                    m.buddy,
                     "Nothing archived yet",
                     "Every wallpaper the app sets is kept here for a while.",
                 );
@@ -202,10 +206,52 @@ pub fn show(
                 empty_page(
                     ui,
                     theme,
+                    m.buddy,
                     "No matching wallpapers",
                     "Try another search or clear the filter.",
                 );
                 return;
+            }
+            let grid_cols = ((ui.available_width() + space::S5) / (THUMB_W + space::S5))
+                .floor()
+                .max(1.0) as usize;
+            let mut scroll_to_sel = false;
+            if !ui.ctx().text_edit_focused() {
+                let step = ui.input(|i| {
+                    if i.key_pressed(egui::Key::ArrowRight) {
+                        Some(1isize)
+                    } else if i.key_pressed(egui::Key::ArrowLeft) {
+                        Some(-1)
+                    } else if i.key_pressed(egui::Key::ArrowDown) {
+                        Some(grid_cols as isize)
+                    } else if i.key_pressed(egui::Key::ArrowUp) {
+                        Some(-(grid_cols as isize))
+                    } else {
+                        None
+                    }
+                });
+                if let Some(delta) = step {
+                    let cur = st
+                        .selected
+                        .as_deref()
+                        .and_then(|n| newest_first.iter().position(|e| e.name == n));
+                    let next_idx = match cur {
+                        Some(idx) => (idx as isize + delta)
+                            .clamp(0, newest_first.len() as isize - 1)
+                            as usize,
+                        None if delta >= 0 => 0,
+                        None => newest_first.len() - 1,
+                    };
+                    st.select(&newest_first[next_idx].name);
+                    scroll_to_sel = true;
+                } else if !st.confirm_delete
+                    && !m.status.busy
+                    && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                    && let Some(sel) = &st.selected
+                    && newest_first.iter().any(|e| &e.name == sel)
+                {
+                    actions.push(UiAction::ApplyArchive(sel.clone()));
+                }
             }
             let today = jiff::ZonedDateTime::now().date();
             egui::ScrollArea::vertical().show(ui, |ui| {
@@ -222,7 +268,7 @@ pub fn show(
                     ui.horizontal_wrapped(|ui| {
                         ui.spacing_mut().item_spacing = vec2(space::S5, space::S5);
                         for e in &newest_first[i..j] {
-                            tile(ui, theme, st, m, e, actions);
+                            tile(ui, theme, st, m, e, scroll_to_sel, actions);
                         }
                     });
                     ui.add_space(space::S5);
@@ -240,6 +286,7 @@ fn tile(
     st: &mut ArchiveState,
     m: &ArchiveModel,
     e: &Entry,
+    scroll_to_sel: bool,
     actions: &mut Vec<UiAction>,
 ) {
     let t = colors(theme);
@@ -249,6 +296,9 @@ fn tile(
         ui.set_width(THUMB_W);
         ui.spacing_mut().item_spacing = vec2(space::S2, space::S1);
         let (rect, resp) = ui.allocate_exact_size(vec2(THUMB_W, h), Sense::click());
+        if selected && scroll_to_sel {
+            resp.scroll_to_me(Some(Align::Center));
+        }
         resp.widget_info(|| {
             egui::WidgetInfo::selected(egui::Role::Button, true, selected, describe(e))
         });
@@ -341,16 +391,6 @@ fn action_bar(
     ui.add_space(space::S3);
     ui.horizontal(|ui| {
         if !st.confirm_delete {
-            if ui
-                .button(if e.pinned { "Unpin" } else { "Pin" })
-                .on_hover_text("Pinned wallpapers are kept however old they get.")
-                .clicked()
-            {
-                actions.push(UiAction::PinArchive {
-                    name: e.name.clone(),
-                    pinned: !e.pinned,
-                });
-            }
             if ui.button("Save to library").clicked() {
                 actions.push(UiAction::SaveArchiveToLibrary(e.name.clone()));
             }
@@ -369,7 +409,16 @@ fn action_bar(
                     gif: true,
                 });
             }
-            if !is_photo && ui.button("Copy seed").clicked() {
+            if quiet_button(ui, theme, if e.pinned { "Unpin" } else { "Pin" })
+                .on_hover_text("Pinned wallpapers are kept however old they get.")
+                .clicked()
+            {
+                actions.push(UiAction::PinArchive {
+                    name: e.name.clone(),
+                    pinned: !e.pinned,
+                });
+            }
+            if !is_photo && quiet_button(ui, theme, "Copy seed").clicked() {
                 ui.ctx().copy_text(e.seed.to_string());
             }
         }
@@ -383,17 +432,17 @@ fn action_bar(
                     actions.push(UiAction::DeleteArchive(e.name.clone()));
                     st.confirm_delete = false;
                 }
-                if ui.button("Keep").clicked() {
+                if quiet_button(ui, theme, "Keep").clicked() {
                     st.confirm_delete = false;
                 }
-            } else if ui.button("Delete").clicked() {
+            } else if quiet_button(ui, theme, "Delete").clicked() {
                 st.confirm_delete = true;
             }
         });
     });
-    if let Some(note) = &m.status.note {
+    if m.status.note.is_some() {
         ui.add_space(space::S2);
-        ui.label(RichText::new(note).color(c(t.text_secondary)));
+        status_note(ui, theme, m.status, actions, false);
     }
 }
 
