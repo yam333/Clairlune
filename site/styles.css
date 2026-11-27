@@ -204,6 +204,7 @@ html {
   font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.5;
+  scroll-padding-block-start: 4.5rem;
   background-color: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -218,7 +219,23 @@ body {
   background-color: var(--bg);
   color: var(--text);
   position: relative;
-  overflow-x: clip;
+  overflow-wrap: break-word;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+p,
+li,
+dd {
+  text-wrap: pretty;
+}
+
+:where(p a, li a, dd a, td a, p code, li code, dd code, td code) {
+  overflow-wrap: anywhere;
 }
 
 /* Subtle analog grain from tokens.rs Glass::grain — never blocks clicks */
@@ -495,8 +512,10 @@ pre,
   .btn-primary,
   .primary-nav a,
   [role="tab"],
-  .scene-chip {
-    min-block-size: 40px;
+  .scene-chip,
+  .switch-label,
+  .workbench-controls select {
+    min-block-size: 44px;
   }
 }
 
@@ -523,6 +542,7 @@ pre,
 }
 
 .hero-pitch {
+  min-inline-size: 0;
   padding: 40px 32px 40px 28px;
   border-inline-end: 1px solid var(--hairline);
   display: flex;
@@ -543,7 +563,7 @@ pre,
 .hero-title {
   font-family: var(--font-serif);
   font-weight: 400;
-  font-size: clamp(2.6rem, 4.3vw, 4rem);
+  font-size: clamp(2.35rem, 1.6rem + 2.8vw, 4rem);
   line-height: 1.04;
   letter-spacing: -0.015em;
   margin: 0 0 18px;
@@ -565,6 +585,7 @@ pre,
 
 /* Accessible OS Install Tabs (modern-web-guidance `tabs`) */
 .install-box {
+  min-inline-size: 0;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-panel);
   background: var(--bg-raised);
@@ -592,6 +613,9 @@ pre,
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .install-tablist [role="tab"]:hover {
@@ -612,13 +636,17 @@ pre,
 /* Stack panels in one grid cell; style child wrapper so hidden="until-found" leaves zero box */
 .install-panels {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-inline-size: 0;
 }
 
 .install-panels > [role="tabpanel"] {
   grid-area: 1 / 1;
+  min-inline-size: 0;
 }
 
 .tabpanel-inner {
+  min-inline-size: 0;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -633,6 +661,7 @@ pre,
 }
 
 .cmd-row {
+  min-inline-size: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -653,11 +682,12 @@ pre,
 
 .cmd-row pre {
   margin: 0;
+  min-inline-size: 0;
   overflow-x: auto;
   font-size: 0.78rem;
   line-height: 1.45;
   color: #ECE6D8;
-  flex: 1;
+  flex: 1 1 0;
 }
 
 .cmd-row .copy-btn {
@@ -686,6 +716,7 @@ pre,
 
 /* Hero Right Column: Desktop Stage */
 .hero-stage {
+  min-inline-size: 0;
   padding: 28px;
   background: var(--bg-sidebar);
   display: flex;
@@ -695,6 +726,7 @@ pre,
 }
 
 .monitor-bezel {
+  min-inline-size: 0;
   border-radius: var(--radius-panel);
   border: 1px solid var(--hairline);
   background: #0D0F14;
@@ -706,6 +738,7 @@ pre,
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 6px 12px;
   background: #14171F;
   border-block-end: 1px solid #252831;
@@ -715,7 +748,15 @@ pre,
   user-select: none;
 }
 
+#menubar-scene {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .menubar-right {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -873,6 +914,7 @@ pre,
 }
 
 .seed-readout {
+  min-inline-size: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -884,6 +926,8 @@ pre,
 }
 
 .seed-readout code {
+  flex: 1 1 0;
+  min-inline-size: 0;
   color: var(--text);
   overflow-x: auto;
   white-space: nowrap;
@@ -897,6 +941,7 @@ pre,
 }
 
 .spec-cell {
+  min-inline-size: 0;
   padding: 28px 24px;
   border-inline-end: 1px solid var(--hairline);
 }
@@ -936,6 +981,7 @@ pre,
 }
 
 .panel-pad {
+  min-inline-size: 0;
   padding: 36px 28px;
 }
 
@@ -1076,6 +1122,7 @@ pre,
 
 /* Band 04: Interactive Image-to-ASCII Studio + Daily Instruments */
 .ascii-workbench {
+  min-inline-size: 0;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-panel);
   background: var(--bg-raised);
@@ -1136,6 +1183,7 @@ pre,
 }
 
 .ascii-stage {
+  min-inline-size: 0;
   background: #101217;
   color: #ECE6D8;
   color-scheme: dark;
@@ -1146,6 +1194,7 @@ pre,
 
 .ascii-stage pre {
   margin: 0;
+  min-inline-size: 0;
   font-family: var(--font-mono);
   font-size: 7.5px;
   line-height: 1.08;
@@ -1153,10 +1202,13 @@ pre,
   overflow-x: auto;
   white-space: pre;
   color: #ECE6D8;
-  min-height: 230px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  min-block-size: 210px;
+  text-align: center;
+}
+
+.ascii-stage pre code {
+  display: inline-block;
+  text-align: left;
 }
 
 .ascii-meta {
@@ -1255,6 +1307,7 @@ pre,
 
 /* Band 05: CLI & Workspace Crates */
 .terminal-card {
+  min-inline-size: 0;
   border-radius: var(--radius-panel);
   border: 1px solid #2A2C31;
   background: #0F1116;
@@ -1301,6 +1354,12 @@ pre,
   color: #F0A27B;
 }
 
+.table-scroll {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+
 .crate-table {
   width: 100%;
   border-collapse: collapse;
@@ -1342,6 +1401,11 @@ pre,
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   padding: 36px 28px;
   gap: 32px;
+}
+
+.maker-block,
+.colophon {
+  min-inline-size: 0;
 }
 
 .maker-block p {
@@ -1453,11 +1517,19 @@ pre,
 }
 
 /* Responsive Breakpoints */
+@media (max-width: 1260px) {
+  .frame,
+  .header-inner,
+  .site-footer {
+    border-inline: 0;
+  }
+}
+
 @media (max-width: 1024px) {
   .hero-grid,
   .split-asymmetric,
   .site-footer {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .hero-pitch {
@@ -1493,24 +1565,171 @@ pre,
     padding: 10px 16px;
   }
 
+  .section-kicker {
+    padding: 10px 16px;
+    justify-content: center;
+    text-align: center;
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .section-kicker span:nth-child(2) {
+    display: none;
+  }
+
   .hero-pitch,
   .hero-stage,
   .panel-pad,
   .site-footer {
-    padding: 24px 16px;
+    padding: 26px 16px;
+  }
+
+  .hero-pitch > div:first-child {
+    text-align: center;
+  }
+
+  .hero-lead {
+    margin-inline: auto;
+  }
+
+  .install-tablist {
+    padding-inline: 4px;
+  }
+
+  .install-tablist [role="tab"] {
+    flex: 1 1 0;
+    padding-inline: 8px;
+    text-align: center;
+  }
+
+  .install-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .install-note {
+    text-align: center;
+  }
+
+  .moonglass-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .scene-Strip {
+    justify-content: center;
+    flex-wrap: wrap;
+    flex-wrap: balance;
+  }
+
+  .stage-toggles {
+    justify-content: space-between;
+    border-block-start: 1px solid var(--hairline);
+    padding-block-start: 8px;
   }
 
   .spec-ledger,
   .swatch-list {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .spec-cell {
     border-inline-end: 0;
     border-block-end: 1px solid var(--hairline);
+    text-align: center;
+    padding: 24px 18px;
+  }
+
+  .spec-cell p {
+    max-width: 44ch;
+    margin-inline: auto;
   }
 
   .spec-cell:last-child {
     border-block-end: 0;
+  }
+
+  .section-heading {
+    font-size: 1.9rem;
+    text-align: center;
+  }
+
+  .section-sub {
+    text-align: center;
+    margin-inline: auto;
+  }
+
+  .sub-kicker,
+  .crate-table caption {
+    text-align: center;
+  }
+
+  .transcript-disclosure {
+    text-align: center;
+  }
+
+  .transcript-disclosure p {
+    text-align: left;
+  }
+
+  .workbench-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .workbench-controls {
+    justify-content: center;
+  }
+
+  .ascii-stage {
+    padding: 12px 10px;
+  }
+
+  .ascii-stage pre {
+    font-size: 6.5px;
+    min-block-size: 170px;
+  }
+
+  .ascii-meta {
+    justify-content: center;
+    text-align: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ascii-meta span:nth-child(2) {
+    display: none;
+  }
+
+  .instrument-list {
+    text-align: center;
+  }
+
+  .instrument-list dd {
+    max-width: 46ch;
+    margin-inline: auto;
+  }
+
+  .maker-block {
+    text-align: center;
+  }
+
+  .footer-links {
+    justify-content: center;
+    flex-wrap: wrap;
+    flex-wrap: balance;
+    gap: 14px 18px;
+  }
+
+  .colophon-legal {
+    text-align: center;
+    max-width: 48ch;
+    margin-inline: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .version-tag {
+    display: none;
   }
 }

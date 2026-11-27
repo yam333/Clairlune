@@ -548,6 +548,9 @@
     });
   }
 
+  if (widthRange && window.innerWidth <= 640) {
+    widthRange.value = '60';
+  }
   renderAsciiWorkbench();
 
   // --- 5. Evergreen Latest-Release Sync (low priority, graceful fallback) ---
