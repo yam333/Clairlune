@@ -8,6 +8,40 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-27
+
+### Added
+
+- **Four landscapes:** a fjord framed by glacier-carved cliffs with a cascade and
+  boathouse; a stone railway viaduct over a wooded valley with a crossing train;
+  a hillside shrine of stone steps, gates and glowing lanterns among cedars; and
+  a glasshouse conservatory of palms and ferns under vaulted iron and glass. 37
+  in all.
+- **Two activities for Clawd:** napping by a log (`nap`) and writing in a
+  notebook by a lantern (`journal`), day and night. 40 in all.
+- **Three palettes** (Content > Colours): Everforest, Kanagawa and Dracula, each
+  with a light and a dark version.
+- **Two letter sets** (Content > Letters): geometric shapes (`shapes`) and
+  hexadecimal digits (`hex`).
+- **Pause changes / Resume changes** right in the tray (menu-bar) menu.
+- **Library and Archive upgrades:** search by scene, name, tag or seed, clickable
+  tag filter pills in the Library, double-click any thumbnail to apply it right
+  away, and **Copy PNG** / **Copy seed** to the clipboard (plus **Copy** beside
+  **Save current as PNG** in Settings > Export).
+
+### Changed
+
+- With the new landscapes and activities in the mix, a seed may now make a
+  different scene than before. Saved wallpapers (the archive, the library) look
+  as they did.
+
+### Fixed
+
+- In the tray menu, **New wallpaper on** now stays directly under **New
+  wallpaper** even when an update notice is shown at the top, and the Settings
+  sidebar now shows the active Live/Still state from Library or Timeline choices
+  and `next: paused` whenever automatic changes are paused.
+
 ## [0.33.2] - 2026-11-27
 
 ### Added

@@ -13,6 +13,7 @@ use std::path::Path;
 #[derive(Default)]
 pub struct ArchiveState {
     selected: Option<String>,
+    query: String,
     confirm_delete: bool,
     thumbs: super::Thumbs,
 }
@@ -59,6 +60,17 @@ fn describe(e: &Entry) -> String {
         Some(a) => format!("{} in {place}", a.replace('_', " ")),
         None => place,
     }
+}
+
+fn matches_archive_filter(e: &Entry, query: &str) -> bool {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() {
+        return true;
+    }
+    describe(e).to_lowercase().contains(&q)
+        || e.theme.to_lowercase().contains(&q)
+        || e.seed.to_string().contains(&q)
+        || (q == "pinned" && e.pinned)
 }
 
 fn local(e: &Entry) -> Option<jiff::ZonedDateTime> {
@@ -147,6 +159,17 @@ pub fn show(
                         .font(style::mono())
                         .color(c(t.text_secondary)),
                     );
+                    if !m.entries.is_empty() {
+                        ui.add_space(space::S3);
+                        if !st.query.trim().is_empty() && ui.button("Clear").clicked() {
+                            st.query.clear();
+                        }
+                        ui.add(
+                            egui::TextEdit::singleline(&mut st.query)
+                                .desired_width(180.0)
+                                .hint_text("Search scene or seed"),
+                        );
+                    }
                 });
             });
             ui.add_space(space::S2);
@@ -161,10 +184,23 @@ pub fn show(
                 );
                 return;
             }
+            let newest_first: Vec<&Entry> = m
+                .entries
+                .iter()
+                .rev()
+                .filter(|e| matches_archive_filter(e, &st.query))
+                .collect();
+            if newest_first.is_empty() {
+                empty_page(
+                    ui,
+                    theme,
+                    "No matching wallpapers",
+                    "Try another search or clear the filter.",
+                );
+                return;
+            }
             let today = jiff::ZonedDateTime::now().date();
             egui::ScrollArea::vertical().show(ui, |ui| {
-                let mut newest_first: Vec<&Entry> = m.entries.iter().collect();
-                newest_first.reverse();
                 let mut i = 0;
                 while i < newest_first.len() {
                     let label = day_label(newest_first[i], Some(today));
@@ -178,7 +214,7 @@ pub fn show(
                     ui.horizontal_wrapped(|ui| {
                         ui.spacing_mut().item_spacing = vec2(space::S5, space::S5);
                         for e in &newest_first[i..j] {
-                            tile(ui, theme, st, m, e);
+                            tile(ui, theme, st, m, e, actions);
                         }
                     });
                     ui.add_space(space::S5);
@@ -188,8 +224,16 @@ pub fn show(
         });
 }
 
-/// One thumbnail with its time and scene under it; click to select.
-fn tile(ui: &mut Ui, theme: Theme, st: &mut ArchiveState, m: &ArchiveModel, e: &Entry) {
+/// One thumbnail with its time and scene under it; click to select, double-click
+/// to apply.
+fn tile(
+    ui: &mut Ui,
+    theme: Theme,
+    st: &mut ArchiveState,
+    m: &ArchiveModel,
+    e: &Entry,
+    actions: &mut Vec<UiAction>,
+) {
     let t = colors(theme);
     let h = THUMB_W * 9.0 / 16.0;
     let selected = st.selected.as_deref() == Some(e.name.as_str());
@@ -230,9 +274,11 @@ fn tile(ui: &mut Ui, theme: Theme, st: &mut ArchiveState, m: &ArchiveModel, e: &
                 egui::StrokeKind::Outside,
             );
         }
-        if resp.clicked() {
-            st.selected = Some(e.name.clone());
-            st.confirm_delete = false;
+        if resp.double_clicked() && !m.status.busy {
+            st.select(&e.name);
+            actions.push(UiAction::ApplyArchive(e.name.clone()));
+        } else if resp.clicked() {
+            st.select(&e.name);
         }
         ui.add_space(space::S1);
         ui.label(
@@ -283,30 +329,38 @@ fn action_bar(
     });
     ui.add_space(space::S3);
     ui.horizontal(|ui| {
-        if ui
-            .button(if e.pinned { "Unpin" } else { "Pin" })
-            .on_hover_text("Pinned wallpapers are kept however old they get.")
-            .clicked()
-        {
-            actions.push(UiAction::PinArchive {
-                name: e.name.clone(),
-                pinned: !e.pinned,
-            });
-        }
-        if ui.button("Save to library").clicked() {
-            actions.push(UiAction::SaveArchiveToLibrary(e.name.clone()));
-        }
-        if ui.button("Save PNG").clicked() {
-            actions.push(UiAction::ExportArchive {
-                name: e.name.clone(),
-                gif: false,
-            });
-        }
-        if ui.button("Save GIF").clicked() {
-            actions.push(UiAction::ExportArchive {
-                name: e.name.clone(),
-                gif: true,
-            });
+        if !st.confirm_delete {
+            if ui
+                .button(if e.pinned { "Unpin" } else { "Pin" })
+                .on_hover_text("Pinned wallpapers are kept however old they get.")
+                .clicked()
+            {
+                actions.push(UiAction::PinArchive {
+                    name: e.name.clone(),
+                    pinned: !e.pinned,
+                });
+            }
+            if ui.button("Save to library").clicked() {
+                actions.push(UiAction::SaveArchiveToLibrary(e.name.clone()));
+            }
+            if ui.button("Save PNG").clicked() {
+                actions.push(UiAction::ExportArchive {
+                    name: e.name.clone(),
+                    gif: false,
+                });
+            }
+            if ui.button("Copy PNG").clicked() {
+                actions.push(UiAction::CopyArchivePng(e.name.clone()));
+            }
+            if ui.button("Save GIF").clicked() {
+                actions.push(UiAction::ExportArchive {
+                    name: e.name.clone(),
+                    gif: true,
+                });
+            }
+            if ui.button("Copy seed").clicked() {
+                ui.ctx().copy_text(e.seed.to_string());
+            }
         }
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             if st.confirm_delete {
@@ -367,5 +421,19 @@ mod tests {
         assert_eq!(megabytes(214.2), "214 MB");
         assert_eq!(megabytes(1024.0), "1 GB");
         assert_eq!(megabytes(1536.0), "1.5 GB");
+    }
+
+    #[test]
+    fn archive_search_matches_scene_seed_theme_and_pinned() {
+        let mut e = entry(1_700_000_000);
+        assert!(matches_archive_filter(&e, ""));
+        assert!(matches_archive_filter(&e, "rooftops"));
+        assert!(matches_archive_filter(&e, "read lantern"));
+        assert!(matches_archive_filter(&e, "dark"));
+        assert!(matches_archive_filter(&e, "7"));
+        assert!(!matches_archive_filter(&e, "pinned"));
+        e.pinned = true;
+        assert!(matches_archive_filter(&e, "pinned"));
+        assert!(!matches_archive_filter(&e, "mountains"));
     }
 }

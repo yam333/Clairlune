@@ -202,6 +202,9 @@ impl App {
                     });
                 }
             }
+            UiAction::CopyArchivePng(name) => {
+                self.copy_png_to_clipboard(ui::Kind::Archive, Some(dir_of(&name)), None);
+            }
             UiAction::DeleteArchive(name) => {
                 let dir = dir_of(&name);
                 if self.current.as_deref() == Some(dir.as_path()) {
@@ -361,6 +364,9 @@ impl App {
                     });
                 }
             }
+            UiAction::CopyLibraryPng(id) => {
+                self.copy_png_to_clipboard(ui::Kind::Library, Some(lib.item_dir(&id)), None);
+            }
             _ => {}
         }
         self.refresh_library();
@@ -505,6 +511,11 @@ impl App {
             None => Vec::new(),
         };
         s.busy = self.busy;
+        s.paused = self.settings.schedule.paused;
+        s.live_active = !self.restored()
+            && self
+                .current_live
+                .unwrap_or(self.settings.display.mode == settings::WallpaperMode::Live);
         s.next_in_minutes = self
             .next_change
             .map(|t| t.saturating_duration_since(Instant::now()).as_secs() / 60);

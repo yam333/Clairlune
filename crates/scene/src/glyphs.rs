@@ -19,7 +19,9 @@ pub const EMPTY: u8 = 0;
 /// or each one swapped for a character of a like shape and weight. The swap
 /// happens when glyphs are rasterized, so everything that draws glyphs
 /// (land, sky, weather, embers) takes the set.
-pub const LETTERS: [&str; 5] = ["text", "braille", "blocks", "lines", "kana"];
+pub const LETTERS: [&str; 7] = [
+    "text", "braille", "blocks", "lines", "kana", "shapes", "hex",
+];
 
 /// The characters glyph ids stand for in a letter set (unknown: `text`).
 pub fn letters(set: &str) -> [char; GLYPHS.len()] {
@@ -28,6 +30,8 @@ pub fn letters(set: &str) -> [char; GLYPHS.len()] {
         "blocks" => BLOCKS,
         "lines" => LINES,
         "kana" => KANA,
+        "shapes" => SHAPES,
+        "hex" => HEX,
         _ => GLYPHS,
     }
 }
@@ -55,6 +59,18 @@ const KANA: [char; GLYPHS.len()] = [
     ' ', 'ャ', 'ー', 'ノ', 'リ', 'ヽ', '・', 'ニ', 'ク', 'シ', 'ミ', 'ロ', 'メ', 'モ', 'ヰ', 'ヌ',
     'ム', 'ヲ', 'ナ', 'ヘ', 'ン', 'ッ', 'ュ', 'キ', 'シ', 'ハ', 'd', 'J', 'ー', 'ソ', 'イ', 'ツ',
     '・', 'ー', 'ニ', 'テ', 'モ', 'ヰ',
+];
+
+/// Shapes: geometric circles, squares, triangles and diamonds by weight.
+const SHAPES: [char; GLYPHS.len()] = [
+    ' ', '◦', '─', '╱', '│', '╲', '·', '≡', '◀', '▶', '•', '○', '×', '◇', '■', '◆', '●', '■', '+',
+    '▲', '≈', '·', '·', '◇', '•', '▫', 'd', 'J', '─', '▼', '│', '●', '·', '◦', '▫', '▪', '●', '■',
+];
+
+/// Hex: hexadecimal digits (`0`..`F`) matched by stroke and density.
+const HEX: [char; GLYPHS.len()] = [
+    ' ', '1', '7', '7', '1', 'A', '0', 'E', 'C', 'D', '1', '0', 'A', '0', 'F', 'B', '8', '8', '4',
+    'A', '2', '1', 'C', 'F', '3', '7', 'D', '9', '5', 'C', '1', '6', '1', '7', 'C', 'E', 'B', '8',
 ];
 
 /// Index of `c` in [`GLYPHS`]. Panics at compile time if it is missing.

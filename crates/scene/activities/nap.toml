@@ -1,0 +1,34 @@
+# Dozing by a log: slow breathing, an occasional stretch and yawn.
+id = "nap"
+weight = 0.85
+
+[requires]
+terrain = ["flat", "ledge", "shore", "indoor"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
+weather = ["none", "leaves", "petals", "fireflies", "fog", "seeds", "butterflies", "stars", "shooting_stars"]
+
+[motion]
+type = "stationary"
+
+[props.log_seat]
+attach = "either_side"
+
+[animation]
+start = "doze"
+
+[animation.states.doze]
+loop = true
+dwell_s = [6, 12]
+next = { yawn = 0.5, peek = 0.5 }
+
+[animation.states.yawn]
+next = { doze = 1.0 }
+
+[animation.states.peek]
+next = { doze = 1.0 }
+
+[gif]
+loop_script = ["doze", "yawn"]
+
+[unattended]
+props = ["log_seat"]

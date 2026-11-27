@@ -115,7 +115,7 @@ for the menu. On the Mac, click it for the menu.
 From the menu you can:
 
 - get a **new wallpaper** (on every monitor, or just one),
-- go back to the **previous** one,
+- go back to the **previous** one, or **pause** and **resume** automatic changes,
 - switch the **theme**, or turn **live** on or off,
 - **save** what's on screen as a PNG, a GIF, or to the library,
 - open **Settings**, and see who made it (**About Clairlune**).
@@ -152,12 +152,14 @@ window.
   belongs to: sea spray, sandstorms, tumbleweed, cinders, sky lanterns,
   fireworks, glowing spores, wisps, bats, spindrift, dragonflies), the look
   (line art or dithered), contrast, the colours (Clairlune's own, or one or
-  more palettes such as Nord, Gruvbox or green phosphor, each with a light and
-  a dark version), the letters the scenes are drawn in (text, braille, blocks,
-  lines or katakana), and zoom (Clawd up close, smaller, or tiny in a huge
-  landscape). With several colours or letter sets on, each wallpaper picks one.
+  more palettes such as Nord, Gruvbox, Everforest, Kanagawa, Dracula or green
+  phosphor, each with a light and a dark version), the letters the scenes are
+  drawn in (text, braille, blocks, lines, katakana, shapes or hex), and zoom
+  (Clawd up close, smaller, or tiny in a huge landscape). With several colours
+  or letter sets on, each wallpaper picks one.
 - **Archive** and **Export:** how long past wallpapers are kept, and where
-  saved PNGs and GIFs go (Choose… opens the system's folder picker). Saved images are signed in a corner, small, in the
+  saved PNGs and GIFs go (Choose… opens the system's folder picker; Copy puts
+  the current PNG straight on the clipboard). Saved images are signed in a corner, small, in the
   scene's own text ("clairlune · by yam333"); Sign saved images turns that
   off. The wallpaper on your desktop is never signed.
 - **General:** start with the computer, the tray icon, Permissions (what to

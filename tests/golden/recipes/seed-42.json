@@ -5,15 +5,13 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "aa1aa1248f4d7a25",
-  "activity": "broom_flight",
-  "archetype": "zen_garden",
-  "light_tod": null,
-  "dark_tod": "night",
-  "platform": "grassy_bank",
-  "props": [
-    "spellbook"
-  ],
+  "content_ctx_hash": "fcbce5ad10fbfd89",
+  "activity": "balloon_journey",
+  "archetype": "mountains",
+  "light_tod": "golden_hour",
+  "dark_tod": null,
+  "platform": "rock_ledge",
+  "props": [],
   "weather": "none",
   "composition": {
     "horizon_pm": 697,
@@ -23,9 +21,10 @@
     "platform_margin_pm": 15,
     "cliff_layers": 3,
     "prop_left": true,
-    "motion_speed_cc": 564,
+    "motion_speed_cc": 0,
     "pace_half_pm": 0,
-    "fly_lift_pm": 232
+    "journey_pace_c": 200,
+    "landmark": "twin_peaks"
   },
   "palette": {
     "light": "sand_day",

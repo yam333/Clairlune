@@ -82,6 +82,8 @@ pub struct UiWindow {
     theme: Theme,
     /// Save the next frame to this PNG (UI review screenshots).
     pub screenshot_to: Option<std::path::PathBuf>,
+    /// Place this image on the system clipboard on the next frame.
+    pending_copy: Option<egui::ColorImage>,
     /// When egui wants its next frame (an animation running), if not now.
     repaint_at: Option<std::time::Instant>,
     /// Hidden behind other windows or on another Space.
@@ -242,6 +244,7 @@ impl UiWindow {
             },
             theme,
             screenshot_to: None,
+            pending_copy: None,
             repaint_at: None,
             occluded: false,
         })
@@ -374,6 +377,12 @@ impl UiWindow {
         self.window.request_redraw();
     }
 
+    /// Copies an RGBA image to the system clipboard on the next UI pass.
+    pub fn copy_image(&mut self, size: [usize; 2], rgba: &[u8]) {
+        self.pending_copy = Some(egui::ColorImage::from_rgba_unmultiplied(size, rgba));
+        self.window.request_redraw();
+    }
+
     /// Handles one window event; paints on redraw and collects the user's actions.
     pub fn on_event(
         &mut self,
@@ -426,24 +435,32 @@ impl UiWindow {
         let library = &mut self.library;
         let timeline = &mut self.timeline;
         let archive = &mut self.archive;
-        let mut full = ctx.run_ui(input, |ui| match kind {
-            Kind::Settings => view::show(ui, theme, view, model.settings, model.status, actions),
-            Kind::Library => library_view::show(ui, theme, library, model, actions),
-            Kind::Timeline => timeline_view::show(ui, theme, timeline, model, actions),
-            Kind::Archive => archive_view::show(
-                ui,
-                theme,
-                archive,
-                &archive_view::ArchiveModel {
-                    entries: model.archive,
-                    dir: model.archive_dir,
-                    current: model.current_entry,
-                    keep_days: model.settings.archive.keep_days,
-                    max_mb: model.settings.archive.max_mb,
-                    status: model.status,
-                },
-                actions,
-            ),
+        let mut pending_copy = self.pending_copy.take();
+        let mut full = ctx.run_ui(input, |ui| {
+            if let Some(img) = pending_copy.take() {
+                ui.ctx().copy_image(img);
+            }
+            match kind {
+                Kind::Settings => {
+                    view::show(ui, theme, view, model.settings, model.status, actions)
+                }
+                Kind::Library => library_view::show(ui, theme, library, model, actions),
+                Kind::Timeline => timeline_view::show(ui, theme, timeline, model, actions),
+                Kind::Archive => archive_view::show(
+                    ui,
+                    theme,
+                    archive,
+                    &archive_view::ArchiveModel {
+                        entries: model.archive,
+                        dir: model.archive_dir,
+                        current: model.current_entry,
+                        keep_days: model.settings.archive.keep_days,
+                        max_mb: model.settings.archive.max_mb,
+                        status: model.status,
+                    },
+                    actions,
+                ),
+            }
         });
         // What the window's own frame asked for (Windows).
         let mut close = false;

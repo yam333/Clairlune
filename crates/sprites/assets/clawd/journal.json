@@ -1,0 +1,467 @@
+{
+ "frames": [
+  {
+   "filename": "write#0",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 550
+  },
+  {
+   "filename": "write#1",
+   "frame": {
+    "x": 24,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 550
+  },
+  {
+   "filename": "ponder#0",
+   "frame": {
+    "x": 48,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 1100
+  },
+  {
+   "filename": "ponder#1",
+   "frame": {
+    "x": 0,
+    "y": 20,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 1100
+  },
+  {
+   "filename": "nod#0",
+   "frame": {
+    "x": 24,
+    "y": 20,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 350
+  },
+  {
+   "filename": "nod#1",
+   "frame": {
+    "x": 48,
+    "y": 20,
+    "w": 24,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 24,
+    "h": 20
+   },
+   "duration": 350
+  }
+ ],
+ "meta": {
+  "image": "journal.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 72,
+   "h": 40
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "write",
+    "from": 0,
+    "to": 1,
+    "direction": "forward",
+    "color": "#000000ff"
+   },
+   {
+    "name": "ponder",
+    "from": 2,
+    "to": 3,
+    "direction": "forward",
+    "color": "#000000ff"
+   },
+   {
+    "name": "nod",
+    "from": 4,
+    "to": 5,
+    "direction": "forward",
+    "color": "#000000ff"
+   }
+  ],
+  "slices": [
+   {
+    "name": "origin",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 5,
+      "bounds": {
+       "x": 11,
+       "y": 19,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "head",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 11,
+       "y": 9,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 11,
+       "y": 9,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 11,
+       "y": 9,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 11,
+       "y": 9,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 11,
+       "y": 8,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 5,
+      "bounds": {
+       "x": 11,
+       "y": 9,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "hand_l",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 7,
+       "y": 17,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 8,
+       "y": 16,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 5,
+       "y": 16,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 5,
+       "y": 16,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 7,
+       "y": 16,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 5,
+      "bounds": {
+       "x": 7,
+       "y": 17,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "hand_r",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 12,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 11,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 11,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 11,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 11,
+       "y": 17,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 5,
+      "bounds": {
+       "x": 11,
+       "y": 18,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "item_tip",
+    "keys": [
+     {
+      "frame": 0,
+      "bounds": {
+       "x": 12,
+       "y": 15,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 1,
+      "bounds": {
+       "x": 11,
+       "y": 15,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 2,
+      "bounds": {
+       "x": 11,
+       "y": 15,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 3,
+      "bounds": {
+       "x": 11,
+       "y": 15,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 4,
+      "bounds": {
+       "x": 11,
+       "y": 14,
+       "w": 1,
+       "h": 1
+      }
+     },
+     {
+      "frame": 5,
+      "bounds": {
+       "x": 11,
+       "y": 15,
+       "w": 1,
+       "h": 1
+      }
+     }
+    ]
+   }
+  ],
+  "source": "assets/clawd/src/journal.aseprite",
+  "source_sha256": "8791489618dbedd416bd77d296298ad962c25be7f216e8e1928964432a1880a3"
+ }
+}

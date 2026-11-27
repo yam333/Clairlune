@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "aa1aa1248f4d7a25",
-  "activity": "warm_hands",
-  "archetype": "forest",
+  "content_ctx_hash": "fcbce5ad10fbfd89",
+  "activity": "make_coffee",
+  "archetype": "windmills",
   "light_tod": "noon",
   "dark_tod": "dusk",
-  "platform": "log",
+  "platform": "grassy_bank",
   "props": [
-    "campfire"
+    "camp_stove"
   ],
-  "weather": "none",
+  "weather": "dragonflies",
   "composition": {
     "horizon_pm": 587,
     "focus_x_pm": 355,

@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "aa1aa1248f4d7a25",
-  "activity": "dance",
-  "archetype": "meadow",
-  "light_tod": "golden_hour",
-  "dark_tod": "night",
-  "platform": "grassy_knoll",
+  "content_ctx_hash": "fcbce5ad10fbfd89",
+  "activity": "gardening",
+  "archetype": "viaduct",
+  "light_tod": "noon",
+  "dark_tod": null,
+  "platform": "grassy_bank",
   "props": [
-    "lantern"
+    "flower_pots"
   ],
-  "weather": "stars",
+  "weather": "birds",
   "composition": {
     "horizon_pm": 638,
     "focus_x_pm": 500,

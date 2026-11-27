@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "aa1aa1248f4d7a25",
-  "activity": "gardening",
-  "archetype": "meadow",
+  "content_ctx_hash": "fcbce5ad10fbfd89",
+  "activity": "warm_hands",
+  "archetype": "standing_stones",
   "light_tod": "noon",
-  "dark_tod": null,
-  "platform": "grassy_knoll",
+  "dark_tod": "deep_dusk",
+  "platform": "grassy_bank",
   "props": [
-    "flower_pots"
+    "campfire"
   ],
-  "weather": "petals",
+  "weather": "none",
   "composition": {
     "horizon_pm": 571,
     "focus_x_pm": 505,

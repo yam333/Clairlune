@@ -157,12 +157,12 @@ struct GenerateArgs {
     #[arg(long, conflicts_with = "recipe")]
     contrast: Option<String>,
     /// Force a palette: `classic` (the default), `nord`, `gruvbox`,
-    /// `catppuccin`, `solarized`, `rose_pine`, `tokyo_night`, `phosphor` or
-    /// `amber`.
+    /// `catppuccin`, `solarized`, `rose_pine`, `tokyo_night`, `phosphor`,
+    /// `amber`, `everforest`, `kanagawa` or `dracula`.
     #[arg(long, conflicts_with = "recipe")]
     palette: Option<String>,
     /// Force a letter set: `text` (the default), `braille`, `blocks`,
-    /// `lines` or `kana`.
+    /// `lines`, `kana`, `shapes` or `hex`.
     #[arg(long, conflicts_with = "recipe")]
     letters: Option<String>,
     /// Render without the character (the unattended variant).

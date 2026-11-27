@@ -145,6 +145,10 @@ pub struct Status {
     pub theme: Option<Theme>,
     /// Minutes until the next scheduled change.
     pub next_in_minutes: Option<u64>,
+    /// Automatic wallpaper changes are paused.
+    pub paused: bool,
+    /// The wallpaper on screen is playing live (settings or item/slot choice).
+    pub live_active: bool,
     pub busy: bool,
     /// Registered to start at login; `None` where this build can't manage it.
     pub start_at_login: Option<bool>,
@@ -213,6 +217,7 @@ pub enum UiAction {
     ExportDiagnostics,
     SetDetailedLogging(bool),
     SavePng,
+    CopyPng,
     SaveGif,
     SetStartAtLogin(bool),
     /// The first-run question's answer: start quietly at sign-in or not.
@@ -243,6 +248,7 @@ pub enum UiAction {
         name: String,
         gif: bool,
     },
+    CopyArchivePng(String),
     DeleteArchive(String),
     /// The Timeline window changed the timeline (already in the model).
     TimelineChanged,
@@ -257,6 +263,7 @@ pub enum UiAction {
         id: String,
         gif: bool,
     },
+    CopyLibraryPng(String),
 }
 
 pub struct ViewState {
@@ -770,5 +777,17 @@ mod tests {
         }
         let zooms: Vec<&str> = ZOOMS.iter().map(|(id, _, _)| *id).collect();
         assert_eq!(zooms, clairlune_scene::ZOOMS);
+        let palettes: Vec<&str> = PALETTES.iter().map(|(id, _, _)| *id).collect();
+        assert_eq!(palettes, clairlune_scene::palette::PALETTES);
+        let letters: Vec<&str> = LETTERS.iter().map(|(id, _, _)| *id).collect();
+        assert_eq!(letters, clairlune_scene::glyphs::LETTERS);
+        assert_eq!(
+            LANDSCAPES.len(),
+            clairlune_scene::archetype::ARCHETYPE_INFO
+                .iter()
+                .filter(|a| a.implemented)
+                .count(),
+            "a new landscape needs a label"
+        );
     }
 }

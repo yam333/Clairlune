@@ -67,7 +67,7 @@ pub const ANCHORS: [&str; 6] = ["origin", "feet", "head", "hand_l", "hand_r", "i
 pub const ATTACH: [&str; 4] = ["path", "left_of_clawd", "right_of_clawd", "either_side"];
 
 /// Embedded activity files, sorted by file name.
-const SOURCES: [(&str, &str); 38] = [
+const SOURCES: [(&str, &str); 40] = [
     (
         "balloon_journey.toml",
         include_str!("../activities/balloon_journey.toml"),
@@ -117,11 +117,13 @@ const SOURCES: [(&str, &str); 38] = [
         "hot_cocoa.toml",
         include_str!("../activities/hot_cocoa.toml"),
     ),
+    ("journal.toml", include_str!("../activities/journal.toml")),
     (
         "make_coffee.toml",
         include_str!("../activities/make_coffee.toml"),
     ),
     ("meditate.toml", include_str!("../activities/meditate.toml")),
+    ("nap.toml", include_str!("../activities/nap.toml")),
     (
         "paint_easel.toml",
         include_str!("../activities/paint_easel.toml"),

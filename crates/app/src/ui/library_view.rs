@@ -17,6 +17,8 @@ pub struct LibraryState {
     name_edit: String,
     tags_edit: String,
     tags_for: Option<(String, Vec<String>)>,
+    query: String,
+    tag_filter: Option<String>,
     confirm_delete: bool,
     thumbs: super::Thumbs,
 }
@@ -45,6 +47,39 @@ fn parse_tags(text: &str) -> Vec<String> {
         }
     }
     out
+}
+
+fn all_tags(items: &[Item]) -> Vec<String> {
+    let mut tags: Vec<String> = Vec::new();
+    for item in items {
+        for tag in &item.tags {
+            if !tags.iter().any(|t| t == tag) {
+                tags.push(tag.clone());
+            }
+        }
+    }
+    tags.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()).then(a.cmp(b)));
+    tags
+}
+
+fn matches_library_filter(item: &Item, query: &str, tag_filter: Option<&str>) -> bool {
+    if let Some(tag) = tag_filter
+        && !item.tags.iter().any(|t| t == tag)
+    {
+        return false;
+    }
+    let q = query.trim().to_lowercase();
+    if q.is_empty() {
+        return true;
+    }
+    item.name.to_lowercase().contains(&q)
+        || item.archetype.replace('_', " ").to_lowercase().contains(&q)
+        || item
+            .activity
+            .as_deref()
+            .is_some_and(|a| a.replace('_', " ").to_lowercase().contains(&q))
+        || item.tags.iter().any(|t| t.to_lowercase().contains(&q))
+        || item.seed.to_string().contains(&q)
 }
 
 const THUMB_W: f32 = 192.0;
@@ -91,6 +126,17 @@ pub fn show(
                 action_bar(ui, theme, st, item, used, status, actions)
             });
     }
+    let tags = all_tags(items);
+    if let Some(active) = &st.tag_filter
+        && !tags.iter().any(|t| t == active)
+    {
+        st.tag_filter = None;
+    }
+    let filtering = !st.query.trim().is_empty() || st.tag_filter.is_some();
+    let filtered: Vec<&Item> = items
+        .iter()
+        .filter(|i| matches_library_filter(i, &st.query, st.tag_filter.as_deref()))
+        .collect();
     egui::CentralPanel::default()
         .frame(
             egui::Frame::new()
@@ -101,18 +147,47 @@ pub fn show(
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Library").font(style::title()));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.label(
-                        RichText::new(match items.len() {
+                    let count = if filtering {
+                        format!("{} of {} saved", filtered.len(), items.len())
+                    } else {
+                        match items.len() {
                             1 => "1 saved".to_string(),
                             n => format!("{n} saved"),
-                        })
-                        .font(style::mono())
-                        .color(c(t.text_secondary)),
+                        }
+                    };
+                    ui.label(
+                        RichText::new(count)
+                            .font(style::mono())
+                            .color(c(t.text_secondary)),
                     );
+                    if !items.is_empty() {
+                        ui.add_space(space::S3);
+                        if filtering && ui.button("Clear").clicked() {
+                            st.query.clear();
+                            st.tag_filter = None;
+                        }
+                        ui.add(
+                            egui::TextEdit::singleline(&mut st.query)
+                                .desired_width(200.0)
+                                .hint_text("Search name, tag or seed"),
+                        );
+                    }
                 });
             });
             ui.add_space(space::S2);
             hairline(ui, t.hairline);
+            if !tags.is_empty() {
+                ui.add_space(space::S3);
+                ui.horizontal_wrapped(|ui| {
+                    ui.spacing_mut().item_spacing = vec2(space::S2, space::S2);
+                    for tag in &tags {
+                        let active = st.tag_filter.as_deref() == Some(tag.as_str());
+                        if ui.add(egui::Button::selectable(active, tag)).clicked() {
+                            st.tag_filter = if active { None } else { Some(tag.clone()) };
+                        }
+                    }
+                });
+            }
             ui.add_space(space::S4);
             if items.is_empty() {
                 empty_page(
@@ -123,19 +198,37 @@ pub fn show(
                 );
                 return;
             }
+            if filtered.is_empty() {
+                empty_page(
+                    ui,
+                    theme,
+                    "No matching wallpapers",
+                    "Try another search or clear the filter.",
+                );
+                return;
+            }
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
                     ui.spacing_mut().item_spacing = vec2(space::S5, space::S5);
-                    for item in items {
-                        tile(ui, theme, st, library_dir, item);
+                    for item in filtered {
+                        tile(ui, theme, st, library_dir, item, status.busy, actions);
                     }
                 });
             });
         });
 }
 
-/// One thumbnail with its name and facts under it; click to select.
-fn tile(ui: &mut Ui, theme: Theme, st: &mut LibraryState, dir: &Path, item: &Item) {
+/// One thumbnail with its name and facts under it; click to select, double-click
+/// to apply.
+fn tile(
+    ui: &mut Ui,
+    theme: Theme,
+    st: &mut LibraryState,
+    dir: &Path,
+    item: &Item,
+    busy: bool,
+    actions: &mut Vec<UiAction>,
+) {
     let t = colors(theme);
     let h = THUMB_W * 9.0 / 16.0;
     let selected = st.selected.as_deref() == Some(item.id.as_str());
@@ -177,7 +270,10 @@ fn tile(ui: &mut Ui, theme: Theme, st: &mut LibraryState, dir: &Path, item: &Ite
                 egui::StrokeKind::Outside,
             );
         }
-        if resp.clicked() {
+        if resp.double_clicked() && !busy {
+            st.select(item);
+            actions.push(UiAction::ApplyLibrary(item.id.clone()));
+        } else if resp.clicked() {
             st.select(item);
         }
         ui.add_space(space::S1);
@@ -311,17 +407,25 @@ fn action_bar(
     });
     ui.add_space(space::S3);
     ui.horizontal(|ui| {
-        if ui.button("Save PNG").clicked() {
-            actions.push(UiAction::ExportLibrary {
-                id: item.id.clone(),
-                gif: false,
-            });
-        }
-        if ui.button("Save GIF").clicked() {
-            actions.push(UiAction::ExportLibrary {
-                id: item.id.clone(),
-                gif: true,
-            });
+        if !st.confirm_delete {
+            if ui.button("Save PNG").clicked() {
+                actions.push(UiAction::ExportLibrary {
+                    id: item.id.clone(),
+                    gif: false,
+                });
+            }
+            if ui.button("Copy PNG").clicked() {
+                actions.push(UiAction::CopyLibraryPng(item.id.clone()));
+            }
+            if ui.button("Save GIF").clicked() {
+                actions.push(UiAction::ExportLibrary {
+                    id: item.id.clone(),
+                    gif: true,
+                });
+            }
+            if ui.button("Copy seed").clicked() {
+                ui.ctx().copy_text(item.seed.to_string());
+            }
         }
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             if st.confirm_delete {
@@ -387,5 +491,32 @@ mod tests {
             format_tags(&["evening".into(), "calm".into()]),
             "evening, calm"
         );
+    }
+
+    #[test]
+    fn library_search_and_tag_filters_match_name_scene_tags_and_seed() {
+        let item = Item {
+            id: "lib_1".into(),
+            name: "Quiet harbour".into(),
+            created: 1,
+            tags: vec!["evening".into(), "calm".into()],
+            display: DisplayChoice::Follow,
+            theme: ThemeChoice::Follow,
+            buddy: BuddyChoice::Follow,
+            seed: 4242,
+            archetype: "lantern_lake".into(),
+            activity: Some("read_lantern".into()),
+            generator_version: 4,
+        };
+        assert!(matches_library_filter(&item, "", None));
+        assert!(matches_library_filter(&item, "harbour", None));
+        assert!(matches_library_filter(&item, "lantern lake", None));
+        assert!(matches_library_filter(&item, "read lantern", None));
+        assert!(matches_library_filter(&item, "CALM", None));
+        assert!(matches_library_filter(&item, "4242", None));
+        assert!(!matches_library_filter(&item, "snowfield", None));
+        assert!(matches_library_filter(&item, "", Some("evening")));
+        assert!(!matches_library_filter(&item, "", Some("morning")));
+        assert_eq!(all_tags(&[item]), vec!["calm", "evening"]);
     }
 }

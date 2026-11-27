@@ -1,0 +1,36 @@
+# Writing and sketching in a notebook, pausing to take in the view.
+id = "journal"
+weight = 0.9
+
+[requires]
+terrain = ["flat", "ledge", "rooftop", "shore", "indoor"]
+time_of_day = ["morning", "noon", "golden_hour", "dusk", "deep_dusk", "night"]
+weather = ["none", "birds", "butterflies", "petals", "leaves", "fog", "fireflies", "seeds", "stars", "shooting_stars"]
+
+[motion]
+type = "stationary"
+
+[props.lantern]
+attach = "either_side"
+
+[animation]
+start = "write"
+
+[animation.states.write]
+loop = true
+dwell_s = [4, 8]
+next = { ponder = 0.65, nod = 0.35 }
+
+[animation.states.ponder]
+loop = true
+dwell_s = [3, 6]
+next = { write = 1.0 }
+
+[animation.states.nod]
+next = { write = 1.0 }
+
+[gif]
+loop_script = ["write", "nod"]
+
+[unattended]
+props = ["book_closed"]

@@ -14,6 +14,7 @@ pub enum Action {
     /// A new scene on one monitor (its place in the submenu).
     NewWallpaperOn(usize),
     Previous,
+    TogglePause,
     Theme(ThemeMode),
     ToggleLive,
     SavePng,
@@ -36,6 +37,7 @@ pub struct Tray {
     monitors: RefCell<Vec<(MenuItem, String)>>,
     on_monitor_shown: Cell<bool>,
     previous: MenuItem,
+    pause: MenuItem,
     follow: CheckMenuItem,
     light: CheckMenuItem,
     dark: CheckMenuItem,
@@ -71,13 +73,28 @@ fn mark() -> Result<Icon, String> {
         .map_err(|e| e.to_string())
 }
 
+fn pause_label(paused: bool) -> &'static str {
+    if paused {
+        "Resume changes"
+    } else {
+        "Pause changes"
+    }
+}
+
+/// Where "New wallpaper on" sits in the menu: right after "New wallpaper",
+/// shifting by one when the update notice is at the top.
+fn on_monitor_index(update_shown: bool) -> usize {
+    usize::from(update_shown) + 1
+}
+
 impl Tray {
-    pub fn new(mode: ThemeMode, live_on: bool) -> Result<Tray, String> {
+    pub fn new(mode: ThemeMode, live_on: bool, paused: bool) -> Result<Tray, String> {
         // Windows draws the menu the taskbar's way, dark or light.
         clairlune_platform::set_menu_theme(clairlune_platform::taskbar_is_light().map(|l| !l));
         let new = MenuItem::new("New wallpaper", true, None);
         let on_monitor = Submenu::new("New wallpaper on", true);
         let previous = MenuItem::new("Previous wallpaper", true, None);
+        let pause = MenuItem::new(pause_label(paused), true, None);
         let follow =
             CheckMenuItem::new("Follow system", true, mode == ThemeMode::FollowSystem, None);
         let light = CheckMenuItem::new("Light", true, mode == ThemeMode::Light, None);
@@ -104,6 +121,7 @@ impl Tray {
         menu.append_items(&[
             &new,
             &previous,
+            &pause,
             &PredefinedMenuItem::separator(),
             &theme,
             &live,
@@ -134,6 +152,7 @@ impl Tray {
             monitors: RefCell::new(Vec::new()),
             on_monitor_shown: Cell::new(false),
             previous,
+            pause,
             follow,
             light,
             dark,
@@ -154,6 +173,7 @@ impl Tray {
         let pairs = [
             (self.new.id(), Action::NewWallpaper),
             (self.previous.id(), Action::Previous),
+            (self.pause.id(), Action::TogglePause),
             (self.follow.id(), Action::Theme(ThemeMode::FollowSystem)),
             (self.light.id(), Action::Theme(ThemeMode::Light)),
             (self.dark.id(), Action::Theme(ThemeMode::Dark)),
@@ -202,7 +222,9 @@ impl Tray {
             }
         }
         if !self.on_monitor_shown.replace(true) {
-            let _ = self.menu.insert(&self.on_monitor, 1);
+            let _ = self
+                .menu
+                .insert(&self.on_monitor, on_monitor_index(self.update_shown.get()));
         }
     }
 
@@ -261,6 +283,12 @@ impl Tray {
     /// Check items toggle themselves on click; the setting decides.
     pub fn show_live(&self, on: bool) {
         self.live.set_checked(on);
+    }
+
+    /// Shows "Resume changes" while automatic changes are paused, and "Pause
+    /// changes" otherwise.
+    pub fn show_paused(&self, paused: bool) {
+        self.pause.set_text(pause_label(paused));
     }
 
     pub fn set_tooltip(&self, text: &str) {
@@ -357,5 +385,13 @@ mod tests {
                 "Monitor 2 (1920\u{d7}1080, main)"
             ]
         );
+    }
+
+    #[test]
+    fn pause_and_monitor_menu_positions_stay_in_order() {
+        assert_eq!(pause_label(false), "Pause changes");
+        assert_eq!(pause_label(true), "Resume changes");
+        assert_eq!(on_monitor_index(false), 1);
+        assert_eq!(on_monitor_index(true), 2);
     }
 }

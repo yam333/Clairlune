@@ -1203,7 +1203,7 @@ fn export(
 
 /// A scene's PNG (8-bit indexed, in the scene palette's layout) with the
 /// signature written in; `None` for any other kind of PNG.
-fn signed_png(bytes: &[u8]) -> Option<Vec<u8>> {
+pub(crate) fn signed_png(bytes: &[u8]) -> Option<Vec<u8>> {
     let dec = png::Decoder::new(std::io::Cursor::new(bytes));
     let mut reader = dec.read_info().ok()?;
     let info = reader.info();

@@ -5,16 +5,16 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "aa1aa1248f4d7a25",
-  "activity": "yoga",
-  "archetype": "ruins",
+  "content_ctx_hash": "fcbce5ad10fbfd89",
+  "activity": "paint_easel",
+  "archetype": "great_tree",
   "light_tod": "morning",
   "dark_tod": "dusk",
-  "platform": "rock_ledge",
+  "platform": "grassy_bank",
   "props": [
-    "yoga_mat"
+    "easel"
   ],
-  "weather": "bats",
+  "weather": "sky_lanterns",
   "composition": {
     "horizon_pm": 641,
     "focus_x_pm": 650,

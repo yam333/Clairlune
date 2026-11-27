@@ -14,8 +14,10 @@ pub(crate) mod countryside;
 pub(crate) mod crystals;
 pub(crate) mod desert;
 pub(crate) mod details;
+pub(crate) mod fjord;
 pub(crate) mod forest;
 pub(crate) mod great_tree;
+pub(crate) mod greenhouse;
 pub(crate) mod harbour;
 pub(crate) mod interior;
 pub(crate) mod islands;
@@ -35,9 +37,11 @@ pub(crate) mod observatory;
 pub(crate) mod ruins;
 pub(crate) mod savanna;
 pub(crate) mod shore;
+pub(crate) mod shrine;
 pub(crate) mod snowfield;
 pub(crate) mod standing_stones;
 pub(crate) mod swamp;
+pub(crate) mod viaduct;
 pub(crate) mod volcano;
 pub(crate) mod waterfall;
 pub(crate) mod windmills;
@@ -51,7 +55,7 @@ use crate::recipe::{SceneRecipe, TimeOfDay};
 
 /// Archetypes this generator version can paint. Must match the `implemented`
 /// flags in `archetype::ARCHETYPE_INFO` (checked by a test).
-pub const PAINTED: [&str; 33] = [
+pub const PAINTED: [&str; 37] = [
     "canyon",
     "mountains",
     "desert",
@@ -85,6 +89,10 @@ pub const PAINTED: [&str; 33] = [
     "zen_garden",
     "harbour",
     "lighthouse",
+    "fjord",
+    "viaduct",
+    "shrine",
+    "greenhouse",
 ];
 
 /// What an archetype paints for a journey: the still background's sky limit
@@ -196,6 +204,7 @@ pub(crate) fn sea_line(archetype: &str, ctx: &Ctx) -> Option<f64> {
         "shore" => Some(shore::sea_top(ctx)),
         "lighthouse" => Some(lighthouse::sea_top(ctx)),
         "harbour" => Some(harbour::water_top(ctx)),
+        "fjord" => Some(fjord::sea_top(ctx)),
         _ => None,
     }
 }
@@ -271,6 +280,10 @@ pub(crate) fn background(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Vec<
         "zen_garden" => zen_garden::background(ctx, cells),
         "harbour" => harbour::background(ctx, cells),
         "lighthouse" => lighthouse::background(ctx, cells),
+        "fjord" => fjord::background(ctx, cells),
+        "viaduct" => viaduct::background(ctx, cells),
+        "shrine" => shrine::background(ctx, cells),
+        "greenhouse" => greenhouse::background(ctx, cells),
         other => unreachable!("archetype `{other}` is not painted"),
     }
 }
@@ -279,13 +292,13 @@ pub(crate) fn background(archetype: &str, ctx: &Ctx, cells: &mut [Cell]) -> Vec<
 fn ledge_style(archetype: &str) -> &'static ledge::LedgeStyle {
     match archetype {
         "canyon" | "mountains" | "cave" | "volcano" | "lunar" | "waterfall" | "ruins"
-        | "crystals" | "wizard_tower" | "observatory" | "harbour" | "lighthouse" => &ledge::ROCK,
+        | "crystals" | "wizard_tower" | "observatory" | "harbour" | "lighthouse" | "fjord"
+        | "shrine" => &ledge::ROCK,
         "desert" | "islands" | "savanna" | "oasis" => &ledge::DUNE,
         "snowfield" => &ledge::ICE,
         "forest" | "meadow" | "lake" | "bamboo" | "countryside" | "swamp" | "mushrooms"
-        | "great_tree" | "standing_stones" | "lantern_lake" | "windmills" | "zen_garden" => {
-            &ledge::GRASS
-        }
+        | "great_tree" | "standing_stones" | "lantern_lake" | "windmills" | "zen_garden"
+        | "viaduct" | "greenhouse" => &ledge::GRASS,
         other => unreachable!("archetype `{other}` is not painted"),
     }
 }

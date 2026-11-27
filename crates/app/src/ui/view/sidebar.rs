@@ -188,7 +188,8 @@ pub(crate) fn now_showing(
     } else {
         capitalise(&status.what)
     };
-    let live = settings.display.mode == crate::settings::WallpaperMode::Live;
+    let _ = settings;
+    let live = status.live_active;
     let (tag, tag_ink) = if live {
         ("LIVE", c(t.accent_text))
     } else {
@@ -214,15 +215,19 @@ pub(crate) fn now_showing(
         p.circle_filled(pos2(tag_x - 7.0, y + 9.0), 3.0, c(t.accent_text));
     }
     p.galley(pos2(tag_x, y + 3.0), tag_g, tag_ink);
-    let next = match status.next_in_minutes {
-        None if status.timeline_next.is_some() => {
-            let at = status.timeline_next.clone().unwrap_or_default();
-            format!("next: {}", at.strip_prefix("Next slot at ").unwrap_or(&at))
+    let next = if status.paused {
+        "next: paused".to_string()
+    } else {
+        match status.next_in_minutes {
+            None if status.timeline_next.is_some() => {
+                let at = status.timeline_next.clone().unwrap_or_default();
+                format!("next: {}", at.strip_prefix("Next slot at ").unwrap_or(&at))
+            }
+            Some(0) => "next: under a minute".to_string(),
+            Some(m) if m < 120 => format!("next: {m} min"),
+            Some(m) => format!("next: {} h", m / 60),
+            None => "next: when you ask".to_string(),
         }
-        Some(0) => "next: under a minute".to_string(),
-        Some(m) if m < 120 => format!("next: {m} min"),
-        Some(m) => format!("next: {} h", m / 60),
-        None => "next: when you ask".to_string(),
     };
     let facts = match status.theme {
         Some(th) => format!("{} \u{b7} {next}", th.as_str()),

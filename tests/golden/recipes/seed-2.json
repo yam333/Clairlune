@@ -5,16 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "aa1aa1248f4d7a25",
-  "activity": "warm_hands",
-  "archetype": "cave",
+  "content_ctx_hash": "fcbce5ad10fbfd89",
+  "activity": "hike_ridge",
+  "archetype": "mountains",
   "light_tod": "morning",
   "dark_tod": "night",
   "platform": "rock_ledge",
-  "props": [
-    "campfire"
-  ],
-  "weather": "none",
+  "props": [],
+  "weather": "stars",
   "composition": {
     "horizon_pm": 672,
     "focus_x_pm": 694,
@@ -24,7 +22,9 @@
     "cliff_layers": 3,
     "prop_left": false,
     "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "pace_half_pm": 0,
+    "journey_pace_c": 518,
+    "landmark": "twin_peaks"
   },
   "palette": {
     "light": "paper_day",

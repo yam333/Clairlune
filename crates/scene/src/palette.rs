@@ -77,7 +77,7 @@ pub struct PaletteFamily {
 
 /// The palettes a scene can be drawn in: `classic` (Clairlune's own, the
 /// only one before 0.32) and the named ones, each a family per theme.
-pub const PALETTES: [&str; 9] = [
+pub const PALETTES: [&str; 12] = [
     "classic",
     "nord",
     "gruvbox",
@@ -87,10 +87,13 @@ pub const PALETTES: [&str; 9] = [
     "tokyo_night",
     "phosphor",
     "amber",
+    "everforest",
+    "kanagawa",
+    "dracula",
 ];
 
 /// All palette families. Picks are made by index order, so only append.
-pub const FAMILIES: [PaletteFamily; 20] = [
+pub const FAMILIES: [PaletteFamily; 26] = [
     // The prototype's dark palette: warm near-black, cream ink, orange embers.
     PaletteFamily {
         id: "ember_night",
@@ -340,6 +343,81 @@ pub const FAMILIES: [PaletteFamily; 20] = [
         ember: Rgb::hex(0xA35400),
         glow_strength: 0.10,
         tint_strength: 0.45,
+    },
+    // Everforest: mossy woodland slate by night, warm parchment and sage by day.
+    PaletteFamily {
+        id: "everforest_night",
+        set: "everforest",
+        theme: Theme::Dark,
+        bg_edge: Rgb::hex(0x232A2E),
+        bg_center: Rgb::hex(0x2D353B),
+        ink: Rgb::hex(0xD3C6AA),
+        accent: Rgb::hex(0xE69875),
+        ember: Rgb::hex(0xDBBC7F),
+        glow_strength: 0.18,
+        tint_strength: 0.60,
+    },
+    PaletteFamily {
+        id: "everforest_day",
+        set: "everforest",
+        theme: Theme::Light,
+        bg_edge: Rgb::hex(0xEFEBD4),
+        bg_center: Rgb::hex(0xFDF6E3),
+        ink: Rgb::hex(0x465258),
+        accent: Rgb::hex(0xF57D26),
+        ember: Rgb::hex(0xDFA000),
+        glow_strength: 0.10,
+        tint_strength: 0.50,
+    },
+    // Kanagawa: sumi ink and old paper (Wave by night, Lotus by day).
+    PaletteFamily {
+        id: "kanagawa_night",
+        set: "kanagawa",
+        theme: Theme::Dark,
+        bg_edge: Rgb::hex(0x16161D),
+        bg_center: Rgb::hex(0x1F1F28),
+        ink: Rgb::hex(0xDCD7BA),
+        accent: Rgb::hex(0xFFA066),
+        ember: Rgb::hex(0xE6C384),
+        glow_strength: 0.18,
+        tint_strength: 0.60,
+    },
+    PaletteFamily {
+        id: "kanagawa_day",
+        set: "kanagawa",
+        theme: Theme::Light,
+        bg_edge: Rgb::hex(0xE5DDB0),
+        bg_center: Rgb::hex(0xF2ECBC),
+        ink: Rgb::hex(0x43436C),
+        accent: Rgb::hex(0xCC6D00),
+        ember: Rgb::hex(0xC84053),
+        glow_strength: 0.10,
+        tint_strength: 0.50,
+    },
+    // Dracula, and Alucard by day.
+    PaletteFamily {
+        id: "dracula_night",
+        set: "dracula",
+        theme: Theme::Dark,
+        bg_edge: Rgb::hex(0x1E1F29),
+        bg_center: Rgb::hex(0x282A36),
+        ink: Rgb::hex(0xBD93F9),
+        accent: Rgb::hex(0xFFB86C),
+        ember: Rgb::hex(0xFF79C6),
+        glow_strength: 0.18,
+        tint_strength: 0.60,
+    },
+    PaletteFamily {
+        id: "dracula_day",
+        set: "dracula",
+        theme: Theme::Light,
+        bg_edge: Rgb::hex(0xEDEAE0),
+        bg_center: Rgb::hex(0xFFFBEB),
+        ink: Rgb::hex(0x4D389E),
+        accent: Rgb::hex(0xA34D14),
+        ember: Rgb::hex(0xCB3A2A),
+        glow_strength: 0.10,
+        tint_strength: 0.50,
     },
 ];
 

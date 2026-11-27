@@ -5,16 +5,14 @@
     "w": 16,
     "h": 9
   },
-  "content_ctx_hash": "aa1aa1248f4d7a25",
-  "activity": "gardening",
-  "archetype": "standing_stones",
-  "light_tod": "golden_hour",
-  "dark_tod": null,
-  "platform": "grassy_bank",
-  "props": [
-    "flower_pots"
-  ],
-  "weather": "birds",
+  "content_ctx_hash": "fcbce5ad10fbfd89",
+  "activity": "broom_journey",
+  "archetype": "mountains",
+  "light_tod": null,
+  "dark_tod": "night",
+  "platform": "rock_ledge",
+  "props": [],
+  "weather": "stars",
   "composition": {
     "horizon_pm": 696,
     "focus_x_pm": 510,
@@ -24,7 +22,9 @@
     "cliff_layers": 3,
     "prop_left": false,
     "motion_speed_cc": 0,
-    "pace_half_pm": 0
+    "pace_half_pm": 0,
+    "journey_pace_c": 562,
+    "landmark": "twin_peaks"
   },
   "palette": {
     "light": "paper_day",

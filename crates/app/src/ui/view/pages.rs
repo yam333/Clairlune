@@ -625,6 +625,9 @@ pub(crate) fn page(
                 if ui.button("Save").clicked() {
                     actions.push(UiAction::SavePng);
                 }
+                if ui.button("Copy").clicked() {
+                    actions.push(UiAction::CopyPng);
+                }
             });
             row(ui, theme, "Save current as GIF", "", |ui| {
                 if ui.button("Save").clicked() {

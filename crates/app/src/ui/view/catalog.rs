@@ -15,7 +15,7 @@ pub(crate) const LOOKS: [Item; 2] = [
 ];
 
 /// The palettes, by their ids in the recipe.
-pub(crate) const PALETTES: [Item; 9] = [
+pub(crate) const PALETTES: [Item; 12] = [
     ("classic", "Clairlune", ""),
     ("nord", "Nord", ""),
     ("gruvbox", "Gruvbox", ""),
@@ -25,15 +25,20 @@ pub(crate) const PALETTES: [Item; 9] = [
     ("tokyo_night", "Tokyo Night", ""),
     ("phosphor", "Phosphor", ""),
     ("amber", "Amber", ""),
+    ("everforest", "Everforest", ""),
+    ("kanagawa", "Kanagawa", ""),
+    ("dracula", "Dracula", ""),
 ];
 
 /// The letter sets, by their ids in the recipe.
-pub(crate) const LETTERS: [Item; 5] = [
+pub(crate) const LETTERS: [Item; 7] = [
     ("text", "Text", ""),
     ("braille", "Braille", ""),
     ("blocks", "Blocks", ""),
     ("lines", "Lines", ""),
     ("kana", "Kana", ""),
+    ("shapes", "Shapes", ""),
+    ("hex", "Hex", ""),
 ];
 
 /// The zooms, by their ids in the recipe.
@@ -47,7 +52,7 @@ pub(crate) const ZOOMS: [Item; 3] = [
     ("vast", "Vast", "Clawd tiny in a huge landscape"),
 ];
 
-pub(crate) const LANDSCAPES: [Item; 33] = [
+pub(crate) const LANDSCAPES: [Item; 37] = [
     ("canyon", "Canyon", ""),
     ("mountains", "Mountains", ""),
     ("forest", "Forest", ""),
@@ -129,9 +134,29 @@ pub(crate) const LANDSCAPES: [Item; 33] = [
         "Windmills",
         "Flower fields, a canal, sails set",
     ),
+    (
+        "fjord",
+        "Fjord",
+        "Steep cliffs, a waterfall and a boathouse",
+    ),
+    (
+        "viaduct",
+        "Viaduct",
+        "Stone arches over a valley, a train crossing",
+    ),
+    (
+        "shrine",
+        "Hillside shrine",
+        "Stone steps, gates and lanterns among cedars",
+    ),
+    (
+        "greenhouse",
+        "Glasshouse",
+        "Palms and ferns under iron and glass",
+    ),
 ];
 
-pub(crate) const ACTIVITIES: [Item; 38] = [
+pub(crate) const ACTIVITIES: [Item; 40] = [
     ("warm_hands", "Campfire", "Warming hands by a fire"),
     ("stroll", "Strolling", ""),
     ("stargaze", "Stargazing", "Night only"),
@@ -194,6 +219,8 @@ pub(crate) const ACTIVITIES: [Item; 38] = [
     ("birdwatching", "Birdwatching", "When birds are about"),
     ("sandcastle", "Sandcastle", "On sand, daytime"),
     ("yoga", "Yoga", "Stretches by a mat"),
+    ("nap", "Napping", "Dozing by a log"),
+    ("journal", "Journaling", "Writing in a notebook"),
 ];
 
 /// Weather that shows as particles. Clear weather ("none", "stars") is

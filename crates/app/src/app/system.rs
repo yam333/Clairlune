@@ -433,6 +433,7 @@ impl App {
     pub(crate) fn sync_tray(&mut self) {
         self.sync_tray_inner();
         if let Some(t) = &self.tray {
+            t.show_paused(self.settings.schedule.paused);
             t.show_update(self.update.newer(), self.install.in_place());
         }
     }
@@ -451,7 +452,11 @@ impl App {
         let live = self
             .current_live
             .unwrap_or(self.settings.display.mode == settings::WallpaperMode::Live);
-        match tray::Tray::new(self.settings.theme.mode, live) {
+        match tray::Tray::new(
+            self.settings.theme.mode,
+            live,
+            self.settings.schedule.paused,
+        ) {
             Ok(t) => {
                 t.set_monitors(&self.tray_monitors);
                 self.tray = Some(t);

@@ -15,6 +15,58 @@ impl App {
         });
     }
 
+    /// Copies a wallpaper's primary PNG to the clipboard (signed when asked,
+    /// matching Save PNG).
+    pub(crate) fn copy_png_to_clipboard(
+        &mut self,
+        prefer: ui::Kind,
+        source: Option<PathBuf>,
+        still: Option<PathBuf>,
+    ) {
+        let dir = source.or_else(|| {
+            let archive = self.archive()?;
+            let entry = archive.latest()?;
+            Some(archive.dir().join(entry.name))
+        });
+        let src = still
+            .filter(|p| p.is_file())
+            .or_else(|| dir.map(|d| d.join("wallpaper-0.png")));
+        let decoded = src
+            .ok_or_else(|| "There's no wallpaper to copy yet.".to_string())
+            .and_then(|path| {
+                let bytes = std::fs::read(&path)
+                    .map_err(|e| format!("Couldn't read {}: {e}", path.display()))?;
+                let signed = self
+                    .settings
+                    .export
+                    .sign
+                    .then(|| apply::signed_png(&bytes))
+                    .flatten();
+                ui::decode_png_rgba(signed.as_deref().unwrap_or(&bytes))
+                    .ok_or_else(|| "Couldn't decode the wallpaper image.".to_string())
+            });
+        match decoded {
+            Ok((size, rgba)) => {
+                let mut windows: Vec<&mut ui::UiWindow> = [
+                    &mut self.settings_window,
+                    &mut self.library_window,
+                    &mut self.archive_window,
+                    &mut self.timeline_window,
+                ]
+                .into_iter()
+                .flatten()
+                .collect();
+                let idx = windows.iter().position(|w| w.kind() == prefer).unwrap_or(0);
+                if let Some(w) = windows.get_mut(idx) {
+                    w.copy_image(size, &rgba);
+                    self.status.note = Some("Copied the wallpaper to the clipboard.".into());
+                }
+            }
+            Err(e) => self.status.note = Some(e),
+        }
+        self.redraw_windows();
+    }
+
     pub(crate) fn export_gif(&mut self) {
         let dest = self.export_dir();
         let theme = self

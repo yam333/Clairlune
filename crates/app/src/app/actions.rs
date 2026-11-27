@@ -13,6 +13,16 @@ impl App {
                 }
             }
             Action::Previous => self.reapply(true),
+            Action::TogglePause => {
+                if self.settings.schedule.paused {
+                    self.resume_changes();
+                } else {
+                    self.settings.schedule.paused = true;
+                    self.save_settings();
+                    self.reschedule();
+                }
+                self.redraw_windows();
+            }
             Action::Theme(mode) => {
                 self.settings.theme.mode = mode;
                 if let Some(t) = &self.tray {
@@ -112,6 +122,7 @@ impl App {
             | UiAction::PinArchive { .. }
             | UiAction::SaveArchiveToLibrary(_)
             | UiAction::ExportArchive { .. }
+            | UiAction::CopyArchivePng(_)
             | UiAction::DeleteArchive(_)) => self.on_archive_action(a),
             UiAction::OpenLogs => open(&self.data_dir.join("logs"), false),
             UiAction::OpenCrashReports => open(&self.data_dir.join("crashes"), false),
@@ -162,12 +173,20 @@ impl App {
             UiAction::SavePng => {
                 self.export_png();
             }
+            UiAction::CopyPng => {
+                self.copy_png_to_clipboard(
+                    ui::Kind::Settings,
+                    self.current.clone(),
+                    self.shown_still.clone(),
+                );
+            }
             UiAction::SaveToLibrary => self.save_to_library(),
             UiAction::OpenLibrary => self.open_library(event_loop),
             a @ (UiAction::ApplyLibrary(_)
             | UiAction::UpdateLibrary(_)
             | UiAction::DeleteLibrary { .. }
-            | UiAction::ExportLibrary { .. }) => self.on_library_action(a),
+            | UiAction::ExportLibrary { .. }
+            | UiAction::CopyLibraryPng(_)) => self.on_library_action(a),
             UiAction::SaveGif => {
                 self.status.note = Some("Making the GIF...".to_string());
                 self.export_gif();

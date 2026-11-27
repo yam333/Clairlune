@@ -19,6 +19,9 @@ impl App {
 
     pub(crate) fn reschedule(&mut self) {
         self.next_change = self.interval().map(|d| Instant::now() + d);
+        if let Some(t) = &self.tray {
+            t.show_paused(self.settings.schedule.paused);
+        }
     }
 
     pub(crate) fn set_current_live(&mut self, live: Option<bool>) {
