@@ -702,6 +702,7 @@ pub(crate) fn page(
                 }
                 ui.add_space(space::S2);
             }
+            group(ui, "Updates");
             let mut every = if s.general.check_updates {
                 s.general.check_updates_every_days.max(1)
             } else {
