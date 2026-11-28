@@ -51,7 +51,7 @@ SHOTS = [
     ("settings", "dark", None,
      "Make it yours", "Landscapes, palettes, letters, and each monitor"),
     ("moon", "dark", ["--seed", "3", "--activity", "stargaze", "--archetype", "lunar", "--zoom", "close", "--look", "line"],
-     "Light on your computer", "Every scene grows from a seed; nothing about you leaves it"),
+     "Light on your computer", ""),
     ("end", "dark", None, "", ""),
 ]
 # Where each shot starts (seconds): bar 3, then every bar and a half; the

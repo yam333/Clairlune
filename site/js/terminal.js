@@ -15,7 +15,7 @@ const HELP = [
   'generate flags: --seed --theme light|dark --archetype --activity --weather',
   '                --palette --letters --look line|dither --zoom --no-buddy',
   '                --size WxH --out file.png',
-  'Here it runs in your browser; on your computer: cargo install clairlune-cli',
+  'Here it runs in your browser. On your computer: cargo install clairlune-cli',
 ];
 const ELSEWHERE = {
   gif: 'GIFs are encoded on your computer: cargo install clairlune-cli',

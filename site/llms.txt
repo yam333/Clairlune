@@ -10,7 +10,7 @@ Clairlune is distinct from Claude Debussy's piano piece *Clair de lune*. It is d
 - Byte-identical cross-platform rendering using `skrifa` font outlines, 8×8 supersampled coverage in plain f64, and `libm` math.
 - Incremental dirty-tile live desktop wallpaper playback behind desktop icons, pausing behind full-screen and maximized apps, while the computer is locked, and (optionally) on battery.
 - Multi-monitor support: independent scenes per display at native resolution, or a single spanned landscape across displays.
-- Wallpaper archive, taggable library, 24-hour weekly timeline scheduler, and local sunrise/sunset theme switching.
+- Wallpaper archive, taggable library, 24-hour weekly timeline scheduler, and sunrise/sunset theme switching.
 
 ## Install
 

@@ -8,7 +8,7 @@
 
 Procedural, animated ASCII-art desktop wallpapers for Windows and macOS, written in Rust.
 
-Clairlune renders scenes locally from a seed into text glyphs, live weather, and an optional pixel-art Clawd behind your desktop icons. There is no telemetry; only the optional update check (daily by default) uses the network.
+Clairlune draws a new scene from a seed every hour, in text glyphs, with live weather and an optional pixel-art Clawd behind your desktop icons.
 
 **[Try it in your browser](https://yam333.github.io/Clairlune/#try)** · **[Download](https://github.com/yam333/Clairlune/releases/latest)** · [User guide](docs/guide.md) · [CLI reference](docs/cli.md) · [Changelog](CHANGELOG.md)
 
@@ -33,7 +33,7 @@ scoop install clairlune
 curl -fsSL https://raw.githubusercontent.com/yam333/Clairlune/main/install.sh | sh
 ```
 
-Or install via Homebrew (`brew install --cask yam333/clairlune/clairlune`) or the release `.dmg` (`aarch64` or `x64`); see the [first-launch Gatekeeper note](docs/guide.md#opening-it-the-first-time).
+Or install via Homebrew (`brew install --cask yam333/clairlune/clairlune`) or the release `.dmg` (`aarch64` or `x64`). See the [first-launch Gatekeeper note](docs/guide.md#opening-it-the-first-time).
 
 ### Cargo and Linux
 
@@ -46,12 +46,12 @@ cargo install clairlune-cli   # headless renderer (Windows, macOS, and Linux, Ru
 
 ## Features
 
-- Deterministic seeded scenes with character activities and biome-specific weather, drawn as line art or dithered shading; the same seed and display settings produce identical pixels on every platform.
+- Deterministic seeded scenes with character activities and biome-specific weather, drawn as line art or dithered shading. The same seed and display settings produce identical pixels on every platform.
 - Light and dark colour palettes (classic, Nord, Gruvbox, Catppuccin, Solarized, Tokyo Night, Everforest, Kanagawa, Dracula, phosphor, and others) and swappable character sets (ASCII, braille, blocks, box-drawing, katakana, shapes, hex).
 - Live desktop playback that redraws only dirty tiles and pauses behind full-screen apps, on battery, or while the screen is locked.
 - Per-monitor scenes at native resolution, or a single wide scene spanned across displays.
 - Image to ASCII studio for converting dropped or pasted images with custom character ramps, palette or photo colours, live weather, and `.txt` or PNG export.
-- Wallpaper archive, taggable library, weekly timeline scheduler, and theme switching by OS appearance, clock hours, or local sunrise and sunset.
+- Wallpaper archive, taggable library, weekly timeline scheduler, and theme switching by OS appearance, clock hours, or sunrise and sunset where you are.
 - In-app updates verified against release SHA-256 checksums.
 
 ![Generated ASCII wallpapers in dark and light themes](docs/img/showcase.png)
@@ -82,7 +82,7 @@ Developer recipes (sprite verification, golden image blessing, perf checks) are 
 
 | Crate | Role |
 |---|---|
-| [`clairlune-scene`](crates/scene) | Pure seed-to-recipe-to-scene-graph pipeline; no I/O or clocks. |
+| [`clairlune-scene`](crates/scene) | Pure seed-to-recipe-to-scene-graph pipeline, with no I/O or clocks. |
 | [`clairlune-render`](crates/render) | Deterministic `skrifa` glyph rasterizer, palette-index compositor, PNG/GIF export, scene packages, and image-to-ASCII conversion. |
 | [`clairlune-sprites`](crates/sprites) | Aseprite sheet loader, pixel-art validation, and character rig. |
 | [`clairlune-live`](crates/live) | Incremental live wallpaper presenter behind desktop icons. |
@@ -97,4 +97,4 @@ Design notes, determinism rules, and the activity system are in [docs/dev](docs/
 
 Code is dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
 
-Bundled fonts are under the SIL Open Font License 1.1, and original prop and UI assets are CC BY 4.0; see [NOTICE](NOTICE) for full attribution. When Clawd is enabled, rendered wallpapers include fan art of Anthropic's character (not covered by the code license); turn off `Show Clawd` in Settings > Content or pass `--no-buddy` to render scenes containing only this project's work.
+Bundled fonts are under the SIL Open Font License 1.1, and original prop and UI assets are CC BY 4.0. See [NOTICE](NOTICE) for full attribution. When Clawd is enabled, rendered wallpapers include fan art of Anthropic's character (not covered by the code license). Turn off `Show Clawd` in Settings > Content or pass `--no-buddy` to render scenes containing only this project's work.

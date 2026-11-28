@@ -8,7 +8,7 @@
   <script>try{const p=JSON.parse(localStorage.getItem("clairlune-paint")||"null");if(p)for(const k in p)document.documentElement.style.setProperty(k,p[k])}catch{}</script>
 
   <title>Clairlune: Procedural ASCII-Art Wallpapers for Windows and macOS</title>
-  <meta name="description" content="Clairlune is a native Rust desktop app and CLI that renders deterministic, animated ASCII-art wallpapers for Windows and macOS. Local, seeded, no telemetry.">
+  <meta name="description" content="Clairlune is a native Rust desktop app and CLI that renders deterministic, animated ASCII-art wallpapers for Windows and macOS, a new scene from a seed every hour.">
   <link rel="canonical" href="https://yam333.github.io/Clairlune/">
 
   <!-- Open Graph & Social Card -->
@@ -110,15 +110,7 @@
             "name": "Will it slow my computer down?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Live redraws only the parts of the scene that change. It pauses while an app fills the screen (maximized, zoomed or full screen), while the computer is locked, and on battery if you ask it to. Still frame sets one picture and costs nothing between changes; Settings > Live > Smoothness lowers the frame rate."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "Does Clairlune collect any data?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "No. Every wallpaper is made on your computer, and Clairlune sends nothing about you anywhere. It goes online only to ask GitHub for the newest version (once a day unless you change it in Settings) and to download an update when you click Update now."
+              "text": "Live redraws only the parts of the scene that change. It pauses while an app fills the screen (maximized, zoomed or full screen), while the computer is locked, and on battery if you ask it to. Still frame sets one picture and costs nothing between changes. Settings > Live > Smoothness lowers the frame rate."
             }
           },
           {
@@ -234,7 +226,7 @@
             <p class="meta-line">Native Rust · Seeded &amp; Deterministic · MIT / Apache-2.0</p>
             <h1 id="main-heading" tabindex="-1" class="hero-title">Landscapes drawn in type, <em>alive</em> behind your desktop.</h1>
             <p class="hero-lead">
-              Clairlune renders scenes locally from a seed into crisp text glyphs, live weather, and an optional pixel-art Clawd behind your desktop icons. There is no telemetry; only the optional daily update check uses the network.
+              Clairlune draws a new scene from a seed every hour, in crisp text glyphs, with live weather and an optional pixel-art Clawd behind your desktop icons.
             </p>
           </div>
 
@@ -257,7 +249,7 @@
 scoop install clairlune</code></pre>
                     <button type="button" class="copy-btn" data-copy="cmd-win">Copy</button>
                   </div>
-                  <p class="install-note">Per-user installer for Windows 10 and 11; requires no administrator privileges.</p>
+                  <p class="install-note">Per-user installer for Windows 10 and 11, no administrator rights needed.</p>
                 </div>
               </div>
 
@@ -272,7 +264,7 @@ scoop install clairlune</code></pre>
                     <button type="button" class="copy-btn" data-copy="cmd-brew">Copy</button>
                   </div>
                   <p class="install-note">
-                    macOS 13+ (Apple Silicon &amp; Intel DMGs on <a href="https://github.com/yam333/Clairlune/releases/latest">Releases</a>; see the <a href="guide/#opening-it-the-first-time">Gatekeeper first-open note</a>).
+                    macOS 13+ (Apple Silicon &amp; Intel DMGs on <a href="https://github.com/yam333/Clairlune/releases/latest">Releases</a>, and how to <a href="guide/#opening-it-the-first-time">open it the first time</a>).
                   </p>
                 </div>
               </div>
@@ -460,7 +452,7 @@ cargo install clairlune-cli   # headless CLI (Windows, macOS &amp; Linux, Rust 1
         <div class="panel-pad">
           <h2 class="section-heading">It steps aside for your work.</h2>
           <p class="section-sub">
-            Live plays only while you can see it. Maximize the window or lock the screen and the wallpaper rests; on a Mac the menu bar turns solid too. Drag the window around and try.
+            Live plays only while you can see it. Maximize the window or lock the screen and the wallpaper rests. On a Mac the menu bar turns solid too. Drag the window around and try.
           </p>
           <div class="segmented" role="group" aria-label="Desktop">
             <button type="button" data-sim-os="mac" aria-pressed="true">macOS</button>
@@ -581,8 +573,8 @@ cargo install clairlune-cli   # headless CLI (Windows, macOS &amp; Linux, Rust 1
               <dd>Assign specific library items, tag pools, or filtered random generators to time slots across each day of the week, with per-slot Live or Still overrides.</dd>
             </div>
             <div>
-              <dt>Local Sun Schedule</dt>
-              <dd>Switch between light and dark palettes with the OS, at fixed clock times, or at sunrise and sunset computed locally on your machine from latitude and longitude.</dd>
+              <dt>Sun Schedule</dt>
+              <dd>Switch between light and dark palettes with the OS, at fixed clock times, or at sunrise and sunset where you are.</dd>
             </div>
           </dl>
         </div>
@@ -648,7 +640,7 @@ clairlune-cli contact-sheet <span class="tok-flag">--archetype</span> shore <spa
             <tbody>
               <tr>
                 <th scope="row"><a href="https://crates.io/crates/clairlune-scene">clairlune-scene</a></th>
-                <td>Pure seed-to-recipe-to-scene-graph pipeline; no I/O or OS clocks.</td>
+                <td>Pure seed-to-recipe-to-scene-graph pipeline, with no I/O or OS clocks.</td>
               </tr>
               <tr>
                 <th scope="row"><a href="https://crates.io/crates/clairlune-render">clairlune-render</a></th>
@@ -705,26 +697,22 @@ clairlune-cli contact-sheet <span class="tok-flag">--archetype</span> shore <spa
             </details>
             <details name="faq" class="faq-item">
               <summary><span class="faq-index">03</span>Will it slow my computer down?</summary>
-              <p>Live redraws only the parts of the scene that change. It pauses while an app fills the screen (maximized, zoomed or full screen), while the computer is locked, and on battery if you ask it to. Still frame sets one picture and costs nothing between changes; Settings &gt; Live &gt; Smoothness lowers the frame rate.</p>
+              <p>Live redraws only the parts of the scene that change. It pauses while an app fills the screen (maximized, zoomed or full screen), while the computer is locked, and on battery if you ask it to. Still frame sets one picture and costs nothing between changes. Settings &gt; Live &gt; Smoothness lowers the frame rate.</p>
             </details>
             <details name="faq" class="faq-item">
-              <summary><span class="faq-index">04</span>Does Clairlune collect any data?</summary>
-              <p>No. Every wallpaper is made on your computer, and Clairlune sends nothing about you anywhere. It goes online only to ask GitHub for the newest version (once a day unless you change it in Settings) and to download an update when you click Update now.</p>
-            </details>
-            <details name="faq" class="faq-item">
-              <summary><span class="faq-index">05</span>Does it work with more than one monitor?</summary>
+              <summary><span class="faq-index">04</span>Does it work with more than one monitor?</summary>
               <p>Yes. Each monitor gets its own scene at its own resolution, or one wide scene spreads across all of them (Settings &gt; Display &gt; Monitors).</p>
             </details>
             <details name="faq" class="faq-item">
-              <summary><span class="faq-index">06</span>Does Clairlune run on Linux?</summary>
+              <summary><span class="faq-index">05</span>Does Clairlune run on Linux?</summary>
               <p>The desktop app is for Windows 10 and 11 and macOS 13 or later. On Linux, <code>clairlune-cli</code> renders the same scenes as PNG stills and GIFs (<a href="https://yam333.github.io/Clairlune/cli/">CLI reference</a>).</p>
             </details>
             <details name="faq" class="faq-item">
-              <summary><span class="faq-index">07</span>macOS says Clairlune can&#x27;t be opened. What do I do?</summary>
+              <summary><span class="faq-index">06</span>macOS says Clairlune can&#x27;t be opened. What do I do?</summary>
               <p>Click Done (not Move to Trash), then Open Anyway at the bottom of System Settings &gt; Privacy &amp; Security, once. If there's no Open Anyway, or it says the app is damaged, install with the one-line Terminal installer instead (<a href="https://yam333.github.io/Clairlune/guide/#opening-it-the-first-time">step by step</a>).</p>
             </details>
             <details name="faq" class="faq-item">
-              <summary><span class="faq-index">08</span>How do I get a wallpaper back?</summary>
+              <summary><span class="faq-index">07</span>How do I get a wallpaper back?</summary>
               <p>Copy its seed in Settings and type it into Settings &gt; Rotation &gt; From a seed. A wallpaper still in the archive (the last week) or the library comes back exactly as it was.</p>
             </details>
           </div>
@@ -767,7 +755,7 @@ clairlune-cli contact-sheet <span class="tok-flag">--archetype</span> shore <spa
 
       <div class="colophon-legal">
         <p>Code dual-licensed under <a href="https://github.com/yam333/Clairlune/blob/main/LICENSE-MIT">MIT</a> or <a href="https://github.com/yam333/Clairlune/blob/main/LICENSE-APACHE">Apache-2.0</a>. Typefaces: Instrument Serif, IBM Plex Sans, JetBrains Mono, and M PLUS 1 Code under the SIL Open Font License 1.1 (<a href="https://github.com/yam333/Clairlune/blob/main/NOTICE">NOTICE</a>).</p>
-        <p>Unofficial fan project, not affiliated with or endorsed by Anthropic. Clawd is Anthropic's character; turn off Show Clawd or pass <code>--no-buddy</code> for scenes containing only this project's work.</p>
+        <p>Unofficial fan project, not affiliated with or endorsed by Anthropic. Clawd is Anthropic's character. Turn off Show Clawd or pass <code>--no-buddy</code> for scenes containing only this project's work.</p>
       </div>
     </div>
   </footer>
