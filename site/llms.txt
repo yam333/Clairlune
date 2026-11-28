@@ -10,7 +10,6 @@ Clairlune is distinct from Claude Debussy's piano piece *Clair de lune*. It is d
 - Byte-identical cross-platform rendering using `skrifa` font outlines, 8×8 supersampled coverage in plain f64, and `libm` math.
 - Incremental dirty-tile live desktop wallpaper playback behind desktop icons, pausing behind full-screen and maximized apps, while the computer is locked, and (optionally) on battery.
 - Multi-monitor support: independent scenes per display at native resolution, or a single spanned landscape across displays.
-- Built-in Image to ASCII studio for converting images into `.txt`, palette-mapped or photo-coloured PNGs, transparent PNGs, library items, or live wallpapers.
 - Wallpaper archive, taggable library, 24-hour weekly timeline scheduler, and local sunrise/sunset theme switching.
 
 ## Install
@@ -21,8 +20,8 @@ Clairlune is distinct from Claude Debussy's piano piece *Clair de lune*. It is d
 
 ## Documentation & Links
 
-- [Website](https://yam333.github.io/Clairlune/): Overview, live desktop specimens, and interactive Image to ASCII preview.
-- [User Guide](https://yam333.github.io/Clairlune/guide/): Installation, Settings reference, Image to ASCII studio, multi-monitor setup, Timeline, and troubleshooting.
+- [Website](https://yam333.github.io/Clairlune/): Overview, live desktop specimens, palettes and character sets, and the daily timeline.
+- [User Guide](https://yam333.github.io/Clairlune/guide/): Installation, Settings reference, multi-monitor setup, Timeline, and troubleshooting.
 - [CLI Reference](https://yam333.github.io/Clairlune/cli/): Subcommands and flags for `clairlune-cli` (`generate`, `gif`, `package`, `contact-sheet`, `monitors`, `set`, `restore`, `live`).
 - [Changelog](https://yam333.github.io/Clairlune/changelog/): Release history following Keep a Changelog and Semantic Versioning.
 - [Source Repository](https://github.com/yam333/Clairlune): Rust workspace (`clairlune`, `clairlune-cli`, `clairlune-scene`, `clairlune-render`, `clairlune-sprites`, `clairlune-live`, `clairlune-platform`).

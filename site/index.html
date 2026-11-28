@@ -14,7 +14,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Clairlune">
   <meta property="og:title" content="Clairlune: Procedural ASCII-Art Wallpapers for Windows and macOS">
-  <meta property="og:description" content="Deterministic, animated ASCII-art desktop wallpapers in Rust. Live weather, custom palettes, Image to ASCII studio, no telemetry.">
+  <meta property="og:description" content="Deterministic, animated ASCII-art desktop wallpapers in Rust. Live weather, custom palettes, a weekly timeline, no telemetry.">
   <meta property="og:url" content="https://yam333.github.io/Clairlune/">
   <meta property="og:image" content="https://yam333.github.io/Clairlune/assets/social-preview.png">
   <meta property="og:image:width" content="1280">
@@ -130,14 +130,6 @@
           },
           {
             "@type": "Question",
-            "name": "Can I turn my own picture into ASCII art?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Yes. Image to ASCII takes a PNG, JPEG, WebP, GIF, BMP or TIFF and turns it into characters you can copy or save as text or PNG, keep in the library, or set as your wallpaper."
-            }
-          },
-          {
-            "@type": "Question",
             "name": "Does Clairlune run on Linux?",
             "acceptedAnswer": {
               "@type": "Answer",
@@ -186,7 +178,7 @@
       <nav class="primary-nav" aria-label="Primary">
         <ul>
           <li><a href="#specimens">Specimens</a></li>
-          <li><a href="#studio">Image to ASCII</a></li>
+          <li><a href="#timeline">Timeline</a></li>
           <li><a href="guide/">Guide</a></li>
           <li><a href="cli/">CLI</a></li>
           <li><a href="changelog/">Changelog</a></li>
@@ -464,56 +456,14 @@ cargo install clairlune-cli   # headless CLI (Windows, macOS &amp; Linux, Rust 1
       </div>
     </section>
 
-    <!-- Band 04: Interactive Image to ASCII Studio & Daily Schedule -->
-    <section id="studio" class="band">
+    <!-- Band 04: Daily Schedule, Archive & Library -->
+    <section id="timeline" class="band">
       <div class="section-kicker">
-        <span>04 / Studio &amp; Daily Schedule</span>
-        <span>Image to ASCII · Archive · Library · Timeline</span>
+        <span>04 / Daily Schedule</span>
+        <span>Archive · Library · Timeline</span>
       </div>
 
       <div class="split-asymmetric">
-        <div class="panel-pad">
-          <h2 class="section-heading">Turn any picture into ASCII.</h2>
-          <p class="section-sub">
-            The desktop app includes a dedicated Image to ASCII studio with palette mapping, original photo colour, alpha-transparent PNG export, and live desktop weather. Try a browser preview below, or drop an image from your computer (processed locally in your tab).
-          </p>
-
-          <div class="ascii-workbench" id="ascii-dropzone">
-            <div class="workbench-toolbar">
-              <div class="workbench-controls">
-                <button type="button" id="ascii-inspire" class="btn">Next sample</button>
-                <span class="btn file-btn">
-                  Choose image
-                  <input type="file" id="ascii-file" accept="image/*" aria-label="Choose local image to convert to ASCII">
-                </span>
-                <label for="ascii-ramp">
-                  Ramp
-                  <select id="ascii-ramp">
-                    <option value="standard">Standard</option>
-                    <option value="braille">2×4 Braille</option>
-                    <option value="blocks">Blocks</option>
-                    <option value="shapes">Shapes</option>
-                  </select>
-                </label>
-                <label for="ascii-width">
-                  Cols
-                  <input type="range" id="ascii-width" min="56" max="124" value="96">
-                </label>
-              </div>
-              <button type="button" class="btn-quiet" data-copy="ascii-output">Copy .txt</button>
-            </div>
-
-            <div class="ascii-stage">
-              <pre role="region" aria-label="Converted ASCII output" tabindex="0"><code id="ascii-output"></code></pre>
-            </div>
-
-            <div class="ascii-meta">
-              <span id="ascii-dims">Crescent &amp; peaks · 96×30 chars</span>
-              <span>Drop any PNG, JPEG, or WebP onto this frame</span>
-            </div>
-          </div>
-        </div>
-
         <div class="panel-pad">
           <h2 class="section-heading">Planned around the day.</h2>
           <p class="section-sub">
@@ -564,7 +514,9 @@ cargo install clairlune-cli   # headless CLI (Windows, macOS &amp; Linux, Rust 1
               </li>
             </ul>
           </div>
+        </div>
 
+        <div class="panel-pad schedule-notes">
           <dl class="instrument-list">
             <div>
               <dt>Archive &amp; Library</dt>
@@ -633,7 +585,7 @@ clairlune-cli contact-sheet <span class="tok-flag">--archetype</span> shore <spa
               </tr>
               <tr>
                 <th scope="row"><a href="https://crates.io/crates/clairlune-render">clairlune-render</a></th>
-                <td>Deterministic <code>skrifa</code> glyph atlas, palette compositor, PNG/GIF, scene packages, and image-to-ASCII.</td>
+                <td>Deterministic <code>skrifa</code> glyph atlas, palette compositor, PNG/GIF, and scene packages.</td>
               </tr>
               <tr>
                 <th scope="row"><a href="https://crates.io/crates/clairlune-sprites">clairlune-sprites</a></th>
@@ -697,19 +649,15 @@ clairlune-cli contact-sheet <span class="tok-flag">--archetype</span> shore <spa
               <p>Yes. Each monitor gets its own scene at its own resolution, or one wide scene spreads across all of them (Settings &gt; Display &gt; Monitors).</p>
             </details>
             <details name="faq" class="faq-item">
-              <summary><span class="faq-index">06</span>Can I turn my own picture into ASCII art?</summary>
-              <p>Yes. Image to ASCII takes a PNG, JPEG, WebP, GIF, BMP or TIFF and turns it into characters you can copy or save as text or PNG, keep in the library, or set as your wallpaper.</p>
-            </details>
-            <details name="faq" class="faq-item">
-              <summary><span class="faq-index">07</span>Does Clairlune run on Linux?</summary>
+              <summary><span class="faq-index">06</span>Does Clairlune run on Linux?</summary>
               <p>The desktop app is for Windows 10 and 11 and macOS 13 or later. On Linux, <code>clairlune-cli</code> renders the same scenes as PNG stills and GIFs (<a href="https://yam333.github.io/Clairlune/cli/">CLI reference</a>).</p>
             </details>
             <details name="faq" class="faq-item">
-              <summary><span class="faq-index">08</span>macOS says Clairlune can&#x27;t be opened. What do I do?</summary>
+              <summary><span class="faq-index">07</span>macOS says Clairlune can&#x27;t be opened. What do I do?</summary>
               <p>Click Done (not Move to Trash), then Open Anyway at the bottom of System Settings &gt; Privacy &amp; Security, once. If there's no Open Anyway, or it says the app is damaged, install with the one-line Terminal installer instead (<a href="https://yam333.github.io/Clairlune/guide/#opening-it-the-first-time">step by step</a>).</p>
             </details>
             <details name="faq" class="faq-item">
-              <summary><span class="faq-index">09</span>How do I get a wallpaper back?</summary>
+              <summary><span class="faq-index">08</span>How do I get a wallpaper back?</summary>
               <p>Copy its seed in Settings and type it into Settings &gt; Rotation &gt; From a seed. A wallpaper still in the archive (the last week) or the library comes back exactly as it was.</p>
             </details>
           </div>
