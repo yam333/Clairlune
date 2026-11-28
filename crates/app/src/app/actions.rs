@@ -50,7 +50,6 @@ impl App {
             }
             Action::SaveGif => self.export_gif(),
             Action::SaveToLibrary => self.save_to_library(),
-            Action::OpenAscii => self.open_ascii(event_loop),
             Action::OpenSettings => self.open_settings(event_loop, None),
             Action::About => {
                 self.last_section = ui::view::Section::About;

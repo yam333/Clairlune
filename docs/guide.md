@@ -119,7 +119,6 @@ From the menu you can:
 - go back to the **previous** one, or **pause** and **resume** automatic changes,
 - switch the **theme**, or turn **live** on or off,
 - **save** what's on screen as a PNG, a GIF, or to the library,
-- turn any picture of your own into ASCII (**Image to ASCII…**),
 - open **Settings**, and see who made it (**About Clairlune**).
 
 On Windows the menu is dark or light like the taskbar. The Archive (the last
@@ -131,8 +130,8 @@ Opening Clairlune again while it runs brings up Settings.
 
 ## Image to ASCII
 
-Open **Image to ASCII…** from the menu, the Library header, or Settings
-(Rotation > From an image, or Export > Image to ASCII). Drop an image onto the
+Open **Image to ASCII…** from the Library header or Settings (Rotation >
+From an image, or Export > Image to ASCII). Drop an image onto the
 window, paste one from the clipboard (`Ctrl+V` / `Cmd+V`), choose a file (PNG,
 JPEG, WebP, GIF, BMP or TIFF), or click **Inspire** to try built-in samples.
 
