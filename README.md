@@ -93,6 +93,10 @@ Developer recipes (sprite verification, golden image blessing, perf checks) are 
 
 Design notes, determinism rules, and the activity system are in [docs/dev](docs/dev).
 
+## Support
+
+Clairlune is free. If it made your desk a little nicer, you can [buy me a coffee](https://buymeacoffee.com/yam333).
+
 ## License
 
 Code is dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.

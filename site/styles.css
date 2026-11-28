@@ -1405,6 +1405,18 @@ pre,
   color: var(--text-secondary);
 }
 
+.coffee-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-block-start: 14px;
+  text-decoration: none;
+}
+
+.coffee-btn svg {
+  color: var(--accent-text);
+}
+
 .signature-link {
   display: inline-block;
   position: relative;
