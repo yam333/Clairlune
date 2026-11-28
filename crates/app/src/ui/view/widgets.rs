@@ -323,6 +323,70 @@ pub(crate) fn primary_button_wide(
     })
 }
 
+/// A kiwi slice in `r`: brown skin, green flesh, a pale core and a ring of
+/// seeds (the website's support button draws the same one).
+pub(crate) fn kiwi(p: &Painter, r: Rect) {
+    let k = r.width() / 16.0;
+    let o = r.center();
+    let disc = |rad: f32, rgb: [u8; 3]| {
+        p.circle_filled(o, rad * k, Color32::from_rgb(rgb[0], rgb[1], rgb[2]));
+    };
+    disc(7.2, [0x7A, 0x5A, 0x35]);
+    disc(6.3, [0x8D, 0xC0, 0x4A]);
+    disc(4.6, [0xA8, 0xD0, 0x65]);
+    p.add(egui::Shape::ellipse_filled(
+        o,
+        vec2(2.0 * k, 1.55 * k),
+        Color32::from_rgb(0xF1, 0xF4, 0xD2),
+    ));
+    for i in 0..10 {
+        let a = i as f32 * std::f32::consts::TAU / 10.0;
+        let at = o + vec2(a.cos(), a.sin()) * 3.3 * k;
+        p.circle_filled(at, 0.55 * k, Color32::from_rgb(0x2A, 0x26, 0x20));
+    }
+}
+
+/// A button like the others with a kiwi before its label.
+pub(crate) fn kiwi_button(ui: &mut Ui, label: &str) -> egui::Response {
+    let icon_side = 16.0;
+    let gap = space::S2;
+    let pad = ui.spacing().button_padding;
+    let galley = ui.painter().layout_no_wrap(
+        label.to_string(),
+        egui::TextStyle::Button.resolve(ui.style()),
+        Color32::PLACEHOLDER,
+    );
+    let inner = vec2(
+        icon_side + gap + galley.size().x,
+        galley.size().y.max(icon_side),
+    );
+    let size = (inner + 2.0 * pad).max(vec2(0.0, ui.spacing().interact_size.y));
+    let (rect, resp) = ui.allocate_exact_size(size, Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), label));
+    if ui.is_rect_visible(rect) {
+        let v = ui.style().interact(&resp);
+        let p = ui.painter();
+        p.rect(
+            rect.expand(v.expansion),
+            v.corner_radius,
+            v.weak_bg_fill,
+            v.bg_stroke,
+            egui::StrokeKind::Inside,
+        );
+        let x = rect.min.x + pad.x;
+        kiwi(
+            p,
+            Rect::from_min_size(
+                pos2(x, rect.center().y - icon_side / 2.0),
+                vec2(icon_side, icon_side),
+            ),
+        );
+        let text_at = pos2(x + icon_side + gap, rect.center().y - galley.size().y / 2.0);
+        p.galley(text_at, galley, v.text_color());
+    }
+    resp.on_hover_cursor(egui::CursorIcon::PointingHand)
+}
+
 /// Borderless secondary action button that stays quiet at rest and surfaces a
 /// subtle glass pill on hover/press (reduces box-in-box clutter in action bars).
 pub(crate) fn quiet_button(ui: &mut Ui, theme: Theme, label: &str) -> egui::Response {

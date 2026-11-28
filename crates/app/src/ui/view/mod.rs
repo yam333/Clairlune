@@ -99,6 +99,8 @@ pub const MAKER: &str = "yam333";
 pub const MAKER_URL: &str = "https://github.com/yam333";
 pub const REPO_URL: &str = "https://github.com/yam333/Clairlune";
 pub const RELEASES_URL: &str = "https://github.com/yam333/Clairlune/releases";
+/// Where people can support the maker (the website and README link it too).
+pub const SUPPORT_URL: &str = "https://buymeacoffee.com/yam333";
 
 impl Section {
     pub const ALL: [Section; 8] = [

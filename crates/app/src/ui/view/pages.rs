@@ -917,6 +917,10 @@ pub(crate) fn page(
                     .italics()
                     .color(c(t.text_secondary)),
             );
+            ui.add_space(space::S3);
+            if kiwi_button(ui, "Buy me a kiwi").clicked() {
+                actions.push(UiAction::OpenLink(SUPPORT_URL));
+            }
             ui.add_space(space::S5);
             hairline(ui, t.hairline);
             ui.add_space(space::S3);
