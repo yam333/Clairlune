@@ -32,26 +32,26 @@ XF = 0.8  # crossfade, seconds
 # (name, theme, generate options, title, subtitle). Cuts fall on bar lines
 # of the music: the drums come in with the second shot.
 SHOTS = [
-    ("campfire", "dark", ["--seed", "3", "--activity", "warm_hands", "--archetype", "forest", "--zoom", "close", "--look", "line"],
+    ("lighthouse", "dark", ["--seed", "3", "--archetype", "lighthouse", "--zoom", "close", "--look", "line"],
      "Clairlune", "Cozy landscapes drawn in text, living on your desktop"),
-    ("kite", "light", ["--seed", "2", "--activity", "fly_kite", "--archetype", "meadow", "--zoom", "close", "--look", "line"],
-     "A new scene every hour", "Sixteen landscapes, thirty-two things to do"),
-    ("bubbles", "light", ["--seed", "1", "--activity", "bubbles", "--archetype", "islands", "--zoom", "close", "--look", "line"],
-     "Made on your computer", "Every scene grows from a seed, offline"),
-    ("meditate", "dark", ["--seed", "2", "--activity", "meditate", "--archetype", "bamboo", "--zoom", "close", "--look", "line"],
-     "Clawd lives in each one", "Fishing, reading, stargazing, or just breathing"),
-    ("snow", "light", ["--seed", "1", "--activity", "catch_snowflakes", "--archetype", "snowfield", "--zoom", "close", "--look", "line"],
-     "Weather, day and night", "Snow, petals, fog, rain and starry skies"),
-    ("broom", "dark", ["--seed", "1", "--activity", "broom_journey", "--look", "line"],
+    ("fjord", "light", ["--seed", "1", "--archetype", "fjord", "--zoom", "close", "--look", "line"],
+     "A new scene every hour", "Fjords, lighthouses, giant mushrooms and more"),
+    ("tree", "dark", ["--seed", "1", "--activity", "read_lantern", "--archetype", "great_tree", "--zoom", "close", "--look", "line"],
+     "Clawd lives in each one", "Reading, fishing, stargazing, or just breathing"),
+    ("lanterns", "dark", ["--seed", "1", "--weather", "sky_lanterns", "--archetype", "lantern_lake", "--zoom", "close", "--look", "line"],
+     "Weather that belongs to its place", "Sky lanterns, sea spray, fireflies and falling snow"),
+    ("palette", "dark", ["--seed", "1", "--archetype", "city_rooftops", "--palette", "tokyo_night", "--zoom", "close", "--look", "line"],
+     "In the palette you like", "Tokyo Night, Nord, Gruvbox, Dracula and more"),
+    ("letters", "dark", ["--seed", "1", "--archetype", "mountains", "--letters", "blocks", "--zoom", "close", "--look", "line"],
+     "Drawn in other letters", "Blocks, braille, katakana or box lines"),
+    ("balloon", "light", ["--seed", "2", "--activity", "balloon_journey", "--zoom", "close", "--look", "line"],
      "Some scenes go on a journey", "The land drifts by while Clawd travels"),
-    ("dance", "light", ["--seed", "2", "--activity", "dance", "--archetype", "meadow", "--zoom", "close", "--look", "dither"],
-     "Line art, or light and shadow", "Two looks, a new mood each time"),
     ("cocoa", "dark", ["--seed", "2", "--activity", "hot_cocoa", "--archetype", "interior", "--zoom", "close", "--look", "line"],
-     "Live behind your icons", "Or a still frame that costs nothing at all"),
+     "Live behind your icons", "Resting while a window fills the screen"),
     ("settings", "dark", None,
-     "Make it yours", "Landscapes, weather, theme, and each monitor"),
+     "Make it yours", "Landscapes, palettes, letters, and each monitor"),
     ("moon", "dark", ["--seed", "3", "--activity", "stargaze", "--archetype", "lunar", "--zoom", "close", "--look", "line"],
-     "Light on your computer", "Nothing about you ever leaves it"),
+     "Light on your computer", "Every scene grows from a seed; nothing about you leaves it"),
     ("end", "dark", None, "", ""),
 ]
 # Where each shot starts (seconds): bar 3, then every bar and a half; the
@@ -140,11 +140,13 @@ def desktop_icons():
 
 
 def settings_layer(shot):
-    """The Settings window (two screenshots, cross-fading) with a shadow."""
+    """Panels of the Settings window (screenshot, crop box), cross-fading,
+    with a shadow."""
     out = []
-    for path in shot:
-        win = Image.open(path).convert("RGBA")
-        win = win.resize((int(win.width * 1.22), int(win.height * 1.22)), Image.LANCZOS)
+    for path, box in shot:
+        win = Image.open(path).convert("RGBA").crop(box)
+        scale = min(1.6, 1180 / win.width, 760 / win.height)
+        win = win.resize((int(win.width * scale), int(win.height * scale)), Image.LANCZOS)
         mask = Image.new("L", win.size, 0)
         ImageDraw.Draw(mask).rounded_rectangle((0, 0, win.width - 1, win.height - 1), radius=14, fill=255)
         win.putalpha(mask)
@@ -169,8 +171,8 @@ def end_card():
         w = d.textlength(text, font=font)
         d.text(((W - w) / 2, y), text, font=font, fill=fill)
     centred(430, "Clairlune", BIG, (243, 235, 221))
-    centred(580, "Living ASCII wallpapers for Windows, macOS and Linux", SUB, (214, 204, 190))
-    centred(640, "Free and open source  ·  github.com/yam333/Clairlune", SUB, (232, 150, 96))
+    centred(580, "Living ASCII wallpapers for Windows and macOS", SUB, (214, 204, 190))
+    centred(640, "Free and open source  ·  yam333.github.io/Clairlune", SUB, (232, 150, 96))
     centred(930, "Unofficial fan project, not affiliated with Anthropic. Clawd is Anthropic's character. Music made for this trailer.",
             SMALL, (140, 132, 122))
     return np.asarray(img, dtype=np.float32)
@@ -206,11 +208,12 @@ def main():
     n = int(total * FPS)
     starts = CUTS + [total + XF]
     captions = []
-    for (name, theme, _, title, sub), s, e in zip(SHOTS, starts, starts[1:]):
-        captions.append(caption(title, sub, theme, big=(name == "campfire")) if title else None)
+    for i, ((name, theme, _, title, sub), s, e) in enumerate(zip(SHOTS, starts, starts[1:])):
+        captions.append(caption(title, sub, theme, big=(i == 0)) if title else None)
     icons = desktop_icons()
-    windows = settings_layer([os.path.join(args.ui, "settings-dark-content.png"),
-                              os.path.join(args.ui, "settings-dark-display.png")])
+    # The letter sets and the monitor arrangement (the Mac screenshots).
+    windows = settings_layer([(os.path.join(args.ui, "settings-dark-colours.png"), (256, 150, 960, 610)),
+                              (os.path.join(args.ui, "settings-dark-arrangement.png"), (256, 285, 960, 625))])
     card = end_card()
     streams = {}
 
@@ -219,10 +222,10 @@ def main():
         if name == "end":
             return card
         if name == "settings":
-            # The bamboo scene, blurred and dimmed, under the window.
+            # The great tree, blurred and dimmed, under the window.
             key = "settings-bg"
             if key not in streams:
-                streams[key] = frames(gifs["meditate"])
+                streams[key] = frames(gifs["tree"])
             bg = next(streams[key])
             bg = np.asarray(Image.fromarray(bg.astype(np.uint8)).filter(ImageFilter.GaussianBlur(14)),
                             dtype=np.float32) * 0.55
