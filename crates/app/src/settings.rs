@@ -32,8 +32,10 @@ pub struct General {
     pub show_tray_icon: bool,
     /// The first-run question, start quietly at sign-in, was answered.
     pub asked_start_at_login: bool,
-    /// Once a day, ask GitHub whether a newer version is out.
+    /// Ask GitHub now and then whether a newer version is out.
     pub check_updates: bool,
+    /// How many days apart those checks are (1, 7, 14 or 30).
+    pub check_updates_every_days: u32,
     /// macOS: the one-time move to Live (the default there since 0.17)
     /// happened, so a still frame chosen after it stays.
     pub mac_live_moved: bool,
@@ -46,6 +48,7 @@ impl Default for General {
             show_tray_icon: true,
             asked_start_at_login: false,
             check_updates: true,
+            check_updates_every_days: 1,
             mac_live_moved: false,
         }
     }

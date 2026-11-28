@@ -48,7 +48,12 @@ impl App {
 
     /// Picks up edits to settings.toml and system theme changes.
     pub(crate) fn check(&mut self) {
-        if self.settings.general.check_updates && self.update.due(timefmt::now_unix()) {
+        let general = &self.settings.general;
+        if general.check_updates
+            && self
+                .update
+                .due(timefmt::now_unix(), general.check_updates_every_days)
+        {
             self.check_updates(false);
         }
         // Permissions may have been given or taken away meanwhile.

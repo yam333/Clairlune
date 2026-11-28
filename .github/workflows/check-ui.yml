@@ -1,0 +1,41 @@
+name: "Check: Settings screenshots"
+
+# `clairlune --ui-test <dir>` opens every window with sample data in a
+# scratch folder, saves screenshots of them and quits; it never touches the
+# wallpaper. Run here on throwaway runners rather than on a desktop someone
+# is using. The screenshots are the run's artifacts.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  screenshots:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ui-test
+      - name: Build
+        run: cargo build --release -p clairlune
+      - name: Open the windows and take their screenshots
+        shell: bash
+        run: |
+          mkdir -p shots
+          ./target/release/clairlune --ui-test "$PWD/shots"
+          ls -la shots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-${{ matrix.os }}
+          path: shots

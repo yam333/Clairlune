@@ -1,5 +1,5 @@
-//! Checking for a new version: once a day (when Settings allows it) and on
-//! request, the app asks GitHub for its latest release, the way most tray
+//! Checking for a new version: every day, week, two weeks or month, as
+//! Settings asks (daily unless changed, or never), and on request, the app asks GitHub for its latest release, the way most tray
 //! apps do (Sparkle on the Mac checks daily by default). The request goes
 //! through the system's own `curl` (on Windows 10 and later and macOS
 //! alike), so the app carries no networking code; it sends nothing
@@ -16,8 +16,17 @@ pub const RELEASES_API: &str = "https://api.github.com/repos/yam333/Clairlune/re
 pub const RELEASES_PAGE: &str = "https://github.com/yam333/Clairlune/releases";
 /// Where release downloads are; nothing else is downloaded.
 pub const DOWNLOADS: &str = "https://github.com/yam333/Clairlune/releases/download/";
-/// How often the automatic check runs.
-pub const EVERY_SECS: u64 = 24 * 60 * 60;
+/// A day, the shortest gap between automatic checks.
+pub const DAY_SECS: u64 = 24 * 60 * 60;
+
+/// How far apart the automatic checks can be, in days, with their names in
+/// Settings ("Off" is the setting's own on/off).
+pub const EVERY: [(u32, &str); 4] = [
+    (1, "Once a day"),
+    (7, "Once a week"),
+    (14, "Every 2 weeks"),
+    (30, "Once a month"),
+];
 
 /// What the last check found, kept in `<data>/update.json`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -51,9 +60,9 @@ impl UpdateState {
             .filter(|v| is_newer(v, env!("CARGO_PKG_VERSION")))
     }
 
-    /// Whether the daily check is due at `now`.
-    pub fn due(&self, now: u64) -> bool {
-        now.saturating_sub(self.checked) >= EVERY_SECS
+    /// Whether a check `every_days` apart is due at `now` (0 counts as 1).
+    pub fn due(&self, now: u64, every_days: u32) -> bool {
+        now.saturating_sub(self.checked) >= u64::from(every_days.max(1)) * DAY_SECS
     }
 }
 
@@ -232,12 +241,17 @@ mod tests {
     }
 
     #[test]
-    fn due_once_a_day_and_newer_only_when_newer() {
+    fn due_after_the_chosen_days_and_newer_only_when_newer() {
         let mut s = UpdateState::default();
-        assert!(s.due(100_000));
+        assert!(s.due(100_000, 1));
         s.checked = 100_000;
-        assert!(!s.due(100_000 + EVERY_SECS - 1));
-        assert!(s.due(100_000 + EVERY_SECS));
+        assert!(!s.due(100_000 + DAY_SECS - 1, 1));
+        assert!(s.due(100_000 + DAY_SECS, 1));
+        assert!(s.due(100_000 + DAY_SECS, 0));
+        assert!(!s.due(100_000 + 6 * DAY_SECS, 7));
+        assert!(s.due(100_000 + 7 * DAY_SECS, 7));
+        assert!(!s.due(100_000 + 29 * DAY_SECS, 30));
+        assert!(s.due(100_000 + 30 * DAY_SECS, 30));
         s.latest = Some("0.0.1".into());
         assert_eq!(s.newer(), None);
         s.latest = Some("999.0.0".into());

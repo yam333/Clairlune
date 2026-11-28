@@ -131,7 +131,7 @@ Opening Clairlune again while it runs brings up Settings.
 ## Image to ASCII
 
 Open **Image to ASCII…** from the Library header or Settings (Rotation >
-From an image, or Export > Image to ASCII). Drop an image onto the
+From an image). Drop an image onto the
 window, paste one from the clipboard (`Ctrl+V` / `Cmd+V`), choose a file (PNG,
 JPEG, WebP, GIF, BMP or TIFF), or click **Inspire** to try built-in samples.
 
@@ -165,8 +165,7 @@ window.
 - **Live:** smoothness (6 to 60 frames a second, 12 by default; higher is
   smoother and uses more power), what to do on battery, what pauses live
   when an app covers the screen, and on the Mac Lighter on Retina screens
-  (half the resolution: about a quarter of the memory, with big external
-  displays especially).
+  (half the resolution: a quarter of the memory, with slightly softer text).
 - **Clawd:** Clawd on or off.
 - **Content:** which landscapes (each tile shows that landscape), activities
   and weather to pick from (some weather only comes with the landscapes it
@@ -180,14 +179,14 @@ window.
   or letter sets on, each wallpaper picks one.
 - **Archive** and **Export:** how long past wallpapers are kept, and where
   saved PNGs and GIFs go (Choose… opens the system's folder picker; Copy puts
-  the current PNG straight on the clipboard; Image to ASCII converts a picture
-  of your own). Saved images are signed in a corner, small, in the
+  the current PNG straight on the clipboard). Saved images are signed in a
+  corner, small, in the
   scene's own text ("clairlune · by yam333"); Sign saved images turns that
   off. The wallpaper on your desktop is never signed.
 - **General:** start with the computer, the tray icon, Permissions (what to
   allow in the system's settings, each Granted or with an Open Settings
-  button), updates, Restore my wallpaper, Report a problem, Remove Clairlune,
-  logs and diagnostics.
+  button), updates (how often to check, Check now, Update now), Restore my
+  wallpaper, Report a problem, Remove Clairlune, logs and diagnostics.
 - **About:** who made Clairlune (yam333, with links to GitHub), the version,
   and the fan-project notice.
 
@@ -236,8 +235,9 @@ each with its part of the wallpaper:
 
 ## Updates
 
-Once a day Clairlune asks GitHub whether a newer version is out (Settings >
-General; it can be turned off, and **Check now** asks right away). When there
+Once a day Clairlune asks GitHub whether a newer version is out. Settings >
+General > Check for updates makes that once a week, every 2 weeks, once a
+month or never, and **Check now** asks right away. When there
 is one, **Update now** in Settings or **Update to ...** in the menu downloads
 it, checks it against the checksum GitHub lists for it, installs it and starts
 Clairlune again. Copies installed with Scoop or cargo show the command to
@@ -259,8 +259,8 @@ keeps the settings as they were and says so in Settings.
 
 Everything is made on your computer from a seed. Clairlune
 sends nothing about you anywhere. It goes online only to ask GitHub for the
-newest version once a day (if that's on) and to download an update when you
-click Update now. Report a problem opens a GitHub issue in your browser for you
+newest version (once a day unless you change it in Settings > General) and to
+download an update when you click Update now. Report a problem opens a GitHub issue in your browser for you
 to read and send yourself.
 
 ## Questions and problems

@@ -40,8 +40,11 @@ impl App {
             }
             Err(e) => {
                 tracing::warn!(target: "clairlune", error = %e, "update check failed");
-                // Tried: the next try is in a few hours, not at once.
-                self.update.checked = now.saturating_sub(update::EVERY_SECS - 3 * 3600);
+                // Tried: the next try is in a few hours, not at once (and
+                // not a whole week or month away either).
+                let every = u64::from(self.settings.general.check_updates_every_days.max(1))
+                    * update::DAY_SECS;
+                self.update.checked = now.saturating_sub(every - 3 * 3600);
                 if by_hand {
                     self.status.update_note = Some(format!("Couldn't check: {e}"));
                 }

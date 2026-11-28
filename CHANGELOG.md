@@ -8,6 +8,22 @@ earlier versions always look the same as before. The downloads are on the
 
 ## [Unreleased]
 
+### Added
+
+- **Check for updates** (Settings > General) can be once a day, once a week,
+  every 2 weeks, once a month, or off.
+
+### Changed
+
+- Check now and Update now are only in General; About keeps the version and
+  links.
+- Image to ASCII opens from Rotation > From an image (and the Library), no
+  longer from Export.
+- Less text in Settings: no line under From an image or Show Clawd, a shorter
+  one under Lighter on Retina screens, and General's line under its title says
+  how often updates are checked (or that one is ready) instead of whether
+  Clairlune starts with the computer.
+
 ## [0.36.1] - 2026-11-28
 
 ### Changed

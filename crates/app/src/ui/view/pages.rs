@@ -273,17 +273,11 @@ pub(crate) fn page(
                 );
                 ui.add_space(space::S2);
             }
-            row(
-                ui,
-                theme,
-                "From an image",
-                "Turn one of your own pictures into an ASCII wallpaper",
-                |ui| {
-                    if ui.button("Open\u{2026}").clicked() {
-                        actions.push(UiAction::OpenAscii);
-                    }
-                },
-            );
+            row(ui, theme, "From an image", "", |ui| {
+                if ui.button("Open\u{2026}").clicked() {
+                    actions.push(UiAction::OpenAscii);
+                }
+            });
         }
         Section::Display => {
             use crate::settings::WallpaperMode;
@@ -420,7 +414,7 @@ pub(crate) fn page(
                     ui,
                     theme,
                     "Lighter on Retina screens",
-                    "Draws the wallpaper at half the resolution on Retina screens: about a quarter of the memory and less work, with slightly softer text. Applies to the wallpaper on screen now.",
+                    "Half the resolution: a quarter of the memory, slightly softer text.",
                     |ui| {
                         toggle(
                             ui,
@@ -442,15 +436,9 @@ pub(crate) fn page(
             }
         }
         Section::Content => {
-            row(
-                ui,
-                theme,
-                "Show Clawd",
-                "Include Clawd in generated wallpapers; when off, his camp or lantern stays in the scene.",
-                |ui| {
-                    toggle(ui, theme, &mut s.buddy.show, "Show Clawd");
-                },
-            );
+            row(ui, theme, "Show Clawd", "", |ui| {
+                toggle(ui, theme, &mut s.buddy.show, "Show Clawd");
+            });
             // Which monitor's choices: all of them, or one with its own (a
             // scene spread across them picks from the choices for all).
             let span = s.display.span;
@@ -646,17 +634,6 @@ pub(crate) fn page(
                     actions.push(UiAction::SaveGif);
                 }
             });
-            row(
-                ui,
-                theme,
-                "Image to ASCII",
-                "Convert an image of your own to .txt, PNG or a wallpaper",
-                |ui| {
-                    if ui.button("Open\u{2026}").clicked() {
-                        actions.push(UiAction::OpenAscii);
-                    }
-                },
-            );
             row(ui, theme, "Sign saved images", "", |ui| {
                 toggle(ui, theme, &mut s.export.sign, "Sign saved images");
             });
@@ -725,9 +702,33 @@ pub(crate) fn page(
                 }
                 ui.add_space(space::S2);
             }
-            row(ui, theme, "Check for updates", "Once a day", |ui| {
-                toggle(ui, theme, &mut s.general.check_updates, "Check for updates");
+            let mut every = if s.general.check_updates {
+                s.general.check_updates_every_days.max(1)
+            } else {
+                0
+            };
+            let shown = match every {
+                0 => "Off".to_string(),
+                d => crate::update::EVERY
+                    .iter()
+                    .find(|(n, _)| *n == d)
+                    .map_or_else(|| format!("Every {d} days"), |(_, l)| (*l).to_string()),
+            };
+            row(ui, theme, "Check for updates", "", |ui| {
+                egui::ComboBox::from_id_salt("update-every")
+                    .selected_text(shown)
+                    .width(160.0)
+                    .show_ui(ui, |ui| {
+                        for (d, l) in crate::update::EVERY {
+                            ui.selectable_value(&mut every, d, l);
+                        }
+                        ui.selectable_value(&mut every, 0, "Off");
+                    });
             });
+            s.general.check_updates = every != 0;
+            if every != 0 {
+                s.general.check_updates_every_days = every;
+            }
             update_controls(ui, theme, status, actions);
 
             ui.add_space(space::S4);
@@ -896,9 +897,7 @@ pub(crate) fn page(
             }
         }
         Section::About => {
-            group(ui, "Updates & links");
-            update_controls(ui, theme, status, actions);
-            ui.add_space(space::S2);
+            group(ui, "Links");
             ui.horizontal_wrapped(|ui| {
                 if ui.button("Source on GitHub").clicked() {
                     actions.push(UiAction::OpenLink(REPO_URL));
@@ -940,8 +939,7 @@ pub(crate) fn page(
     }
 }
 
-/// Shared version status + Check now / Update now controls shown on both
-/// General and About.
+/// The version, Check now, and Update now when there's a newer one (General).
 fn update_controls(ui: &mut Ui, theme: Theme, status: &Status, actions: &mut Vec<UiAction>) {
     let t = colors(theme);
     ui.horizontal_wrapped(|ui| {

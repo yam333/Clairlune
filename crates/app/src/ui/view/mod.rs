@@ -635,10 +635,15 @@ fn summary(section: Section, s: &Settings, status: &Status) -> String {
         Section::Archive => format!("kept for {} days", s.archive.keep_days),
         Section::Export if s.export.sign => "PNGs and GIFs, signed".into(),
         Section::Export => "PNGs and GIFs".into(),
-        Section::General if status.start_at_login == Some(true) => {
-            "starts with the computer".into()
-        }
-        Section::General => "starts when you open it".into(),
+        Section::General if status.update_url.is_some() => "an update is ready".into(),
+        Section::General if !s.general.check_updates => "update checks off".into(),
+        Section::General => match s.general.check_updates_every_days.max(1) {
+            1 => "checks for updates daily".into(),
+            7 => "checks for updates weekly".into(),
+            14 => "checks for updates every 2 weeks".into(),
+            30 => "checks for updates monthly".into(),
+            d => format!("checks for updates every {d} days"),
+        },
         Section::About => format!(
             "Clairlune {}, generator {}",
             env!("CARGO_PKG_VERSION"),
