@@ -66,12 +66,25 @@ jobs:
         run: |
           set -eu
           before=$(stat -f %i /Applications/Clairlune.app/Contents/MacOS/*)
+          old=$(pgrep -f /Applications/Clairlune.app/Contents/MacOS)
           sh install.sh
           after=$(stat -f %i /Applications/Clairlune.app/Contents/MacOS/*)
           [ "$before" != "$after" ]
-          sleep 30
-          pgrep -fl /Applications/Clairlune.app
-          [ "$(pgrep -f /Applications/Clairlune.app/Contents/MacOS | wc -l)" -eq 1 ]
+          # The running copy notices it was replaced and starts again from
+          # the new one (within about 30 s, slower on some runners): wait
+          # for exactly one copy, and not the old one.
+          ok=0
+          for i in $(seq 1 45); do
+            sleep 2
+            pids=$(pgrep -f /Applications/Clairlune.app/Contents/MacOS || true)
+            if [ -n "$pids" ] && [ "$(echo "$pids" | wc -l)" -eq 1 ] && [ "$pids" != "$old" ]; then
+              ok=1
+              break
+            fi
+          done
+          pgrep -fl /Applications/Clairlune.app || true
+          [ "$ok" = 1 ] || { echo "the app didn't start again from the new copy"; exit 1; }
+          echo "started again after about $((i * 2)) s"
           # Nothing left behind.
           ls -a /Applications | grep '^\.Clairlune' && exit 1
           ls -d "${TMPDIR%/}"/tmp.*/mnt 2>/dev/null && exit 1

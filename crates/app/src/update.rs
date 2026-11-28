@@ -175,13 +175,39 @@ pub fn fetch() -> Result<Release, String> {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
-    let out = cmd.output().map_err(|e| {
+    // CI's update check runs on shared machines whose anonymous requests
+    // GitHub often refuses: there it passes its own token, which goes to
+    // curl on stdin (never on the command line). The app never sets it.
+    let token = std::env::var("CLAIRLUNE_GITHUB_TOKEN")
+        .ok()
+        .filter(|t| !t.trim().is_empty());
+    if token.is_some() {
+        cmd.args(["--header", "@-"]);
+    }
+    let not_found = |e: std::io::Error| {
         if e.kind() == std::io::ErrorKind::NotFound {
             "curl isn't installed".to_string()
         } else {
             e.to_string()
         }
-    })?;
+    };
+    let out = match token {
+        None => cmd.output().map_err(not_found)?,
+        Some(token) => {
+            use std::io::Write;
+            use std::process::Stdio;
+            let mut child = cmd
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(not_found)?;
+            if let Some(mut stdin) = child.stdin.take() {
+                let _ = writeln!(stdin, "Authorization: Bearer {}", token.trim());
+            }
+            child.wait_with_output().map_err(|e| e.to_string())?
+        }
+    };
     if !out.status.success() {
         let err = String::from_utf8_lossy(&out.stderr);
         let err = err.trim().trim_start_matches("curl: ");

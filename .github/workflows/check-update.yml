@@ -18,6 +18,9 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   GH_TOKEN: ${{ github.token }}
+  # The runners are shared: GitHub often refuses their anonymous API
+  # requests, so the app's release check asks with this run's token.
+  CLAIRLUNE_GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
   windows:
