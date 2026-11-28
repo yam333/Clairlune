@@ -95,7 +95,7 @@ Design notes, determinism rules, and the activity system are in [docs/dev](docs/
 
 ## Support
 
-Clairlune is free. If it made your desk a little nicer, you can [buy me a coffee](https://buymeacoffee.com/yam333).
+Clairlune is free. If it made your desk a little nicer, you can [buy me a kiwi](https://buymeacoffee.com/yam333) 🥝.
 
 ## License
 

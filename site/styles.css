@@ -1405,7 +1405,7 @@ pre,
   color: var(--text-secondary);
 }
 
-.coffee-btn {
+.support-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1413,8 +1413,8 @@ pre,
   text-decoration: none;
 }
 
-.coffee-btn svg {
-  color: var(--accent-text);
+.support-btn svg {
+  flex: none;
 }
 
 .signature-link {
