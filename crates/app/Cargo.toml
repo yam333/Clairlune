@@ -8,6 +8,7 @@ rust-version = "1.95"
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+homepage.workspace = true
 readme.workspace = true
 keywords = ["wallpaper", "ascii-art", "desktop", "procedural", "live-wallpaper"]
 categories = ["graphics", "multimedia::images"]

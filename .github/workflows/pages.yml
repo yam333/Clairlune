@@ -1,11 +1,17 @@
 name: Pages
 
-# Deploys the static landing site in `site/` to GitHub Pages.
+# Builds the docs pages from the Markdown and deploys the site in `site/` to
+# GitHub Pages, then tells IndexNow search engines what changed.
 on:
   push:
     branches: [main]
     paths:
       - "site/**"
+      - "docs/guide.md"
+      - "docs/cli.md"
+      - "CHANGELOG.md"
+      - "Cargo.toml"
+      - "scripts/build_site.py"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -26,9 +32,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # The sitemap's <lastmod> dates come from each source's last commit.
+          fetch-depth: 0
+      - name: Build docs pages and sitemap
+        run: python3 scripts/build_site.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
           path: site
       - id: deployment
         uses: actions/deploy-pages@v4
+      - name: Ping IndexNow
+        # Bing, Yandex, Seznam and Naver recrawl on this; a failure never fails the deploy.
+        continue-on-error: true
+        run: |
+          curl -sS -m 30 -o /dev/null -w "IndexNow: HTTP %{http_code}\n" \
+            -X POST https://api.indexnow.org/indexnow \
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data @- <<'JSON'
+          {
+            "host": "yam333.github.io",
+            "key": "c1a17104e8b94f2d9a6c3e51087b4d2f",
+            "keyLocation": "https://yam333.github.io/Clairlune/c1a17104e8b94f2d9a6c3e51087b4d2f.txt",
+            "urlList": [
+              "https://yam333.github.io/Clairlune/",
+              "https://yam333.github.io/Clairlune/guide/",
+              "https://yam333.github.io/Clairlune/cli/",
+              "https://yam333.github.io/Clairlune/changelog/"
+            ]
+          }
+          JSON

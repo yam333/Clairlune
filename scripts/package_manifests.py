@@ -31,6 +31,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 REPO = "https://github.com/yam333/Clairlune"
+SITE = "https://yam333.github.io/Clairlune/"
 DESC = "Procedural, animated ASCII-art desktop wallpapers"
 LICENSE = "MIT OR Apache-2.0"
 
@@ -71,6 +72,10 @@ def write(path: Path, text: str) -> None:
 def homebrew(v: str, base: str, h: dict[str, str], n: dict[str, str]) -> str:
     # The DMG names differ only in the architecture.
     dmg = n["dmg_arm"].replace(v, "#{version}").replace("aarch64", "#{arch}")
+    # The homepage is the site, so Homebrew wants the download host vouched for.
+    url = f'"{base.replace(v, "#{version}")}/{dmg}"'
+    if base.startswith(f"{REPO}/"):
+        url += ',\n      verified: "github.com/yam333/Clairlune/"'
     return f'''cask "clairlune" do
   arch arm: "aarch64", intel: "x64"
 
@@ -78,10 +83,10 @@ def homebrew(v: str, base: str, h: dict[str, str], n: dict[str, str]) -> str:
   sha256 arm:   "{h["dmg_arm"]}",
          intel: "{h["dmg_intel"]}"
 
-  url "{base.replace(v, "#{version}")}/{dmg}"
+  url {url}
   name "Clairlune"
   desc "{DESC}"
-  homepage "{REPO}"
+  homepage "{SITE}"
 
   livecheck do
     url :url
@@ -122,7 +127,7 @@ def scoop(v: str, base: str, h: dict[str, str], n: dict[str, str]) -> str:
     manifest = {
         "version": v,
         "description": DESC,
-        "homepage": REPO,
+        "homepage": SITE,
         "license": LICENSE,
         "notes": "Clairlune runs in the notification area (the square over a circle).",
         "architecture": {
@@ -176,9 +181,9 @@ ManifestVersion: {WINGET_SCHEMA}
 PackageVersion: {v}
 PackageLocale: en-US
 Publisher: Clairlune contributors
-PublisherUrl: {REPO}
+PublisherUrl: https://github.com/yam333
 PackageName: Clairlune
-PackageUrl: {REPO}
+PackageUrl: {SITE}
 License: {LICENSE}
 LicenseUrl: {REPO}/blob/main/LICENSE-MIT
 ShortDescription: {DESC}

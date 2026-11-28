@@ -1,0 +1,34 @@
+# Clairlune
+
+> Clairlune is an open-source native Rust desktop wallpaper application (Windows 10/11 and macOS 13+) and headless command-line renderer (`clairlune-cli` on Windows, macOS, and Linux) that generates deterministic, animated ASCII-art landscapes from a 64-bit seed.
+
+Clairlune is distinct from Claude Debussy's piano piece *Clair de lune*. It is desktop enhancement and generative graphics software licensed under MIT OR Apache-2.0.
+
+## Key Capabilities
+
+- Seeded procedural ASCII-art landscapes with biome-specific weather, light/dark colour palettes, swappable character sets (ASCII, 2x4 Braille, Katakana, box-drawing, blocks, shapes, hex), and an optional pixel-art Clawd character.
+- Byte-identical cross-platform rendering using `skrifa` font outlines, 8×8 supersampled coverage in plain f64, and `libm` math.
+- Incremental dirty-tile live desktop wallpaper playback behind desktop icons, pausing behind full-screen and maximized apps, while the computer is locked, and (optionally) on battery.
+- Multi-monitor support: independent scenes per display at native resolution, or a single spanned landscape across displays.
+- Built-in Image to ASCII studio for converting images into `.txt`, palette-mapped or photo-coloured PNGs, transparent PNGs, library items, or live wallpapers.
+- Wallpaper archive, taggable library, 24-hour weekly timeline scheduler, and local sunrise/sunset theme switching.
+
+## Install
+
+- Windows 10/11: `clairlune_<version>_x64-setup.exe` from GitHub Releases, or Scoop (`scoop bucket add clairlune https://github.com/yam333/homebrew-clairlune && scoop install clairlune`).
+- macOS 13+: `curl -fsSL https://raw.githubusercontent.com/yam333/Clairlune/main/install.sh | sh`, or Homebrew (`brew install --cask yam333/clairlune/clairlune`).
+- Cargo (Rust): `cargo install clairlune` (desktop app, Windows/macOS) or `cargo install clairlune-cli` (headless CLI, Windows/macOS/Linux).
+
+## Documentation & Links
+
+- [Website](https://yam333.github.io/Clairlune/): Overview, live desktop specimens, and interactive Image to ASCII preview.
+- [User Guide](https://yam333.github.io/Clairlune/guide/): Installation, Settings reference, Image to ASCII studio, multi-monitor setup, Timeline, and troubleshooting.
+- [CLI Reference](https://yam333.github.io/Clairlune/cli/): Subcommands and flags for `clairlune-cli` (`generate`, `gif`, `package`, `contact-sheet`, `monitors`, `set`, `restore`, `live`).
+- [Changelog](https://yam333.github.io/Clairlune/changelog/): Release history following Keep a Changelog and Semantic Versioning.
+- [Source Repository](https://github.com/yam333/Clairlune): Rust workspace (`clairlune`, `clairlune-cli`, `clairlune-scene`, `clairlune-render`, `clairlune-sprites`, `clairlune-live`, `clairlune-platform`).
+- [Latest Downloads](https://github.com/yam333/Clairlune/releases/latest): SHA-256 checksums (`SHA256SUMS`), Windows installer/portable zip, and macOS Apple Silicon/Intel DMGs.
+- [crates.io Package](https://crates.io/crates/clairlune): Published Rust crate metadata.
+
+## Questions
+
+- [Frequently asked questions](https://yam333.github.io/Clairlune/#faq): Price and licence, performance, privacy, multiple monitors, Linux, the macOS first-open prompt, and getting a wallpaper back.

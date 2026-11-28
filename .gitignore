@@ -7,3 +7,8 @@
 # The trailer's video and poster: published as release assets, not kept here
 /docs/media/trailer.mp4
 /docs/media/trailer.jpg
+# Built from the Markdown by scripts/build_site.py in the Pages workflow
+/site/guide/
+/site/cli/
+/site/changelog/
+/site/sitemap.xml

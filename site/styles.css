@@ -391,6 +391,7 @@ pre,
 }
 
 .primary-nav a {
+  white-space: nowrap;
   font-size: 0.875rem;
   color: var(--text-secondary);
   text-decoration: none;
@@ -1833,5 +1834,471 @@ pre,
     gap: 8px;
     padding: 7px 8px;
     font-size: 0.78rem;
+  }
+}
+
+/* Current page in the header */
+.primary-nav a[aria-current="page"] {
+  color: var(--text);
+  box-shadow: inset 0 -1px 0 var(--accent-deep);
+}
+
+/* Site pages on phones: a row under the header, since the primary nav hides */
+.mobile-subnav {
+  display: none;
+}
+
+/* Questions: an accordion beside a short intro */
+.faq-split {
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+}
+
+.faq-list {
+  border-block-start: 1px solid var(--hairline);
+}
+
+.faq-item {
+  border-block-end: 1px solid var(--hairline);
+}
+
+.faq-item summary {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 15px 4px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 1rem;
+  color: var(--text);
+  transition: color var(--dur-base) var(--ease-out);
+}
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item summary::after {
+  content: "+";
+  margin-inline-start: auto;
+  padding-inline-start: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.faq-item[open] summary::after {
+  content: "\2212";
+  color: var(--accent-text);
+}
+
+.faq-item summary:hover {
+  color: var(--accent-text);
+}
+
+.faq-index {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.faq-item[open] .faq-index {
+  color: var(--accent-text);
+}
+
+.faq-item p {
+  margin: 0;
+  padding: 0 28px 18px calc(14px + 2.6ch);
+  max-width: 64ch;
+  font-size: 0.93rem;
+  line-height: 1.62;
+  color: var(--text-secondary);
+}
+
+/* Docs pages: a contents rail beside the text */
+.doc-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 250px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.doc-toc {
+  position: sticky;
+  inset-block-start: 62px;
+  max-block-size: calc(100dvh - 62px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 30px 18px 30px 24px;
+}
+
+.doc-toc summary {
+  list-style: none;
+  margin: 0 0 10px;
+}
+
+.doc-toc summary::-webkit-details-marker {
+  display: none;
+}
+
+.doc-toc ol {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.doc-toc a {
+  display: block;
+  padding: 5px 10px;
+  border-inline-start: 1px solid var(--hairline);
+  font-size: 0.84rem;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.doc-toc a:hover {
+  color: var(--text);
+}
+
+.doc-toc a.is-current {
+  color: var(--text);
+  border-inline-start-color: var(--accent-deep);
+}
+
+.doc-prose {
+  min-inline-size: 0;
+  padding: 40px 44px 60px;
+  border-inline-start: 1px solid var(--hairline);
+}
+
+.doc-prose > * {
+  max-inline-size: 72ch;
+}
+
+.doc-prose > .doc-code,
+.doc-prose > .doc-table-wrap {
+  max-inline-size: min(100%, 100ch);
+}
+
+.doc-h1 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(2.4rem, 1.8rem + 2vw, 3.4rem);
+  line-height: 1.04;
+  letter-spacing: -0.015em;
+  margin: 0 0 18px;
+}
+
+.doc-h1 + p {
+  font-size: 1.06rem;
+  color: var(--text-secondary);
+}
+
+.doc-prose h2 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 1.95rem;
+  line-height: 1.15;
+  margin: 52px 0 14px;
+  padding-block-start: 22px;
+  border-block-start: 1px solid var(--hairline);
+}
+
+.doc-prose h2 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.doc-prose h2 a:hover {
+  color: var(--accent-text);
+}
+
+.doc-prose h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 32px 0 10px;
+}
+
+.doc-prose h4 {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 24px 0 8px;
+}
+
+.doc-prose p,
+.doc-prose li {
+  font-size: 0.97rem;
+  line-height: 1.68;
+}
+
+.doc-prose p {
+  margin: 0 0 16px;
+}
+
+.doc-prose ul,
+.doc-prose ol {
+  margin: 0 0 18px;
+  padding-inline-start: 1.3em;
+}
+
+.doc-prose li + li {
+  margin-block-start: 6px;
+}
+
+.doc-prose li ul {
+  margin: 6px 0 0;
+}
+
+.doc-prose li::marker {
+  color: var(--accent-deep);
+}
+
+.doc-prose :not(pre) > code {
+  font-size: 0.86em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--hairline);
+}
+
+.doc-code {
+  margin: 18px 0 24px;
+}
+
+.doc-table-wrap {
+  margin: 16px 0 26px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-panel);
+  background: var(--bg-raised);
+}
+
+.doc-table th,
+.doc-table td {
+  padding: 10px 14px;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.doc-table th {
+  background: var(--bg-sidebar);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.doc-table tr:last-child td {
+  border-block-end: 0;
+}
+
+.doc-table td {
+  color: var(--text);
+}
+
+.doc-table td:first-child {
+  white-space: nowrap;
+}
+
+.doc-source {
+  margin-block-start: 52px;
+  padding-block-start: 16px;
+  border-block-start: 1px dashed var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 0.74rem !important;
+  color: var(--text-secondary);
+}
+
+/* 404 */
+.not-found-box {
+  padding: 64px 24px 88px;
+  text-align: center;
+}
+
+.not-found-box .section-sub {
+  margin-inline: auto;
+}
+
+.not-found-art {
+  display: inline-block;
+  margin: 0 0 28px;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.not-found-art .lit {
+  color: var(--accent-deep);
+}
+
+.not-found-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-block-start: 28px;
+}
+
+@media (max-width: 1024px) {
+  .faq-split,
+  .doc-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .doc-toc {
+    position: static;
+    max-block-size: none;
+    padding: 0;
+    border-block-end: 1px solid var(--hairline);
+  }
+
+  .doc-toc summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0;
+    padding: 14px 24px;
+    cursor: pointer;
+  }
+
+  .doc-toc summary::after {
+    content: "+";
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+  }
+
+  .doc-toc details[open] summary::after {
+    content: "\2212";
+  }
+
+  .doc-toc ol {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+    padding: 0 24px 16px;
+  }
+
+  .doc-prose {
+    border-inline-start: 0;
+  }
+}
+
+@media (max-width: 940px) {
+  .primary-nav {
+    display: none;
+  }
+
+  html {
+    scroll-padding-block-start: 7.5rem;
+  }
+
+  .mobile-subnav {
+    display: block;
+    border-block-start: 1px solid var(--hairline);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .mobile-subnav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-subnav ul {
+    display: flex;
+    gap: 2px;
+    inline-size: max-content;
+    margin: 0 auto;
+    padding: 5px 10px;
+    list-style: none;
+  }
+
+  .mobile-subnav a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 38px;
+    padding: 0 11px;
+    border-radius: var(--radius-control);
+    font-size: 0.86rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+
+  .mobile-subnav a[aria-current="page"] {
+    color: var(--text);
+    background: var(--bg-sidebar);
+  }
+}
+
+@media (max-width: 720px) {
+  .faq-item summary {
+    padding: 14px 0;
+  }
+
+  .faq-item p {
+    padding: 0 0 16px;
+  }
+
+  .doc-toc summary {
+    padding: 14px 16px;
+  }
+
+  .doc-toc ol {
+    padding: 0 16px 14px;
+  }
+
+  .doc-prose {
+    padding: 28px 16px 44px;
+  }
+
+  .doc-prose h2 {
+    font-size: 1.65rem;
+    margin-block-start: 40px;
+  }
+
+  /* Each row becomes a small card: the first cell on top, the rest under it */
+  .doc-table thead {
+    display: none;
+  }
+
+  .doc-table tr {
+    display: block;
+    padding: 12px 14px;
+    border-block-end: 1px solid var(--hairline);
+  }
+
+  .doc-table tr:last-child {
+    border-block-end: 0;
+  }
+
+  .doc-table td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+
+  .doc-table td:first-child {
+    white-space: normal;
+    margin-block-end: 6px;
+  }
+
+  .doc-table td + td {
+    color: var(--text-secondary);
+  }
+
+  .doc-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-block-start: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .not-found-box {
+    padding: 44px 16px 64px;
   }
 }

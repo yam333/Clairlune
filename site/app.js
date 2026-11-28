@@ -553,6 +553,43 @@
   }
   renderAsciiWorkbench();
 
+  // --- Docs pages: contents folded on narrow screens, current section marked ---
+  const tocDetails = document.querySelector('.doc-toc details');
+  if (tocDetails) {
+    if (window.matchMedia('(max-width: 1024px)').matches) tocDetails.open = false;
+    const tocLinks = new Map(
+      Array.from(tocDetails.querySelectorAll('a[href^="#"]')).map((a) => [decodeURIComponent(a.hash.slice(1)), a])
+    );
+    const heads = Array.from(document.querySelectorAll('.doc-prose h2[id]')).filter((h) => tocLinks.has(h.id));
+    if (heads.length) {
+      let current = null;
+      let queued = false;
+      const update = () => {
+        queued = false;
+        // The section whose heading last passed a line a third of the way down.
+        const line = window.innerHeight / 3;
+        let pick = heads[0];
+        for (const h of heads) {
+          if (h.getBoundingClientRect().top <= line) pick = h;
+          else break;
+        }
+        if (pick.id === current) return;
+        tocLinks.get(current)?.classList.remove('is-current');
+        tocLinks.get(pick.id)?.classList.add('is-current');
+        current = pick.id;
+      };
+      const queue = () => {
+        if (!queued) {
+          queued = true;
+          requestAnimationFrame(update);
+        }
+      };
+      window.addEventListener('scroll', queue, { passive: true });
+      window.addEventListener('resize', queue, { passive: true });
+      update();
+    }
+  }
+
   // --- 5. Evergreen Latest-Release Sync (low priority, graceful fallback) ---
   fetch('https://api.github.com/repos/yam333/Clairlune/releases/latest', { priority: 'low' })
     .then((r) => (r.ok ? r.json() : null))

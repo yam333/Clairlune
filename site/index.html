@@ -69,6 +69,98 @@
           "https://crates.io/crates/clairlune-cli",
           "https://docs.rs/crate/clairlune/latest"
         ]
+      },
+      {
+        "@type": "VideoObject",
+        "@id": "https://yam333.github.io/Clairlune/#trailer",
+        "name": "Clairlune trailer",
+        "description": "Clairlune's animated ASCII-art landscapes playing live behind a desktop: weather, day and night palettes, and Clawd.",
+        "thumbnailUrl": "https://yam333.github.io/Clairlune/assets/trailer-preview.webp",
+        "contentUrl": "https://github.com/yam333/Clairlune/releases/download/v0.28.0/clairlune-trailer.mp4",
+        "uploadDate": "2026-11-22",
+        "duration": "PT56S",
+        "inLanguage": "en",
+        "about": {
+          "@id": "https://yam333.github.io/Clairlune/#app"
+        }
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://yam333.github.io/Clairlune/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is Clairlune?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "A desktop app for Windows and macOS that puts a new landscape drawn in text characters on your wallpaper every hour, with Clawd doing something in it. Every scene comes from a seed, so the same seed always draws the same picture. It has nothing to do with Debussy's Clair de lune."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is Clairlune free?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. It is free and open source under MIT or Apache-2.0, with no account, ads or purchases."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Will it slow my computer down?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Live redraws only the parts of the scene that change. It pauses while an app fills the screen (maximized, zoomed or full screen), while the computer is locked, and on battery if you ask it to. Still frame sets one picture and costs nothing between changes; Settings > Live > Smoothness lowers the frame rate."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does Clairlune collect any data?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Every wallpaper is made on your computer, and Clairlune sends nothing about you anywhere. It goes online only to ask GitHub for the newest version once a day (if that's on) and to download an update when you click Update now."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does it work with more than one monitor?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Each monitor gets its own scene at its own resolution, or one wide scene spreads across all of them (Settings > Display > Monitors)."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I turn my own picture into ASCII art?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Image to ASCII takes a PNG, JPEG, WebP, GIF, BMP or TIFF and turns it into characters you can copy or save as text or PNG, keep in the library, or set as your wallpaper."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does Clairlune run on Linux?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "The desktop app is for Windows 10 and 11 and macOS 13 or later. On Linux, clairlune-cli renders the same scenes as PNG stills and GIFs (CLI reference)."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "macOS says Clairlune can't be opened. What do I do?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Click Done (not Move to Trash), then Open Anyway at the bottom of System Settings > Privacy & Security, once. If there's no Open Anyway, or it says the app is damaged, install with the one-line Terminal installer instead (step by step)."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I get a wallpaper back?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Copy its seed in Settings and type it into Settings > Rotation > From a seed. A wallpaper still in the archive (the last week) or the library comes back exactly as it was."
+            }
+          }
+        ]
       }
     ]
   }
@@ -95,8 +187,9 @@
         <ul>
           <li><a href="#specimens">Specimens</a></li>
           <li><a href="#studio">Image to ASCII</a></li>
-          <li><a href="#architecture">CLI &amp; Crates</a></li>
-          <li><a href="https://github.com/yam333/Clairlune/blob/main/docs/guide.md">Guide</a></li>
+          <li><a href="guide/">Guide</a></li>
+          <li><a href="cli/">CLI</a></li>
+          <li><a href="changelog/">Changelog</a></li>
           <li><a href="https://github.com/yam333/Clairlune">GitHub</a></li>
         </ul>
       </nav>
@@ -122,6 +215,15 @@
         <a href="https://github.com/yam333/Clairlune/releases/latest" class="btn-primary">Download</a>
       </div>
     </div>
+    <nav class="mobile-subnav" aria-label="Site pages">
+      <ul>
+        <li><a href="#specimens">Specimens</a></li>
+        <li><a href="guide/">Guide</a></li>
+        <li><a href="cli/">CLI</a></li>
+        <li><a href="#faq">Questions</a></li>
+        <li><a href="changelog/">Changelog</a></li>
+      </ul>
+    </nav>
   </header>
 
   <main id="main-content" class="frame">
@@ -176,7 +278,7 @@ scoop install clairlune</code></pre>
                     <button type="button" class="copy-btn" data-copy="cmd-brew">Copy</button>
                   </div>
                   <p class="install-note">
-                    macOS 13+ (Apple Silicon &amp; Intel DMGs on <a href="https://github.com/yam333/Clairlune/releases/latest">Releases</a>; see the <a href="https://github.com/yam333/Clairlune/blob/main/docs/guide.md#opening-it-the-first-time">Gatekeeper first-open note</a>).
+                    macOS 13+ (Apple Silicon &amp; Intel DMGs on <a href="https://github.com/yam333/Clairlune/releases/latest">Releases</a>; see the <a href="guide/#opening-it-the-first-time">Gatekeeper first-open note</a>).
                   </p>
                 </div>
               </div>
@@ -498,7 +600,7 @@ cargo install clairlune-cli   # headless CLI (Windows, macOS &amp; Linux, Rust 1
           <div class="terminal-card">
             <div class="terminal-top">
               <span>clairlune-cli · shell</span>
-              <a href="https://github.com/yam333/Clairlune/blob/main/docs/cli.md" class="terminal-link">Full CLI reference</a>
+              <a href="cli/" class="terminal-link">Full CLI reference</a>
             </div>
             <pre role="region" aria-label="clairlune-cli examples" tabindex="0"><code><span class="tok-comment"># 4K indexed PNG from a deterministic seed</span>
 clairlune-cli generate <span class="tok-flag">--seed</span> 7 <span class="tok-flag">--theme</span> dark <span class="tok-flag">--size</span> 3840x2160 <span class="tok-flag">--out</span> wallpaper.png
@@ -559,6 +661,61 @@ clairlune-cli contact-sheet <span class="tok-flag">--archetype</span> shore <spa
         </div>
       </div>
     </section>
+
+    <!-- Band 06: Questions -->
+    <section id="faq" class="band">
+      <div class="section-kicker">
+        <span>06 / Questions</span>
+        <span>From the user guide</span>
+      </div>
+
+      <div class="split-asymmetric faq-split">
+        <div class="panel-pad faq-intro">
+          <h2 class="section-heading">Before you install.</h2>
+          <p class="section-sub">The questions people ask first. Everything else is in the <a href="guide/">user guide</a>.</p>
+        </div>
+        <div class="panel-pad faq-panel">
+          <div class="faq-list">
+            <details name="faq" class="faq-item" open>
+              <summary><span class="faq-index">01</span>What is Clairlune?</summary>
+              <p>A desktop app for Windows and macOS that puts a new landscape drawn in text characters on your wallpaper every hour, with Clawd doing something in it. Every scene comes from a seed, so the same seed always draws the same picture. It has nothing to do with Debussy's <em>Clair de lune</em>.</p>
+            </details>
+            <details name="faq" class="faq-item">
+              <summary><span class="faq-index">02</span>Is Clairlune free?</summary>
+              <p>Yes. It is free and open source under MIT or Apache-2.0, with no account, ads or purchases.</p>
+            </details>
+            <details name="faq" class="faq-item">
+              <summary><span class="faq-index">03</span>Will it slow my computer down?</summary>
+              <p>Live redraws only the parts of the scene that change. It pauses while an app fills the screen (maximized, zoomed or full screen), while the computer is locked, and on battery if you ask it to. Still frame sets one picture and costs nothing between changes; Settings &gt; Live &gt; Smoothness lowers the frame rate.</p>
+            </details>
+            <details name="faq" class="faq-item">
+              <summary><span class="faq-index">04</span>Does Clairlune collect any data?</summary>
+              <p>No. Every wallpaper is made on your computer, and Clairlune sends nothing about you anywhere. It goes online only to ask GitHub for the newest version once a day (if that's on) and to download an update when you click Update now.</p>
+            </details>
+            <details name="faq" class="faq-item">
+              <summary><span class="faq-index">05</span>Does it work with more than one monitor?</summary>
+              <p>Yes. Each monitor gets its own scene at its own resolution, or one wide scene spreads across all of them (Settings &gt; Display &gt; Monitors).</p>
+            </details>
+            <details name="faq" class="faq-item">
+              <summary><span class="faq-index">06</span>Can I turn my own picture into ASCII art?</summary>
+              <p>Yes. Image to ASCII takes a PNG, JPEG, WebP, GIF, BMP or TIFF and turns it into characters you can copy or save as text or PNG, keep in the library, or set as your wallpaper.</p>
+            </details>
+            <details name="faq" class="faq-item">
+              <summary><span class="faq-index">07</span>Does Clairlune run on Linux?</summary>
+              <p>The desktop app is for Windows 10 and 11 and macOS 13 or later. On Linux, <code>clairlune-cli</code> renders the same scenes as PNG stills and GIFs (<a href="https://yam333.github.io/Clairlune/cli/">CLI reference</a>).</p>
+            </details>
+            <details name="faq" class="faq-item">
+              <summary><span class="faq-index">08</span>macOS says Clairlune can&#x27;t be opened. What do I do?</summary>
+              <p>Click Done (not Move to Trash), then Open Anyway at the bottom of System Settings &gt; Privacy &amp; Security, once. If there's no Open Anyway, or it says the app is damaged, install with the one-line Terminal installer instead (<a href="https://yam333.github.io/Clairlune/guide/#opening-it-the-first-time">step by step</a>).</p>
+            </details>
+            <details name="faq" class="faq-item">
+              <summary><span class="faq-index">09</span>How do I get a wallpaper back?</summary>
+              <p>Copy its seed in Settings and type it into Settings &gt; Rotation &gt; From a seed. A wallpaper still in the archive (the last week) or the library comes back exactly as it was.</p>
+            </details>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer class="site-footer">
@@ -580,9 +737,9 @@ clairlune-cli contact-sheet <span class="tok-flag">--archetype</span> shore <spa
     <div class="colophon">
       <ul class="footer-links" role="list">
         <li><a href="https://github.com/yam333/Clairlune/releases/latest">Releases</a></li>
-        <li><a href="https://github.com/yam333/Clairlune/blob/main/docs/guide.md">User guide</a></li>
-        <li><a href="https://github.com/yam333/Clairlune/blob/main/docs/cli.md">CLI docs</a></li>
-        <li><a href="https://github.com/yam333/Clairlune/blob/main/CHANGELOG.md">Changelog</a></li>
+        <li><a href="guide/">User guide</a></li>
+        <li><a href="cli/">CLI docs</a></li>
+        <li><a href="changelog/">Changelog</a></li>
         <li><a href="https://crates.io/crates/clairlune">crates.io</a></li>
         <li><a href="https://github.com/yam333/Clairlune">Source on GitHub</a></li>
       </ul>
