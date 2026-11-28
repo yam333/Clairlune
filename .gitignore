@@ -12,3 +12,5 @@
 /site/cli/
 /site/changelog/
 /site/sitemap.xml
+# Built by scripts/build_engine.py (the engine as WebAssembly)
+/site/engine/

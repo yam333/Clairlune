@@ -826,6 +826,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "clairlune-web"
+version = "0.37.0"
+dependencies = [
+ "clairlune-render",
+ "clairlune-scene",
+ "clairlune-sprites",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "clap"
 version = "4.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"

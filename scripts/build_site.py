@@ -316,6 +316,59 @@ def markdown_to_html(md: str, source_rel: str) -> tuple[str, list[tuple[str, str
     return "\n".join(kept), toc
 
 
+def landscape_names() -> list[tuple[str, str]]:
+    """The app's landscape ids and names (crates/app/src/ui/view/catalog.rs)."""
+    text = (ROOT / "crates" / "app" / "src" / "ui" / "view" / "catalog.rs").read_text(encoding="utf-8")
+    block = text.split("pub(crate) const LANDSCAPES", 1)[1].split("];", 1)[0]
+    return re.findall(r'\(\s*"([a-z_]+)",\s*"([^"]+)"', block)
+
+
+def release_scenes(md: str) -> dict[str, tuple[int, str, str]]:
+    """For each release: a seed (0.36.1 is 3601), a landscape it added if it
+    added any (the first one its "landscapes" bullet names), and a theme."""
+    names = landscape_names()
+    found: dict[str, tuple[int, str, str]] = {}
+    parts = re.split(r"^## \[(\d+)\.(\d+)\.(\d+)\].*$", md, flags=re.M)
+    for i in range(1, len(parts) - 3, 4):
+        major, minor, patch = (int(x) for x in parts[i : i + 3])
+        body = parts[i + 3]
+        land = ""
+        for bullet in re.split(r"^- ", body, flags=re.M)[1:]:
+            head = bullet[:80].lower()
+            if "landscape" not in head and not head.startswith("**indoors"):
+                continue
+            text = " ".join(bullet.split()).lower()
+            hits = []
+            for ident, name in names:
+                for word in {ident.replace("_", " "), name.lower(), name.lower().removeprefix("the ")}:
+                    m = re.search(rf"\b{re.escape(word)}\b", text)
+                    if m:
+                        hits.append((m.start(), ident))
+            if hits:
+                land = min(hits)[1]
+                break
+        seed = major * 10000 + minor * 100 + patch
+        theme = "dark" if minor % 2 == 0 else "light"
+        found[f"{major}.{minor}.{patch}"] = (seed, land, theme)
+    return found
+
+
+def add_release_scenes(body_html: str, md: str) -> str:
+    scenes = release_scenes(md)
+
+    def figure(m: re.Match[str]) -> str:
+        seed, land, theme = scenes.get(m.group(1), (0, "", "dark"))
+        if not seed:
+            return m.group(0)
+        land_attr = f' data-land="{land}"' if land else ""
+        return (
+            f'{m.group(0)}\n<figure class="release-scene"><canvas data-seed="{seed}"{land_attr}'
+            f' data-theme="{theme}" aria-hidden="true"></canvas><figcaption></figcaption></figure>'
+        )
+
+    return re.sub(r'<h2 id="v(\d+\.\d+\.\d+)">.*?</h2>', figure, body_html)
+
+
 def page_template(
     *,
     slug: str,
@@ -329,6 +382,7 @@ def page_template(
     toc: list[tuple[str, str]],
     source_rel: str,
     modified: str,
+    extra_script: str = "",
 ) -> str:
     canonical = f"{BASE_URL}/{slug}/"
     schema = {
@@ -383,6 +437,7 @@ def page_template(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
   <script>try{{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem("color-scheme")??"light dark"}}catch{{}}</script>
+  <script>try{{const p=JSON.parse(localStorage.getItem("clairlune-paint")||"null");if(p)for(const k in p)document.documentElement.style.setProperty(k,p[k])}}catch{{}}</script>
 
   <title>{html.escape(title)}</title>
   <meta name="description" content="{html.escape(description, quote=True)}">
@@ -510,7 +565,7 @@ def page_template(
     </div>
   </footer>
 
-  <script src="../app.js" defer></script>
+  <script src="../app.js" defer></script>{extra_script}
 </body>
 </html>
 """
@@ -580,6 +635,10 @@ def main() -> None:
                 count=1,
             )
         body_html, toc = markdown_to_html(md_text, p["source_rel"])
+        extra = ""
+        if p["slug"] == "changelog":
+            body_html = add_release_scenes(body_html, md_text)
+            extra = '\n  <script type="module" src="../js/changelog.js"></script>'
         full_html = page_template(
             slug=p["slug"],
             nav_key=p["nav_key"],
@@ -592,6 +651,7 @@ def main() -> None:
             toc=toc,
             source_rel=p["source_rel"],
             modified=git_lastmod([p["src"]]),
+            extra_script=extra,
         )
         dest = SITE / p["slug"] / "index.html"
         dest.parent.mkdir(parents=True, exist_ok=True)

@@ -20,7 +20,7 @@ Clairlune is distinct from Claude Debussy's piano piece *Clair de lune*. It is d
 
 ## Documentation & Links
 
-- [Website](https://yam333.github.io/Clairlune/): Overview, live desktop specimens, palettes and character sets, and the daily timeline.
+- [Website](https://yam333.github.io/Clairlune/): Overview, and the real engine running in the browser (WebAssembly): draw any seed with any landscape, palette or letter set, share it as a link (`?seed=42&land=fjord`), download it at your screen's size, or type `clairlune-cli` commands into an in-page terminal.
 - [User Guide](https://yam333.github.io/Clairlune/guide/): Installation, Settings reference, multi-monitor setup, Timeline, and troubleshooting.
 - [CLI Reference](https://yam333.github.io/Clairlune/cli/): Subcommands and flags for `clairlune-cli` (`generate`, `gif`, `package`, `contact-sheet`, `monitors`, `set`, `restore`, `live`).
 - [Changelog](https://yam333.github.io/Clairlune/changelog/): Release history following Keep a Changelog and Semantic Versioning.

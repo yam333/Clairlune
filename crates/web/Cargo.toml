@@ -1,0 +1,27 @@
+[package]
+name = "clairlune-web"
+description = "Clairlune's scene and render crates for the website, as WebAssembly"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish = false
+
+# The website builds it with:
+#   cargo build --profile web --target wasm32-unknown-unknown -p clairlune-web
+# (scripts/build_site.py --engine does that and copies the .wasm into site/).
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+clairlune-scene.workspace = true
+clairlune-render.workspace = true
+clairlune-sprites.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

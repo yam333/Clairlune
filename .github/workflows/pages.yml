@@ -1,7 +1,8 @@
 name: Pages
 
-# Builds the docs pages from the Markdown and deploys the site in `site/` to
-# GitHub Pages, then tells IndexNow search engines what changed.
+# Builds the engine (crates/web, as WebAssembly) and the docs pages from the
+# Markdown, deploys the site in `site/` to GitHub Pages, then tells IndexNow
+# search engines what changed.
 on:
   push:
     branches: [main]
@@ -11,6 +12,13 @@ on:
       - "docs/cli.md"
       - "CHANGELOG.md"
       - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/scene/**"
+      - "crates/render/**"
+      - "crates/sprites/**"
+      - "crates/web/**"
+      - "crates/app/src/ui/view/catalog.rs"
+      - "scripts/build_engine.py"
       - "scripts/build_site.py"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -35,6 +43,14 @@ jobs:
         with:
           # The sitemap's <lastmod> dates come from each source's last commit.
           fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: web
+      - name: Build the engine (WebAssembly)
+        run: python3 scripts/build_engine.py
       - name: Build docs pages and sitemap
         run: python3 scripts/build_site.py
       - uses: actions/configure-pages@v5

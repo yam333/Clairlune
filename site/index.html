@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
   <script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem("color-scheme")??"light dark"}catch{}</script>
+  <script>try{const p=JSON.parse(localStorage.getItem("clairlune-paint")||"null");if(p)for(const k in p)document.documentElement.style.setProperty(k,p[k])}catch{}</script>
 
   <title>Clairlune: Procedural ASCII-Art Wallpapers for Windows and macOS</title>
   <meta name="description" content="Clairlune is a native Rust desktop app and CLI that renders deterministic, animated ASCII-art wallpapers for Windows and macOS. Local, seeded, no telemetry.">
@@ -14,7 +15,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Clairlune">
   <meta property="og:title" content="Clairlune: Procedural ASCII-Art Wallpapers for Windows and macOS">
-  <meta property="og:description" content="Deterministic, animated ASCII-art desktop wallpapers in Rust. Live weather, custom palettes, a weekly timeline, no telemetry.">
+  <meta property="og:description" content="Deterministic, animated ASCII-art desktop wallpapers in Rust. Try the real engine in your browser: any seed, any palette, a wallpaper sized to your screen.">
   <meta property="og:url" content="https://yam333.github.io/Clairlune/">
   <meta property="og:image" content="https://yam333.github.io/Clairlune/assets/social-preview.png">
   <meta property="og:image:width" content="1280">
@@ -177,7 +178,8 @@
 
       <nav class="primary-nav" aria-label="Primary">
         <ul>
-          <li><a href="#specimens">Specimens</a></li>
+          <li><a href="#try">Try it</a></li>
+          <li><a href="#desktop">Live</a></li>
           <li><a href="#timeline">Timeline</a></li>
           <li><a href="guide/">Guide</a></li>
           <li><a href="cli/">CLI</a></li>
@@ -209,7 +211,7 @@
     </div>
     <nav class="mobile-subnav" aria-label="Site pages">
       <ul>
-        <li><a href="#specimens">Specimens</a></li>
+        <li><a href="#try">Try it</a></li>
         <li><a href="guide/">Guide</a></li>
         <li><a href="cli/">CLI</a></li>
         <li><a href="#faq">Questions</a></li>
@@ -289,57 +291,58 @@ cargo install clairlune-cli   # headless CLI (Windows, macOS &amp; Linux, Rust 1
           </div>
         </div>
 
-        <div class="hero-stage">
+        <div class="hero-stage" id="try">
           <div class="monitor-bezel">
             <div class="monitor-menubar" aria-hidden="true">
-              <span id="menubar-scene">Warming hands in mountains · LIVE</span>
+              <span id="menubar-scene">Campfire · Mountains · LIVE</span>
               <span class="menubar-right">
-                <span class="tray-dot">
-                  <svg width="12" height="12" viewBox="0 0 32 32">
-                    <circle fill="#ECE6D8" cx="14" cy="18" r="12"/>
-                    <rect fill="#DD7D55" x="14" y="2" width="16" height="16" rx="2"/>
-                  </svg>
-                  Clairlune
-                </span>
+                <span class="tray-dot"><svg class="mini-mark" aria-hidden="true" viewBox="0 0 32 32"><circle cx="14" cy="18" r="12"/><rect x="14" y="2" width="16" height="16" rx="2"/></svg>Clairlune</span>
                 <span id="menubar-clock">22:14</span>
               </span>
             </div>
-            <div class="viewport-wrap">
+            <div class="viewport-wrap" id="stage">
               <img
                 id="stage-image"
                 src="assets/specimens/campfire.png"
-                alt="Warming hands in mountains with pixel-art Clawd"
+                alt="A Clairlune wallpaper: Clawd warming his hands by a campfire in the mountains at night"
                 width="1280"
                 height="720"
                 fetchpriority="high"
               >
-              <canvas id="stage-canvas" width="640" height="360" aria-hidden="true"></canvas>
+              <canvas id="stage-canvas" role="img" aria-label="A scene drawn by Clairlune's engine"></canvas>
             </div>
           </div>
 
-          <div class="moonglass-bar">
-            <div class="scene-Strip" role="group" aria-label="Preview scene">
-              <button type="button" class="scene-chip" data-scene="campfire" aria-pressed="true">Campfire</button>
-              <button type="button" class="scene-chip" data-scene="lanterns" aria-pressed="false">Lantern lake</button>
-              <button type="button" class="scene-chip" data-scene="fjord" aria-pressed="false">Fjord</button>
-              <button type="button" class="scene-chip" data-scene="observatory" aria-pressed="false">Observatory</button>
-              <button type="button" class="scene-chip" data-scene="shrine" aria-pressed="false">Shrine</button>
-              <button type="button" class="scene-chip" data-scene="lighthouse" aria-pressed="false">Lighthouse</button>
-            </div>
-
-            <div class="stage-toggles">
-              <label class="switch-label" for="clawd-toggle">
-                <input type="checkbox" id="clawd-toggle" checked>
-                Clawd
+          <div class="play-controls" id="play-controls" hidden>
+            <form class="seed-form" id="seed-form">
+              <label class="seed-field">
+                <span>Seed</span>
+                <input id="seed-input" inputmode="numeric" maxlength="20" autocomplete="off" spellcheck="false" aria-describedby="stage-note">
               </label>
-              <button type="button" id="live-toggle" class="btn-quiet">Pause live</button>
+              <button type="button" id="seed-shuffle" class="btn-quiet icon-btn" aria-label="A random seed" title="A random seed">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2" width="12" height="12" rx="2.5"/><circle cx="5.5" cy="5.5" r=".9" fill="currentColor" stroke="none"/><circle cx="10.5" cy="10.5" r=".9" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r=".9" fill="currentColor" stroke="none"/></svg>
+              </button>
+              <button type="button" id="seed-today" class="btn-quiet" aria-pressed="true" title="The same scene for everyone today">Today</button>
+              <button type="button" id="live-toggle" class="btn-quiet">Pause</button>
+              <label class="switch-label" for="clawd-toggle"><input type="checkbox" id="clawd-toggle" checked> Clawd</label>
+            </form>
+            <div class="play-picks">
+              <label>Landscape <select id="pick-land"></select></label>
+              <label>Palette <select id="pick-palette"></select></label>
+              <label>Letters <select id="pick-letters"></select></label>
+              <label>Sky <select id="pick-sky"><option value="clock">Your clock</option><option value="day">Day</option><option value="night">Night</option></select></label>
             </div>
           </div>
 
           <div class="seed-readout">
-            <code id="stage-cmd">clairlune-cli generate --seed 7 --archetype mountains --activity warm_hands --palette classic --theme dark</code>
-            <button type="button" class="btn-quiet" data-copy="stage-cmd" aria-label="Copy CLI command for this scene">Copy CLI</button>
+            <code id="stage-cmd">clairlune-cli generate --seed 7 --archetype mountains --activity warm_hands --theme dark</code>
+            <span class="readout-actions">
+              <button type="button" class="btn-quiet" data-copy="stage-cmd">Copy CLI</button>
+              <button type="button" class="btn-quiet engine-only" id="copy-link">Copy link</button>
+              <button type="button" class="btn engine-only" id="download-png">Download</button>
+            </span>
           </div>
+          <p class="stage-note" id="stage-note" aria-live="polite"></p>
         </div>
       </div>
     </section>
@@ -377,15 +380,15 @@ cargo install clairlune-cli   # headless CLI (Windows, macOS &amp; Linux, Rust 1
     <!-- Band 03: Motion Film & Palette / Character Specimen Matrix -->
     <section id="specimens" class="band">
       <div class="section-kicker">
-        <span>03 / Palettes, Type &amp; Motion</span>
-        <span>Indexed 8-bit Colour Compositor</span>
+        <span>03 / Palettes, Letters &amp; Weather</span>
+        <span>Paint the Whole Page</span>
       </div>
 
       <div class="split-asymmetric">
         <div class="panel-pad">
           <h2 class="section-heading">Every pixel is a palette index.</h2>
           <p class="section-sub">
-            Colours are looked up rather than alpha-blended at render time, keeping stills, looping GIFs, and the live desktop presenter matched colour-for-colour in both daylight paper and night ink themes.
+            Colours are looked up, never blended, so stills, GIFs and the live desktop match colour for colour. Pick a palette or a letter set here and this whole page takes it, the scenes too.
           </p>
 
           <div class="video-frame">
@@ -407,59 +410,125 @@ cargo install clairlune-cli   # headless CLI (Windows, macOS &amp; Linux, Rust 1
         </div>
 
         <div class="panel-pad">
-          <h3 class="sub-kicker">Built-in Light &amp; Dark Palettes</h3>
-          <ul class="swatch-list" role="list">
-            <li class="swatch-item">
-              <span>Clairlune Classic</span>
-              <span class="swatch-dots" aria-hidden="true"><i style="--swatch:#121419"></i><i style="--swatch:#ECE6D8"></i><i style="--swatch:#F0A27B"></i></span>
-            </li>
-            <li class="swatch-item">
-              <span>Nord</span>
-              <span class="swatch-dots" aria-hidden="true"><i style="--swatch:#2E3440"></i><i style="--swatch:#D8DEE9"></i><i style="--swatch:#88C0D0"></i></span>
-            </li>
-            <li class="swatch-item">
-              <span>Gruvbox</span>
-              <span class="swatch-dots" aria-hidden="true"><i style="--swatch:#282828"></i><i style="--swatch:#EBDBB2"></i><i style="--swatch:#FE8019"></i></span>
-            </li>
-            <li class="swatch-item">
-              <span>Kanagawa</span>
-              <span class="swatch-dots" aria-hidden="true"><i style="--swatch:#1F1F28"></i><i style="--swatch:#DCD7BA"></i><i style="--swatch:#FFA066"></i></span>
-            </li>
-            <li class="swatch-item">
-              <span>Everforest</span>
-              <span class="swatch-dots" aria-hidden="true"><i style="--swatch:#272E33"></i><i style="--swatch:#D3C6AA"></i><i style="--swatch:#A7C080"></i></span>
-            </li>
-            <li class="swatch-item">
-              <span>Dracula</span>
-              <span class="swatch-dots" aria-hidden="true"><i style="--swatch:#282A36"></i><i style="--swatch:#F8F8F2"></i><i style="--swatch:#BD93F9"></i></span>
-            </li>
-            <li class="swatch-item">
-              <span>Catppuccin &amp; Rosé Pine</span>
-              <span class="swatch-dots" aria-hidden="true"><i style="--swatch:#1E1E2E"></i><i style="--swatch:#CDD6F4"></i><i style="--swatch:#EBBCBA"></i></span>
-            </li>
-            <li class="swatch-item">
-              <span>Phosphor &amp; Amber CRT</span>
-              <span class="swatch-dots" aria-hidden="true"><i style="--swatch:#0B140C"></i><i style="--swatch:#5AF78E"></i><i style="--swatch:#FFB64C"></i></span>
-            </li>
-          </ul>
+          <h3 class="sub-kicker" id="pick-palette-h">Palette</h3>
+          <div class="swatch-list" role="group" aria-labelledby="pick-palette-h" data-look="palette">
+            <button type="button" class="swatch-item" data-value="classic" aria-pressed="true"><span>Clairlune</span><span class="swatch-dots" aria-hidden="true"><i style="--swatch:#F2EFE6"></i><i style="--swatch:#211F1C"></i><i style="--swatch:#E9E5D7"></i><i style="--swatch:#FF9646"></i></span></button>
+            <button type="button" class="swatch-item" data-value="nord" aria-pressed="false"><span>Nord</span><span class="swatch-dots" aria-hidden="true"><i style="--swatch:#ECEFF4"></i><i style="--swatch:#2E3440"></i><i style="--swatch:#88C0D0"></i><i style="--swatch:#D08770"></i></span></button>
+            <button type="button" class="swatch-item" data-value="gruvbox" aria-pressed="false"><span>Gruvbox</span><span class="swatch-dots" aria-hidden="true"><i style="--swatch:#FBF1C7"></i><i style="--swatch:#282828"></i><i style="--swatch:#EBDBB2"></i><i style="--swatch:#FE8019"></i></span></button>
+            <button type="button" class="swatch-item" data-value="catppuccin" aria-pressed="false"><span>Catppuccin</span><span class="swatch-dots" aria-hidden="true"><i style="--swatch:#EFF1F5"></i><i style="--swatch:#1E1E2E"></i><i style="--swatch:#B4BEFE"></i><i style="--swatch:#FAB387"></i></span></button>
+            <button type="button" class="swatch-item" data-value="solarized" aria-pressed="false"><span>Solarized</span><span class="swatch-dots" aria-hidden="true"><i style="--swatch:#FDF6E3"></i><i style="--swatch:#002B36"></i><i style="--swatch:#93A1A1"></i><i style="--swatch:#CB4B16"></i></span></button>
+            <button type="button" class="swatch-item" data-value="rose_pine" aria-pressed="false"><span>Rosé Pine</span><span class="swatch-dots" aria-hidden="true"><i style="--swatch:#FAF4ED"></i><i style="--swatch:#191724"></i><i style="--swatch:#EBBCBA"></i><i style="--swatch:#F6C177"></i></span></button>
+            <button type="button" class="swatch-item" data-value="tokyo_night" aria-pressed="false"><span>Tokyo Night</span><span class="swatch-dots" aria-hidden="true"><i style="--swatch:#E1E2E7"></i><i style="--swatch:#1A1B26"></i><i style="--swatch:#C0CAF5"></i><i style="--swatch:#FF9E64"></i></span></button>
+            <button type="button" class="swatch-item" data-value="phosphor" aria-pressed="false"><span>Phosphor</span><span class="swatch-dots" aria-hidden="true"><i style="--swatch:#E9F6EA"></i><i style="--swatch:#061409"></i><i style="--swatch:#33FF66"></i><i style="--swatch:#B8FF6A"></i></span></button>
+            <button type="button" class="swatch-item" data-value="amber" aria-pressed="false"><span>Amber</span><span class="swatch-dots" aria-hidden="true"><i style="--swatch:#FBF0DC"></i><i style="--swatch:#160C02"></i><i style="--swatch:#FFB000"></i><i style="--swatch:#FFD27A"></i></span></button>
+            <button type="button" class="swatch-item" data-value="everforest" aria-pressed="false"><span>Everforest</span><span class="swatch-dots" aria-hidden="true"><i style="--swatch:#FDF6E3"></i><i style="--swatch:#2D353B"></i><i style="--swatch:#D3C6AA"></i><i style="--swatch:#E69875"></i></span></button>
+            <button type="button" class="swatch-item" data-value="kanagawa" aria-pressed="false"><span>Kanagawa</span><span class="swatch-dots" aria-hidden="true"><i style="--swatch:#F2ECBC"></i><i style="--swatch:#1F1F28"></i><i style="--swatch:#DCD7BA"></i><i style="--swatch:#FFA066"></i></span></button>
+            <button type="button" class="swatch-item" data-value="dracula" aria-pressed="false"><span>Dracula</span><span class="swatch-dots" aria-hidden="true"><i style="--swatch:#FFFBEB"></i><i style="--swatch:#282A36"></i><i style="--swatch:#BD93F9"></i><i style="--swatch:#FFB86C"></i></span></button>
+          </div>
 
-          <h3 class="sub-kicker">Swappable Character Sets</h3>
-          <div class="glyph-specimen">
-            <div class="glyph-row"><span>ASCII text</span><code>.:-=+*#%@ /\~^</code></div>
-            <div class="glyph-row"><span>2×4 Braille</span><code>⠁ ⠃ ⠇ ⠏ ⠟ ⠿ ⡿ ⣿</code></div>
-            <div class="glyph-row"><span>Box-drawing</span><code>─│┌┐└┘├┤┬┴┼═║</code></div>
-            <div class="glyph-row"><span>Blocks</span><code>░ ▒ ▓ █ ▀ ▄ ▌ ▐</code></div>
-            <div class="glyph-row"><span>Shapes &amp; Hex</span><code>· ◦ ○ ◎ ● ■  01 7F FE</code></div>
-            <div class="glyph-row"><span>Katakana</span><code lang="ja">ア イ ウ カ キ ク ケ コ</code></div>
+          <h3 class="sub-kicker" id="pick-letters-h">Letters</h3>
+          <div class="glyph-specimen" role="group" aria-labelledby="pick-letters-h" data-look="letters">
+            <button type="button" class="glyph-row" data-value="text" aria-pressed="true"><span>Text</span><code>.:-=+*#%@ /\~^</code></button>
+            <button type="button" class="glyph-row" data-value="braille" aria-pressed="false"><span>Braille</span><code>⡀⠅⠒⠶⠺⠮⡿⣯⣿ ⡜⢣⠢⠊</code></button>
+            <button type="button" class="glyph-row" data-value="blocks" aria-pressed="false"><span>Blocks</span><code>▖░▀░▒▪▓▓█ ▞▚░▀</code></button>
+            <button type="button" class="glyph-row" data-value="lines" aria-pressed="false"><span>Lines</span><code>·┊─═┼┼╬╪╬ ╱╲∼┴</code></button>
+            <button type="button" class="glyph-row" data-value="kana" aria-pressed="false"><span>Kana</span><code lang="ja">・ミーニナキヰムヲ ノヽンヘ</code></button>
+            <button type="button" class="glyph-row" data-value="shapes" aria-pressed="false"><span>Shapes</span><code>·•─≡+◇■●■ ╱╲≈▲</code></button>
+            <button type="button" class="glyph-row" data-value="hex" aria-pressed="false"><span>Hex</span><code>017E4FF88 7A2A</code></button>
+          </div>
+
+          <h3 class="sub-kicker" id="pick-weather-h">Weather on this page</h3>
+          <div class="weather-picks" role="group" aria-labelledby="pick-weather-h" data-look="weather">
+            <button type="button" class="scene-chip" data-value="off" aria-pressed="true">Off</button>
+            <button type="button" class="scene-chip" data-value="rain" aria-pressed="false">Rain</button>
+            <button type="button" class="scene-chip" data-value="snow" aria-pressed="false">Snow</button>
+            <button type="button" class="scene-chip" data-value="fireflies" aria-pressed="false">Fireflies</button>
+          </div>
+          <p class="pick-note" id="weather-calm" hidden>Off while your system asks for less motion.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Band 04: Behind your windows (Live's manners, to try) -->
+    <section id="desktop" class="band">
+      <div class="section-kicker">
+        <span>04 / Behind Your Windows</span>
+        <span>Live Rests When It Can't Be Seen</span>
+      </div>
+
+      <div class="split-asymmetric desk-split">
+        <div class="panel-pad">
+          <h2 class="section-heading">It steps aside for your work.</h2>
+          <p class="section-sub">
+            Live plays only while you can see it. Maximize the window or lock the screen and the wallpaper rests; on a Mac the menu bar turns solid too. Drag the window around and try.
+          </p>
+          <div class="segmented" role="group" aria-label="Desktop">
+            <button type="button" data-sim-os="mac" aria-pressed="true">macOS</button>
+            <button type="button" data-sim-os="windows" aria-pressed="false">Windows</button>
+          </div>
+          <div class="desk-actions">
+            <button type="button" class="btn" id="sim-max-btn">Maximize the window</button>
+            <button type="button" class="btn-quiet" id="sim-lock-btn">Lock the screen</button>
+          </div>
+          <dl class="desk-status">
+            <div><dt>Live</dt><dd id="desk-live" aria-live="polite">Playing</dd></div>
+            <div><dt>Menu bar</dt><dd id="desk-bar">See-through</dd></div>
+          </dl>
+        </div>
+
+        <div class="panel-pad sim-pad">
+          <div class="sim" id="sim" data-os="mac">
+            <canvas id="sim-wallpaper" aria-hidden="true"></canvas>
+            <div class="sim-menubar" aria-hidden="true">
+              <span class="sim-menus"><b>Notes</b><span>File</span><span>Edit</span><span>View</span><span>Window</span></span>
+              <span class="sim-tray"><svg class="mini-mark" aria-hidden="true" viewBox="0 0 32 32"><circle cx="14" cy="18" r="12"/><rect x="14" y="2" width="16" height="16" rx="2"/></svg><span data-sim-clock>12:00</span></span>
+            </div>
+            <div class="sim-icons">
+              <button type="button" class="sim-icon" tabindex="-1" aria-hidden="true"><i class="sim-folder"></i><span>Projects</span></button>
+              <button type="button" class="sim-icon" tabindex="-1" aria-hidden="true"><i class="sim-doc"></i><span>notes.txt</span></button>
+            </div>
+            <div class="sim-window" id="sim-window" role="group" aria-label="Notes window">
+              <div class="sim-titlebar">
+                <span class="sim-lights">
+                  <button type="button" data-win="close" aria-label="Close the window"></button>
+                  <button type="button" data-win="min" aria-label="Minimize the window"></button>
+                  <button type="button" data-win="max" aria-label="Maximize the window"></button>
+                </span>
+                <span class="sim-title">Notes</span>
+                <span class="sim-winbtns">
+                  <button type="button" data-win="min" aria-label="Minimize the window">&#x2013;</button>
+                  <button type="button" data-win="max" aria-label="Maximize the window">&#x25A1;</button>
+                  <button type="button" data-win="close" aria-label="Close the window">&#xD7;</button>
+                </span>
+              </div>
+              <div class="sim-body">
+                <p class="sim-day">Friday</p>
+                <ul>
+                  <li>Seed for the meeting room screen</li>
+                  <li>Try Kanagawa after dark</li>
+                  <li>Water the fern</li>
+                </ul>
+              </div>
+              <span class="sim-grip" aria-hidden="true"></span>
+            </div>
+            <button type="button" class="btn sim-reopen" id="sim-reopen" hidden>Open Notes</button>
+            <div class="sim-taskbar" aria-hidden="true">
+              <span class="sim-start"></span><span class="sim-task is-open"></span><span class="sim-task"></span>
+              <span class="sim-tray"><svg class="mini-mark" aria-hidden="true" viewBox="0 0 32 32"><circle cx="14" cy="18" r="12"/><rect x="14" y="2" width="16" height="16" rx="2"/></svg><span data-sim-clock>12:00</span></span>
+            </div>
+            <div class="sim-lock" id="sim-lock" hidden>
+              <span class="sim-lock-time" data-sim-clock>12:00</span>
+              <span>Click to unlock</span>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Band 04: Daily Schedule, Archive & Library -->
+    <!-- Band 05: Daily Schedule, Archive & Library -->
     <section id="timeline" class="band">
       <div class="section-kicker">
-        <span>04 / Daily Schedule</span>
+        <span>05 / Daily Schedule</span>
         <span>Archive · Library · Timeline</span>
       </div>
 
@@ -470,49 +539,34 @@ cargo install clairlune-cli   # headless CLI (Windows, macOS &amp; Linux, Rust 1
             Let wallpapers rotate on a timer, pin favourites permanently, or map each part of the day on a 24-hour timeline.
           </p>
 
-          <div class="timeline-diagram">
+          <div class="timeline-diagram" id="tl-card">
             <div class="timeline-header">
-              <span>Example daily schedule</span>
-              <span class="tl-status"><i class="tl-live-dot" aria-hidden="true"></i>15:20 · Fjord</span>
+              <span>Your day</span>
+              <span class="tl-status"><i class="tl-live-dot" aria-hidden="true"></i><span class="tl-status-text">15:20 · Fjord</span></span>
             </div>
-            <div class="timeline-bar-wrap" aria-hidden="true">
+            <div class="tl-preview engine-only"><canvas aria-hidden="true"></canvas><span class="tl-preview-label">Now · Fjord · Light · Live</span></div>
+            <div class="timeline-bar-wrap">
               <div class="timeline-track">
                 <span class="tl-seg tl-night"></span>
                 <span class="tl-seg tl-day"></span>
-                <span class="tl-seg tl-day tl-seg-active"></span>
+                <span class="tl-seg tl-day"></span>
                 <span class="tl-seg tl-dusk"></span>
-                <span class="tl-now"></span>
+                <span class="tl-now" aria-hidden="true"></span>
               </div>
-              <div class="timeline-ticks">
-                <span>00:00</span>
-                <span>07:30</span>
-                <span>13:00</span>
-                <span>18:30</span>
-                <span>24:00</span>
+              <div class="tl-handles">
+                <button type="button" class="tl-handle" role="slider" aria-label="Meadow starts" aria-valuemin="0" aria-valuemax="1440" aria-valuenow="450" aria-valuetext="Meadow from 07:30" style="left:31.250%"></button>
+                <button type="button" class="tl-handle" role="slider" aria-label="Fjord starts" aria-valuemin="0" aria-valuemax="1440" aria-valuenow="780" aria-valuetext="Fjord from 13:00" style="left:54.167%"></button>
+                <button type="button" class="tl-handle" role="slider" aria-label="Lantern lake starts" aria-valuemin="0" aria-valuemax="1440" aria-valuenow="1110" aria-valuetext="Lantern lake from 18:30" style="left:77.083%"></button>
               </div>
+              <div class="timeline-ticks" aria-hidden="true"><span style="left:0.000%">00:00</span><span style="left:31.250%">07:30</span><span style="left:54.167%">13:00</span><span style="left:77.083%">18:30</span><span style="left:100.000%">24:00</span></div>
             </div>
             <ul class="timeline-slots" role="list">
-              <li class="tl-row">
-                <span class="tl-time">00:00–07:30</span>
-                <span class="tl-name">Observatory</span>
-                <span class="tl-mode">Dark · Live</span>
-              </li>
-              <li class="tl-row">
-                <span class="tl-time">07:30–13:00</span>
-                <span class="tl-name">Meadow</span>
-                <span class="tl-mode">Light · Still</span>
-              </li>
-              <li class="tl-row tl-row-active">
-                <span class="tl-time">13:00–18:30</span>
-                <span class="tl-name">Fjord</span>
-                <span class="tl-badge">Now · Live</span>
-              </li>
-              <li class="tl-row">
-                <span class="tl-time">18:30–24:00</span>
-                <span class="tl-name">Campfire</span>
-                <span class="tl-mode">Dark · Live</span>
-              </li>
+              <li><button type="button" class="tl-row" aria-pressed="false"><span class="tl-time">00:00–07:30</span><span class="tl-name">Observatory</span><span class="tl-mode">Dark · Live</span><span class="tl-badge" hidden>Now · Live</span></button></li>
+              <li><button type="button" class="tl-row" aria-pressed="false"><span class="tl-time">07:30–13:00</span><span class="tl-name">Meadow</span><span class="tl-mode">Light · Still</span><span class="tl-badge" hidden>Now · Live</span></button></li>
+              <li><button type="button" class="tl-row tl-row-active" aria-pressed="false"><span class="tl-time">13:00–18:30</span><span class="tl-name">Fjord</span><span class="tl-mode" hidden>Light · Live</span><span class="tl-badge">Now · Live</span></button></li>
+              <li><button type="button" class="tl-row" aria-pressed="false"><span class="tl-time">18:30–24:00</span><span class="tl-name">Lantern lake</span><span class="tl-mode">Dark · Live</span><span class="tl-badge" hidden>Now · Live</span></button></li>
             </ul>
+            <p class="tl-hint engine-only">Drag a mark to move a slot. Pick a slot to see it.</p>
           </div>
         </div>
 
@@ -535,10 +589,10 @@ cargo install clairlune-cli   # headless CLI (Windows, macOS &amp; Linux, Rust 1
       </div>
     </section>
 
-    <!-- Band 05: Headless CLI & Rust Workspace Architecture -->
+    <!-- Band 06: Headless CLI & Rust Workspace Architecture -->
     <section id="architecture" class="band">
       <div class="section-kicker">
-        <span>05 / Headless CLI &amp; Workspace</span>
+        <span>06 / Headless CLI &amp; Workspace</span>
         <span>7 Rust Crates · Zero-I/O Core</span>
       </div>
 
@@ -546,15 +600,15 @@ cargo install clairlune-cli   # headless CLI (Windows, macOS &amp; Linux, Rust 1
         <div class="panel-pad">
           <h2 class="section-heading">Scriptable from the terminal.</h2>
           <p class="section-sub">
-            <code>clairlune-cli</code> uses the same scene and render crates without loading any GUI toolkit, on Windows, macOS, and Linux.
+            <code>clairlune-cli</code> uses the same scene and render crates without loading any GUI toolkit, on Windows, macOS, and Linux. This one runs them in your browser: type a command.
           </p>
 
-          <div class="terminal-card">
+          <div class="terminal-card" id="term">
             <div class="terminal-top">
-              <span>clairlune-cli · shell</span>
+              <span>clairlune-cli · in your browser</span>
               <a href="cli/" class="terminal-link">Full CLI reference</a>
             </div>
-            <pre role="region" aria-label="clairlune-cli examples" tabindex="0"><code><span class="tok-comment"># 4K indexed PNG from a deterministic seed</span>
+            <pre class="term-static" role="region" aria-label="clairlune-cli examples" tabindex="0"><code><span class="tok-comment"># 4K indexed PNG from a deterministic seed</span>
 clairlune-cli generate <span class="tok-flag">--seed</span> 7 <span class="tok-flag">--theme</span> dark <span class="tok-flag">--size</span> 3840x2160 <span class="tok-flag">--out</span> wallpaper.png
 
 <span class="tok-comment"># Seamless looping GIF for sharing</span>
@@ -565,6 +619,19 @@ clairlune-cli package <span class="tok-flag">--seed</span> 7 <span class="tok-fl
 
 <span class="tok-comment"># Render a multi-seed contact sheet to inspect variety</span>
 clairlune-cli contact-sheet <span class="tok-flag">--archetype</span> shore <span class="tok-flag">--count</span> 12 <span class="tok-flag">--out</span> shores.png</code></pre>
+            <div class="term-log engine-only" role="log" aria-label="Terminal output" tabindex="0"></div>
+            <form class="term-line engine-only">
+              <label for="term-input" class="visually-hidden">Command</label>
+              <span class="term-prompt" aria-hidden="true">$</span>
+              <input id="term-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="clairlune-cli generate --seed 42">
+            </form>
+          </div>
+          <div class="term-try engine-only" role="group" aria-label="Try a command">
+            <button type="button" class="scene-chip" data-term="clairlune-cli generate --seed 42 --theme light">generate --seed 42</button>
+            <button type="button" class="scene-chip" data-term="clairlune-cli generate --archetype fjord --palette nord --letters braille">fjord, Nord, braille</button>
+            <button type="button" class="scene-chip" data-term="clairlune-cli contact-sheet --archetype shore --count 8">contact-sheet</button>
+            <button type="button" class="scene-chip" data-term="clairlune-cli monitors">monitors</button>
+            <button type="button" class="scene-chip" data-term="help">help</button>
           </div>
         </div>
 
@@ -614,10 +681,10 @@ clairlune-cli contact-sheet <span class="tok-flag">--archetype</span> shore <spa
       </div>
     </section>
 
-    <!-- Band 06: Questions -->
+    <!-- Band 07: Questions -->
     <section id="faq" class="band">
       <div class="section-kicker">
-        <span>06 / Questions</span>
+        <span>07 / Questions</span>
         <span>From the user guide</span>
       </div>
 
@@ -667,6 +734,12 @@ clairlune-cli contact-sheet <span class="tok-flag">--archetype</span> shore <spa
   </main>
 
   <footer class="site-footer">
+    <pre class="ascii-art footer-art" aria-hidden="true">        .            *                     .                    O            .         *
+   *          .              .     ^               .                   .
+         .         ^      .       / \      ^                  ^             .
+    ^          _  / \  _      _  /   \_   / \   _      ^    _/ \_      ^
+  _/ \_  __/\_/ \/   \/ \_/\_/ \/      \_/   \_/ \_/\_/ \__/     \___/ \__
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</pre>
     <div class="maker-block">
       <span class="sub-kicker">Made by</span>
       <a href="https://github.com/yam333" class="signature-link" aria-label="yam333 on GitHub">
@@ -700,5 +773,6 @@ clairlune-cli contact-sheet <span class="tok-flag">--archetype</span> shore <spa
   </footer>
 
   <script src="app.js" defer></script>
+  <script type="module" src="js/home.js"></script>
 </body>
 </html>

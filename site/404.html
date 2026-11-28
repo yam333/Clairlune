@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
   <script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem("color-scheme")??"light dark"}catch{}</script>
+  <script>try{const p=JSON.parse(localStorage.getItem("clairlune-paint")||"null");if(p)for(const k in p)document.documentElement.style.setProperty(k,p[k])}catch{}</script>
   <title>Page not found | Clairlune</title>
   <meta name="robots" content="noindex">
   <link rel="icon" href="/Clairlune/assets/favicon.svg" type="image/svg+xml">

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/scene", "crates/sprites", "crates/render", "crates/platform", "crates/live", "crates/cli", "crates/app", "tests"]
+members = ["crates/scene", "crates/sprites", "crates/render", "crates/platform", "crates/live", "crates/cli", "crates/app", "crates/web", "tests"]
 
 [workspace.package]
 version = "0.37.0"
@@ -147,6 +147,15 @@ opt-level = 0
 
 [profile.dev.package.harfrust]
 opt-level = 0
+
+[profile.web]
+# The website's engine (crates/web, WebAssembly): small and fast to load.
+inherits = "release"
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
 
 [profile.release]
 codegen-units = 1
